@@ -88,7 +88,7 @@ namespace Wargon.Nukecs {
             public Archetype CreateArchetype(params int[] types) {
                 var ptr = Archetype.ArchetypeImpl.Create(self, types);
                 Archetype archetype;
-                archetype._impl = ptr;
+                archetype.impl = ptr;
                 archetypesList.Add(ptr);
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
@@ -97,7 +97,7 @@ namespace Wargon.Nukecs {
             private Archetype CreateArchetype() {
                 var ptr = Archetype.ArchetypeImpl.Create(self);
                 Archetype archetype;
-                archetype._impl = ptr;
+                archetype.impl = ptr;
                 archetypesList.Add(ptr);
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
