@@ -29,10 +29,10 @@ namespace Wargon.Nukecs {
         public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal unsafe struct WorldImpl {
             internal readonly int Id;
-            internal readonly Allocator allocator;
-            internal readonly UnsafeList<Entity> entities;
-            internal readonly UntypedUnsafeList pools;
-            internal readonly UnsafePtrList<Query.QueryImpl> queries;
+            internal Allocator allocator;
+            internal UnsafeList<Entity> entities;
+            internal UntypedUnsafeList pools;
+            internal UnsafePtrList<Query.QueryImpl> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
             internal UnsafePtrList<Archetype.ArchetypeImpl> archetypesList;
             internal int lastEntityIndex;
@@ -93,7 +93,14 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-
+            internal Archetype CreateArchetype(ref UnsafeList<int> types) {
+                var ptr = Archetype.ArchetypeImpl.Create(self, ref types);
+                Archetype archetype;
+                archetype.impl = ptr;
+                archetypesList.Add(ptr);
+                archetypesMap[ptr->id] = archetype;
+                return archetype;
+            }
             private Archetype CreateArchetype() {
                 var ptr = Archetype.ArchetypeImpl.Create(self);
                 Archetype archetype;
@@ -102,14 +109,20 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-
+            internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
+                var hash = Archetype.ArchetypeImpl.GetHashCode(ref types);
+                if (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    return archetype;
+                }
+                return CreateArchetype(ref types);
+            }
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }
         }
 
     }
-    
+    public struct IsAlive : IComponent {}
     public struct WorldConfig {
         public int StartEntitiesAmount;
         public int StartPoolSize;
