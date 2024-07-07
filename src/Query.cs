@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Burst;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
     public unsafe struct Query {
@@ -207,6 +208,10 @@ namespace Wargon.Nukecs {
         private const int ArraySize = 1024 / BitsPerElement;
         internal fixed ulong bitmaskArray[ArraySize];
 
+        public static int SizeInBytes() {
+            return sizeof(ulong) * ArraySize;
+        }
+        
         // Method to add an element (set a specific bit)
         public void Add(int position)
         {
@@ -214,7 +219,7 @@ namespace Wargon.Nukecs {
             int bitPosition = position % BitsPerElement;
             bitmaskArray[index] |= 1UL << bitPosition;
         }
-
+            
         // Method to check if an element is present (a specific bit is set)
         public bool Has(int position)
         {
@@ -247,10 +252,16 @@ namespace Wargon.Nukecs {
             {
                 bitmaskMax.bitmaskChunks[i] = new BitmaskChunk();
             }
+            
             bitmaskMax.count = 0;
             return bitmaskMax;
         }
 
+        public static int SizeInBytes() {
+            return BitmaskChunk.SizeInBytes() * NumberOfChunks + sizeof(int);
+        }
+
+        public static int SizeInBytes2() => sizeof(BitmaskMax);
         // Destructor to free memory
         public void Free()
         {
@@ -404,6 +415,119 @@ namespace Wargon.Nukecs {
         public override string ToString()
         {
             return Convert.ToString((long)bitmask, 2).PadLeft(64, '0');
+        }
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct DynamicBitmask
+    {
+        private const int BitsPerUlong = 64;
+        private ulong* bitmaskArray;
+        private int count;
+        private int maxBits;
+        private int arraySize;
+
+        public static DynamicBitmask CreateForComponents() {
+            return new DynamicBitmask(IComponent.Count());
+        }
+        public DynamicBitmask(int maxBits)
+        {
+            if (maxBits <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxBits), "maxBits must be greater than zero.");
+
+            this.maxBits = maxBits;
+            arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
+            bitmaskArray = (ulong*)Marshal.AllocHGlobal(arraySize * sizeof(ulong));
+            count = 0;
+
+            // Clear the allocated memory
+            ClearBitmask();
+        }
+
+        private void ClearBitmask()
+        {
+            for (int i = 0; i < arraySize; i++)
+            {
+                bitmaskArray[i] = 0;
+            }
+        }
+
+        // Property to get the count of set bits
+        public int Count => count;
+
+        // Method to add an element (set a specific bit)
+        public void Add(int position)
+        {
+            if (position < 0 || position >= maxBits)
+            {
+                throw new ArgumentOutOfRangeException(nameof(position), $"Position must be between 0 and {maxBits - 1}.");
+            }
+
+            int index = position / BitsPerUlong;
+            int bitPosition = position % BitsPerUlong;
+
+            if (!Has(position))
+            {
+                bitmaskArray[index] |= 1UL << bitPosition;
+                count++;
+            }
+        }
+
+        // Method to check if an element is present (a specific bit is set)
+        public bool Has(int position)
+        {
+            if (position < 0 || position >= maxBits)
+            {
+                throw new ArgumentOutOfRangeException(nameof(position), $"Position must be between 0 and {maxBits - 1}.");
+            }
+
+            int index = position / BitsPerUlong;
+            int bitPosition = position % BitsPerUlong;
+
+            return (bitmaskArray[index] & (1UL << bitPosition)) != 0;
+        }
+
+        // Method to clear an element (unset a specific bit)
+        public void Remove(int position)
+        {
+            if (position < 0 || position >= maxBits)
+            {
+                throw new ArgumentOutOfRangeException(nameof(position), $"Position must be between 0 and {maxBits - 1}.");
+            }
+
+            int index = position / BitsPerUlong;
+            int bitPosition = position % BitsPerUlong;
+
+            if (Has(position))
+            {
+                bitmaskArray[index] &= ~(1UL << bitPosition);
+                count--;
+            }
+        }
+
+        // Override ToString() to display the bitmask in binary form
+        public override string ToString()
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = arraySize - 1; i >= 0; i--)
+            {
+                sb.Append(Convert.ToString((long)bitmaskArray[i], 2).PadLeft(BitsPerUlong, '0'));
+            }
+            return sb.ToString();
+        }
+        // Copy method to create a deep copy of the DynamicBitmask
+        public DynamicBitmask Copy()
+        {
+            var copy = new DynamicBitmask(maxBits);
+            var byteLength = arraySize * sizeof(ulong);
+            UnsafeUtility.MemCpy(bitmaskArray, copy.bitmaskArray, byteLength);
+            copy.count = count;
+            return copy;
+        }
+        // Dispose method to release allocated memory
+        public void Dispose()
+        {
+            Marshal.FreeHGlobal((IntPtr)bitmaskArray);
+            bitmaskArray = null;
         }
     }
 }
