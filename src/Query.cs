@@ -3,19 +3,29 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Query {
+    public unsafe struct Query : IDisposable {
         internal unsafe struct QueryImpl {
             internal Bitmask1024 with;
             internal Bitmask1024 none;
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> entities;
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> entitiesMap;
+            internal UnsafeList<int> entities;
+            internal UnsafeList<int> entitiesMap;
             internal int count;
             internal readonly World.WorldImpl* world;
             internal readonly QueryImpl* self;
+            internal static void Free(QueryImpl* queryImpl) {
+                queryImpl->Free();
+                var allocator = queryImpl->world->allocator;
+                UnsafeUtility.Free(queryImpl, allocator);
+            }
 
+            private void Free() {
+                entities.Dispose();
+                entitiesMap.Dispose();
+            }
             internal static QueryImpl* Create(World.WorldImpl* world) {
                 var ptr = Unsafe.Malloc<QueryImpl>(world->allocator);
                 *ptr = new QueryImpl(world, ptr);
@@ -27,8 +37,8 @@ namespace Wargon.Nukecs {
                 this.with = default;
                 this.none = default;
                 this.count = default;
-                this.entities = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(world->config.StartEntitiesAmount, world->allocator);
-                this.entitiesMap = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(world->config.StartEntitiesAmount, world->allocator);
+                this.entities = new UnsafeList<int>(world->config.StartEntitiesAmount, world->allocator);
+                this.entitiesMap = new UnsafeList<int>(world->config.StartEntitiesAmount, world->allocator);
                 this.self = self;
             }
             public ref Entity GetEntity(int index) {
@@ -88,18 +98,23 @@ namespace Wargon.Nukecs {
             this.impl = impl;
         }
 
-        public Query With<T>(){
+        public Query With<T>() where T : unmanaged {
             impl->With(ComponentMeta<T>.Index);
             return this;
         }
 
-        public Query None<T>() {
+        public Query None<T>() where T : unmanaged {
             impl->None(ComponentMeta<T>.Index);
             return this;
         }
 
         public ref Entity GetEntity(int index) {
             return ref impl->GetEntity(index);
+        }
+
+        public void Dispose() {
+            var allocator = impl->world->allocator;
+            UnsafeUtility.Free(impl, allocator);
         }
     }
     [BurstCompile]
@@ -436,7 +451,7 @@ namespace Wargon.Nukecs {
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
-            bitmaskArray = (ulong*)Marshal.AllocHGlobal(arraySize * sizeof(ulong));
+            bitmaskArray = (ulong*)UnsafeUtility.Malloc(arraySize * sizeof(ulong), UnsafeUtility.AlignOf<ulong>(), Allocator.Persistent);
             count = 0;
 
             // Clear the allocated memory
@@ -523,10 +538,18 @@ namespace Wargon.Nukecs {
             copy.count = count;
             return copy;
         }
+        public DynamicBitmask CopyPlusOne()
+        {
+            var copy = new DynamicBitmask(maxBits+1);
+            var byteLength = arraySize * sizeof(ulong);
+            UnsafeUtility.MemCpy(bitmaskArray, copy.bitmaskArray, byteLength);
+            copy.count = count;
+            return copy;
+        }
         // Dispose method to release allocated memory
         public void Dispose()
         {
-            Marshal.FreeHGlobal((IntPtr)bitmaskArray);
+            UnsafeUtility.Free(bitmaskArray, Allocator.Persistent);
             bitmaskArray = null;
         }
     }
