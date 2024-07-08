@@ -2,9 +2,10 @@
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Archetype {
+    public unsafe struct Archetype : IDisposable {
         internal unsafe struct ArchetypeImpl {
             internal DynamicBitmask mask;
             internal UnsafeList<int> types;
@@ -13,6 +14,20 @@ namespace Wargon.Nukecs {
             internal UnsafeHashMap<int, Edge> transactions;
             internal readonly int id;
             internal bool IsCreated => world != null;
+
+            internal static void Free(ArchetypeImpl* archetype) {
+                archetype->mask.Dispose();
+                archetype->types.Dispose();
+                archetype->queries.Dispose();
+                foreach (var kvPair in archetype->transactions) {
+                    kvPair.Value.Dispose();
+                }
+
+                archetype->transactions.Dispose();
+                var allocator = archetype->world->allocator;
+                archetype->world = null;
+                UnsafeUtility.Free(archetype, allocator);
+            }
             internal static ArchetypeImpl* Create(World.WorldImpl* world, int[] typesSpan = null) {
                 var ptr = Unsafe.Malloc<ArchetypeImpl>(world->allocator);
                 *ptr = new ArchetypeImpl(world, typesSpan);
@@ -25,9 +40,11 @@ namespace Wargon.Nukecs {
             }
             internal ArchetypeImpl(World.WorldImpl* world, int[] typesSpan = null) {
                 this.world = world;
-                this.mask = default;
+                this.mask = DynamicBitmask.CreateForComponents();
+                this.id = 0;
                 if (typesSpan != null) {
                     this.types = new UnsafeList<int>(typesSpan.Length, world->allocator);
+                    this.id = GetHashCode(typesSpan);
                     foreach (var type in typesSpan) {
                         this.mask.Add(type);
                         this.types.Add(in type);
@@ -36,15 +53,14 @@ namespace Wargon.Nukecs {
                 else {
                     this.types = new UnsafeList<int>(1, world->allocator);
                 }
-
-                this.id = GetHashCode(typesSpan);
+                
                 this.queries = new UnsafePtrList<Query.QueryImpl>(8, world->allocator);
                 this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
                 PopulateQueries(world); 
             }
             internal ArchetypeImpl(World.WorldImpl* world, ref UnsafeList<int> typesSpan) {
                 this.world = world;
-                this.mask = default;
+                this.mask = DynamicBitmask.CreateForComponents();
                 if (typesSpan.IsCreated) {
                     this.types = typesSpan;
                     foreach (var type in typesSpan) {
@@ -61,7 +77,8 @@ namespace Wargon.Nukecs {
                 PopulateQueries(world); 
             }
             internal void PopulateQueries(World.WorldImpl* world) {
-                foreach (Query.QueryImpl* q in world->queries) {
+                for (var i = 0; i < world->queries.Length; i++) {
+                    Query.QueryImpl* q = world->queries[i];
                     var matches = 0;
                     foreach (var type in types) {
                         if (q->HasNone(type)) {
@@ -82,28 +99,24 @@ namespace Wargon.Nukecs {
             internal bool Has(int type) {
                 return mask.Has(type);
             }
+            
             //if component remove, component will be negative
-            internal void OnEntityChange(int entity, int component) {
+            internal void OnEntityChange(ref Entity entity, int component) {
                 if (transactions.TryGetValue(component, out var edge)) {
-                    edge.Execute(entity);
+                    edge.Execute(entity.id);
+                    entity.archetype = edge.toMove;
                     return;
                 }
                 CreateTransaction(component, out edge);
-                edge.Execute(entity);
+                transactions[component] = edge;
+                edge.Execute(entity.id);
+                entity.archetype = edge.toMove;
             }
 
             internal void CreateTransaction(int component, out Edge edge) {
-                ref var allQueries = ref world->queries;
                 var remove = component < 0;
-                var newMask = mask.Copy();
-                if (remove) {
-                    newMask.Remove(component);
-                }
-                else {
-                    newMask.Add(component);
-                }
 
-                var newTypes = new UnsafeList<int>(newMask.Count, world->allocator);
+                var newTypes = new UnsafeList<int>(remove ? mask.Count-1 : mask.Count+1, world->allocator);
                 newTypes.CopyFrom(in types);
                 if (remove) {
                     var index = newTypes.IndexOf(component);
@@ -130,6 +143,7 @@ namespace Wargon.Nukecs {
                     }
                 }
 
+                Debug.Log(otherArchetype->id);
                 edge = otherEdge;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -206,6 +220,10 @@ namespace Wargon.Nukecs {
         
         internal bool Has<T>() where T : unmanaged {
             return impl->Has(ComponentMeta<T>.Index);
+        }
+
+        public void Dispose() {
+            ArchetypeImpl.Free(impl);
         }
     }
 }
