@@ -11,15 +11,15 @@ using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct EntityCommandBuffer : IDisposable {
-        [NativeDisableUnsafePtrRestriction]
-        private readonly ECBInternal* ecb;
+        [NativeDisableUnsafePtrRestriction] private readonly ECBInternal* ecb;
         public int Capacity => ecb->Capacity;
         public int Count => ecb->internalBuffer->Length;
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
-        [NativeSetThreadIndex] 
-        internal int ThreadIndex;
+        [NativeSetThreadIndex] internal int ThreadIndex;
+
         public EntityCommandBuffer(int startSize) {
-            ecb = (ECBInternal*)UnsafeUtility.Malloc(sizeof(ECBInternal), UnsafeUtility.AlignOf<ECBInternal>(), Allocator.Persistent);
+            ecb = (ECBInternal*) UnsafeUtility.Malloc(sizeof(ECBInternal), UnsafeUtility.AlignOf<ECBInternal>(),
+                Allocator.Persistent);
             *ecb = new ECBInternal();
             ThreadIndex = 0;
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
@@ -27,18 +27,18 @@ namespace Wargon.Nukecs {
             ecb->isCreated = 1;
         }
 
-        private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize)
-        {
-            var threads = JobsUtility.JobWorkerCount+1;
-            UnsafePtrList<UnsafeList<ECBCommand>>* ptrList = UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, Allocator.Persistent);
-            for (int i = 0; i < threads; i++)
-            {
+        private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize) {
+            var threads = JobsUtility.JobWorkerCount + 1;
+            UnsafePtrList<UnsafeList<ECBCommand>>* ptrList =
+                UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, Allocator.Persistent);
+            for (int i = 0; i < threads; i++) {
                 var list = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
                 ptrList->Add(list);
             }
 
             return ptrList;
         }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct ECBCommand {
             public void* Component;
@@ -63,6 +63,7 @@ namespace Wargon.Nukecs {
                 SetActiveEntity = 10,
             }
         }
+
         public sealed partial class ECBCommandType {
             public const byte AddComponent = 0;
             public const byte RemoveComponent = 1;
@@ -73,21 +74,22 @@ namespace Wargon.Nukecs {
             public const byte SetActive = 6;
             public const byte PlayParticle = 7;
         }
+
         private struct ECBInternal {
             internal byte isCreated;
+
             //[NativeDisableUnsafePtrRestriction]
             //internal UnsafeList<ECBCommand>* internalBuffer;
-            [NativeDisableUnsafePtrRestriction]
-            internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadBuffer;
+            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadBuffer;
 
 
-
-            internal UnsafeList<ECBCommand>* internalBuffer
-            {
+            internal UnsafeList<ECBCommand>* internalBuffer {
                 get => perThreadBuffer->ElementAt(1);
             }
+
             public int Capacity => internalBuffer->Capacity;
             public bool IsCreated => isCreated == 1;
+
             public void ResizeAndClear(int newSize) {
                 internalBuffer->Resize(newSize);
                 internalBuffer->Clear();
@@ -96,6 +98,7 @@ namespace Wargon.Nukecs {
             public void Clear() {
                 internalBuffer->Clear();
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Set<T>(int entity, int thread) where T : unmanaged {
                 var cmd = new ECBCommand {
@@ -106,11 +109,12 @@ namespace Wargon.Nukecs {
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T component, int thread) where T : unmanaged {
                 //if(IsCreated== false) return;
                 var size = UnsafeUtility.SizeOf<T>();
-                var ptr = (T*)UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
+                var ptr = (T*) UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
                 *ptr = component;
                 var cmd = new ECBCommand {
                     Component = ptr,
@@ -122,6 +126,7 @@ namespace Wargon.Nukecs {
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, int thread) where T : unmanaged {
                 var cmd = new ECBCommand {
@@ -132,66 +137,75 @@ namespace Wargon.Nukecs {
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Destroy(int entity, int thread) {
                 // var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.DestroyEntity};
                 // buffer.AddNoResize(cmd);
                 Add<DestroyEntity>(entity, thread);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Remove<T>(int entity, int thread) where T: struct {
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = CTS<T>.ID.Data };
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(cmd);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void SetViewPosition(int entity, float3 pos, int thread) {
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.ChangeTransformRefPosition, Position = pos};
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(cmd);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void EnableGameObject(int entity, bool value, int thread) {
-                byte v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v};
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(cmd);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void EnableEntity(int entity, bool value, int thread) {
-                byte v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v};
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(cmd);
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public int CreateEntity() {
-                return 1;
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void PlayParticleReference(int entity, bool value, int thread) {
-                var v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v};
+            public void Remove<T>(int entity, int thread) where T : struct {
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = CTS<T>.ID.Data};
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
             }
 
-            #if !UNITY_EDITOR
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            #endif
+            public void SetViewPosition(int entity, float3 pos, int thread) {
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.ChangeTransformRefPosition, Position = pos};
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void EnableGameObject(int entity, bool value, int thread) {
+                byte v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v};
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void EnableEntity(int entity, bool value, int thread) {
+                byte v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v};
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public int CreateEntity() {
+                return 1;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void PlayParticleReference(int entity, bool value, int thread) {
+                var v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v};
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+            }
+
+#if !UNITY_EDITOR
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             [BurstCompile]
             public void Playback(ref World world) {
                 //if(internalBuffer->IsEmpty) return;
-                for (var i = 0; i < perThreadBuffer->Length; i++)
-                {
+                for (var i = 0; i < perThreadBuffer->Length; i++) {
                     var buffer = perThreadBuffer->ElementAt(i);
-                    if(buffer->IsEmpty) continue;
-                    
-                    for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++)
-                    {
+                    if (buffer->IsEmpty) continue;
+
+                    for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
                         ref var cmd = ref buffer->ElementAt(cmdIndex);
-                        switch (cmd.EcbCommandType) 
-                        {
+                        switch (cmd.EcbCommandType) {
                             case ECBCommand.Type.AddComponent:
                                 ref var e = ref world.GetEntity(cmd.Entity);
                                 // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
@@ -210,7 +224,7 @@ namespace Wargon.Nukecs {
                                 //Debug.Log("REMOVED IN ECB");
                                 break;
                             case ECBCommand.Type.SetComponent:
-                                
+
                                 break;
                             case ECBCommand.Type.CreateEntity:
                                 world.CreateEntity();
@@ -242,40 +256,44 @@ namespace Wargon.Nukecs {
                                 throw new ArgumentOutOfRangeException();
                         }
                     }
+
                     buffer->Clear();
                 }
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Dispose() {
-                for (var i = 0; i < perThreadBuffer->Length; i++)
-                {
+                for (var i = 0; i < perThreadBuffer->Length; i++) {
                     UnsafeList<ECBCommand>.Destroy(perThreadBuffer->ElementAt(i));
                 }
+
                 UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadBuffer);
                 //UnsafeList<ECBCommand>.Destroy(internalBuffer);
                 isCreated = 0;
             }
         }
+
         [BurstCompile]
         public struct ParallelWriter {
-            [WriteOnly]
-            private UnsafeList<ECBCommand>.ParallelWriter buffer;
+            [WriteOnly] private UnsafeList<ECBCommand>.ParallelWriter buffer;
             public UnsafeList<ECBCommand>.ParallelWriter GetBuffer() => buffer;
+
             public ParallelWriter(UnsafeList<ECBCommand>.ParallelWriter parallelWriter) {
                 buffer = parallelWriter;
             }
-        
+
             private void Add(in ECBCommand cmd) {
                 if (buffer.ListData->Length == buffer.ListData->Capacity - 1) {
                     buffer.ListData->Resize(buffer.ListData->Capacity * 2);
                 }
-        
+
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T component) where T : unmanaged {
                 var size = UnsafeUtility.SizeOf<T>();
-                var ptr = (T*)UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
+                var ptr = (T*) UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
                 *ptr = component;
                 var cmd = new ECBCommand {
                     Component = ptr,
@@ -286,6 +304,7 @@ namespace Wargon.Nukecs {
                 };
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity) where T : unmanaged {
                 var cmd = new ECBCommand {
@@ -295,48 +314,61 @@ namespace Wargon.Nukecs {
                 };
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Remove<T>(int entity) where T: struct {
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = CTS<T>.ID.Data };
+            public void Remove<T>(int entity) where T : struct {
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = CTS<T>.ID.Data};
                 buffer.AddNoResize(cmd);
             }
-            
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Destroy(int entity) {
                 // var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.DestroyEntity};
                 // buffer.AddNoResize(cmd);
                 Add<DestroyEntity>(entity);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetViewPosition(int entity, float3 pos) {
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.ChangeTransformRefPosition, Position = pos};
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.ChangeTransformRefPosition, Position = pos};
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void EnableGameObject(int entity, bool value) {
-                byte v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v};
+                byte v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v};
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void EnableEntity(int entity, bool value) {
-                byte v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveEntity, active = v};
+                byte v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveEntity, active = v};
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void PlayParticleReference(int entity, bool value) {
-                byte v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v};
+                byte v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v};
                 buffer.AddNoResize(cmd);
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void PlayParticle(int entity, bool value) {
-                byte v = value ? (byte)1 : (byte)0;
-                var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v};
+                byte v = value ? (byte) 1 : (byte) 0;
+                var cmd = new ECBCommand
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v};
                 buffer.AddNoResize(cmd);
             }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ParallelWriter AsParallelWriter() {
             return new ParallelWriter(ecb->internalBuffer->AsParallelWriter());
@@ -346,6 +378,7 @@ namespace Wargon.Nukecs {
         public void ResizeAndClear(int newSize) {
             ecb->ResizeAndClear(newSize);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear() {
             ecb->Clear();
@@ -356,47 +389,47 @@ namespace Wargon.Nukecs {
         public void Set<T>(int entity) where T : unmanaged {
             ecb->Set<T>(entity, ThreadIndex);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add<T>(int entity, T component) where T : unmanaged {
             ecb->Add(entity, component, ThreadIndex);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add<T>(int entity) where T : unmanaged {
             ecb->Add<T>(entity, ThreadIndex);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove<T>(int entity) where T: struct {
+        public void Remove<T>(int entity) where T : struct {
             ecb->Remove<T>(entity, ThreadIndex);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnableGameObject(int entity, bool value) {
             ecb->EnableGameObject(entity, value, ThreadIndex);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy(int entity) {
             ecb->Destroy(entity, ThreadIndex);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void PlayParticleReference(int entity, bool value)
-        {
+        public void PlayParticleReference(int entity, bool value) {
             ecb->PlayParticleReference(entity, value, ThreadIndex);
         }
-        
+
         public void PerformCommand(ref World world) {
             //ecb->Playback(ref world);
-            
-            for (var i = 0; i < ecb->perThreadBuffer->Length; i++)
-            {
+
+            for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
-                if(buffer->IsEmpty) continue;
-                
-                for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++)
-                {
+                if (buffer->IsEmpty) continue;
+
+                for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-                    switch (cmd.EcbCommandType) 
-                    {
+                    switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             ref var e = ref world.GetEntity(cmd.Entity);
                             // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
@@ -415,7 +448,7 @@ namespace Wargon.Nukecs {
                             //Debug.Log("REMOVED IN ECB");
                             break;
                         case ECBCommand.Type.SetComponent:
-                            
+
                             break;
                         case ECBCommand.Type.CreateEntity:
                             world.CreateEntity();
@@ -447,9 +480,11 @@ namespace Wargon.Nukecs {
                             throw new ArgumentOutOfRangeException();
                     }
                 }
+
                 buffer->Clear();
             }
         }
+
         public void Dispose() {
             ecb->Dispose();
             UnsafeUtility.Free(ecb, Allocator.Persistent);

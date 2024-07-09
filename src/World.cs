@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Linq;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
@@ -16,7 +16,7 @@ namespace Wargon.Nukecs {
         }
 
         [NativeDisableUnsafePtrRestriction] internal WorldImpl* _impl;
-        internal ref EntityCommandBuffer ecb => ref _impl->ECB; 
+        internal ref EntityCommandBuffer ecb => ref _impl->ECB;
 
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal unsafe struct WorldImpl {
@@ -33,6 +33,7 @@ namespace Wargon.Nukecs {
             [NativeDisableUnsafePtrRestriction] internal WorldImpl* self;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
+
             internal static WorldImpl* Create(int id, WorldConfig config) {
                 var ptr = Unsafe.Malloc<WorldImpl>(Allocator.Persistent);
                 *ptr = new WorldImpl(id, config, Allocator.Persistent);
@@ -45,12 +46,15 @@ namespace Wargon.Nukecs {
                 queries.Add(ptr);
                 return ptr;
             }
+
             public WorldImpl(int id, WorldConfig config, Allocator allocator, WorldImpl* self = null) {
                 this.Id = id;
                 this.allocator = allocator;
-                this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator, NativeArrayOptions.ClearMemory);
+                this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
+                    NativeArrayOptions.ClearMemory);
                 this.entities.m_length = this.entities.m_capacity;
-                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(IComponent.Count() + 1, allocator, NativeArrayOptions.ClearMemory);
+                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(IComponent.Count() + 1, allocator,
+                    NativeArrayOptions.ClearMemory);
                 this.queries = new UnsafePtrList<Query.QueryImpl>(32, allocator);
                 this.archetypesList = new UnsafePtrList<Archetype.ArchetypeImpl>(32, allocator);
                 this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, allocator);
@@ -62,11 +66,12 @@ namespace Wargon.Nukecs {
                 this.self = self;
                 var s = ComponentMeta<DestroyEntity>.Index;
             }
-            
+
             internal void Init(WorldImpl* self) {
                 this.self = self;
                 CreateArchetype();
             }
+
             public void Free() {
                 entities.Dispose();
                 for (var index = 0; index < poolsCount; index++) {
@@ -84,6 +89,7 @@ namespace Wargon.Nukecs {
                 foreach (var kvPair in archetypesMap) {
                     kvPair.Value.Dispose();
                 }
+
                 archetypesList.Dispose();
                 archetypesMap.Dispose();
                 poolsCount = 0;
@@ -98,24 +104,27 @@ namespace Wargon.Nukecs {
                     pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
                     poolsCount++;
                 }
+
                 return ref pool;
             }
+
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.ElementAt(poolIndex);
                 if (pool.impl == null) {
                     pool = GenericPool.Create(ComponentsMap.GetType(poolIndex), config.StartPoolSize, allocator);
                     poolsCount++;
                 }
+
                 return ref pool;
             }
-            internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged {
-                
-            }
+
+            internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
+
             internal Entity CreateEntity() {
                 var e = new Entity(lastEntityIndex, self);
                 if (lastEntityIndex >= entities.m_capacity) {
                     entities.Resize(lastEntityIndex * 2);
-                    entities.m_length = entities.m_capacity;    
+                    entities.m_length = entities.m_capacity;
                 }
                 entities.ElementAt(lastEntityIndex) = e;
                 lastEntityIndex++;
@@ -125,7 +134,7 @@ namespace Wargon.Nukecs {
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAt(id);
             }
-
+            [BurstDiscard]
             public Archetype CreateArchetype(params int[] types) {
                 var ptr = Archetype.ArchetypeImpl.Create(self, types);
                 Archetype archetype;
@@ -134,6 +143,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
+            [BurstDiscard]
             internal Archetype CreateArchetype(ref UnsafeList<int> types) {
                 var ptr = Archetype.ArchetypeImpl.Create(self, ref types);
                 Archetype archetype;
@@ -142,6 +152,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
+            [BurstDiscard]
             private Archetype CreateArchetype() {
                 var ptr = Archetype.ArchetypeImpl.Create(self);
                 Archetype archetype;
@@ -150,20 +161,23 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
+            [BurstDiscard]
             internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
                 var hash = Archetype.ArchetypeImpl.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     return archetype;
                 }
+
                 return CreateArchetype(ref types);
             }
+
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }
         }
 
         public void Dispose() {
-            if(_impl == null) return;
+            if (_impl == null) return;
             var id = _impl->Id;
             _impl->Free();
             var allocator = _impl->allocator;
@@ -174,6 +188,7 @@ namespace Wargon.Nukecs {
         public ref GenericPool GetPool<T>() where T : unmanaged {
             return ref _impl->GetPool<T>();
         }
+
         public Entity CreateEntity() {
             return _impl->CreateEntity();
         }
@@ -186,7 +201,9 @@ namespace Wargon.Nukecs {
             return new Query(_impl->CreateQuery());
         }
     }
-    public struct IsAlive : IComponent {}
+
+    public struct IsAlive : IComponent { }
+
     public struct WorldConfig {
         public int StartEntitiesAmount;
         public int StartPoolSize;
@@ -201,8 +218,9 @@ namespace Wargon.Nukecs {
     }
 
     public static class UnsafeHelp {
-        public static UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator, NativeArrayOptions options) where T: unmanaged {
-            return new UnsafeList<T>(size, allocator,options) {
+        public static UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
+            NativeArrayOptions options) where T : unmanaged {
+            return new UnsafeList<T>(size, allocator, options) {
                 m_length = size
             };
         }
