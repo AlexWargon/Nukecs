@@ -18,7 +18,26 @@ public struct ExampleSystem1 : IEntityJobSystem
  		ref var comp1 = ref entity.Get<Component1>();
 		ref var comp2 = ref entity.Get<Component2>();
 		entity.Has<Component3>() // return false in this case
-		//gameplay stuff
+		entity.Remove<Component1>();
  	}
+}
+```
+### Job System
+```cs
+[BurstCompile]
+public struct TestSystem2 : IJobSystem, ICreate {
+	private Query _query;
+
+	public void OnCreate(ref World world) {
+	        _query = world.CreateQuery().None<Component1>().With<Component2>();
+	}
+
+	public void OnUpdate(ref World world, float deltaTime)
+	{
+		if (_query.Count > 0) 
+		{
+			Debug.Log("WORK");
+		}
+	}
 }
 ```
