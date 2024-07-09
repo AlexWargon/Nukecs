@@ -40,10 +40,10 @@ namespace Wargon.Nukecs {
             }
             
             runners.Add(new EntitySystemRunner<T> {
-                system = system,
+                System = system,
                 Query = system.GetQuery(ref world),
-                mode = system.Mode,
-                ecbJob = default
+                Mode = system.Mode,
+                EcbJob = default
             });
             return this;
         }
@@ -72,16 +72,16 @@ namespace Wargon.Nukecs {
     }
 
     internal class EntitySystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
-        public TSystem system;
+        public TSystem System;
         public Query Query;
-        public SystemMode mode;
-        public ECBJob ecbJob;
+        public SystemMode Mode;
+        public ECBJob EcbJob;
 
         public JobHandle OnUpdate(ref World world, float dt, ref JobHandle jobHandle) {
-            jobHandle = system.Schedule(ref Query, dt, mode);
-            ecbJob.world = world;
-            ecbJob.ECB = world.ecb;
-            return ecbJob.Schedule(jobHandle);
+            jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
+            EcbJob.world = world;
+            EcbJob.ECB = world.ECB;
+            return EcbJob.Schedule(jobHandle);
         }
     }
 
@@ -92,7 +92,7 @@ namespace Wargon.Nukecs {
         public JobHandle OnUpdate(ref World world, float dt, ref JobHandle jobHandle) {
             jobHandle = system.Schedule(ref world, dt, jobHandle);
             ecbJob.world = world;
-            ecbJob.ECB = world.ecb;
+            ecbJob.ECB = world.ECB;
             return ecbJob.Schedule(jobHandle);
         }
     }
@@ -134,7 +134,8 @@ namespace Wargon.Nukecs {
                 while (true) {
                     if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                         return;
-
+                    
+                    if(fullData.query.Count == 0) return;
                     for (var i = begin; i < end; i++) {
                         ref var query = ref fullData.query;
                         fullData.JobData.OnUpdate(ref query.GetEntity(i), fullData.deltaTime);
@@ -166,7 +167,7 @@ namespace Wargon.Nukecs {
                 GetReflectionData<TJob>(), dependsOn,
                 mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
 
-            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 10);
+            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
         }
     }
 

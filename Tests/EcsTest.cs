@@ -24,12 +24,15 @@ namespace Wargon.Nukecs.Tests {
             systems
                 .Add<TestSystem>()
                 .Add<TestSystem2>();
-            var e = world.CreateEntity();
+            for (int i = 0; i < 101; i++)
+            {
+                var e = world.CreateEntity();
 
-            e.Add(new Money {
-                amount = 1000
-            });
-            e.Add(new Player());
+                e.Add(new Money {
+                    amount = 1000
+                });
+                e.Add(new Player());
+            }
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
             // Debug.Log($"{e.Has<HP>()}");
@@ -49,17 +52,18 @@ namespace Wargon.Nukecs.Tests {
     }
 
     [BurstCompile]
-    public struct TestSystem : IEntityJobSystem {
+    public unsafe struct TestSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
-
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<Money>();
+        private Query _query;
+        public Query GetQuery(ref World world)
+        {
+            _query = world.CreateQuery().With<Money>();
+            return _query;
         }
 
         public void OnUpdate(ref Entity e, float deltaTime) {
             ref var money = ref e.Get<Money>();
             money.amount++;
-
             if (money.amount >= 3_000) {
                 Debug.Log($"YOU ARE MILLINER {money.amount}");
                 e.Remove<Money>();
@@ -77,11 +81,10 @@ namespace Wargon.Nukecs.Tests {
 
         public void OnUpdate(ref World world, float deltaTime) {
             if (_query.Count > 0) {
-                Debug.Log("WORK");
+                Debug.Log(_query.Count);
             }
         }
     }
-
     public struct HP : IComponent {
         public int value;
     }
