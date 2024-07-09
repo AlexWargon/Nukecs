@@ -1,14 +1,19 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct Archetype : IDisposable {
+        [NativeDisableUnsafePtrRestriction]
+        internal ArchetypeImpl* impl;
         internal unsafe struct ArchetypeImpl {
             internal DynamicBitmask mask;
             internal UnsafeList<int> types;
+            [NativeDisableUnsafePtrRestriction]
             internal World.WorldImpl* world;
             internal UnsafePtrList<Query.QueryImpl> queries;
             internal UnsafeHashMap<int, Edge> transactions;
@@ -99,18 +104,23 @@ namespace Wargon.Nukecs {
             internal bool Has(int type) {
                 return mask.Has(type);
             }
-            
+            internal bool Has<T>() where T : unmanaged {
+                return mask.Has(ComponentMeta<T>.Index);
+            }
             //if component remove, component will be negative
+            [BurstCompile]
             internal void OnEntityChange(ref Entity entity, int component) {
                 if (transactions.TryGetValue(component, out var edge)) {
                     edge.Execute(entity.id);
                     entity.archetype = edge.toMove;
+                    Debug.Log($"EXIST {edge.toMove->id}");
                     return;
                 }
                 CreateTransaction(component, out edge);
                 transactions[component] = edge;
                 edge.Execute(entity.id);
                 entity.archetype = edge.toMove;
+                //Debug.Log($"CREATED {edge.toMove->id}");
             }
 
             internal void CreateTransaction(int component, out Edge edge) {
@@ -119,13 +129,14 @@ namespace Wargon.Nukecs {
                 var newTypes = new UnsafeList<int>(remove ? mask.Count-1 : mask.Count+1, world->allocator);
                 newTypes.CopyFrom(in types);
                 if (remove) {
-                    var index = newTypes.IndexOf(component);
+                    var index = newTypes.IndexOf(math.abs(component));
                     newTypes.RemoveAtSwapBack(index);
                 }
                 else {
                     newTypes.Add(component);
                 }
-
+                //Debug.Log($"Component {component}");
+                //Debug.Log($"REMOVE? {remove}");
                 var otherArchetype = world->GetOrCreateArchetype(ref newTypes).impl;
                 var otherEdge = new Edge(otherArchetype, world->allocator);
                 
@@ -133,6 +144,7 @@ namespace Wargon.Nukecs {
                     var thisQuery = queries[index];
                     if (otherArchetype->queries.Contains(thisQuery) == false) {
                         otherEdge._removeEntity->Add(thisQuery);
+                        //Debug.Log("REMOVE QQQQQ");
                     }
                 }
 
@@ -143,7 +155,7 @@ namespace Wargon.Nukecs {
                     }
                 }
 
-                Debug.Log(otherArchetype->id);
+                //Debug.Log(otherArchetype->id);
                 edge = otherEdge;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -165,7 +177,9 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static int GetHashCode(ref UnsafeList<int> mask) {
-                unchecked {
+                unchecked
+                {
+                    if (mask.Length == 0) return 0;
                     var hash = (int) 2166136261;
                     const int p = 16777619;
                     for (var index = 0; index < mask.Length; index++) {
@@ -182,9 +196,9 @@ namespace Wargon.Nukecs {
             }
         }
         internal unsafe struct Edge : IDisposable {
-            internal readonly UnsafePtrList<Query.QueryImpl>* _addEntity;
-            internal readonly UnsafePtrList<Query.QueryImpl>* _removeEntity;
-            internal ArchetypeImpl* toMove;
+            [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<Query.QueryImpl>* _addEntity;
+            [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<Query.QueryImpl>* _removeEntity;
+            [NativeDisableUnsafePtrRestriction] internal ArchetypeImpl* toMove;
             public Edge(ArchetypeImpl* toMove, Allocator allocator) {
                 this.toMove = toMove;
                 this._addEntity = UnsafePtrList<Query.QueryImpl>.Create(6, allocator);
@@ -216,7 +230,6 @@ namespace Wargon.Nukecs {
                 UnsafePtrList<Query.QueryImpl>.Destroy(_removeEntity);
             }
         }
-        internal ArchetypeImpl* impl;
         
         internal bool Has<T>() where T : unmanaged {
             return impl->Has(ComponentMeta<T>.Index);

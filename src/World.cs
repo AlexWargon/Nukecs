@@ -15,19 +15,9 @@ namespace Wargon.Nukecs {
             return world;
         }
 
-        internal WorldImpl* _impl;
-        public ref EntityCommandBuffer ecb => ref _impl->ECB; 
-        public Entity CreateEntity() {
-            return _impl->CreateEntity();
-        }
+        [NativeDisableUnsafePtrRestriction] internal WorldImpl* _impl;
+        internal ref EntityCommandBuffer ecb => ref _impl->ECB; 
 
-        public ref Entity GetEntity(int id) {
-            return ref _impl->GetEntity(id);
-        }
-
-        public Query CreateQuery() {
-            return new Query(_impl->CreateQuery());
-        }
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal unsafe struct WorldImpl {
             internal int Id;
@@ -40,7 +30,7 @@ namespace Wargon.Nukecs {
             internal UnsafePtrList<Archetype.ArchetypeImpl> archetypesList;
             internal int lastEntityIndex;
             internal WorldConfig config;
-            internal WorldImpl* self;
+            [NativeDisableUnsafePtrRestriction] internal WorldImpl* self;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
             internal static WorldImpl* Create(int id, WorldConfig config) {
@@ -70,6 +60,7 @@ namespace Wargon.Nukecs {
                 this.poolsMask = DynamicBitmask.CreateForComponents();
                 this.ECB = new EntityCommandBuffer(256);
                 this.self = self;
+                var s = ComponentMeta<DestroyEntity>.Index;
             }
             
             internal void Init(WorldImpl* self) {
@@ -99,26 +90,20 @@ namespace Wargon.Nukecs {
                 poolsMask.Dispose();
                 self = null;
             }
-            // internal ref GenericPool GetPool<T>() where T : unmanaged {
-            //     var poolIndex = ComponentMeta<T>.Index;
-            //     
-            //     if (poolsMask.Has(poolIndex) == false) {
-            //         pools.ElementAt(poolIndex) = GenericPool.Create<T>(config.StartPoolSize, allocator);
-            //         poolsCount++;
-            //         //Debug.Log($"Pool<{typeof(T)}> Created");
-            //         poolsMask.Add(poolIndex);
-            //     }
-            //     else {
-            //         //Debug.Log($"Pool<{typeof(T)}> exist");
-            //     }
-            //     
-            //     return ref pools.ElementAt(poolIndex);
-            // }
+
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentMeta<T>.Index;
                 ref var pool = ref pools.ElementAt(poolIndex);
                 if (pool.impl == null) {
                     pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
+                    poolsCount++;
+                }
+                return ref pool;
+            }
+            internal ref GenericPool GetUntypedPool(int poolIndex) {
+                ref var pool = ref pools.ElementAt(poolIndex);
+                if (pool.impl == null) {
+                    pool = GenericPool.Create(ComponentsMap.GetType(poolIndex), config.StartPoolSize, allocator);
                     poolsCount++;
                 }
                 return ref pool;
@@ -178,6 +163,7 @@ namespace Wargon.Nukecs {
         }
 
         public void Dispose() {
+            if(_impl == null) return;
             var id = _impl->Id;
             _impl->Free();
             var allocator = _impl->allocator;
@@ -187,6 +173,17 @@ namespace Wargon.Nukecs {
 
         public ref GenericPool GetPool<T>() where T : unmanaged {
             return ref _impl->GetPool<T>();
+        }
+        public Entity CreateEntity() {
+            return _impl->CreateEntity();
+        }
+
+        public ref Entity GetEntity(int id) {
+            return ref _impl->GetEntity(id);
+        }
+
+        public Query CreateQuery() {
+            return new Query(_impl->CreateQuery());
         }
     }
     public struct IsAlive : IComponent {}

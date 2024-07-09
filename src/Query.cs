@@ -7,15 +7,17 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Query : IDisposable {
+    public unsafe struct Query : IDisposable
+    {
+        public int Count => impl->count;
         internal unsafe struct QueryImpl {
             internal Bitmask1024 with;
             internal Bitmask1024 none;
             internal UnsafeList<int> entities;
             internal UnsafeList<int> entitiesMap;
             internal int count;
-            internal readonly World.WorldImpl* world;
-            internal readonly QueryImpl* self;
+            [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* world;
+            [NativeDisableUnsafePtrRestriction] internal readonly QueryImpl* self;
             internal static void Free(QueryImpl* queryImpl) {
                 queryImpl->Free();
                 var allocator = queryImpl->world->allocator;
@@ -37,8 +39,8 @@ namespace Wargon.Nukecs {
                 this.with = default;
                 this.none = default;
                 this.count = default;
-                this.entities = new UnsafeList<int>(world->config.StartEntitiesAmount, world->allocator);
-                this.entitiesMap = new UnsafeList<int>(world->config.StartEntitiesAmount, world->allocator);
+                this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory);
+                this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory);
                 this.self = self;
             }
             public ref Entity GetEntity(int index) {
@@ -87,7 +89,7 @@ namespace Wargon.Nukecs {
                 return self;
             }
         }
-
+        [NativeDisableUnsafePtrRestriction]
         internal readonly QueryImpl* impl;
 
         internal Query(World.WorldImpl* world) {
@@ -256,6 +258,7 @@ namespace Wargon.Nukecs {
     {
         private const int ChunkSize = 1024;
         private const int NumberOfChunks = (int)(((long)int.MaxValue + 1) / ChunkSize);
+        [NativeDisableUnsafePtrRestriction]
         private BitmaskChunk* bitmaskChunks;
         private int count;
 
@@ -436,6 +439,7 @@ namespace Wargon.Nukecs {
     public unsafe struct DynamicBitmask
     {
         private const int BitsPerUlong = 64;
+        [NativeDisableUnsafePtrRestriction]
         private ulong* bitmaskArray;
         private int count;
         private int maxBits;
