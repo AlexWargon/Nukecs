@@ -9,11 +9,15 @@
 public struct ExampleSystem1 : IEntityJobSystem
 {
 	public SystemMode Mode => SystemMode.Parallel;
-	public Query GetQuery(ref world) => world.CreateQuery().With<Component1>().With<Component2>().None<Component3>();
+	public Query GetQuery(ref world) => world.CreateQuery()
+					.With<Component1>()
+					.With<Component2>()
+					.None<Component3>();
  	public void OnUpdate(ref Entity entity, float deltaTime)
 	{
  		ref var comp1 = ref entity.Get<Component1>();
 		ref var comp2 = ref entity.Get<Component2>();
+		entity.Has<Component3>() // return false in this case
 		//gameplay stuff
  	}
 }
