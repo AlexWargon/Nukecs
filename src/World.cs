@@ -7,16 +7,19 @@ using UnityEngine;
 namespace Wargon.Nukecs {
     public unsafe struct World : IDisposable {
         private static readonly World[] worlds = new World[4];
+        private static int lastWorldID;
         public static ref World Get(int index) => ref worlds[index];
 
         public static World Create() {
             World world;
-            world._impl = WorldImpl.Create(worlds.Length, WorldConfig.Default);
+            var id = lastWorldID++;
+            world._impl = WorldImpl.Create(id, WorldConfig.Default);
+            worlds[id] = world;
             return world;
         }
 
         [NativeDisableUnsafePtrRestriction] internal WorldImpl* _impl;
-        internal ref EntityCommandBuffer ecb => ref _impl->ECB;
+        internal ref EntityCommandBuffer ECB => ref _impl->ECB;
 
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal unsafe struct WorldImpl {
@@ -94,6 +97,7 @@ namespace Wargon.Nukecs {
                 archetypesMap.Dispose();
                 poolsCount = 0;
                 poolsMask.Dispose();
+                ECB.Dispose();
                 self = null;
             }
 
