@@ -33,9 +33,9 @@ namespace Wargon.Nukecs {
     }
 
     public static unsafe class EntityExt {
-        public static void Add<T>(this ref Entity entity, T component) where T : unmanaged {
+        public static void Add<T>(this in Entity entity, T component) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
-            if (entity.Arch.Has<T>()) return;
+            if (entity.archetype->Has<T>()) return;
             entity.world->GetPool<T>().Set(entity.id, component);
             ref var ecb = ref entity.world->ECB;
             ecb.Add<T>(entity.id);
@@ -45,9 +45,9 @@ namespace Wargon.Nukecs {
         //     ref var ecb = ref entity.world->ECB;
         //     ecb.Add(entity.id, ptr);
         // }
-        public static void Remove<T>(this ref Entity entity) where T : unmanaged {
+        public static void Remove<T>(this in Entity entity) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, -ComponentMeta<T>.Index);
-            if (entity.Arch.Has<T>() == false) return;
+            if (entity.archetype->Has<T>() == false) return;
             entity.world->GetPool<T>().Set(entity.id, default(T));
             ref var ecb = ref entity.world->ECB;
             ecb.Remove<T>(entity.id);
@@ -163,17 +163,7 @@ namespace Wargon.Nukecs {
         }
     }
 
-    /// <summary>
-    ///     Component Type Shared
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    public abstract class CTS<T> where T : struct {
-        public static readonly SharedStatic<int> ID;
 
-        static CTS() {
-            ID = SharedStatic<int>.GetOrCreate<CTS<T>>();
-        }
-    }
 
     public struct DestroyEntity : IComponent { }
 

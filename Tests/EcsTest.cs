@@ -33,20 +33,23 @@ namespace Wargon.Nukecs.Tests {
                 });
                 e.Add(new Player());
             }
+
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
             // Debug.Log($"{e.Has<HP>()}");
             // Debug.Log($"{e.Has<Money>()}");
             // Debug.Log($"{e.Has<Player>()}");
-            
+            Debug.Log($"{ComponentMeta<Money>.Index}");
+            Debug.Log($"{ComponentMeta<Player>.Index}");
         }
-
+        
         // Update is called once per frame
         void Update() {
             systems.OnUpdate(Time.deltaTime);
         }
 
         private void OnDestroy() {
+            
             world.Dispose();
         }
     }
@@ -60,18 +63,27 @@ namespace Wargon.Nukecs.Tests {
             _query = world.CreateQuery().With<Money>();
             return _query;
         }
-
+        
         public void OnUpdate(ref Entity e, float deltaTime) {
             ref var money = ref e.Get<Money>();
             money.amount++;
-            if (money.amount >= 3_000) {
-                Debug.Log($"YOU ARE MILLINER {money.amount}");
+            Log(ref money);
+            if (money.amount >= 1200) {
+                Log(ref money);
                 e.Remove<Money>();
             }
         }
+        [BurstDiscard]
+        private void Log(ref Money money) {
+            Debug.Log($"YOU ARE MILLINER {money.amount}");
+        }
+        [BurstDiscard]
+        private void Log2(ref Money money) {
+            Debug.Log($" {money.amount}");
+        }
     }
 
-    [BurstCompile]
+    //[BurstCompile]
     public struct TestSystem2 : IJobSystem, ICreate {
         private Query _query;
 
@@ -81,8 +93,12 @@ namespace Wargon.Nukecs.Tests {
 
         public void OnUpdate(ref World world, float deltaTime) {
             if (_query.Count > 0) {
-                Debug.Log(_query.Count);
+                Log();
             }
+        }
+        [BurstDiscard]
+        private void Log() {
+            //Debug.Log(_query.Count);
         }
     }
     public struct HP : IComponent {

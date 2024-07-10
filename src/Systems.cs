@@ -24,10 +24,9 @@ namespace Wargon.Nukecs {
                 s.OnCreate(ref world);
                 system = (T) s;
             }
-
             runners.Add(new SystemRunner<T> {
-                system = system,
-                ecbJob = default
+                System = system,
+                EcbJob = default
             });
             return this;
         }
@@ -39,12 +38,13 @@ namespace Wargon.Nukecs {
                 system = (T) s;
             }
             
-            runners.Add(new EntitySystemRunner<T> {
+            var runner = new EntitySystemRunner<T> {
                 System = system,
-                Query = system.GetQuery(ref world),
                 Mode = system.Mode,
                 EcbJob = default
-            });
+            };
+            runner.Query = runner.System.GetQuery(ref world);
+            runners.Add(runner);
             return this;
         }
 
@@ -86,14 +86,14 @@ namespace Wargon.Nukecs {
     }
 
     internal class SystemRunner<TSystem> : ISystemRunner where TSystem : struct, IJobSystem {
-        public TSystem system;
-        public ECBJob ecbJob;
+        public TSystem System;
+        public ECBJob EcbJob;
 
         public JobHandle OnUpdate(ref World world, float dt, ref JobHandle jobHandle) {
-            jobHandle = system.Schedule(ref world, dt, jobHandle);
-            ecbJob.world = world;
-            ecbJob.ECB = world.ECB;
-            return ecbJob.Schedule(jobHandle);
+            jobHandle = System.Schedule(ref world, dt, jobHandle);
+            EcbJob.world = world;
+            EcbJob.ECB = world.ECB;
+            return EcbJob.Schedule(jobHandle);
         }
     }
 
@@ -167,7 +167,7 @@ namespace Wargon.Nukecs {
                 GetReflectionData<TJob>(), dependsOn,
                 mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
 
-            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
+            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 10);
         }
     }
 

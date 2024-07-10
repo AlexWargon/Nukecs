@@ -13,13 +13,14 @@ namespace Wargon.Nukecs {
         public static World Create() {
             World world;
             var id = lastWorldID++;
-            world._impl = WorldImpl.Create(id, WorldConfig.Default);
+            world.impl = WorldImpl.Create(id, WorldConfig.Default);
             worlds[id] = world;
             return world;
         }
 
-        [NativeDisableUnsafePtrRestriction] internal WorldImpl* _impl;
-        internal ref EntityCommandBuffer ECB => ref _impl->ECB;
+        public bool IsAlive => impl != null;
+        [NativeDisableUnsafePtrRestriction] internal WorldImpl* impl;
+        internal ref EntityCommandBuffer ECB => ref impl->ECB;
 
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal unsafe struct WorldImpl {
@@ -165,7 +166,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-            [BurstDiscard]
+            
             internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
                 var hash = Archetype.ArchetypeImpl.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
@@ -174,35 +175,39 @@ namespace Wargon.Nukecs {
 
                 return CreateArchetype(ref types);
             }
-
+            [BurstDiscard]
+            internal void GetOrCreateArchetype(ref UnsafeList<int> types, out Archetype archetype) {
+                archetype = GetOrCreateArchetype(ref types);
+            }
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }
         }
 
         public void Dispose() {
-            if (_impl == null) return;
-            var id = _impl->Id;
-            _impl->Free();
-            var allocator = _impl->allocator;
-            UnsafeUtility.Free(_impl, allocator);
+            if (impl == null) return;
+            var id = impl->Id;
+            impl->Free();
+            var allocator = impl->allocator;
+            UnsafeUtility.Free(impl, allocator);
+            impl = null;
             Debug.Log($"World {id} Disposed");
         }
 
         public ref GenericPool GetPool<T>() where T : unmanaged {
-            return ref _impl->GetPool<T>();
+            return ref impl->GetPool<T>();
         }
 
         public Entity CreateEntity() {
-            return _impl->CreateEntity();
+            return impl->CreateEntity();
         }
 
         public ref Entity GetEntity(int id) {
-            return ref _impl->GetEntity(id);
+            return ref impl->GetEntity(id);
         }
 
         public Query CreateQuery() {
-            return new Query(_impl->CreateQuery());
+            return new Query(impl->CreateQuery());
         }
     }
 
