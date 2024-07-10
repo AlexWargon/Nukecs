@@ -114,26 +114,24 @@ namespace Wargon.Nukecs {
             }
 
             //if component remove, component will be negative
-            [BurstCompile]
             internal void OnEntityChange(ref Entity entity, int component) {
                 if (id == 0 && component < 0) return;
                 if (transactions.TryGetValue(component, out var edge)) {
                     edge.Execute(entity.id);
                     entity.archetype = edge.toMove;
-                    Debug.Log($"EXIST {edge.toMove->id}");
+                    //Debug.Log($"EXIST {edge.toMove->id}");
                     return;
                 }
 
-                if (CreateTransaction(component, out edge)) {
-                    transactions[component] = edge;
-                    edge.Execute(entity.id);
-                    entity.archetype = edge.toMove;
-                }
-
-                //Debug.Log($"CREATED {edge.toMove->id}");
+                CreateTransaction(component);
+                edge = transactions[component];
+                edge.Execute(entity.id);
+                entity.archetype = edge.toMove;
+                Debug.Log($"CREATED {edge.toMove->id}");
             }
 
-            internal bool CreateTransaction(int component, out Edge edge) {
+            internal void CreateTransaction(int component) {
+                
                 var remove = component < 0;
 
                 var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->allocator,
@@ -141,10 +139,9 @@ namespace Wargon.Nukecs {
                 newTypes.CopyFrom(in types);
                 if (remove) {
                     if (id == 0) {
-                        edge = default;
-                        return false;
+                        Debug.Log("id = 0");
+                        return;
                     }
-
                     var index = newTypes.IndexOf(math.abs(component));
                     newTypes.RemoveAtSwapBack(index);
                 }
@@ -154,6 +151,7 @@ namespace Wargon.Nukecs {
 
                 //Debug.Log($"Component {component}");
                 //Debug.Log($"REMOVE? {remove}");
+                
                 var otherArchetype = world->GetOrCreateArchetype(ref newTypes).impl;
                 var otherEdge = new Edge(otherArchetype, world->allocator);
 
@@ -170,9 +168,8 @@ namespace Wargon.Nukecs {
                         otherEdge.addEntity->Add(otherQuery);
                     }
                 }
-
-                edge = otherEdge;
-                return true;
+                transactions.Add(component, otherEdge);
+                Debug.Log($"transaction to {component} created");
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

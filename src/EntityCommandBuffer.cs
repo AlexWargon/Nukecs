@@ -104,7 +104,7 @@ namespace Wargon.Nukecs {
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.SetComponent,
-                    ComponentType = CTS<T>.ID.Data
+                    ComponentType = ComponentMeta<T>.Index
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -120,7 +120,7 @@ namespace Wargon.Nukecs {
                     Component = ptr,
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,
-                    ComponentType = CTS<T>.ID.Data,
+                    ComponentType = ComponentMeta<T>.Index,
                     ComponentSize = size
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
@@ -132,7 +132,7 @@ namespace Wargon.Nukecs {
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = CTS<T>.ID.Data,
+                    ComponentType = ComponentMeta<T>.Index,
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -146,9 +146,9 @@ namespace Wargon.Nukecs {
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Remove<T>(int entity, int thread) where T : struct {
+            public void Remove<T>(int entity, int thread) where T : unmanaged {
                 var cmd = new ECBCommand
-                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = CTS<T>.ID.Data};
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = ComponentMeta<T>.Index};
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
             }
@@ -299,7 +299,7 @@ namespace Wargon.Nukecs {
                     Component = ptr,
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,
-                    ComponentType = CTS<T>.ID.Data,
+                    ComponentType = ComponentMeta<T>.Index,
                     ComponentSize = size
                 };
                 buffer.AddNoResize(cmd);
@@ -310,15 +310,15 @@ namespace Wargon.Nukecs {
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = CTS<T>.ID.Data,
+                    ComponentType = ComponentMeta<T>.Index,
                 };
                 buffer.AddNoResize(cmd);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Remove<T>(int entity) where T : struct {
+            public void Remove<T>(int entity) where T : unmanaged {
                 var cmd = new ECBCommand
-                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = CTS<T>.ID.Data};
+                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = ComponentMeta<T>.Index};
                 buffer.AddNoResize(cmd);
             }
 
@@ -401,7 +401,7 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove<T>(int entity) where T : struct {
+        public void Remove<T>(int entity) where T : unmanaged {
             ecb->Remove<T>(entity, ThreadIndex);
         }
 
@@ -435,16 +435,16 @@ namespace Wargon.Nukecs {
                             // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
                             // pool.SetPtr(e.id, cmd.Component);
                             // UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            e.Arch.OnEntityChange(ref e, cmd.ComponentType);
+                            e.archetype->OnEntityChange(ref e, cmd.ComponentType);
                             break;
                         case ECBCommand.Type.AddComponentNoData:
                             e = ref world.GetEntity(cmd.Entity);
-                            e.Arch.OnEntityChange(ref e, cmd.ComponentType);
+                            e.archetype->OnEntityChange(ref e, cmd.ComponentType);
                             //world.GetEntity(cmd.Entity).AddByTypeID(cmd.ComponentType);
                             break;
                         case ECBCommand.Type.RemoveComponent:
                             e = ref world.GetEntity(cmd.Entity);
-                            e.Arch.OnEntityChange(ref e, -cmd.ComponentType);
+                            e.archetype->OnEntityChange(ref e, -cmd.ComponentType);
                             //Debug.Log("REMOVED IN ECB");
                             break;
                         case ECBCommand.Type.SetComponent:
