@@ -19,12 +19,15 @@ namespace Wargon.Nukecs.Tests {
             // Debug.Log(mask.Has(123));
             // Debug.Log(mask.Has(1));
             // mask.Dispose();
+            Debug.Log($"{ComponentMeta<Money>.Index}");
+            Debug.Log($"{ComponentMeta<Player>.Index}");
+            Debug.Log($"{Component.Amount.Data}");
             world = World.Create();
             systems = new Systems(ref world);
             systems
                 .Add<TestSystem>()
                 .Add<TestSystem2>();
-            for (int i = 0; i < 101; i++)
+            for (int i = 0; i < 1; i++)
             {
                 var e = world.CreateEntity();
 
@@ -39,8 +42,7 @@ namespace Wargon.Nukecs.Tests {
             // Debug.Log($"{e.Has<HP>()}");
             // Debug.Log($"{e.Has<Money>()}");
             // Debug.Log($"{e.Has<Player>()}");
-            Debug.Log($"{ComponentMeta<Money>.Index}");
-            Debug.Log($"{ComponentMeta<Player>.Index}");
+
         }
         
         // Update is called once per frame
@@ -55,7 +57,7 @@ namespace Wargon.Nukecs.Tests {
     }
 
     [BurstCompile]
-    public unsafe struct TestSystem : IEntityJobSystem {
+    public struct TestSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         private Query _query;
         public Query GetQuery(ref World world)
@@ -67,8 +69,8 @@ namespace Wargon.Nukecs.Tests {
         public void OnUpdate(ref Entity e, float deltaTime) {
             ref var money = ref e.Get<Money>();
             money.amount++;
-            Log(ref money);
-            if (money.amount >= 1200) {
+            //Log(ref money);
+            if (money.amount >= 1010) {
                 Log(ref money);
                 e.Remove<Money>();
             }
@@ -83,7 +85,7 @@ namespace Wargon.Nukecs.Tests {
         }
     }
 
-    //[BurstCompile]
+    [BurstCompile]
     public struct TestSystem2 : IJobSystem, ICreate {
         private Query _query;
 
@@ -111,6 +113,9 @@ namespace Wargon.Nukecs.Tests {
 
     public struct Money : IComponent {
         public int amount;
+        public override string ToString() {
+            return $"Money.amount ={amount.ToString()}";
+        }
     }
 
     public struct Dead : IComponent { }

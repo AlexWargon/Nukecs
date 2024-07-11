@@ -114,10 +114,11 @@ namespace Wargon.Nukecs {
             }
 
             //if component remove, component will be negative
+
             internal void OnEntityChange(ref Entity entity, int component) {
-                if (id == 0 && component < 0) return;
+                //if (id == 0 && component < 0) return;
                 if (transactions.TryGetValue(component, out var edge)) {
-                    edge.Execute(entity.id);
+                    world->EFB.Add(entity.id, edge);
                     entity.archetype = edge.toMove;
                     //Debug.Log($"EXIST {edge.toMove->id}");
                     return;
@@ -125,27 +126,47 @@ namespace Wargon.Nukecs {
 
                 CreateTransaction(component);
                 edge = transactions[component];
-                edge.Execute(entity.id);
+                world->EFB.Add(entity.id, edge);
                 entity.archetype = edge.toMove;
-                Debug.Log($"CREATED {edge.toMove->id}");
             }
+            internal void OnEntityChangeRemove(ref Entity entity, int component) {
+                //if (id == 0 && component < 0) return;
+                if (transactions.TryGetValue(component, out var edge)) {
+                    world->EFB.Add(entity.id, edge);
+                    entity.archetype = edge.toMove;
+                    //Debug.Log($"EXIST {edge.toMove->id}");
+                    return;
+                }
 
+                CreateTransaction(component);
+                edge = transactions[component];
+                world->EFB.Add(entity.id, edge);
+                entity.archetype = edge.toMove;
+            }
+            internal void Filter(ref Entity entity, int component) {
+                //if (id == 0 && component < 0) return;
+                if(Has(component)) return;
+                if (transactions.TryGetValue(component, out var edge)) {
+                    edge.Execute(entity.id);
+                    entity.archetype = edge.toMove;
+                    //Debug.Log($"EXIST {edge.toMove->id}");
+                    return;
+                }
+            }
             internal void CreateTransaction(int component) {
                 
                 var remove = component < 0;
 
                 var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->allocator,
                     NativeArrayOptions.ClearMemory);
-                newTypes.CopyFrom(in types);
-                if (remove) {
-                    if (id == 0) {
-                        Debug.Log("id = 0");
-                        return;
+                var positiveComponent = math.abs(component);
+                foreach (var type in types) {
+                    if ((remove && type == positiveComponent) == false) {
+                        newTypes.Add(type);
                     }
-                    var index = newTypes.IndexOf(math.abs(component));
-                    newTypes.RemoveAtSwapBack(index);
                 }
-                else {
+
+                if (remove == false) {
                     newTypes.Add(component);
                 }
 
@@ -169,9 +190,17 @@ namespace Wargon.Nukecs {
                     }
                 }
                 transactions.Add(component, otherEdge);
-                Debug.Log($"transaction to {component} created");
+                //Debug.Log($"transaction to from {ToString()} to {otherArchetype->ToString()} with {component} created");
             }
-
+            public override string ToString() {
+                System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                sb.Append("Archetype");
+                for (int i = 0; i < types.Length; i++) {
+                    sb.Append($"[{ComponentsMap.GetType(types[i]).Name}]");
+                }
+                
+                return sb.ToString();
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private static int GetHashCode(int[] mask) {
                 unchecked {

@@ -21,7 +21,7 @@ namespace Wargon.Nukecs {
         public bool IsAlive => impl != null;
         [NativeDisableUnsafePtrRestriction] internal WorldImpl* impl;
         internal ref EntityCommandBuffer ECB => ref impl->ECB;
-
+        internal ref EntityFilterBuffer EFB => ref impl->EFB;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal unsafe struct WorldImpl {
             internal int Id;
@@ -37,6 +37,7 @@ namespace Wargon.Nukecs {
             [NativeDisableUnsafePtrRestriction] internal WorldImpl* self;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
+            internal EntityFilterBuffer EFB;
 
             internal static WorldImpl* Create(int id, WorldConfig config) {
                 var ptr = Unsafe.Malloc<WorldImpl>(Allocator.Persistent);
@@ -67,6 +68,7 @@ namespace Wargon.Nukecs {
                 this.config = config;
                 this.poolsMask = DynamicBitmask.CreateForComponents();
                 this.ECB = new EntityCommandBuffer(256);
+                this.EFB = new EntityFilterBuffer(256);
                 this.self = self;
                 var s = ComponentMeta<DestroyEntity>.Index;
             }
@@ -99,6 +101,7 @@ namespace Wargon.Nukecs {
                 poolsCount = 0;
                 poolsMask.Dispose();
                 ECB.Dispose();
+                EFB.Dispose();
                 self = null;
             }
 
@@ -139,7 +142,7 @@ namespace Wargon.Nukecs {
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAt(id);
             }
-            [BurstDiscard]
+
             public Archetype CreateArchetype(params int[] types) {
                 var ptr = Archetype.ArchetypeImpl.Create(self, types);
                 Archetype archetype;
@@ -148,7 +151,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-            [BurstDiscard]
+
             internal Archetype CreateArchetype(ref UnsafeList<int> types) {
                 var ptr = Archetype.ArchetypeImpl.Create(self, ref types);
                 Archetype archetype;
@@ -157,7 +160,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-            [BurstDiscard]
+
             private Archetype CreateArchetype() {
                 var ptr = Archetype.ArchetypeImpl.Create(self);
                 Archetype archetype;
