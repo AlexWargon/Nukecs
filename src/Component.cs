@@ -9,30 +9,40 @@ using UnityEngine;
 namespace Wargon.Nukecs {
 
     public interface IComponent {
-        private static int count = -1;
-        
-        [RuntimeInitializeOnLoadMethod]
-        public static void Initialization() {
-            Count();
-        }
-
         public static int Count() {
-            if (count != -1) return count;
+            return Component.Amount.Data;
+        }
+    }
+    public struct Component {
+        /// <summary>
+        /// Components count that are using right now
+        /// </summary>
+        public static readonly SharedStatic<int> Count;
+        /// <summary>
+        /// Total components 
+        /// </summary>
+        public static readonly SharedStatic<int> Amount;
+
+        static Component() {
+            Amount = SharedStatic<int>.GetOrCreate<Component>();
+            Count = SharedStatic<int>.GetOrCreate<Component>();
+            Count.Data = 0;
+            Initialization();
+        }
+        
+        [BurstDiscard]
+        public static void Initialization() {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies) {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
-                    if (typeof(IComponent).IsAssignableFrom(type)) {
-                        count++;
+                    if (typeof(Wargon.Nukecs.IComponent).IsAssignableFrom(type)) {
+                        Debug.Log($"Component {type.Name}");
+                        Component.Amount.Data++;
                     }
                 }
             }
-
-            return count;
         }
-    }
-    public struct Component {
-        public static int Count;
     }
 
     public struct ComponentMeta<T> where T : unmanaged {
@@ -44,11 +54,11 @@ namespace Wargon.Nukecs {
         }
         static ComponentMeta() {
             id = SharedStatic<int>.GetOrCreate<ComponentMeta<T>>();
+            id.Data = Component.Count.Data++;
             Init();
         }
         [BurstDiscard]
         private static void Init() {
-            id.Data = Interlocked.Increment(ref Component.Count);
             ComponentsMap.Add(typeof(T), UnsafeUtility.AlignOf<T>(), Index);
         }
     }

@@ -22,35 +22,41 @@ namespace Wargon.Nukecs {
             return ref world->GetPool<T>().GetRef<T>(id);
         }
 
-        public bool Has<T>() where T : unmanaged {
-            return archetype->Has(ComponentMeta<T>.Index);
+        public readonly bool Has<T>() where T : unmanaged {
+            return archetype->Has<T>();
         }
 
-        internal ref Archetype.ArchetypeImpl Arch {
+        internal ref Archetype.ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *archetype;
+        }
+
+        public override string ToString() {
+            return $"e:{id}, {archetype->ToString()}";
         }
     }
 
     public static unsafe class EntityExt {
-        public static void Add<T>(this in Entity entity, T component) where T : unmanaged {
+        public static void Add<T>(this ref Entity entity, T component) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
             if (entity.archetype->Has<T>()) return;
             entity.world->GetPool<T>().Set(entity.id, component);
-            ref var ecb = ref entity.world->ECB;
-            ecb.Add<T>(entity.id);
+            entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
+            // ref var ecb = ref entity.world->ECB;
+            // ecb.Add<T>(entity.id);
         }
 
         // internal static void AddPtr<T>(this ref Entity entity, T* ptr) where T : unmanaged {
         //     ref var ecb = ref entity.world->ECB;
         //     ecb.Add(entity.id, ptr);
         // }
-        public static void Remove<T>(this in Entity entity) where T : unmanaged {
+        public static void Remove<T>(this ref Entity entity) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, -ComponentMeta<T>.Index);
             if (entity.archetype->Has<T>() == false) return;
             entity.world->GetPool<T>().Set(entity.id, default(T));
-            ref var ecb = ref entity.world->ECB;
-            ecb.Remove<T>(entity.id);
+            entity.archetype->OnEntityChangeRemove(ref entity, -ComponentMeta<T>.Index);
+            // ref var ecb = ref entity.world->ECB;
+            // ecb.Remove<T>(entity.id);
         }
     }
 

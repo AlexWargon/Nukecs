@@ -10,7 +10,7 @@ namespace Wargon.Nukecs {
     public unsafe struct Query : IDisposable {
         public int Count => impl->count;
 
-        internal unsafe struct QueryImpl {
+        internal struct QueryImpl {
             internal Bitmask1024 with;
             internal Bitmask1024 none;
             internal UnsafeList<int> entities;
@@ -58,6 +58,7 @@ namespace Wargon.Nukecs {
             }
 
             internal void Add(int entity) {
+                if(Has(entity)) return;
                 if (entities.Length - 1 <= count) {
                     entities.Resize(count * 2);
                 }
@@ -307,12 +308,12 @@ namespace Wargon.Nukecs {
         
         
         public static DynamicBitmask CreateForComponents() {
-            return new DynamicBitmask(IComponent.Count());
+            return new DynamicBitmask(Component.Amount.Data);
         }
 
         public DynamicBitmask(int maxBits) {
             if (maxBits <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxBits), "maxBits must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(maxBits), "maxBits in DynamicBitmask must be greater than zero.");
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
@@ -335,10 +336,10 @@ namespace Wargon.Nukecs {
 
         // Method to add an element (set a specific bit)
         public void Add(int position) {
-            if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}.");
-            }
+            // if (position < 0 || position >= maxBits) {
+            //     throw new ArgumentOutOfRangeException(nameof(position),
+            //         $"Position must be between 0 and {maxBits - 1}.");
+            // }
 
             int index = position / BitsPerUlong;
             int bitPosition = position % BitsPerUlong;
@@ -352,8 +353,9 @@ namespace Wargon.Nukecs {
         // Method to check if an element is present (a specific bit is set)
         public bool Has(int position) {
             if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}.");
+                // throw new ArgumentOutOfRangeException(nameof(position),
+                //     $"Position must be between 0 and {maxBits - 1}. Position = {position}");
+                return false;
             }
 
             int index = position / BitsPerUlong;
