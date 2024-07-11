@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Wargon.Nukecs.Editor {
@@ -26,6 +25,10 @@ namespace Wargon.Nukecs.Editor {
                 Query.QueryImpl* ptr = w.impl->queries[index];
                 var queryLabel = QueryInfo(ptr, index);
                 root.Add(queryLabel);
+            }
+            foreach (var kvPair in w.impl->archetypesMap) {
+                var label = ArchetypeInfo(kvPair.Value, kvPair.Key);
+                root.Add(label);
             }
             // root.Add(label);
         }
@@ -59,12 +62,16 @@ namespace Wargon.Nukecs.Editor {
             label.schedule.Execute(() => {
                 var inf = QueryLables[index];
                 label.text = $"{inf.Label.name}{inf.Query->count}";
-            }).Every(10);
+            }).Every(50);
             QueryLables[index] = new QueryInfo {
                 Label = label,
                 Query = queryImpl
             };
             return label;
+        }
+
+        private Label ArchetypeInfo(Archetype archetype, int id) {
+            return new Label(archetype.impl->ToString());
         }
     }
 

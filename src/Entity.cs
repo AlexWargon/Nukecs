@@ -1,49 +1,51 @@
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Entity {
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly unsafe struct Entity {
         public readonly int id;
-        [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* world;
-        [NativeDisableUnsafePtrRestriction] internal Archetype.ArchetypeImpl* archetype;
-        public ref World World => ref World.Get(world->Id);
+        [NativeDisableUnsafePtrRestriction] 
+        internal readonly World.WorldImpl* worldPointer;
+        public ref World World => ref World.Get(worldPointer->Id);
 
-        internal Entity(int entity, World.WorldImpl* world) {
-            this.id = entity;
-            this.world = world;
-            this.archetype = this.world->GetArchetype(0).impl;
+        internal Entity(int id, World.WorldImpl* worldPointer) {
+            this.id = id;
+            this.worldPointer = worldPointer;
+            worldPointer->entitiesArchetypes.ElementAt(this.id) = this.worldPointer->GetArchetype(0);
         }
 
         public ref T Get<T>() where T : unmanaged {
-            return ref world->GetPool<T>().GetRef<T>(id);
+            return ref worldPointer->GetPool<T>().GetRef<T>(id);
         }
 
         public readonly bool Has<T>() where T : unmanaged {
-            return archetype->Has<T>();
+            return worldPointer->entitiesArchetypes.ElementAt(this.id).impl->Has<T>();
         }
 
         internal ref Archetype.ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *archetype;
+            get => ref *worldPointer->entitiesArchetypes.ElementAt(this.id).impl;
         }
 
         public override string ToString() {
-            return $"e:{id}, {archetype->ToString()}";
+            return $"e:{id}, {archetypeRef.ToString()}";
         }
     }
 
     public static unsafe class EntityExt {
         public static void Add<T>(this ref Entity entity, T component) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
-            if (entity.archetype->Has<T>()) return;
-            entity.world->GetPool<T>().Set(entity.id, component);
-            entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
-            // ref var ecb = ref entity.world->ECB;
-            // ecb.Add<T>(entity.id);
+            //if (entity.archetypeRef.Has<T>()) return;
+            entity.worldPointer->GetPool<T>().Set(entity.id, component);
+            //entity.archetypeRef.OnEntityChange(ref entity, ComponentMeta<T>.Index);
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Add<T>(entity.id);
         }
 
         // internal static void AddPtr<T>(this ref Entity entity, T* ptr) where T : unmanaged {
@@ -52,11 +54,11 @@ namespace Wargon.Nukecs {
         // }
         public static void Remove<T>(this ref Entity entity) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, -ComponentMeta<T>.Index);
-            if (entity.archetype->Has<T>() == false) return;
-            entity.world->GetPool<T>().Set(entity.id, default(T));
-            entity.archetype->OnEntityChangeRemove(ref entity, -ComponentMeta<T>.Index);
-            // ref var ecb = ref entity.world->ECB;
-            // ecb.Remove<T>(entity.id);
+            //if (entity.archetypeRef.Has<T>() == false) return;
+            entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
+            //entity.archetypeRef.OnEntityChange(ref entity, -ComponentMeta<T>.Index);
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Remove<T>(entity.id);
         }
     }
 
@@ -188,6 +190,13 @@ namespace Wargon.Nukecs {
 
         public void Execute(int index) {
             system.OnUpdate(dt);
+        }
+    }
+    public static class Nukecs
+    {
+        [BurstDiscard]
+        public static void Log(string message) {
+            UnityEngine.Debug.Log(message);
         }
     }
 }

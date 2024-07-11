@@ -27,6 +27,7 @@ namespace Wargon.Nukecs {
             internal int Id;
             internal Allocator allocator;
             internal UnsafeList<Entity> entities;
+            internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeList<GenericPool> pools;
             internal int poolsCount;
             internal UnsafePtrList<Query.QueryImpl> queries;
@@ -34,11 +35,12 @@ namespace Wargon.Nukecs {
             internal UnsafePtrList<Archetype.ArchetypeImpl> archetypesList;
             internal int lastEntityIndex;
             internal WorldConfig config;
-            [NativeDisableUnsafePtrRestriction] internal WorldImpl* self;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
             internal EntityFilterBuffer EFB;
-
+            [NativeDisableUnsafePtrRestriction] 
+            internal WorldImpl* self;
+            
             internal static WorldImpl* Create(int id, WorldConfig config) {
                 var ptr = Unsafe.Malloc<WorldImpl>(Allocator.Persistent);
                 *ptr = new WorldImpl(id, config, Allocator.Persistent);
@@ -57,8 +59,9 @@ namespace Wargon.Nukecs {
                 this.allocator = allocator;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
                     NativeArrayOptions.ClearMemory);
-                this.entities.m_length = this.entities.m_capacity;
-                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(IComponent.Count() + 1, allocator,
+                this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(config.StartEntitiesAmount,
+                    allocator, NativeArrayOptions.ClearMemory);
+                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(config.StartComponentsAmount, allocator,
                     NativeArrayOptions.ClearMemory);
                 this.queries = new UnsafePtrList<Query.QueryImpl>(32, allocator);
                 this.archetypesList = new UnsafePtrList<Archetype.ArchetypeImpl>(32, allocator);
@@ -80,6 +83,7 @@ namespace Wargon.Nukecs {
 
             public void Free() {
                 entities.Dispose();
+                entitiesArchetypes.Dispose();
                 for (var index = 0; index < poolsCount; index++) {
                     var pool = pools[index];
                     pool.Dispose();
@@ -223,8 +227,8 @@ namespace Wargon.Nukecs {
         public Allocator WorldAllocator => Allocator.Persistent;
 
         public static WorldConfig Default => new WorldConfig() {
-            StartPoolSize = 128,
-            StartEntitiesAmount = 128,
+            StartPoolSize = 12800,
+            StartEntitiesAmount = 12800,
             StartComponentsAmount = 32
         };
     }

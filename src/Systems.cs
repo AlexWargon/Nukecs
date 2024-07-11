@@ -50,11 +50,15 @@ namespace Wargon.Nukecs {
 
         public void OnUpdate(float dt) {
             dependencies.Complete();
-            new EFBJob {
-                EFB = world.EFB
-            }.Run();
+
             for (var i = 0; i < runners.Count; i++) {
-                dependencies = runners[i].OnUpdate(ref world, dt, ref dependencies);
+                dependencies = runners[i].Schedule(ref world, dt, ref dependencies);
+            }
+        }
+
+        public void Run(float dt) {
+            for (var i = 0; i < runners.Count; i++) {
+                runners[i].Run(ref world, dt);
             }
         }
     }
@@ -84,7 +88,8 @@ namespace Wargon.Nukecs {
         }
     }
     internal interface ISystemRunner {
-        JobHandle OnUpdate(ref World world, float dt, ref JobHandle jobHandle);
+        JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle);
+        void Run(ref World world, float dt);
     }
 
     internal class EntitySystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
@@ -93,11 +98,18 @@ namespace Wargon.Nukecs {
         public SystemMode Mode;
         public ECBJob EcbJob;
 
-        public JobHandle OnUpdate(ref World world, float dt, ref JobHandle jobHandle) {
-            return System.Schedule(ref Query, dt, Mode, jobHandle);
-            EcbJob.world = world;
+        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
+            jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
             EcbJob.ECB = world.ECB;
+            EcbJob.world = world;
             return EcbJob.Schedule(jobHandle);
+        }
+
+        public void Run(ref World world, float dt) {
+            for (int i = 0; i < Query.Count; i++) {
+                System.OnUpdate(ref this.Query.GetEntity(i), dt);
+            }
+            world.ECB.Playback(ref world);
         }
     }
 
@@ -105,11 +117,16 @@ namespace Wargon.Nukecs {
         public TSystem System;
         public ECBJob EcbJob;
 
-        public JobHandle OnUpdate(ref World world, float dt, ref JobHandle jobHandle) {
-            return System.Schedule(ref world, dt, jobHandle);
-            EcbJob.world = world;
+        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
+            System.Schedule(ref world, dt, jobHandle);
             EcbJob.ECB = world.ECB;
+            EcbJob.world = world;
             return EcbJob.Schedule(jobHandle);
+        }
+
+        public void Run(ref World world, float dt) {
+            System.OnUpdate(ref world, dt);
+            world.ECB.Playback(ref world);
         }
     }
 
@@ -126,12 +143,11 @@ namespace Wargon.Nukecs {
     }
     public static class EntityJobSystemExt {
         [StructLayout(LayoutKind.Sequential)]
-        internal unsafe struct EntityJobStruct<TJob> where TJob : struct, IEntityJobSystem {
+        internal struct EntityJobStruct<TJob> where TJob : struct, IEntityJobSystem {
             public TJob JobData;
             public Query query;
             public float deltaTime;
-            [NativeDisableUnsafePtrRestriction]
-            internal EntityCommandBuffer.ECBInternal* ecb;
+
             internal static readonly SharedStatic<IntPtr> JobReflectionData =
                 SharedStatic<IntPtr>.GetOrCreate<EntityJobStruct<TJob>>();
 
@@ -146,12 +162,12 @@ namespace Wargon.Nukecs {
             private delegate void ExecuteJobFunction(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
 
-            public static void Execute(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
+            public unsafe static void Execute(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 if(fullData.query.Count == 0) return;
                 while (true) {
                     if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
-                        return;
+                        break;
                     JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                    
                     for (var i = begin; i < end; i++) {
@@ -184,7 +200,22 @@ namespace Wargon.Nukecs {
                 GetReflectionData<TJob>(), dependsOn,
                 mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
 
-            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
+            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, query.Count);
+        }
+        
+        public static unsafe void Run<TJob>(this TJob jobData, ref Query query, float deltaTime) where TJob : struct, IEntityJobSystem
+        {
+            var fullData = new EntityJobStruct<TJob> {
+                JobData = jobData,
+                query = query,
+                deltaTime = deltaTime
+            };
+            JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(
+                UnsafeUtility.AddressOf(ref fullData),
+                GetReflectionData<TJob>(),
+            new JobHandle(), 
+                ScheduleMode.Run);
+            JobsUtility.Schedule(ref parameters);
         }
     }
 
@@ -250,6 +281,19 @@ namespace Wargon.Nukecs {
                 GetReflectionData<TJob>(), dependsOn, ScheduleMode.Parallel);
 
             return JobsUtility.ScheduleParallelFor(ref scheduleParams, 100, 1);
+        }
+        public static unsafe void Run<TJob>(this TJob jobData, ref World world, float deltaTime) where TJob : struct, IJobSystem
+        {
+            var fullData = new JobSystemWrapper<TJob> {
+                JobData = jobData,
+                world = world,
+                deltaTime = deltaTime
+            };
+            JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+                JobSystemExt.GetReflectionData<TJob>(),
+                new JobHandle(), 
+                ScheduleMode.Run);
+            JobsUtility.Schedule(ref parameters);
         }
     }
 }

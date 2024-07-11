@@ -41,6 +41,9 @@ namespace Wargon.Nukecs {
         public struct EFBCommand {
             internal Archetype.Edge edge;
             internal int entity;
+            public override string ToString() {
+                return $"Entity {World.Get(0).GetEntity(entity).ToString()}; move to {edge.toMovePtr->ToString()}";
+            }
         }
         
         public sealed partial class ECBCommandType {
@@ -124,7 +127,7 @@ namespace Wargon.Nukecs {
             //ecb->Playback(ref world);
             for (var i = 0; i < efbPtr->perThreadBuffer->Length; i++) {
                 var buffer = efbPtr->perThreadBuffer->ElementAt(i);
-                //if (buffer->IsEmpty) continue;
+                if (buffer->IsEmpty) continue;
                 for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
                     cmd.edge.Execute(cmd.entity);

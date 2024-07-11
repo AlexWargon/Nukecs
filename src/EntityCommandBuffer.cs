@@ -220,16 +220,16 @@ namespace Wargon.Nukecs {
                                 // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
                                 // pool.SetPtr(e.id, cmd.Component);
                                 // UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                                e.archetype->OnEntityChange(ref e, cmd.ComponentType);
+                                e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                                 break;
                             case ECBCommand.Type.AddComponentNoData:
                                 e = ref world.GetEntity(cmd.Entity);
-                                e.archetype->OnEntityChange(ref e, cmd.ComponentType);
+                                e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                                 //world.GetEntity(cmd.Entity).AddByTypeID(cmd.ComponentType);
                                 break;
                             case ECBCommand.Type.RemoveComponent:
                                 e = ref world.GetEntity(cmd.Entity);
-                                e.archetype->OnEntityChange(ref e, -cmd.ComponentType);
+                                e.archetypeRef.OnEntityChangeECB(ref e, -cmd.ComponentType);
                                 //Debug.Log("REMOVED IN ECB");
                                 break;
                             case ECBCommand.Type.SetComponent:
@@ -340,16 +340,19 @@ namespace Wargon.Nukecs {
                             // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
                             // pool.SetPtr(e.id, cmd.Component);
                             // UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            e.archetype->OnEntityChange(ref e, cmd.ComponentType);
+                            
+                            e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                             break;
                         case ECBCommand.Type.AddComponentNoData:
                             e = ref world.GetEntity(cmd.Entity);
-                            e.archetype->OnEntityChange(ref e, cmd.ComponentType);
+                            if(e.archetypeRef.Has(cmd.ComponentType)) break;
+                            e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                             //world.GetEntity(cmd.Entity).AddByTypeID(cmd.ComponentType);
                             break;
                         case ECBCommand.Type.RemoveComponent:
                             e = ref world.GetEntity(cmd.Entity);
-                            e.archetype->OnEntityChange(ref e, -cmd.ComponentType);
+                            if(e.archetypeRef.Has(cmd.ComponentType) == false) break;
+                            e.archetypeRef.OnEntityChangeECB(ref e, -cmd.ComponentType);
                             //Debug.Log("REMOVED IN ECB");
                             break;
                         case ECBCommand.Type.SetComponent:
@@ -402,18 +405,20 @@ namespace Wargon.Nukecs {
                     ref var e = ref world.GetEntity(cmd.Entity);
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
-                            
+                            if(e.archetypeRef.Has(cmd.ComponentType)) break;
                             // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
                             // pool.SetPtr(e.id, cmd.Component);
                             // UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            e.archetypeRef.OnEntityChange(ref e, cmd.ComponentType);
+                            e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                             break;
                         case ECBCommand.Type.AddComponentNoData:
-                            e.archetypeRef.OnEntityChange(ref e, cmd.ComponentType);
+                            if(e.archetypeRef.Has(cmd.ComponentType)) break;
+                            e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                             //world.GetEntity(cmd.Entity).AddByTypeID(cmd.ComponentType);
                             break;
                         case ECBCommand.Type.RemoveComponent:
-                            e.archetypeRef.OnEntityChange(ref e, -cmd.ComponentType);
+                            if(e.archetypeRef.Has(cmd.ComponentType) == false) break;
+                            e.archetypeRef.OnEntityChangeECB(ref e, -cmd.ComponentType);
                             //Debug.Log("REMOVED IN ECB");
                             break;
                         case ECBCommand.Type.SetComponent:

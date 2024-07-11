@@ -1,4 +1,5 @@
 using Unity.Burst;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
@@ -27,27 +28,30 @@ namespace Wargon.Nukecs.Tests {
             systems
                 .Add<TestSystem>()
                 .Add<TestSystem2>();
-            for (int i = 0; i < 1; i++)
+                ;
+            for (int i = 0; i < 100; i++)
             {
                 var e = world.CreateEntity();
-
                 e.Add(new Money {
                     amount = 1000
                 });
                 e.Add(new Player());
             }
-
+            Debug.Log($"{Component.Amount.Data}");
+            
+            Debug.Log($"{Component.Amount.Data}");
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
             // Debug.Log($"{e.Has<HP>()}");
             // Debug.Log($"{e.Has<Money>()}");
             // Debug.Log($"{e.Has<Player>()}");
-
         }
         
         // Update is called once per frame
-        void Update() {
+        private void Update() {
             systems.OnUpdate(Time.deltaTime);
+            //systems.Run(Time.deltaTime);
+
         }
 
         private void OnDestroy() {
@@ -62,7 +66,7 @@ namespace Wargon.Nukecs.Tests {
         private Query _query;
         public Query GetQuery(ref World world)
         {
-            _query = world.CreateQuery().With<Money>();
+            _query = world.CreateQuery().With<Money>().None<Dead>();
             return _query;
         }
         
@@ -70,9 +74,11 @@ namespace Wargon.Nukecs.Tests {
             ref var money = ref e.Get<Money>();
             money.amount++;
             //Log(ref money);
-            if (money.amount >= 1010) {
-                Log(ref money);
+            if (money.amount >= 1200) {
+                //Log(ref money);
                 e.Remove<Money>();
+                //e.Add(new Dead());
+                
             }
         }
         [BurstDiscard]
@@ -95,7 +101,12 @@ namespace Wargon.Nukecs.Tests {
 
         public void OnUpdate(ref World world, float deltaTime) {
             if (_query.Count > 0) {
-                Log();
+                //Log();
+            }
+
+            for (var i = 0; i < _query.Count; i++) {
+
+                ref var e = ref _query.GetEntity(i);
             }
         }
         [BurstDiscard]
@@ -106,10 +117,7 @@ namespace Wargon.Nukecs.Tests {
     public struct HP : IComponent {
         public int value;
     }
-
     public struct Player : IComponent { }
-
-    public struct Speed : IComponent { }
 
     public struct Money : IComponent {
         public int amount;
