@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -114,43 +115,56 @@ namespace Wargon.Nukecs {
             }
 
             //if component remove, component will be negative
-
             internal void OnEntityChange(ref Entity entity, int component) {
                 //if (id == 0 && component < 0) return;
                 if (transactions.TryGetValue(component, out var edge)) {
+                    //entity.archetype = edge.toMove;
+                    world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
                     world->EFB.Add(entity.id, edge);
-                    entity.archetype = edge.toMove;
+                    
                     //Debug.Log($"EXIST {edge.toMove->id}");
                     return;
                 }
-
                 CreateTransaction(component);
                 edge = transactions[component];
+                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
+                //entity.archetype = edge.toMove;
                 world->EFB.Add(entity.id, edge);
-                entity.archetype = edge.toMove;
+            }
+            internal void OnEntityChangeECB(ref Entity entity, int component) {
+                //if (id == 0 && component < 0) return;
+                if (transactions.TryGetValue(component, out var edge)) {
+                    //entity.archetype = edge.toMove;
+                    world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
+                    edge.Execute(entity.id);
+                    //Debug.Log($"EXIST {edge.toMove->id}");
+                    return;
+                }
+                CreateTransaction(component);
+                edge = transactions[component];
+                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
+                edge.Execute(entity.id);
             }
             internal void OnEntityChangeRemove(ref Entity entity, int component) {
                 //if (id == 0 && component < 0) return;
                 if (transactions.TryGetValue(component, out var edge)) {
+                    world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
                     world->EFB.Add(entity.id, edge);
-                    entity.archetype = edge.toMove;
                     //Debug.Log($"EXIST {edge.toMove->id}");
                     return;
                 }
 
                 CreateTransaction(component);
                 edge = transactions[component];
+                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
                 world->EFB.Add(entity.id, edge);
-                entity.archetype = edge.toMove;
             }
             internal void Filter(ref Entity entity, int component) {
                 //if (id == 0 && component < 0) return;
                 if(Has(component)) return;
                 if (transactions.TryGetValue(component, out var edge)) {
                     edge.Execute(entity.id);
-                    entity.archetype = edge.toMove;
-                    //Debug.Log($"EXIST {edge.toMove->id}");
-                    return;
+                    world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
                 }
             }
             internal void CreateTransaction(int component) {
@@ -173,8 +187,9 @@ namespace Wargon.Nukecs {
                 //Debug.Log($"Component {component}");
                 //Debug.Log($"REMOVE? {remove}");
                 
-                var otherArchetype = world->GetOrCreateArchetype(ref newTypes).impl;
-                var otherEdge = new Edge(otherArchetype, world->allocator);
+                var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
+                var otherArchetype = otherArchetypeStruct.impl;
+                var otherEdge = new Edge(ref otherArchetypeStruct, world->allocator);
 
                 for (var index = 0; index < queries.Length; index++) {
                     var thisQuery = queries[index];
@@ -189,12 +204,20 @@ namespace Wargon.Nukecs {
                         otherEdge.addEntity->Add(otherQuery);
                     }
                 }
+
+                if (transactions.ContainsKey(component)) {
+                    return;
+                }
                 transactions.Add(component, otherEdge);
-                //Debug.Log($"transaction to from {ToString()} to {otherArchetype->ToString()} with {component} created");
+                //Nukecs.Log($"transaction to from {ToString()} to {otherArchetype->ToString()} with {component} created");
             }
             public override string ToString() {
                 System.Text.StringBuilder sb = new System.Text.StringBuilder();
                 sb.Append("Archetype");
+                if (mask.Count == 0) {
+                    sb.Append(".Empty");
+                    return sb.ToString();
+                }
                 for (int i = 0; i < types.Length; i++) {
                     sb.Append($"[{ComponentsMap.GetType(types[i]).Name}]");
                 }
@@ -245,10 +268,11 @@ namespace Wargon.Nukecs {
         internal readonly struct Edge : IDisposable {
             [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<Query.QueryImpl>* addEntity;
             [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<Query.QueryImpl>* removeEntity;
-            [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeImpl* toMove;
-
-            public Edge(ArchetypeImpl* toMove, Allocator allocator) {
-                this.toMove = toMove;
+            [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeImpl* toMovePtr;
+            internal readonly Archetype toMove;
+            public Edge(ref Archetype archetype, Allocator allocator) {
+                this.toMovePtr = archetype.impl;
+                this.toMove = archetype;
                 this.addEntity = UnsafePtrList<Query.QueryImpl>.Create(6, allocator);
                 this.removeEntity = UnsafePtrList<Query.QueryImpl>.Create(6, allocator);
             }

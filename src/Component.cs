@@ -26,17 +26,18 @@ namespace Wargon.Nukecs {
         static Component() {
             Amount = SharedStatic<int>.GetOrCreate<Component>();
             Count = SharedStatic<int>.GetOrCreate<Component>();
+            
             Count.Data = 0;
-            Initialization();
+            //Initialization();
         }
         
-        [BurstDiscard]
+        [BurstDiscard][RuntimeInitializeOnLoadMethod]
         public static void Initialization() {
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies) {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
-                    if (typeof(Wargon.Nukecs.IComponent).IsAssignableFrom(type)) {
+                    if (typeof(Wargon.Nukecs.IComponent).IsAssignableFrom(type) && type != typeof(Wargon.Nukecs.IComponent)) {
                         Debug.Log($"Component {type.Name}");
                         Component.Amount.Data++;
                     }
