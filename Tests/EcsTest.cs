@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
@@ -23,6 +25,7 @@ namespace Wargon.Nukecs.Tests {
             world = World.Create();
             systems = new Systems(ref world);
             systems
+                .Add<MoveSystem>()
                 .Add<ViewSystem>()
                 ;
             for (int i = 0; i < 1; i++)
@@ -32,6 +35,7 @@ namespace Wargon.Nukecs.Tests {
                 e.Add(new View {
                     value = GameObject.CreatePrimitive(PrimitiveType.Cube)
                 });
+                e.Add(new Transform());
             }
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
@@ -56,19 +60,29 @@ namespace Wargon.Nukecs.Tests {
     public struct ViewSystem : ISystem, ICreate {
         private Query Query;
         public void OnCreate(ref World world) {
-            Query =  world.CreateQuery().With<View>().With<Speed>().None<Dead>();
+            Query =  world.CreateQuery().With<View>().With<Transform>().None<Dead>();
         }
-        [BurstCompile]
+
         public void OnUpdate(ref World world, float deltaTime) {
             for (var i = 0; i < Query.Count; i++) {
                 ref var entity = ref Query.GetEntity(i);
                 ref var view = ref entity.Get<View>();
-                ref var speed = ref entity.Get<Speed>();
-                view.value.Value.transform.position += speed.value * deltaTime * Vector3.right;
-                if (view.value.Value.transform.position.x > 20) {
-                    entity.Remove<Speed>();
-                }
+                ref var transform = ref entity.Get<Transform>();
+                view.value.Value.transform.position = transform.position;
+                view.value.Value.transform.rotation = transform.rotation;
             }
+        }
+    }
+
+    public struct MoveSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<Transform>().With<Speed>();
+        }
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            ref var transform = ref entity.Get<Transform>();
+            ref var speed = ref entity.Get<Speed>();
+            transform.position += speed.value * deltaTime * math.right();
         }
     }
     [BurstCompile]

@@ -130,9 +130,6 @@ namespace Wargon.Nukecs {
             return edge;
         }
 
-
-
-
         //if component remove, component will be negative
         internal void OnEntityChange(ref Entity entity, int component) {
             //if (id == 0 && component < 0) return;
@@ -302,7 +299,7 @@ namespace Wargon.Nukecs {
     }
 
     [BurstCompile]
-    public static class AchetypePointerExtensions {
+    public static class ArchetypePointerExtensions {
         [BurstCompile]
         internal static bool Has<T>(this ref ArchetypeImpl archetype) where T : unmanaged {
             return archetype.mask.Has(ComponentMeta<T>.Index);
