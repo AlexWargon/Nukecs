@@ -52,18 +52,22 @@ namespace Wargon.Nukecs.Tests {
             world.Dispose();
         }
     }
-
+    [BurstCompile]
     public struct ViewSystem : ISystem, ICreate {
         private Query Query;
         public void OnCreate(ref World world) {
             Query =  world.CreateQuery().With<View>().With<Speed>().None<Dead>();
         }
+        [BurstCompile]
         public void OnUpdate(ref World world, float deltaTime) {
             for (var i = 0; i < Query.Count; i++) {
                 ref var entity = ref Query.GetEntity(i);
                 ref var view = ref entity.Get<View>();
                 ref var speed = ref entity.Get<Speed>();
                 view.value.Value.transform.position += speed.value * deltaTime * Vector3.right;
+                if (view.value.Value.transform.position.x > 20) {
+                    entity.Remove<Speed>();
+                }
             }
         }
     }
@@ -88,6 +92,7 @@ namespace Wargon.Nukecs.Tests {
                 
             }
         }
+        
         [BurstDiscard]
         private void Log(ref Money money) {
             Debug.Log($"YOU ARE MILLINER {money.amount}");

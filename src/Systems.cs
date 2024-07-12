@@ -165,7 +165,7 @@ namespace Wargon.Nukecs {
     }
 
     [JobProducerType(typeof(EntityJobSystemExtensions.EntityJobStruct<>))]
-    public interface IEntityJobSystem : ISystemBase {
+    public interface IEntityJobSystem {
         SystemMode Mode { get; }
         Query GetQuery(ref World world);
         void OnUpdate(ref Entity entity, float deltaTime);
@@ -249,7 +249,7 @@ namespace Wargon.Nukecs {
     }
 
     [JobProducerType(typeof(JobSystemExtensions.JobSystemWrapper<>))]
-    public interface IJobSystem : ISystemBase {
+    public interface IJobSystem {
         void OnUpdate(ref World world, float deltaTime);
     }
     
