@@ -1,4 +1,5 @@
 using Unity.Burst;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
@@ -22,52 +23,78 @@ namespace Wargon.Nukecs.Tests {
             world = World.Create();
             systems = new Systems(ref world);
             systems
-                .Add<TestSystem>()
-                .Add<TestSystem2>();
-            for (int i = 0; i < 101; i++)
+                .Add<ViewSystem>()
+                ;
+            for (int i = 0; i < 1; i++)
             {
                 var e = world.CreateEntity();
-
-                e.Add(new Money {
-                    amount = 1000
+                e.Add(new Speed{value = 5f});
+                e.Add(new View {
+                    value = GameObject.CreatePrimitive(PrimitiveType.Cube)
                 });
-                e.Add(new Player());
             }
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
             // Debug.Log($"{e.Has<HP>()}");
             // Debug.Log($"{e.Has<Money>()}");
             // Debug.Log($"{e.Has<Player>()}");
-            
         }
-
+        
         // Update is called once per frame
-        void Update() {
+        private void Update() {
             systems.OnUpdate(Time.deltaTime);
+            //systems.Run(Time.deltaTime);
+
         }
 
         private void OnDestroy() {
+            
             world.Dispose();
         }
     }
 
+    public struct ViewSystem : ISystem, ICreate {
+        private Query Query;
+        public void OnCreate(ref World world) {
+            Query =  world.CreateQuery().With<View>().With<Speed>().None<Dead>();
+        }
+        public void OnUpdate(ref World world, float deltaTime) {
+            for (var i = 0; i < Query.Count; i++) {
+                ref var entity = ref Query.GetEntity(i);
+                ref var view = ref entity.Get<View>();
+                ref var speed = ref entity.Get<Speed>();
+                view.value.Value.transform.position += speed.value * deltaTime * Vector3.right;
+            }
+        }
+    }
     [BurstCompile]
-    public unsafe struct TestSystem : IEntityJobSystem {
+    public struct TestSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         private Query _query;
         public Query GetQuery(ref World world)
         {
-            _query = world.CreateQuery().With<Money>();
+            _query = world.CreateQuery().With<Money>().None<Dead>();
             return _query;
         }
-
+        
         public void OnUpdate(ref Entity e, float deltaTime) {
             ref var money = ref e.Get<Money>();
             money.amount++;
-            if (money.amount >= 3_000) {
-                Debug.Log($"YOU ARE MILLINER {money.amount}");
-                e.Remove<Money>();
+            //Log(ref money);
+            if (money.amount >= 1200) {
+                //if(e.Has<Dead>())
+                    e.Remove<Money>();
+                //e.Add(new Dead());
+                
             }
+        }
+        [BurstDiscard]
+        private void Log(ref Money money) {
+            Debug.Log($"YOU ARE MILLINER {money.amount}");
+        }
+        [BurstDiscard]
+        private void Log2(ref Money money) {
+            Debug.Log($" {money.amount}");
         }
     }
 
@@ -81,21 +108,44 @@ namespace Wargon.Nukecs.Tests {
 
         public void OnUpdate(ref World world, float deltaTime) {
             if (_query.Count > 0) {
-                Debug.Log(_query.Count);
+                //Log();
             }
+
+            for (var i = 0; i < _query.Count; i++) {
+
+                ref var e = ref _query.GetEntity(i);
+            }
+        }
+        [BurstDiscard]
+        private void Log() {
+            //Debug.Log(_query.Count);
+        }
+    }
+    [BurstCompile]
+    public struct BurstTest {
+        public void Execute() {
+            
         }
     }
     public struct HP : IComponent {
         public int value;
     }
-
     public struct Player : IComponent { }
-
-    public struct Speed : IComponent { }
 
     public struct Money : IComponent {
         public int amount;
+        public override string ToString() {
+            return $"Money.amount ={amount.ToString()}";
+        }
     }
 
     public struct Dead : IComponent { }
+
+    public struct View : IComponent {
+        public UnityObjectRef<GameObject> value;
+    }
+
+    public struct Speed : IComponent {
+        public float value;
+    }
 }
