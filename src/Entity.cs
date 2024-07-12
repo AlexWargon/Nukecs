@@ -81,14 +81,14 @@ namespace Wargon.Nukecs {
         public bool IsCreated;
 
         public static GenericPool Create<T>(int size, Allocator allocator) where T : unmanaged {
-            return new GenericPool() {
+            return new GenericPool {
                 impl = Impl.CreateImpl<T>(size, allocator),
                 IsCreated = true
             };
         }
 
         public static GenericPool Create(Type type, int size, Allocator allocator) {
-            return new GenericPool() {
+            return new GenericPool {
                 impl = Impl.CreateImpl(type, size, allocator),
                 IsCreated = true
             };
