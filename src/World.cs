@@ -30,9 +30,9 @@ namespace Wargon.Nukecs {
             internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeList<GenericPool> pools;
             internal int poolsCount;
-            internal UnsafePtrList<Query.QueryImpl> queries;
+            internal UnsafePtrList<Query.QueryUnsafe> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
-            internal UnsafePtrList<Archetype.ArchetypeImpl> archetypesList;
+            internal UnsafePtrList<ArchetypeImpl> archetypesList;
             internal int lastEntityIndex;
             internal WorldConfig config;
             internal DynamicBitmask poolsMask;
@@ -48,8 +48,8 @@ namespace Wargon.Nukecs {
                 return ptr;
             }
 
-            internal Query.QueryImpl* CreateQuery() {
-                var ptr = Query.QueryImpl.Create(self);
+            internal Query.QueryUnsafe* CreateQuery() {
+                var ptr = Query.QueryUnsafe.Create(self);
                 queries.Add(ptr);
                 return ptr;
             }
@@ -63,8 +63,8 @@ namespace Wargon.Nukecs {
                     allocator, NativeArrayOptions.ClearMemory);
                 this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(config.StartComponentsAmount, allocator,
                     NativeArrayOptions.ClearMemory);
-                this.queries = new UnsafePtrList<Query.QueryImpl>(32, allocator);
-                this.archetypesList = new UnsafePtrList<Archetype.ArchetypeImpl>(32, allocator);
+                this.queries = new UnsafePtrList<Query.QueryUnsafe>(32, allocator);
+                this.archetypesList = new UnsafePtrList<ArchetypeImpl>(32, allocator);
                 this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, allocator);
                 this.lastEntityIndex = 0;
                 this.poolsCount = 0;
@@ -91,8 +91,8 @@ namespace Wargon.Nukecs {
 
                 pools.Dispose();
                 for (var index = 0; index < queries.Length; index++) {
-                    Query.QueryImpl* ptr = queries[index];
-                    Query.QueryImpl.Free(ptr);
+                    Query.QueryUnsafe* ptr = queries[index];
+                    Query.QueryUnsafe.Free(ptr);
                 }
 
                 queries.Dispose();
@@ -148,7 +148,7 @@ namespace Wargon.Nukecs {
             }
 
             public Archetype CreateArchetype(params int[] types) {
-                var ptr = Archetype.ArchetypeImpl.Create(self, types);
+                var ptr = ArchetypeImpl.Create(self, types);
                 Archetype archetype;
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -157,7 +157,7 @@ namespace Wargon.Nukecs {
             }
 
             internal Archetype CreateArchetype(ref UnsafeList<int> types) {
-                var ptr = Archetype.ArchetypeImpl.Create(self, ref types);
+                var ptr = ArchetypeImpl.Create(self, ref types);
                 Archetype archetype;
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -166,7 +166,7 @@ namespace Wargon.Nukecs {
             }
 
             private Archetype CreateArchetype() {
-                var ptr = Archetype.ArchetypeImpl.Create(self);
+                var ptr = ArchetypeImpl.Create(self);
                 Archetype archetype;
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -175,7 +175,7 @@ namespace Wargon.Nukecs {
             }
             
             internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
-                var hash = Archetype.ArchetypeImpl.GetHashCode(ref types);
+                var hash = ArchetypeImpl.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     return archetype;
                 }

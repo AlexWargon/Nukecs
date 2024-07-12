@@ -24,7 +24,7 @@ namespace Wargon.Nukecs {
                 s.OnCreate(ref world);
                 system = (T) s;
             }
-            runners.Add(new SystemRunner<T> {
+            runners.Add(new SystemJobRunner<T> {
                 System = system,
                 EcbJob = default
             });
@@ -38,7 +38,7 @@ namespace Wargon.Nukecs {
                 system = (T) s;
             }
             
-            var runner = new EntitySystemRunner<T> {
+            var runner = new EntityJobSystemRunner<T> {
                 System = system,
                 Mode = system.Mode,
                 EcbJob = default
@@ -47,7 +47,20 @@ namespace Wargon.Nukecs {
             runners.Add(runner);
             return this;
         }
-
+        public Systems Add<T>(int dymmy = 1) where T : struct, ISystem {
+            T system = default;
+            if (system is ICreate s) {
+                s.OnCreate(ref world);
+                system = (T) s;
+            }
+            
+            var runner = new SystemMainThreadRunner<T> {
+                System = system,
+                EcbJob = default
+            };
+            runners.Add(runner);
+            return this;
+        }
         public void OnUpdate(float dt) {
             dependencies.Complete();
 
@@ -92,7 +105,7 @@ namespace Wargon.Nukecs {
         void Run(ref World world, float dt);
     }
 
-    internal class EntitySystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
+    internal class EntityJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
         public TSystem System;
         public Query Query;
         public SystemMode Mode;
@@ -113,7 +126,7 @@ namespace Wargon.Nukecs {
         }
     }
 
-    internal class SystemRunner<TSystem> : ISystemRunner where TSystem : struct, IJobSystem {
+    internal class SystemJobRunner<TSystem> : ISystemRunner where TSystem : struct, IJobSystem {
         public TSystem System;
         public ECBJob EcbJob;
 
@@ -129,19 +142,35 @@ namespace Wargon.Nukecs {
             world.ECB.Playback(ref world);
         }
     }
+    internal class SystemMainThreadRunner<TSystem> : ISystemRunner where TSystem : struct, ISystem {
+        internal TSystem System;
+        internal ECBJob EcbJob;
 
+        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
+            System.OnUpdate(ref world, dt);
+            EcbJob.ECB = world.ECB;
+            EcbJob.world = world;
+            return EcbJob.Schedule(jobHandle);
+        }
+
+        public void Run(ref World world, float dt) {
+            System.OnUpdate(ref world, dt);
+            world.ECB.Playback(ref world);
+        }
+    }
     public enum SystemMode {
         Single,
-        Parallel
+        Parallel,
+        Main,
     }
 
-    [JobProducerType(typeof(EntityJobSystemExt.EntityJobStruct<>))]
-    public interface IEntityJobSystem {
+    [JobProducerType(typeof(EntityJobSystemExtensions.EntityJobStruct<>))]
+    public interface IEntityJobSystem : ISystemBase {
         SystemMode Mode { get; }
         Query GetQuery(ref World world);
         void OnUpdate(ref Entity entity, float deltaTime);
     }
-    public static class EntityJobSystemExt {
+    public static class EntityJobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntityJobStruct<TJob> where TJob : struct, IEntityJobSystem {
             public TJob JobData;
@@ -155,7 +184,7 @@ namespace Wargon.Nukecs {
             internal static void Initialize() {
                 if (JobReflectionData.Data == IntPtr.Zero) {
                     JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(EntityJobStruct<TJob>),
-                        typeof(TJob), (object) new EntityJobSystemExt.EntityJobStruct<TJob>.ExecuteJobFunction(EntityJobSystemExt.EntityJobStruct<TJob>.Execute));
+                        typeof(TJob), (object) new EntityJobSystemExtensions.EntityJobStruct<TJob>.ExecuteJobFunction(EntityJobSystemExtensions.EntityJobStruct<TJob>.Execute));
                 }
             }
 
@@ -219,12 +248,12 @@ namespace Wargon.Nukecs {
         }
     }
 
-    [JobProducerType(typeof(JobSystemExt.JobSystemWrapper<>))]
-    public interface IJobSystem {
+    [JobProducerType(typeof(JobSystemExtensions.JobSystemWrapper<>))]
+    public interface IJobSystem : ISystemBase {
         void OnUpdate(ref World world, float deltaTime);
     }
-
-    public static class JobSystemExt {
+    
+    public static class JobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
         public struct JobSystemWrapper<TJob> where TJob : struct, IJobSystem {
             public TJob JobData;
@@ -290,10 +319,18 @@ namespace Wargon.Nukecs {
                 deltaTime = deltaTime
             };
             JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
-                JobSystemExt.GetReflectionData<TJob>(),
+                JobSystemExtensions.GetReflectionData<TJob>(),
                 new JobHandle(), 
                 ScheduleMode.Run);
             JobsUtility.Schedule(ref parameters);
         }
     }
+    public interface ICreate {
+        void OnCreate(ref World world);
+    }
+    public interface ISystem : ISystemBase {
+        void OnUpdate(ref World world, float deltaTime);
+    }
+    
+    public interface ISystemBase {}
 }

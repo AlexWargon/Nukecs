@@ -10,16 +10,16 @@ namespace Wargon.Nukecs {
     public unsafe struct Query : IDisposable {
         public int Count => impl->count;
 
-        internal struct QueryImpl {
+        internal struct QueryUnsafe {
             internal Bitmask1024 with;
             internal Bitmask1024 none;
             internal UnsafeList<int> entities;
             internal UnsafeList<int> entitiesMap;
             internal int count;
             [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* world;
-            [NativeDisableUnsafePtrRestriction] internal readonly QueryImpl* self;
+            [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
 
-            internal static void Free(QueryImpl* queryImpl) {
+            internal static void Free(QueryUnsafe* queryImpl) {
                 queryImpl->Free();
                 var allocator = queryImpl->world->allocator;
                 UnsafeUtility.Free(queryImpl, allocator);
@@ -30,13 +30,13 @@ namespace Wargon.Nukecs {
                 entitiesMap.Dispose();
             }
 
-            internal static QueryImpl* Create(World.WorldImpl* world) {
-                var ptr = Unsafe.Malloc<QueryImpl>(world->allocator);
-                *ptr = new QueryImpl(world, ptr);
+            internal static QueryUnsafe* Create(World.WorldImpl* world) {
+                var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
+                *ptr = new QueryUnsafe(world, ptr);
                 return ptr;
             }
 
-            internal QueryImpl(World.WorldImpl* world, QueryImpl* self) {
+            internal QueryUnsafe(World.WorldImpl* world, QueryUnsafe* self) {
                 this.world = world;
                 this.with = default;
                 this.none = default;
@@ -82,7 +82,7 @@ namespace Wargon.Nukecs {
                 }
             }
 
-            public QueryImpl* With(int type) {
+            public QueryUnsafe* With(int type) {
                 with.Add(type);
                 return self;
             }
@@ -95,19 +95,36 @@ namespace Wargon.Nukecs {
                 return none.Has(type);
             }
 
-            public QueryImpl* None(int type) {
+            public QueryUnsafe* None(int type) {
                 none.Add(type);
                 return self;
             }
+
+            public override string ToString() {
+                var sb = new StringBuilder();
+                sb.Append($"Query");
+                foreach (var typesIndex in ComponentsMap.TypesIndexes) {
+                    if (HasWith(typesIndex)) {
+                        sb.Append($".With<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    }
+
+                    if (HasNone(typesIndex)) {
+                        sb.Append($".None<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    }
+                }
+
+                sb.Append($".Count = {count}");
+                return sb.ToString();
+            }
         }
 
-        [NativeDisableUnsafePtrRestriction] internal readonly QueryImpl* impl;
+        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
 
         internal Query(World.WorldImpl* world) {
-            impl = QueryImpl.Create(world);
+            impl = QueryUnsafe.Create(world);
         }
 
-        internal Query(QueryImpl* impl) {
+        internal Query(QueryUnsafe* impl) {
             this.impl = impl;
         }
 
@@ -128,6 +145,10 @@ namespace Wargon.Nukecs {
         public void Dispose() {
             var allocator = impl->world->allocator;
             UnsafeUtility.Free(impl, allocator);
+        }
+
+        public override string ToString() {
+            return impl->ToString();
         }
     }
 

@@ -428,7 +428,7 @@ namespace Wargon.Nukecs {
                             world.CreateEntity();
                             break;
                         case ECBCommand.Type.DestroyEntity:
-                            //world.GetEntity(cmd.Entity).Destroy();
+                            e.archetypeRef.Destroy(cmd.Entity);
                             break;
                         case ECBCommand.Type.ChangeTransformRefPosition:
                             //world.GetEntity(cmd.Entity).Get<TransformRef>().value.position = new Vector3(cmd.Position.x, cmd.Position.y, cmd.Position.z);
