@@ -38,7 +38,7 @@ namespace Wargon.Nukecs {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
                     if (typeof(Wargon.Nukecs.IComponent).IsAssignableFrom(type) && type != typeof(Wargon.Nukecs.IComponent)) {
-                        Debug.Log($"Component {type.Name}");
+                        //Debug.Log($"Component {type.Name}");
                         Component.Amount.Data++;
                     }
                 }

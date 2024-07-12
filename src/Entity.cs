@@ -24,11 +24,9 @@ namespace Wargon.Nukecs {
             return ref worldPointer->GetPool<T>().GetRef<T>(id);
         }
 
-        public readonly bool Has<T>() where T : unmanaged {
-            return worldPointer->entitiesArchetypes.ElementAt(this.id).impl->Has<T>();
-        }
 
-        internal ref Archetype.ArchetypeImpl archetypeRef {
+
+        internal ref ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *worldPointer->entitiesArchetypes.ElementAt(this.id).impl;
         }
@@ -37,8 +35,9 @@ namespace Wargon.Nukecs {
             return $"e:{id}, {archetypeRef.ToString()}";
         }
     }
-
+    [BurstCompile]
     public static unsafe class EntityExt {
+        [BurstCompile]
         public static void Add<T>(this ref Entity entity, T component) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
             //if (entity.archetypeRef.Has<T>()) return;
@@ -59,6 +58,15 @@ namespace Wargon.Nukecs {
             //entity.archetypeRef.OnEntityChange(ref entity, -ComponentMeta<T>.Index);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<T>(entity.id);
+        }
+        [BurstCompile]
+        public static void Destroy(this ref Entity entity) {
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Destroy(entity.id);
+        }
+        [BurstCompile]
+        public static bool Has<T>(this in Entity entity) where T : unmanaged {
+            return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).impl->Has<T>();
         }
     }
 
@@ -170,28 +178,8 @@ namespace Wargon.Nukecs {
             IsCreated = false;
         }
     }
-
-
-
     public struct DestroyEntity : IComponent { }
 
-    public interface ISystem {
-        void OnUpdate(float deltaTime);
-    }
-
-    public interface ICreate {
-        void OnCreate(ref World world);
-    }
-
-    [BurstCompile]
-    public unsafe struct SystemJobRunner<TSystem> : IJobParallelFor where TSystem : ISystem {
-        internal TSystem system;
-        internal float dt;
-
-        public void Execute(int index) {
-            system.OnUpdate(dt);
-        }
-    }
     public static class Nukecs
     {
         [BurstDiscard]

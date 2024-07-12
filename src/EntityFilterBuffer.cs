@@ -39,7 +39,7 @@ namespace Wargon.Nukecs {
         [StructLayout(LayoutKind.Sequential)]
         // ReSharper disable once InconsistentNaming
         public struct EFBCommand {
-            internal Archetype.Edge edge;
+            internal Edge edge;
             internal int entity;
             public override string ToString() {
                 return $"Entity {World.Get(0).GetEntity(entity).ToString()}; move to {edge.toMovePtr->ToString()}";
@@ -115,7 +115,7 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Add(int entity, Archetype.Edge edge) {
+        internal void Add(int entity, Edge edge) {
             var cmd = new EFBCommand {
                 entity = entity,
                 edge = edge

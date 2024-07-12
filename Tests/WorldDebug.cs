@@ -22,7 +22,7 @@ namespace Wargon.Nukecs.Editor {
             ref var w = ref World.Get(0);
             if(w.IsAlive == false) return;
             for (var index = 0; index < w.impl->queries.Length; index++) {
-                Query.QueryImpl* ptr = w.impl->queries[index];
+                Query.QueryUnsafe* ptr = w.impl->queries[index];
                 var queryLabel = QueryInfo(ptr, index);
                 root.Add(queryLabel);
             }
@@ -40,7 +40,7 @@ namespace Wargon.Nukecs.Editor {
         //         label.text = $"Mouse over: {mouseOver}";
         //     }).Every(10);
         // }
-        private Label QueryInfo(Query.QueryImpl* queryImpl, int index) {
+        private Label QueryInfo(Query.QueryUnsafe* queryImpl, int index) {
             StringBuilder builder = new StringBuilder();
             builder.Append("Query");
             foreach (var typesIndex in ComponentsMap.TypesIndexes) {
@@ -77,7 +77,7 @@ namespace Wargon.Nukecs.Editor {
 
     internal unsafe class QueryInfo {
         internal Label Label;
-        internal Query.QueryImpl* Query;
+        internal Query.QueryUnsafe* Query;
     }
 }
 #endif

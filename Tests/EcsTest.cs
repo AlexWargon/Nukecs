@@ -20,26 +20,19 @@ namespace Wargon.Nukecs.Tests {
             // Debug.Log(mask.Has(123));
             // Debug.Log(mask.Has(1));
             // mask.Dispose();
-            Debug.Log($"{ComponentMeta<Money>.Index}");
-            Debug.Log($"{ComponentMeta<Player>.Index}");
-            Debug.Log($"{Component.Amount.Data}");
             world = World.Create();
             systems = new Systems(ref world);
             systems
-                .Add<TestSystem>()
-                .Add<TestSystem2>();
+                .Add<ViewSystem>()
                 ;
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 1; i++)
             {
                 var e = world.CreateEntity();
-                e.Add(new Money {
-                    amount = 1000
+                e.Add(new Speed{value = 5f});
+                e.Add(new View {
+                    value = GameObject.CreatePrimitive(PrimitiveType.Cube)
                 });
-                e.Add(new Player());
             }
-            Debug.Log($"{Component.Amount.Data}");
-            
-            Debug.Log($"{Component.Amount.Data}");
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
             // Debug.Log($"{e.Has<HP>()}");
@@ -60,6 +53,20 @@ namespace Wargon.Nukecs.Tests {
         }
     }
 
+    public struct ViewSystem : ISystem, ICreate {
+        private Query Query;
+        public void OnCreate(ref World world) {
+            Query =  world.CreateQuery().With<View>().With<Speed>().None<Dead>();
+        }
+        public void OnUpdate(ref World world, float deltaTime) {
+            for (var i = 0; i < Query.Count; i++) {
+                ref var entity = ref Query.GetEntity(i);
+                ref var view = ref entity.Get<View>();
+                ref var speed = ref entity.Get<Speed>();
+                view.value.Value.transform.position += speed.value * deltaTime * Vector3.right;
+            }
+        }
+    }
     [BurstCompile]
     public struct TestSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -75,8 +82,8 @@ namespace Wargon.Nukecs.Tests {
             money.amount++;
             //Log(ref money);
             if (money.amount >= 1200) {
-                //Log(ref money);
-                e.Remove<Money>();
+                //if(e.Has<Dead>())
+                    e.Remove<Money>();
                 //e.Add(new Dead());
                 
             }
@@ -114,6 +121,12 @@ namespace Wargon.Nukecs.Tests {
             //Debug.Log(_query.Count);
         }
     }
+    [BurstCompile]
+    public struct BurstTest {
+        public void Execute() {
+            
+        }
+    }
     public struct HP : IComponent {
         public int value;
     }
@@ -127,4 +140,12 @@ namespace Wargon.Nukecs.Tests {
     }
 
     public struct Dead : IComponent { }
+
+    public struct View : IComponent {
+        public UnityObjectRef<GameObject> value;
+    }
+
+    public struct Speed : IComponent {
+        public float value;
+    }
 }
