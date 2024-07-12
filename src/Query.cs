@@ -10,16 +10,16 @@ namespace Wargon.Nukecs {
     public unsafe struct Query : IDisposable {
         public int Count => impl->count;
 
-        internal unsafe struct QueryImpl {
+        internal struct QueryUnsafe {
             internal Bitmask1024 with;
             internal Bitmask1024 none;
             internal UnsafeList<int> entities;
             internal UnsafeList<int> entitiesMap;
             internal int count;
             [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* world;
-            [NativeDisableUnsafePtrRestriction] internal readonly QueryImpl* self;
+            [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
 
-            internal static void Free(QueryImpl* queryImpl) {
+            internal static void Free(QueryUnsafe* queryImpl) {
                 queryImpl->Free();
                 var allocator = queryImpl->world->allocator;
                 UnsafeUtility.Free(queryImpl, allocator);
@@ -30,13 +30,13 @@ namespace Wargon.Nukecs {
                 entitiesMap.Dispose();
             }
 
-            internal static QueryImpl* Create(World.WorldImpl* world) {
-                var ptr = Unsafe.Malloc<QueryImpl>(world->allocator);
-                *ptr = new QueryImpl(world, ptr);
+            internal static QueryUnsafe* Create(World.WorldImpl* world) {
+                var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
+                *ptr = new QueryUnsafe(world, ptr);
                 return ptr;
             }
 
-            internal QueryImpl(World.WorldImpl* world, QueryImpl* self) {
+            internal QueryUnsafe(World.WorldImpl* world, QueryUnsafe* self) {
                 this.world = world;
                 this.with = default;
                 this.none = default;
@@ -58,6 +58,7 @@ namespace Wargon.Nukecs {
             }
 
             internal void Add(int entity) {
+                if(Has(entity)) return;
                 if (entities.Length - 1 <= count) {
                     entities.Resize(count * 2);
                 }
@@ -81,7 +82,7 @@ namespace Wargon.Nukecs {
                 }
             }
 
-            public QueryImpl* With(int type) {
+            public QueryUnsafe* With(int type) {
                 with.Add(type);
                 return self;
             }
@@ -94,19 +95,36 @@ namespace Wargon.Nukecs {
                 return none.Has(type);
             }
 
-            public QueryImpl* None(int type) {
+            public QueryUnsafe* None(int type) {
                 none.Add(type);
                 return self;
             }
+
+            public override string ToString() {
+                var sb = new StringBuilder();
+                sb.Append($"Query");
+                foreach (var typesIndex in ComponentsMap.TypesIndexes) {
+                    if (HasWith(typesIndex)) {
+                        sb.Append($".With<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    }
+
+                    if (HasNone(typesIndex)) {
+                        sb.Append($".None<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    }
+                }
+
+                sb.Append($".Count = {count}");
+                return sb.ToString();
+            }
         }
 
-        [NativeDisableUnsafePtrRestriction] internal readonly QueryImpl* impl;
+        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
 
         internal Query(World.WorldImpl* world) {
-            impl = QueryImpl.Create(world);
+            impl = QueryUnsafe.Create(world);
         }
 
-        internal Query(QueryImpl* impl) {
+        internal Query(QueryUnsafe* impl) {
             this.impl = impl;
         }
 
@@ -127,6 +145,10 @@ namespace Wargon.Nukecs {
         public void Dispose() {
             var allocator = impl->world->allocator;
             UnsafeUtility.Free(impl, allocator);
+        }
+
+        public override string ToString() {
+            return impl->ToString();
         }
     }
 
@@ -307,12 +329,12 @@ namespace Wargon.Nukecs {
         
         
         public static DynamicBitmask CreateForComponents() {
-            return new DynamicBitmask(IComponent.Count());
+            return new DynamicBitmask(Component.Amount.Data);
         }
 
         public DynamicBitmask(int maxBits) {
             if (maxBits <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxBits), "maxBits must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(maxBits), "maxBits in DynamicBitmask must be greater than zero.");
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
@@ -335,10 +357,10 @@ namespace Wargon.Nukecs {
 
         // Method to add an element (set a specific bit)
         public void Add(int position) {
-            if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}.");
-            }
+            // if (position < 0 || position >= maxBits) {
+            //     throw new ArgumentOutOfRangeException(nameof(position),
+            //         $"Position must be between 0 and {maxBits - 1}.");
+            // }
 
             int index = position / BitsPerUlong;
             int bitPosition = position % BitsPerUlong;
@@ -352,8 +374,9 @@ namespace Wargon.Nukecs {
         // Method to check if an element is present (a specific bit is set)
         public bool Has(int position) {
             if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}.");
+                // throw new ArgumentOutOfRangeException(nameof(position),
+                //     $"Position must be between 0 and {maxBits - 1}. Position = {position}");
+                return false;
             }
 
             int index = position / BitsPerUlong;

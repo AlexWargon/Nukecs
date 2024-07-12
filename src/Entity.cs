@@ -1,43 +1,49 @@
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Entity {
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly unsafe struct Entity {
         public readonly int id;
-        [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* world;
-        [NativeDisableUnsafePtrRestriction] internal Archetype.ArchetypeImpl* archetype;
-        public ref World World => ref World.Get(world->Id);
+        [NativeDisableUnsafePtrRestriction] 
+        internal readonly World.WorldImpl* worldPointer;
+        public ref World World => ref World.Get(worldPointer->Id);
 
-        internal Entity(int entity, World.WorldImpl* world) {
-            this.id = entity;
-            this.world = world;
-            this.archetype = this.world->GetArchetype(0).impl;
+        internal Entity(int id, World.WorldImpl* worldPointer) {
+            this.id = id;
+            this.worldPointer = worldPointer;
+            worldPointer->entitiesArchetypes.ElementAt(this.id) = this.worldPointer->GetArchetype(0);
         }
 
         public ref T Get<T>() where T : unmanaged {
-            return ref world->GetPool<T>().GetRef<T>(id);
+            return ref worldPointer->GetPool<T>().GetRef<T>(id);
         }
 
-        public bool Has<T>() where T : unmanaged {
-            return archetype->Has(ComponentMeta<T>.Index);
-        }
 
-        internal ref Archetype.ArchetypeImpl Arch {
+
+        internal ref ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *archetype;
+            get => ref *worldPointer->entitiesArchetypes.ElementAt(this.id).impl;
+        }
+
+        public override string ToString() {
+            return $"e:{id}, {archetypeRef.ToString()}";
         }
     }
-
+    [BurstCompile]
     public static unsafe class EntityExt {
+        [BurstCompile]
         public static void Add<T>(this ref Entity entity, T component) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
-            if (entity.Arch.Has<T>()) return;
-            entity.world->GetPool<T>().Set(entity.id, component);
-            ref var ecb = ref entity.world->ECB;
+            //if (entity.archetypeRef.Has<T>()) return;
+            entity.worldPointer->GetPool<T>().Set(entity.id, component);
+            //entity.archetypeRef.OnEntityChange(ref entity, ComponentMeta<T>.Index);
+            ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<T>(entity.id);
         }
 
@@ -47,10 +53,20 @@ namespace Wargon.Nukecs {
         // }
         public static void Remove<T>(this ref Entity entity) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, -ComponentMeta<T>.Index);
-            if (entity.Arch.Has<T>() == false) return;
-            entity.world->GetPool<T>().Set(entity.id, default(T));
-            ref var ecb = ref entity.world->ECB;
+            //if (entity.archetypeRef.Has<T>() == false) return;
+            entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
+            //entity.archetypeRef.OnEntityChange(ref entity, -ComponentMeta<T>.Index);
+            ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<T>(entity.id);
+        }
+        [BurstCompile]
+        public static void Destroy(this ref Entity entity) {
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Destroy(entity.id);
+        }
+        [BurstCompile]
+        public static bool Has<T>(this in Entity entity) where T : unmanaged {
+            return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).impl->Has<T>();
         }
     }
 
@@ -162,36 +178,13 @@ namespace Wargon.Nukecs {
             IsCreated = false;
         }
     }
-
-    /// <summary>
-    ///     Component Type Shared
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    public abstract class CTS<T> where T : struct {
-        public static readonly SharedStatic<int> ID;
-
-        static CTS() {
-            ID = SharedStatic<int>.GetOrCreate<CTS<T>>();
-        }
-    }
-
     public struct DestroyEntity : IComponent { }
 
-    public interface ISystem {
-        void OnUpdate(float deltaTime);
-    }
-
-    public interface ICreate {
-        void OnCreate(ref World world);
-    }
-
-    [BurstCompile]
-    public unsafe struct SystemJobRunner<TSystem> : IJobParallelFor where TSystem : ISystem {
-        internal TSystem system;
-        internal float dt;
-
-        public void Execute(int index) {
-            system.OnUpdate(dt);
+    public static class Nukecs
+    {
+        [BurstDiscard]
+        public static void Log(string message) {
+            UnityEngine.Debug.Log(message);
         }
     }
 }
