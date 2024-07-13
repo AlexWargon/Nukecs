@@ -1,8 +1,10 @@
+using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
+using Random = Unity.Mathematics.Random;
 
 namespace Wargon.Nukecs.Tests {
     public unsafe class EcsTest : MonoBehaviour {
@@ -25,18 +27,26 @@ namespace Wargon.Nukecs.Tests {
             world = World.Create();
             systems = new Systems(ref world);
             systems
-                .Add<MoveSystem>()
                 .Add<ViewSystem>()
+                .Add<MoveSystem>()
+                
                 ;
-            for (int i = 0; i < 1; i++)
+
+            for (int i = 0; i < 50; i++)
             {
                 var e = world.CreateEntity();
-                e.Add(new Speed{value = 5f});
+                e.Add(new Speed{value = 10f});
+                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Destroy(cube.GetComponent<BoxCollider>());
                 e.Add(new View {
-                    value = GameObject.CreatePrimitive(PrimitiveType.Cube)
+                    value = cube
                 });
-                e.Add(new Transform());
+                e.Add(new Transform() {
+                    position = RandomEx.Float3(-2.0f,2.0f)
+                });
             }
+
+            //Debug.unityLogger.logEnabled = false;
             // Debug.Log($"{e.Get<HP>().value}");
             // Debug.Log($"{e.Has<Speed>()}");
             // Debug.Log($"{e.Has<HP>()}");
@@ -60,7 +70,7 @@ namespace Wargon.Nukecs.Tests {
     public struct ViewSystem : ISystem, ICreate {
         private Query Query;
         public void OnCreate(ref World world) {
-            Query =  world.CreateQuery().With<View>().With<Transform>().None<Dead>();
+            Query = world.CreateQuery().None<Dead>().With<View>().With<Transform>();
         }
 
         public void OnUpdate(ref World world, float deltaTime) {
@@ -73,7 +83,7 @@ namespace Wargon.Nukecs.Tests {
             }
         }
     }
-
+    [BurstCompile]
     public struct MoveSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
@@ -83,6 +93,7 @@ namespace Wargon.Nukecs.Tests {
             ref var transform = ref entity.Get<Transform>();
             ref var speed = ref entity.Get<Speed>();
             transform.position += speed.value * deltaTime * math.right();
+            if (transform.position.x > 50f) entity.Add(new Dead());
         }
     }
     [BurstCompile]
@@ -166,5 +177,11 @@ namespace Wargon.Nukecs.Tests {
 
     public struct Speed : IComponent {
         public float value;
+    }
+
+    public static class RandomEx {
+        public static float3 Float3(float min, float max) {
+            return new float3(UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max));
+        }
     }
 }
