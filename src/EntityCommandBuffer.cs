@@ -7,6 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using Wargon.Nukecs.Tests;
 
 
 namespace Wargon.Nukecs {
@@ -134,13 +135,23 @@ namespace Wargon.Nukecs {
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = ComponentMeta<T>.Index,
+                    ComponentType = ComponentMeta<T>.Index
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
                 count++;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void Remove<T>(int entity, int thread) where T : unmanaged {
+                var cmd = new ECBCommand {
+                    Entity = entity, 
+                    EcbCommandType = ECBCommand.Type.RemoveComponent, 
+                    ComponentType = ComponentMeta<T>.Index
+                };
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+                count++;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Destroy(int entity, int thread) {
                 // var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.DestroyEntity};
@@ -149,14 +160,7 @@ namespace Wargon.Nukecs {
                 count++;
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Remove<T>(int entity, int thread) where T : unmanaged {
-                var cmd = new ECBCommand
-                    {Entity = entity, EcbCommandType = ECBCommand.Type.RemoveComponent, ComponentType = ComponentMeta<T>.Index};
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(cmd);
-                count++;
-            }
+
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetViewPosition(int entity, float3 pos, int thread) {
@@ -345,6 +349,7 @@ namespace Wargon.Nukecs {
                             break;
                         case ECBCommand.Type.AddComponentNoData:
                             e = ref world.GetEntity(cmd.Entity);
+
                             if(e.archetypeRef.Has(cmd.ComponentType)) break;
                             e.archetypeRef.OnEntityChangeECB(ref e, cmd.ComponentType);
                             //world.GetEntity(cmd.Entity).AddByTypeID(cmd.ComponentType);
@@ -403,6 +408,7 @@ namespace Wargon.Nukecs {
                 for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
                     ref var e = ref world.GetEntity(cmd.Entity);
+                    //ref var a = ref *world.impl->entitiesArchetypes.ElementAt(cmd.Entity).impl;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             if(e.archetypeRef.Has(cmd.ComponentType)) break;

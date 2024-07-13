@@ -6,6 +6,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs {
     public unsafe struct Archetype : IDisposable {
@@ -97,6 +98,7 @@ namespace Wargon.Nukecs {
             this.queries = new UnsafePtrList<Query.QueryUnsafe>(8, world->allocator);
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
             this.destroyEdge = default;
+            
             PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
         }
@@ -105,11 +107,16 @@ namespace Wargon.Nukecs {
             for (var i = 0; i < world->queries.Length; i++) {
                 var q = world->queries[i];
                 var matches = 0;
-                foreach (var type in types) {
+                var hasNone = false;
+                for (var index = 0; index < types.Length; index++) {
+                    var type = types[index];
                     if (q->HasNone(type)) {
-                        break;
+                        hasNone = true;
                     }
-
+                }
+                if(hasNone) continue;
+                for (var index = 0; index < types.Length; index++) {
+                    var type = types[index];
                     if (q->HasWith(type)) {
                         matches++;
                         if (matches == q->with.Count) {
@@ -118,6 +125,7 @@ namespace Wargon.Nukecs {
                         }
                     }
                 }
+
             }
         }
 
@@ -238,7 +246,7 @@ namespace Wargon.Nukecs {
 
         public override string ToString() {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.Append("Archetype");
+            sb.Append("<color=#FFB200>Archetype</color>");
             if (mask.Count == 0) {
                 sb.Append(".Empty");
                 return sb.ToString();
@@ -248,10 +256,10 @@ namespace Wargon.Nukecs {
                 sb.Append($"[{ComponentsMap.GetType(types[i]).Name}]");
             }
 
-            sb.Append("/n");
+            sb.Append(Environment.NewLine);
             for (var index = 0; index < queries.Length; index++) {
                 var ptr = queries.ElementAt(index);
-                sb.Append($"{ptr->ToString()};/n");
+                sb.Append($"<color=#6CFF6C>{ptr->ToString()}</color>;{Environment.NewLine}");
             }
 
             return sb.ToString();
@@ -332,11 +340,11 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Execute(int entity) {
-            for (int i = 0; i < removeEntity->m_length; i++) {
+            for (int i = 0; i < removeEntity->Length; i++) {
                 removeEntity->ElementAt(i)->Remove(entity);
             }
 
-            for (int i = 0; i < addEntity->m_length; i++) {
+            for (int i = 0; i < addEntity->Length; i++) {
                 addEntity->ElementAt(i)->Add(entity);
             }
         }

@@ -75,7 +75,7 @@ namespace Wargon.Nukecs {
             return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
         }
     }
-
+    [NativeContainer]
     public unsafe struct GenericPool : IDisposable {
         [NativeDisableUnsafePtrRestriction] internal Impl* impl;
         public bool IsCreated;
@@ -103,7 +103,7 @@ namespace Wargon.Nukecs {
             };
             return ptr;
         }
-
+        [NativeContainer]
         internal struct Impl {
             [NativeDisableUnsafePtrRestriction] internal byte* buffer;
             internal int elementSize;
@@ -120,6 +120,7 @@ namespace Wargon.Nukecs {
                     allocator = allocator,
                     buffer = (byte*) UnsafeUtility.Malloc(sizeof(T) * size, UnsafeUtility.AlignOf<T>(), allocator)
                 };
+                UnsafeUtility.MemClear(ptr->buffer, (long) size * (long) UnsafeUtility.SizeOf<T>());
                 return ptr;
             }
 
@@ -174,6 +175,8 @@ namespace Wargon.Nukecs {
             if (impl == null) return;
             var allocator = impl->allocator;
             UnsafeUtility.Free(impl->buffer, allocator);
+            impl->buffer = null;
+            impl->count = 0;
             UnsafeUtility.Free(impl, allocator);
             IsCreated = false;
         }
@@ -187,4 +190,13 @@ namespace Wargon.Nukecs {
             UnityEngine.Debug.Log(message);
         }
     }
+
+    // public unsafe struct Pools {
+    //     public void* pools;
+    //     public int count;
+    //     public void Add<T>() where T : unmanaged {
+    //         var array = new NativeArray<T>(256, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+    //         pools[count++] = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>()
+    //     }
+    // }
 }

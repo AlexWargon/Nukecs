@@ -10,23 +10,21 @@ namespace Wargon.Nukecs {
 
     public interface IComponent {
         public static int Count() {
-            return Component.Amount.Data;
+            return ComponentAmount.Value.Data;
         }
+    }
+
+    public struct ComponentAmount {
+        public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
     public struct Component {
         /// <summary>
         /// Components count that are using right now
         /// </summary>
         public static readonly SharedStatic<int> Count;
-        /// <summary>
-        /// Total components 
-        /// </summary>
-        public static readonly SharedStatic<int> Amount;
 
         static Component() {
-            Amount = SharedStatic<int>.GetOrCreate<Component>();
             Count = SharedStatic<int>.GetOrCreate<Component>();
-            
             Count.Data = 0;
             //Initialization();
         }
@@ -38,14 +36,14 @@ namespace Wargon.Nukecs {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
                     if (typeof(Wargon.Nukecs.IComponent).IsAssignableFrom(type) && type != typeof(Wargon.Nukecs.IComponent)) {
-                        //Debug.Log($"Component {type.Name}");
-                        Component.Amount.Data++;
+                        //Debug.Log($"Component {type.Name} with id {ComponentAmount.Value.Data}");
+                        ComponentAmount.Value.Data++;
                     }
                 }
             }
         }
     }
-
+    
     public struct ComponentMeta<T> where T : unmanaged {
         private static readonly SharedStatic<int> id;
 
@@ -56,6 +54,7 @@ namespace Wargon.Nukecs {
         static ComponentMeta() {
             id = SharedStatic<int>.GetOrCreate<ComponentMeta<T>>();
             id.Data = Component.Count.Data++;
+            //Debug.Log($"{typeof(T).Name} with id {id.Data}");
             Init();
         }
         [BurstDiscard]
