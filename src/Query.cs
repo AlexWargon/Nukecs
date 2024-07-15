@@ -8,7 +8,12 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
     public unsafe struct Query : IDisposable {
-        public int Count => impl->count;
+        
+        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
+        public int Count {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => impl->count;
+        }
 
         internal struct QueryUnsafe {
             internal DynamicBitmask with;
@@ -26,6 +31,8 @@ namespace Wargon.Nukecs {
             }
 
             private void Free() {
+                with.Dispose();
+                none.Dispose();
                 entities.Dispose();
                 entitiesMap.Dispose();
             }
@@ -40,14 +47,14 @@ namespace Wargon.Nukecs {
                 this.world = world;
                 this.with = DynamicBitmask.CreateForComponents();
                 this.none = DynamicBitmask.CreateForComponents();
-                this.count = default;
+                this.count = 0;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
                     world->allocator, NativeArrayOptions.ClearMemory);
                 this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
                     world->allocator, NativeArrayOptions.ClearMemory);
                 this.self = self;
             }
-
+            
             public ref Entity GetEntity(int index) {
                 return ref world->GetEntity(entities[index]);
             }
@@ -118,7 +125,6 @@ namespace Wargon.Nukecs {
             }
         }
 
-        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
 
         internal Query(World.WorldImpl* world) {
             impl = QueryUnsafe.Create(world);
@@ -129,12 +135,12 @@ namespace Wargon.Nukecs {
         }
 
         public Query With<T>() where T : unmanaged {
-            impl->With(ComponentMeta<T>.Index);
+            impl->With(ComponentType<T>.Index);
             return this;
         }
 
         public Query None<T>() where T : unmanaged {
-            impl->None(ComponentMeta<T>.Index);
+            impl->None(ComponentType<T>.Index);
             return this;
         }
 
