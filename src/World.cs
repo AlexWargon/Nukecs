@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -11,6 +12,7 @@ namespace Wargon.Nukecs {
         public static ref World Get(int index) => ref worlds[index];
 
         public static World Create() {
+            Component.Initialization();
             World world;
             var id = lastWorldID++;
             world.impl = WorldImpl.Create(id, WorldConfig.Default);
@@ -73,7 +75,7 @@ namespace Wargon.Nukecs {
                 this.ECB = new EntityCommandBuffer(256);
                 this.EFB = new EntityFilterBuffer(256);
                 this.self = self;
-                var s = ComponentMeta<DestroyEntity>.Index;
+                var s = ComponentType<DestroyEntity>.Index;
             }
 
             internal void Init(WorldImpl* self) {
@@ -108,9 +110,9 @@ namespace Wargon.Nukecs {
                 EFB.Dispose();
                 self = null;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
-                var poolIndex = ComponentMeta<T>.Index;
+                var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.ElementAt(poolIndex);
                 if (pool.impl == null) {
                     pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
@@ -119,7 +121,7 @@ namespace Wargon.Nukecs {
 
                 return ref pool;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.ElementAt(poolIndex);
                 if (pool.impl == null) {
@@ -131,18 +133,18 @@ namespace Wargon.Nukecs {
             }
 
             internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
                 var e = new Entity(lastEntityIndex, self);
                 if (lastEntityIndex >= entities.m_capacity) {
-                    entities.Resize(lastEntityIndex * 2);
+                    entities.Resize(lastEntityIndex * 2, NativeArrayOptions.ClearMemory);
                     entities.m_length = entities.m_capacity;
                 }
                 entities.ElementAt(lastEntityIndex) = e;
                 lastEntityIndex++;
                 return e;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAt(id);
             }
@@ -199,6 +201,7 @@ namespace Wargon.Nukecs {
             UnsafeUtility.Free(impl, allocator);
             impl = null;
             Debug.Log($"World {id} Disposed");
+            ComponentsMap.Save();
         }
 
         public ref GenericPool GetPool<T>() where T : unmanaged {
@@ -227,8 +230,8 @@ namespace Wargon.Nukecs {
         public Allocator WorldAllocator => Allocator.Persistent;
 
         public static WorldConfig Default => new WorldConfig() {
-            StartPoolSize = 12800,
-            StartEntitiesAmount = 12800,
+            StartPoolSize = 128000,
+            StartEntitiesAmount = 128000,
             StartComponentsAmount = 32
         };
     }

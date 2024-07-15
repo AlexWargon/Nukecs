@@ -63,7 +63,6 @@ namespace Wargon.Nukecs {
         }
         public void OnUpdate(float dt) {
             dependencies.Complete();
-
             for (var i = 0; i < runners.Count; i++) {
                 dependencies = runners[i].Schedule(ref world, dt, ref dependencies);
             }
@@ -86,7 +85,6 @@ namespace Wargon.Nukecs {
     public struct ECBJob : IJob {
         public EntityCommandBuffer ECB;
         public World world;
-
         public void Execute() {
             ECB.Playback(ref world);
         }
@@ -228,9 +226,9 @@ namespace Wargon.Nukecs {
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), dependsOn,
                 mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
-            var workers = JobsUtility.JobWorkerCount;
-            var batchCount = query.Count > workers ? query.Count / workers : 1;
-            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, batchCount);
+            //var workers = JobsUtility.JobWorkerCount;
+            //var batchCount = query.Count > workers ? query.Count / workers : 1;
+            return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
         }
         
         public static unsafe void Run<TJob>(this TJob jobData, ref Query query, float deltaTime) where TJob : struct, IEntityJobSystem
@@ -329,9 +327,7 @@ namespace Wargon.Nukecs {
     public interface ICreate {
         void OnCreate(ref World world);
     }
-    public interface ISystem : ISystemBase {
+    public interface ISystem {
         void OnUpdate(ref World world, float deltaTime);
     }
-    
-    public interface ISystemBase {}
 }

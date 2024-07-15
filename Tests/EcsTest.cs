@@ -1,38 +1,29 @@
 using System;
-using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
-using Random = Unity.Mathematics.Random;
 
 namespace Wargon.Nukecs.Tests {
     public unsafe class EcsTest : MonoBehaviour {
         private World world;
         private Systems systems;
+        public EntityLink link;
+        void Awake() {
 
-        void Start() {
-            // var mask = new DynamicBitmask(128);
-            //
-            //
-            // mask.Add(5);
-            //
-            // mask.Add(123);
-            //
-            // Debug.Log(mask.Has(5));
-            // Debug.Log(mask.Has(124));
-            // Debug.Log(mask.Has(123));
-            // Debug.Log(mask.Has(1));
-            // mask.Dispose();
             world = World.Create();
             systems = new Systems(ref world);
             systems
                 .Add<ViewSystem>()
                 .Add<MoveSystem>()
-                
                 ;
-
-            for (int i = 0; i < 50; i++)
+            //link.Convert(ref world);
+            //Debug.Log(ComponentsMap.Index(typeof(View)));
+            //var pool = GenericPool.Create(typeof(View), 256, Allocator.Persistent);
+            for (int i = 0; i < 100; i++)
             {
                 var e = world.CreateEntity();
                 e.Add(new Speed{value = 10f});
@@ -41,24 +32,19 @@ namespace Wargon.Nukecs.Tests {
                 e.Add(new View {
                     value = cube
                 });
-                e.Add(new Transform() {
+                e.Add(new Transform {
                     position = RandomEx.Float3(-2.0f,2.0f)
                 });
+                
+                // e.Add(new C1());
+                // e.Add(new C2());
             }
-
-            //Debug.unityLogger.logEnabled = false;
-            // Debug.Log($"{e.Get<HP>().value}");
-            // Debug.Log($"{e.Has<Speed>()}");
-            // Debug.Log($"{e.Has<HP>()}");
-            // Debug.Log($"{e.Has<Money>()}");
-            // Debug.Log($"{e.Has<Player>()}");
         }
         
         // Update is called once per frame
         private void Update() {
             systems.OnUpdate(Time.deltaTime);
             //systems.Run(Time.deltaTime);
-
         }
 
         private void OnDestroy() {
@@ -70,7 +56,7 @@ namespace Wargon.Nukecs.Tests {
     public struct ViewSystem : ISystem, ICreate {
         private Query Query;
         public void OnCreate(ref World world) {
-            Query = world.CreateQuery().None<Dead>().With<View>().With<Transform>();
+            Query = world.CreateQuery().With<View>().With<Transform>();
         }
 
         public void OnUpdate(ref World world, float deltaTime) {
@@ -78,6 +64,9 @@ namespace Wargon.Nukecs.Tests {
                 ref var entity = ref Query.GetEntity(i);
                 ref var view = ref entity.Get<View>();
                 ref var transform = ref entity.Get<Transform>();
+                if (float.IsNaN(transform.position.x)) {
+                    continue;
+                }
                 view.value.Value.transform.position = transform.position;
                 view.value.Value.transform.rotation = transform.rotation;
             }
@@ -91,40 +80,10 @@ namespace Wargon.Nukecs.Tests {
         }
         public void OnUpdate(ref Entity entity, float deltaTime) {
             ref var transform = ref entity.Get<Transform>();
-            ref var speed = ref entity.Get<Speed>();
+            var speed = entity.Read<Speed>();
             transform.position += speed.value * deltaTime * math.right();
-            if (transform.position.x > 50f) entity.Add(new Dead());
-        }
-    }
-    [BurstCompile]
-    public struct TestSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        private Query _query;
-        public Query GetQuery(ref World world)
-        {
-            _query = world.CreateQuery().With<Money>().None<Dead>();
-            return _query;
-        }
-        
-        public void OnUpdate(ref Entity e, float deltaTime) {
-            ref var money = ref e.Get<Money>();
-            money.amount++;
-            //Log(ref money);
-            if (money.amount >= 1200) {
-                //if(e.Has<Dead>())
-                    e.Remove<Money>();
-                //e.Add(new Dead());
-                
-            }
-        }
-        
-        [BurstDiscard]
-        private void Log(ref Money money) {
-            Debug.Log($"YOU ARE MILLINER {money.amount}");
-        }
-        [BurstDiscard]
-        private void Log2(ref Money money) {
-            Debug.Log($" {money.amount}");
+            if (transform.position.x > 20f) entity.Destroy();
+
         }
     }
 
@@ -157,11 +116,12 @@ namespace Wargon.Nukecs.Tests {
             
         }
     }
+    [Serializable]
     public struct HP : IComponent {
         public int value;
     }
     public struct Player : IComponent { }
-
+    [Serializable]
     public struct Money : IComponent {
         public int amount;
         public override string ToString() {
@@ -169,12 +129,11 @@ namespace Wargon.Nukecs.Tests {
         }
     }
 
-    public struct Dead : IComponent { }
-
+    [Serializable]
     public struct View : IComponent {
         public UnityObjectRef<GameObject> value;
     }
-
+    [Serializable]
     public struct Speed : IComponent {
         public float value;
     }
@@ -184,4 +143,29 @@ namespace Wargon.Nukecs.Tests {
             return new float3(UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max));
         }
     }
+    [BurstCompile]
+    public struct MigrationTest1 : IEntityJobSystem {
+        [NativeSetThreadIndex] internal int ThreadIndex;
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<C1>().With<C2>().None<C3>();
+        }
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            entity.Add(new C3());
+        }
+    }
+    [BurstCompile]
+    public struct MigrationTest2 : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<C1>().With<C2>().With<C3>();
+        }
+
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            entity.Remove<C3>();
+        }
+    }
+    public struct C1 : IComponent{}
+    public struct C2 : IComponent{}
+    public struct C3 : IComponent{}
 }

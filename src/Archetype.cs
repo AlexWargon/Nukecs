@@ -13,7 +13,7 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction] internal ArchetypeImpl* impl;
 
         internal bool Has<T>() where T : unmanaged {
-            return impl->Has(ComponentMeta<T>.Index);
+            return impl->Has(ComponentType<T>.Index);
         }
 
         public void Dispose() {
@@ -156,21 +156,18 @@ namespace Wargon.Nukecs {
             //entity.archetype = edge.toMove;
             world->EFB.Add(entity.id, edge);
         }
-
-        internal void OnEntityChangeECB(ref Entity entity, int component) {
-            //if (id == 0 && component < 0) return;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void OnEntityChangeECB(int entity, int component) {
             if (transactions.TryGetValue(component, out var edge)) {
-                //entity.archetype = edge.toMove;
-                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-                edge.Execute(entity.id);
-                //Debug.Log($"EXIST {edge.toMove->id}");
+                world->entitiesArchetypes.ElementAt(entity) = edge.toMove;
+                edge.Execute(entity);
                 return;
             }
 
             CreateTransaction(component);
             edge = transactions[component];
-            world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-            edge.Execute(entity.id);
+            world->entitiesArchetypes.ElementAt(entity) = edge.toMove;
+            edge.Execute(entity);
         }
 
         internal void OnEntityChangeRemove(ref Entity entity, int component) {
@@ -188,7 +185,9 @@ namespace Wargon.Nukecs {
             world->EFB.Add(entity.id, edge);
         }
 
-        public void Destroy(int entity) { }
+        public void Destroy(int entity) {
+            destroyEdge.Execute(entity);
+        }
 
         internal void Filter(ref Entity entity, int component) {
             //if (id == 0 && component < 0) return;
@@ -201,7 +200,6 @@ namespace Wargon.Nukecs {
 
         internal void CreateTransaction(int component) {
             var remove = component < 0;
-
             var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->allocator,
                 NativeArrayOptions.ClearMemory);
             var positiveComponent = math.abs(component);
@@ -214,10 +212,8 @@ namespace Wargon.Nukecs {
             if (remove == false) {
                 newTypes.Add(component);
             }
-
             //Debug.Log($"Component {component}");
             //Debug.Log($"REMOVE? {remove}");
-
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
             var otherArchetype = otherArchetypeStruct.impl;
             var otherEdge = new Edge(ref otherArchetypeStruct, world->allocator);
@@ -228,20 +224,16 @@ namespace Wargon.Nukecs {
                     otherEdge.removeEntity->Add(thisQuery);
                 }
             }
-
             for (var index = 0; index < otherArchetype->queries.Length; index++) {
                 var otherQuery = otherArchetype->queries[index];
                 if (queries.Contains(otherQuery) == false) {
                     otherEdge.addEntity->Add(otherQuery);
                 }
             }
-
             if (transactions.ContainsKey(component)) {
                 return;
             }
-
             transactions.Add(component, otherEdge);
-            //Nukecs.Log($"transaction to from {ToString()} to {otherArchetype->ToString()} with {component} created");
         }
 
         public override string ToString() {
@@ -310,7 +302,7 @@ namespace Wargon.Nukecs {
     public static class ArchetypePointerExtensions {
         [BurstCompile]
         internal static bool Has<T>(this ref ArchetypeImpl archetype) where T : unmanaged {
-            return archetype.mask.Has(ComponentMeta<T>.Index);
+            return archetype.mask.Has(ComponentType<T>.Index);
         }
         [BurstCompile]       
         internal static bool Has(this ref ArchetypeImpl archetype, int type) {
