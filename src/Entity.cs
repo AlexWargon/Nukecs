@@ -33,10 +33,10 @@ namespace Wargon.Nukecs {
     public static unsafe class EntityExt {
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Add<T>(this ref Entity entity, T component) where T : unmanaged {
+        public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
             //if (entity.archetypeRef.Has<T>()) return;
-            entity.worldPointer->GetPool<T>().Set(entity.id, component);
+            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
             //entity.archetypeRef.OnEntityChange(ref entity, ComponentMeta<T>.Index);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<T>(entity.id);

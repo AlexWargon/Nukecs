@@ -1,9 +1,5 @@
 using System;
 using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -11,111 +7,122 @@ namespace Wargon.Nukecs.Tests {
     public unsafe class EcsTest : MonoBehaviour {
         private World world;
         private Systems systems;
-        public EntityLink link;
+        public GameObject sphere;
         void Awake() {
-
-            world = World.Create();
+            world = World.Create(WorldConfig.Default_1_000_000);
             systems = new Systems(ref world);
             systems
-                .Add<ViewSystem>()
                 .Add<MoveSystem>()
+                //.Add<ViewSystem2>()
+                //.Add<ViewSystem>()
                 ;
             //link.Convert(ref world);
             //Debug.Log(ComponentsMap.Index(typeof(View)));
             //var pool = GenericPool.Create(typeof(View), 256, Allocator.Persistent);
-            for (int i = 0; i < 100; i++)
+            for (int i = 0; i < 1000000; i++)
             {
                 var e = world.CreateEntity();
-                e.Add(new Speed{value = 10f});
-                var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                Destroy(cube.GetComponent<BoxCollider>());
+                e.Add(new Speed{value = 20f});
+                var cube = Instantiate(sphere);
+                //var cube = new GameObject($"e:{e.id}");
+                cube.name = $"{cube.name}_{e.id}";
+                //Destroy(cube.GetComponent<BoxCollider>());
                 e.Add(new View {
                     value = cube
                 });
                 e.Add(new Transform {
-                    position = RandomEx.Float3(-2.0f,2.0f)
+                    position = RandomEx.Vector3(-10.0f,10.0f)
                 });
-                
+                e.Add(new ViewPosition());
                 // e.Add(new C1());
                 // e.Add(new C2());
             }
         }
-        
-        // Update is called once per frame
+
         private void Update() {
             systems.OnUpdate(Time.deltaTime);
             //systems.Run(Time.deltaTime);
         }
-
         private void OnDestroy() {
-            
             world.Dispose();
+            World.DisposeStatic();
         }
     }
-    [BurstCompile]
+
     public struct ViewSystem : ISystem, ICreate {
-        private Query Query;
+        private Query _query;
         public void OnCreate(ref World world) {
-            Query = world.CreateQuery().With<View>().With<Transform>();
+            _query = world.CreateQuery().With<View>().With<Transform>();
         }
 
         public void OnUpdate(ref World world, float deltaTime) {
-            for (var i = 0; i < Query.Count; i++) {
-                ref var entity = ref Query.GetEntity(i);
-                ref var view = ref entity.Get<View>();
-                ref var transform = ref entity.Get<Transform>();
-                if (float.IsNaN(transform.position.x)) {
-                    continue;
-                }
+            for (var i = 0; i < _query.Count; i++) {
+                ref var entity = ref _query.GetEntity(i);
+                var view = entity.Read<View>();
+                var transform = entity.Read<Transform>();
                 view.value.Value.transform.position = transform.position;
-                view.value.Value.transform.rotation = transform.rotation;
+                //view.value.Value.transform.rotation = transform.rotation;
             }
         }
     }
-    [BurstCompile]
+    // [BurstCompile]
+    // public struct ViewSystem2 : IEntityJobSystem {
+    //     public SystemMode Mode => SystemMode.Parallel;
+    //     public Query GetQuery(ref World world) {
+    //         return world.CreateQuery().With<ViewPosition>().With<Transform>();
+    //     }
+    //     
+    //     public void OnUpdate(ref Entity entity, float deltaTime) {
+    //         ref var view = ref entity.Get<ViewPosition>();
+    //         var transform = entity.Read<Transform>();
+    //         view.Value = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+    //     }
+    // } 
+    [BurstCompile(CompileSynchronously = true)]
     public struct MoveSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
             return world.CreateQuery().With<Transform>().With<Speed>();
         }
+
+        private const float fixedDeltaTime = 1f / 60f;
+        [BurstCompile(CompileSynchronously = true)]
         public void OnUpdate(ref Entity entity, float deltaTime) {
             ref var transform = ref entity.Get<Transform>();
             var speed = entity.Read<Speed>();
-            transform.position += speed.value * deltaTime * math.right();
-            if (transform.position.x > 20f) entity.Destroy();
-
-        }
-    }
-
-    [BurstCompile]
-    public struct TestSystem2 : IJobSystem, ICreate {
-        private Query _query;
-
-        public void OnCreate(ref World world) {
-            _query = world.CreateQuery().None<Money>().With<Player>();
-        }
-
-        public void OnUpdate(ref World world, float deltaTime) {
-            if (_query.Count > 0) {
-                //Log();
-            }
-
-            for (var i = 0; i < _query.Count; i++) {
-
-                ref var e = ref _query.GetEntity(i);
+    
+            float remainingTime = deltaTime;
+            while (remainingTime > 0) {
+                float stepTime = math.min(fixedDeltaTime, remainingTime);
+                float3 newPosition = transform.position + speed.value * stepTime * math.right();
+        
+                if (newPosition.x > 140f) {
+                    transform.position.x = 140f;
+                    entity.Destroy();
+                    break;
+                }
+                transform.position = newPosition;
+                remainingTime -= stepTime;
             }
         }
-        [BurstDiscard]
-        private void Log() {
-            //Debug.Log(_query.Count);
-        }
     }
-    [BurstCompile]
-    public struct BurstTest {
-        public void Execute() {
-            
-        }
-    }
+    
+    // [BurstCompile]
+    // public struct MoveSystem2 : IEntityJobSystem<Transform, Speed> {
+    //     public SystemMode Mode => SystemMode.Parallel;
+    //     public Query GetQuery(ref World world) {
+    //         return world.CreateQuery().With<Transform>().With<Speed>();
+    //     }
+    //
+    //     public void OnUpdate(ref Entity entity, ref Transform transform, ref Speed speed, float deltaTime) {
+    //         transform.position += speed.value * deltaTime * math.right();
+    //
+    //         if (transform.position.x > 140f) {
+    //             entity.Destroy();
+    //         }
+    //     }
+    // }
+
     [Serializable]
     public struct HP : IComponent {
         public int value;
@@ -130,6 +137,10 @@ namespace Wargon.Nukecs.Tests {
     }
 
     [Serializable]
+    public struct ViewPosition : IComponent {
+        public Vector3 Value;
+    }
+    [Serializable]
     public struct View : IComponent {
         public UnityObjectRef<GameObject> value;
     }
@@ -137,35 +148,12 @@ namespace Wargon.Nukecs.Tests {
     public struct Speed : IComponent {
         public float value;
     }
-
     public static class RandomEx {
         public static float3 Float3(float min, float max) {
             return new float3(UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max));
         }
-    }
-    [BurstCompile]
-    public struct MigrationTest1 : IEntityJobSystem {
-        [NativeSetThreadIndex] internal int ThreadIndex;
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<C1>().With<C2>().None<C3>();
-        }
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            entity.Add(new C3());
+        public static Vector3 Vector3(float min, float max) {
+            return new Vector3(UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max));
         }
     }
-    [BurstCompile]
-    public struct MigrationTest2 : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<C1>().With<C2>().With<C3>();
-        }
-
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            entity.Remove<C3>();
-        }
-    }
-    public struct C1 : IComponent{}
-    public struct C2 : IComponent{}
-    public struct C3 : IComponent{}
 }
