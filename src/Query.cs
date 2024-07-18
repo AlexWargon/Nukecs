@@ -54,9 +54,9 @@ namespace Wargon.Nukecs {
                     world->allocator, NativeArrayOptions.ClearMemory);
                 this.self = self;
             }
-            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref Entity GetEntity(int index) {
-                return ref world->GetEntity(entities[index]);
+                return ref world->entities.ElementAt(entities[index]);
             }
 
             internal bool Has(int entity) {
@@ -143,7 +143,7 @@ namespace Wargon.Nukecs {
             impl->None(ComponentType<T>.Index);
             return this;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
             return ref impl->GetEntity(index);
         }

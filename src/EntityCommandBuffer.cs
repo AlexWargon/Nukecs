@@ -42,7 +42,7 @@ namespace Wargon.Nukecs {
 
         [StructLayout(LayoutKind.Sequential)]
         public struct ECBCommand {
-            public void* Component;
+            public byte* Component;
             public int Entity;
             public Type EcbCommandType;
             public int ComponentType;
@@ -117,9 +117,9 @@ namespace Wargon.Nukecs {
                 //if(IsCreated== false) return;
                 var size = UnsafeUtility.SizeOf<T>();
                 var ptr = (T*) UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
-                *ptr = component;
+                UnsafeUtility.CopyStructureToPtr(ref component, ptr);
                 var cmd = new ECBCommand {
-                    Component = ptr,
+                    Component = (byte*)ptr,
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,
                     ComponentType = ComponentType<T>.Index,
@@ -142,11 +142,11 @@ namespace Wargon.Nukecs {
                 count++;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Add(int entity, int thread, int componnet) {
+            public void Add(int entity, int thread, int component) {
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = componnet
+                    ComponentType = component
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -313,7 +313,7 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add<T>(int entity, T component) where T : unmanaged {
-            ecb->Add(entity, component, ThreadIndex);
+            ecb->Add(entity, component, JobsUtility.ThreadIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -353,9 +353,9 @@ namespace Wargon.Nukecs {
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             ref var e = ref world.GetEntity(cmd.Entity);
-                            // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
+                            ref var pool = ref world.impl->GetUntypedPool(cmd.ComponentType);
                             // pool.SetPtr(e.id, cmd.Component);
-                            // UnsafeUtility.Free(cmd.Component, Allocator.Temp);
+                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                             
                             e.archetypeRef.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                             break;
@@ -394,6 +394,9 @@ namespace Wargon.Nukecs {
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             if(archetype.Has(cmd.ComponentType)) break;
+                            ref var pool = ref world.impl->GetUntypedPool(cmd.ComponentType);
+                            pool.SetPtr(cmd.Entity, cmd.Component);
+                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                             archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                             break;
                         case ECBCommand.Type.AddComponentNoData:
