@@ -34,17 +34,20 @@ namespace Wargon.Nukecs {
         [BurstDiscard]
         public static void Initialization() {
             if(_initialized) return;
+            ComponentsMap.Init();
+            var count = 0;
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies) {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
-                    if (typeof(Wargon.Nukecs.IComponent).IsAssignableFrom(type) && type != typeof(Wargon.Nukecs.IComponent)) {
+                    if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
                         //Debug.Log($"Component {type.Name} with id {ComponentAmount.Value.Data}");
-                        ComponentAmount.Value.Data++;
+                        ComponentsMap.Add(type,count++);
                     }
                 }
             }
-            ComponentsMap.Init();
+
+            ComponentAmount.Value.Data = count;
             _initialized = true;
         }
     }
@@ -56,22 +59,21 @@ namespace Wargon.Nukecs {
         public int align;
     }
     public struct ComponentType<T> where T : unmanaged {
-        private static readonly SharedStatic<int> id;
+        internal static readonly SharedStatic<int> ID = SharedStatic<int>.GetOrCreate<ComponentType<T>>();
 
         public static int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => id.Data;
+            get => ID.Data;
         }
         static ComponentType() {
-            id = SharedStatic<int>.GetOrCreate<ComponentType<T>>();
-            id.Data = Component.Count.Data++;
-            //Debug.Log($"{typeof(T).Name} with id {id.Data}");
             Init();
         }
         [BurstDiscard]
         private static void Init() {
-            ComponentsMap.Add(typeof(T), UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
+            ID.Data = ComponentsMap.Index(typeof(T));
+            ComponentsMap.AddComponentType(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
             BoxedWriters.CreateWriter<T>(Index);
+            //Debug.Log($"{typeof(T).Name} with id {id.Data}");
         }
     }
 
@@ -91,16 +93,18 @@ namespace Wargon.Nukecs {
                 new NativeHashMap<int, ComponentType>(ComponentAmount.Value.Data + 1, Allocator.Persistent);
             _initialized = true;
         }
-        public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
-        public static void Add(Type type, int align, int index, int size) {
-            cache.Add(type, align, index);
-            ComponentTypes.Data.Add(index, new ComponentType {
+
+        public static void AddComponentType(int align, int index, int size) {
+            ComponentTypes.Data.TryAdd(index, new ComponentType {
                 align = align,
                 size = size,
                 index = index
             });
         }
-        public static int AlignOf(Type type) => cache.AlignOf(type);
+        public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
+        public static void Add(Type type, int index) {
+            cache.Add(type, index);
+        }
         public static Type GetType(int index) => cache.GetType(index);
         public static int Index(Type type) => cache.Index(type);
         public static int Index(string name) {
@@ -118,14 +122,12 @@ namespace Wargon.Nukecs {
 
     [Serializable]
     public class ComponentsMapCache {
-        private readonly Dictionary<Type, int> _aligns = new();
         private readonly Dictionary<int, Type> _typeByIndex = new();
         private readonly Dictionary<Type, int> _indexByType = new();
         private readonly Dictionary<string, Type> _nameToType = new();
         public readonly List<int> TypesIndexes = new();
 
-        public void Add(Type type, int align, int index) {
-            _aligns[type] = align;
+        public void Add(Type type, int index) {
             _typeByIndex[index] = type;
             _indexByType[type] = index;
             if(TypesIndexes.Contains(index) == false)
@@ -133,7 +135,6 @@ namespace Wargon.Nukecs {
             _nameToType[type.FullName] = type;
         }
 
-        public int AlignOf(Type type) => _aligns[type];
         public Type GetType(int index) => _typeByIndex[index];
         public int Index(Type type) => _indexByType[type];
 

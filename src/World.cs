@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -20,8 +19,6 @@ namespace Wargon.Nukecs {
             lastWorldID = id;
             world.Unsafe = WorldUnsafe.Create(id, WorldConfig.Default_1_000_000);
             worlds[id] = world;
-            new Systems.WarmupJob().Schedule().Complete();
-            
             return world;
         }
         public static World Create(WorldConfig config) {
@@ -31,8 +28,6 @@ namespace Wargon.Nukecs {
             lastWorldID = id;
             world.Unsafe = WorldUnsafe.Create(id, config);
             worlds[id] = world;
-            new Systems.WarmupJob().Schedule().Complete();
-            
             return world;
         }
         public static void DisposeStatic() {
@@ -134,16 +129,20 @@ namespace Wargon.Nukecs {
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.ElementAt(poolIndex);
-                if (pool.impl == null) {
+                if (!pool.IsCreated) {
                     pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
                     poolsCount++;
                 }
                 return ref pool;
             }
+            [BurstDiscard]
+            private void LogPool<T>(int index) {
+                Debug.Log($"Pool [{typeof(T).Name}. Index {index}]");
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.ElementAt(poolIndex);
-                if (pool.impl == null) {
+                if (!pool.IsCreated) {
                     pool = GenericPool.Create(ComponentsMap.GetComponentType(poolIndex), config.StartPoolSize, allocator);
                     poolsCount++;
                 }
@@ -286,6 +285,10 @@ namespace Wargon.Nukecs {
             var ptr = UnsafeList<T>.Create(size, allocator, options);
             ptr->m_length = size;
             return ptr;
+        }
+
+        public static int AlignOf(Type type) {
+            return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
         }
     }
 
