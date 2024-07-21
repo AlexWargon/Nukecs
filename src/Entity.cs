@@ -32,7 +32,7 @@ namespace Wargon.Nukecs {
     [BurstCompile]
     public static unsafe class EntityExt {
         public static ref DynamicBuffer<T> AddBuffer<T>(this ref Entity entity) where T : unmanaged {
-            ref var pool = ref entity.worldPointer->GetPool<T>();
+            ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
             pool.Set(entity.id, new DynamicBuffer<T>(6));
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<DynamicBuffer<T>>(entity.id);
