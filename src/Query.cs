@@ -21,7 +21,7 @@ namespace Wargon.Nukecs {
             internal UnsafeList<int> entities;
             internal UnsafeList<int> entitiesMap;
             internal int count;
-            [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* world;
+            [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
             [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
 
             internal static void Free(QueryUnsafe* queryImpl) {
@@ -37,13 +37,13 @@ namespace Wargon.Nukecs {
                 entitiesMap.Dispose();
             }
 
-            internal static QueryUnsafe* Create(World.WorldImpl* world) {
+            internal static QueryUnsafe* Create(World.WorldUnsafe* world) {
                 var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
                 *ptr = new QueryUnsafe(world, ptr);
                 return ptr;
             }
 
-            internal QueryUnsafe(World.WorldImpl* world, QueryUnsafe* self) {
+            internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self) {
                 this.world = world;
                 this.with = DynamicBitmask.CreateForComponents();
                 this.none = DynamicBitmask.CreateForComponents();
@@ -126,7 +126,7 @@ namespace Wargon.Nukecs {
         }
 
 
-        internal Query(World.WorldImpl* world) {
+        internal Query(World.WorldUnsafe* world) {
             impl = QueryUnsafe.Create(world);
         }
 

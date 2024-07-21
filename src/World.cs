@@ -18,7 +18,7 @@ namespace Wargon.Nukecs {
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.impl = WorldImpl.Create(id, WorldConfig.Default_1_000_000);
+            world.Unsafe = WorldUnsafe.Create(id, WorldConfig.Default_1_000_000);
             worlds[id] = world;
             new Systems.WarmupJob().Schedule().Complete();
             
@@ -29,7 +29,7 @@ namespace Wargon.Nukecs {
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.impl = WorldImpl.Create(id, config);
+            world.Unsafe = WorldUnsafe.Create(id, config);
             worlds[id] = world;
             new Systems.WarmupJob().Schedule().Complete();
             
@@ -39,12 +39,13 @@ namespace Wargon.Nukecs {
             ComponentsMap.ComponentTypes.Data.Dispose();
             ComponentsMap.Save();
         }
-        public bool IsAlive => impl != null;
-        [NativeDisableUnsafePtrRestriction] internal WorldImpl* impl;
-        internal ref EntityCommandBuffer ECB => ref impl->ECB;
-        internal ref EntityFilterBuffer EFB => ref impl->EFB;
+        public bool IsAlive => Unsafe != null;
+        [NativeDisableUnsafePtrRestriction] 
+        internal WorldUnsafe* Unsafe;
+        internal ref EntityCommandBuffer ECB => ref Unsafe->ECB;
+        internal ref EntityFilterBuffer EFB => ref Unsafe->EFB;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
-        internal unsafe struct WorldImpl {
+        internal unsafe struct WorldUnsafe {
             internal int Id;
             internal Allocator allocator;
             internal UnsafeList<Entity> entities;
@@ -60,11 +61,11 @@ namespace Wargon.Nukecs {
             internal EntityCommandBuffer ECB;
             internal EntityFilterBuffer EFB;
             [NativeDisableUnsafePtrRestriction] 
-            internal WorldImpl* self;
+            internal WorldUnsafe* self;
             
-            internal static WorldImpl* Create(int id, WorldConfig config) {
-                var ptr = Unsafe.Malloc<WorldImpl>(Allocator.Persistent);
-                *ptr = new WorldImpl(id, config, Allocator.Persistent);
+            internal static WorldUnsafe* Create(int id, WorldConfig config) {
+                var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
+                *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
                 ptr->Init(ptr);
                 return ptr;
             }
@@ -75,7 +76,7 @@ namespace Wargon.Nukecs {
                 return ptr;
             }
 
-            public WorldImpl(int id, WorldConfig config, Allocator allocator, WorldImpl* self = null) {
+            public WorldUnsafe(int id, WorldConfig config, Allocator allocator, WorldUnsafe* self = null) {
                 this.Id = id;
                 this.allocator = allocator;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
@@ -97,7 +98,7 @@ namespace Wargon.Nukecs {
                 var s = ComponentType<DestroyEntity>.Index;
             }
 
-            internal void Init(WorldImpl* self) {
+            internal void Init(WorldUnsafe* self) {
                 this.self = self;
                 CreateArchetype();
             }
@@ -211,35 +212,34 @@ namespace Wargon.Nukecs {
         }
 
         public void Dispose() {
-            if (impl == null) return;
-            var id = impl->Id;
+            if (Unsafe == null) return;
+            var id = Unsafe->Id;
             lastFreeSlot = id;
-            impl->Free();
-            var allocator = impl->allocator;
-            UnsafeUtility.Free(impl, allocator);
-            impl = null;
+            Unsafe->Free();
+            var allocator = Unsafe->allocator;
+            UnsafeUtility.Free(Unsafe, allocator);
+            Unsafe = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
-            
         }
 
         public ref GenericPool GetPool<T>() where T : unmanaged {
-            return ref impl->GetPool<T>();
+            return ref Unsafe->GetPool<T>();
         }
 
         public Entity CreateEntity() {
-            return impl->CreateEntity();
+            return Unsafe->CreateEntity();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int id) {
-            return ref impl->GetEntity(id);
+            return ref Unsafe->GetEntity(id);
         }
 
         public Query CreateQuery() {
-            return new Query(impl->CreateQuery());
+            return new Query(Unsafe->CreateQuery());
         }
     }
 
-    public struct IsAlive : IComponent { }
+
 
     public struct WorldConfig {
         public int StartEntitiesAmount;

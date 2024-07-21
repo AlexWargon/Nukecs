@@ -9,10 +9,10 @@ namespace Wargon.Nukecs {
     [StructLayout(LayoutKind.Sequential)]
     public readonly unsafe struct Entity {
         public readonly int id;
-        [NativeDisableUnsafePtrRestriction] internal readonly World.WorldImpl* worldPointer;
+        [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* worldPointer;
         public ref World World => ref World.Get(worldPointer->Id);
 
-        internal Entity(int id, World.WorldImpl* worldPointer) {
+        internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
             this.worldPointer = worldPointer;
             this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
@@ -31,6 +31,14 @@ namespace Wargon.Nukecs {
 
     [BurstCompile]
     public static unsafe class EntityExt {
+        public static ref DynamicBuffer<T> AddBuffer<T>(this ref Entity entity) where T : unmanaged {
+            ref var pool = ref entity.worldPointer->GetPool<T>();
+            pool.Set(entity.id, new DynamicBuffer<T>(6));
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Add<DynamicBuffer<T>>(entity.id);
+            return ref pool.GetRef<DynamicBuffer<T>>(entity.id);
+        }
+        
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged {
@@ -101,7 +109,7 @@ namespace Wargon.Nukecs {
         }
     }
 
-    public struct DestroyEntity : IComponent { }
+    
 
     public static class Nukecs {
         [BurstDiscard]

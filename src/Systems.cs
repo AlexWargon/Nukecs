@@ -113,7 +113,7 @@ namespace Wargon.Nukecs {
     [BurstCompile]
     internal struct ECBParallelJob : IJobParallelFor {
         internal EntityCommandBuffer ECB;
-        internal World.WorldImpl worldUnsafe;
+        internal World.WorldUnsafe worldUnsafe;
         internal World world;
         [NativeSetThreadIndex] private int threadIndex;
         public void Execute(int index) {
