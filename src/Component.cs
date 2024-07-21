@@ -203,7 +203,7 @@ namespace Wargon.Nukecs {
         }
         [StructLayout(LayoutKind.Sequential)]
         internal struct Impl {
-            [NativeDisableUnsafePtrRestriction] internal void* buffer;
+            [NativeDisableUnsafePtrRestriction] internal byte* buffer;
             internal int elementSize;
             internal int count;
             internal int capacity;
@@ -220,7 +220,7 @@ namespace Wargon.Nukecs {
                     buffer = (byte*) UnsafeUtility.Malloc(sizeof(T) * size, UnsafeUtility.AlignOf<T>(), allocator),
                     componentTypeIndex = ComponentType<T>.Index
                 };
-                UnsafeUtility.MemClear(ptr->buffer, (long) size * (long) sizeof(T));
+                UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
 
                 return ptr;
             }
@@ -242,32 +242,25 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged {
-            // if (index < 0 || index >= impl->capacity) {
-            //     throw new IndexOutOfRangeException(
-            //         $"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
-            // }
-            //fixed (T* ptr = &value) {
-                //    UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
-                //}
-                //UnsafeUtility.WriteArrayElement(impl->buffer, index, value);
-            *(T*) ((IntPtr)impl->buffer + index * impl->elementSize) = value;
+            if (index < 0 || index >= impl->capacity) {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            }
+            *(T*) (impl->buffer + index * impl->elementSize) = value;
         }
 
         public ref T GetRef<T>(int index) where T : unmanaged {
             if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException(
-                    $"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
-            return ref UnsafeUtility.ArrayElementAsRef<T>(impl->buffer, index);
+            return ref *(T*) (impl->buffer + index * impl->elementSize);
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
 
         public void SetPtr(int index, void* value) {
-            // if (index < 0 || index >= impl->capacity) {
-            //     throw new IndexOutOfRangeException(
-            //         $"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
-            // }
-            UnsafeUtility.MemCpy((void*)((IntPtr)impl->buffer + index * impl->elementSize), value, impl->elementSize);
+            if (index < 0 || index >= impl->capacity) {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            }
+            UnsafeUtility.MemCpy((impl->buffer + index * impl->elementSize), value, impl->elementSize);
             // *(impl->buffer + index * impl->elementSize) = *(byte*) value;
             // if (index >= impl->count) {
             //     impl->count = index + 1;
@@ -275,20 +268,28 @@ namespace Wargon.Nukecs {
         }
 
         public void WriteBytes(int index, byte[] value) {
-            //var target = impl->buffer + index * impl->elementSize;
+            if (index < 0 || index >= impl->capacity) {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            }
             fixed (byte* ptr = value) {
-                UnsafeUtility.MemCpy((void*)((IntPtr)impl->buffer + index * impl->elementSize), ptr, impl->elementSize);
+                UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
             }
             // for (var i = 0; i < impl->elementSize; i++) {
             //     impl->buffer[index * impl->elementSize+i] = value[i];
             // }
         }
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
+            if (index < 0 || index >= impl->capacity) {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            }
             // var target = impl->buffer + index * impl->elementSize;
-            // UnsafeUtility.MemCpy(target, value, sizeInBytes);
+            UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, sizeInBytes);
         }
 
         public void SetObject(int index, IComponent component) {
+            if (index < 0 || index >= impl->capacity) {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            }
             BoxedWriters.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
         }
 
