@@ -11,13 +11,10 @@ using UnityEngine;
 
 namespace Wargon.Nukecs {
 
-    public interface IComponent {
+    public interface IComponent { }
+    public struct IsAlive : IComponent { }
+    public struct DestroyEntity : IComponent { }
 
-    }
-
-    public interface ISerializableComponent {
-        
-    }
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -27,7 +24,7 @@ namespace Wargon.Nukecs {
         /// </summary>
         public static readonly SharedStatic<int> Count;
 
-        private static bool initialized;
+        private static bool _initialized;
         static Component() {
             Count = SharedStatic<int>.GetOrCreate<Component>();
             Count.Data = 0;
@@ -36,7 +33,7 @@ namespace Wargon.Nukecs {
         
         [BurstDiscard]
         public static void Initialization() {
-            if(initialized) return;
+            if(_initialized) return;
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies) {
                 var types = assembly.GetTypes();
@@ -48,7 +45,7 @@ namespace Wargon.Nukecs {
                 }
             }
             ComponentsMap.Init();
-            initialized = true;
+            _initialized = true;
         }
     }
     
@@ -81,19 +78,18 @@ namespace Wargon.Nukecs {
     public struct ComponentsMap {
         private static ComponentsMapCache cache;
         public  static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
-        private static bool inited = false;
+        private static bool _initialized = false;
         public static List<int> TypesIndexes => cache.TypesIndexes;
         static ComponentsMap() {
-            
             ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentsMap>();
         }
         [BurstDiscard]
         public static void Init() {
-            if(inited) return;
+            if(_initialized) return;
             cache = new ComponentsMapCache();
             ComponentTypes.Data =
                 new NativeHashMap<int, ComponentType>(ComponentAmount.Value.Data + 1, Allocator.Persistent);
-            inited = true;
+            _initialized = true;
         }
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
         public static void Add(Type type, int align, int index, int size) {
@@ -146,9 +142,9 @@ namespace Wargon.Nukecs {
         }
 
         public static void Save(ComponentsMapCache mapCache) {
-            FileStream dataStream =
+            var dataStream =
                 new FileStream(Application.dataPath + "/Resources/ComponentsMap.nuke", FileMode.OpenOrCreate);
-            BinaryFormatter converter = new BinaryFormatter();
+            var converter = new BinaryFormatter();
             converter.Serialize(dataStream, mapCache);
             dataStream.Close();
             //Debug.Log("SAVED");
@@ -409,5 +405,56 @@ namespace Wargon.Nukecs {
     //         }
     //     }
     // }
+    public struct Transforms {
+        internal UnityEngine.Jobs.TransformAccessArray Array;
+        internal World World;
+        internal int lastFreeIndex;
+        public void Add(ref Entity e, Transform transform) {
+            var index = lastFreeIndex > 0 ? lastFreeIndex : Array.length;
+            Array.Add(transform);
+            e.Add(new TransformIndex{value = index});
+        }
+        
+        public void Remove(ref Entity e, Transform transform) {
+            lastFreeIndex = Array.length;
+            Array.RemoveAtSwapBack(e.Get<TransformIndex>().value);
+        }
+    }
 
+    public struct TransformIndex : IComponent {
+        public int value;
+    }
+
+    public struct DynamicBuffer<T> : IComponent, IDisposable where T : unmanaged {
+        internal UnsafeList<T> list;
+
+        public DynamicBuffer(int capacity) {
+            list = new UnsafeList<T>(capacity, Allocator.Persistent);
+        }
+        public ref T ElementAt(int index) => ref list.ElementAt(index);
+        public void Add(in T item) {
+            list.Add(in item);
+        }
+        public void RemoveAt(int index) {
+            list.RemoveAt(index);
+        }
+        public void Dispose() {
+            list.Dispose();
+        }
+    }
+
+    [BurstCompile(CompileSynchronously = true)]
+    public static class DynamicBufferExtensions {
+        [BurstCompile(CompileSynchronously = true)]
+        public static void RemoveAndSwapBack<T>(ref this DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+            int index = 0;
+            for (int i = 0; i < buffer.list.Length; i++) {
+                if (item.Equals(buffer.list.ElementAt(i))) {
+                    index = i;
+                    break;
+                }
+            }
+            buffer.list.RemoveAtSwapBack(index);
+        }
+    }
 }

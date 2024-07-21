@@ -24,7 +24,7 @@ namespace Wargon.Nukecs {
     internal unsafe struct ArchetypeImpl {
         internal DynamicBitmask mask;
         internal UnsafeList<int> types;
-        [NativeDisableUnsafePtrRestriction] internal World.WorldImpl* world;
+        [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal UnsafePtrList<Query.QueryUnsafe> queries;
         internal UnsafeHashMap<int, Edge> transactions;
         internal Edge destroyEdge;
@@ -46,19 +46,19 @@ namespace Wargon.Nukecs {
             UnsafeUtility.Free(archetype, allocator);
         }
 
-        internal static ArchetypeImpl* Create(World.WorldImpl* world, int[] typesSpan = null) {
+        internal static ArchetypeImpl* Create(World.WorldUnsafe* world, int[] typesSpan = null) {
             var ptr = Unsafe.Malloc<ArchetypeImpl>(world->allocator);
             *ptr = new ArchetypeImpl(world, typesSpan);
             return ptr;
         }
 
-        internal static ArchetypeImpl* Create(World.WorldImpl* world, ref UnsafeList<int> typesSpan) {
+        internal static ArchetypeImpl* Create(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan) {
             var ptr = Unsafe.Malloc<ArchetypeImpl>(world->allocator);
             *ptr = new ArchetypeImpl(world, ref typesSpan);
             return ptr;
         }
 
-        internal ArchetypeImpl(World.WorldImpl* world, int[] typesSpan = null) {
+        internal ArchetypeImpl(World.WorldUnsafe* world, int[] typesSpan = null) {
             this.world = world;
             this.mask = DynamicBitmask.CreateForComponents();
             this.id = 0;
@@ -81,7 +81,7 @@ namespace Wargon.Nukecs {
             this.destroyEdge = CreateDestroyEdge();
         }
 
-        internal ArchetypeImpl(World.WorldImpl* world, ref UnsafeList<int> typesSpan) {
+        internal ArchetypeImpl(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan) {
             this.world = world;
             this.mask = DynamicBitmask.CreateForComponents();
             if (typesSpan.IsCreated) {
@@ -103,7 +103,7 @@ namespace Wargon.Nukecs {
             this.destroyEdge = CreateDestroyEdge();
         }
 
-        internal void PopulateQueries(World.WorldImpl* world) {
+        internal void PopulateQueries(World.WorldUnsafe* world) {
             for (var i = 0; i < world->queries.Length; i++) {
                 var q = world->queries[i];
                 var matches = 0;
