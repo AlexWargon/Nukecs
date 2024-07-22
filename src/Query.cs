@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -156,8 +157,62 @@ namespace Wargon.Nukecs {
         public override string ToString() {
             return impl->ToString();
         }
+
+        public QueryEnumerator GetEnumerator() {
+            return new QueryEnumerator(this.impl);
+        }
+        public NativeArray<T> ToComponentDataArray<T>(AllocatorManager.AllocatorHandle allocator)
+            where T : unmanaged, IComponent
+        {
+            // CalculateEntityCount() syncs any jobs that could affect the filtering results for this query
+            //int entityCount = impl->count;
+            // We also need to complete any jobs writing to the component we're gathering.
+            //var typeIndex = ComponentType<T>.Index;
+            //_Access->DependencyManager->CompleteWriteDependency(typeIndex);
+            
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS
+//             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
+//             AtomicSafetyHandle.CheckReadAndThrow(componentType.m_Safety);
+// #else
+            //var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
+//#endif
+
+// #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+//             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
+//             if (indexInEntityQuery == -1)
+//                 throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
+// #endif
+
+            
+            //return ChunkIterationUtility.CreateComponentDataArray(allocator, ref componentType, entityCount, outer);
+            return new NativeArray<T>(impl->count, allocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
+        }
+
     }
 
+    public unsafe ref struct QueryEnumerator {
+        private int _lastIndex;
+        private readonly Query.QueryUnsafe* _query;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal QueryEnumerator(Query.QueryUnsafe* queryUnsafe) {
+            _query = queryUnsafe;
+            _lastIndex = -1;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext() {
+            _lastIndex++;
+            return _query->count > _lastIndex;
+        }
+
+        public void Reset() {
+            _lastIndex = -1;
+        }
+
+        public ref Entity Current {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref _query->GetEntity(_lastIndex);
+        }
+    }
     public unsafe struct Bitmask1024 {
         internal const int BitsPerElement = 64;
         internal const int MaxBits = 1024;

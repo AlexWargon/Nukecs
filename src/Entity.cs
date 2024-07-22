@@ -31,6 +31,14 @@ namespace Wargon.Nukecs {
 
     [BurstCompile]
     public static unsafe class EntityExt {
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ref DynamicBuffer<T> GetBuffer<T>(this ref Entity entity) where T : unmanaged {
+            ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
+            return ref pool.GetRef<DynamicBuffer<T>>(entity.id);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref DynamicBuffer<T> AddBuffer<T>(this ref Entity entity) where T : unmanaged {
             ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
             pool.Set(entity.id, new DynamicBuffer<T>(6));
@@ -38,7 +46,14 @@ namespace Wargon.Nukecs {
             ecb.Add<DynamicBuffer<T>>(entity.id);
             return ref pool.GetRef<DynamicBuffer<T>>(entity.id);
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void RemoveBuffer<T>(this ref Entity entity) where T : unmanaged {
+            ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
+            ref var buffer = ref pool.GetRef<DynamicBuffer<T>>(entity.id);
+            buffer.Dispose();
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Remove<DynamicBuffer<T>>(entity.id);
+        }
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged {
@@ -92,7 +107,7 @@ namespace Wargon.Nukecs {
         }
 
         [BurstCompile]
-        public static void Destroy(this ref Entity entity) {
+        public static void Destroy(this in Entity entity) {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Destroy(entity.id);
         }
