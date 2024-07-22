@@ -22,13 +22,11 @@ namespace Wargon.Nukecs {
         /// <summary>
         /// Components count that are using right now
         /// </summary>
-        public static readonly SharedStatic<int> Count;
+        public static readonly SharedStatic<int> Count = SharedStatic<int>.GetOrCreate<Component>();
 
         private static bool _initialized;
         static Component() {
-            Count = SharedStatic<int>.GetOrCreate<Component>();
             Count.Data = 0;
-            //Initialization();
         }
         
         [BurstDiscard]
@@ -42,11 +40,11 @@ namespace Wargon.Nukecs {
                 foreach (var type in types) {
                     if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
                         //Debug.Log($"Component {type.Name} with id {ComponentAmount.Value.Data}");
-                        ComponentsMap.Add(type,count++);
+                        //ComponentsMap.Add(type, count++);
+                        count++;
                     }
                 }
             }
-
             ComponentAmount.Value.Data = count;
             _initialized = true;
         }
@@ -70,16 +68,17 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         private static void Init() {
-            ID.Data = ComponentsMap.Index(typeof(T));
+            ID.Data = Component.Count.Data++;
+            ComponentsMap.Add(typeof(T), ID.Data);
             ComponentsMap.AddComponentType(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
             BoxedWriters.CreateWriter<T>(Index);
             //Debug.Log($"{typeof(T).Name} with id {id.Data}");
         }
     }
 
-    public struct ComponentsMap {
+    internal struct ComponentsMap {
         private static ComponentsMapCache cache;
-        public  static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
+        internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
         private static bool _initialized = false;
         public static List<int> TypesIndexes => cache.TypesIndexes;
         static ComponentsMap() {
@@ -221,7 +220,6 @@ namespace Wargon.Nukecs {
                     componentTypeIndex = ComponentType<T>.Index
                 };
                 UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
-
                 return ptr;
             }
 
@@ -253,18 +251,13 @@ namespace Wargon.Nukecs {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
             return ref *(T*) (impl->buffer + index * impl->elementSize);
-            //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
 
         public void SetPtr(int index, void* value) {
             if (index < 0 || index >= impl->capacity) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
-            UnsafeUtility.MemCpy((impl->buffer + index * impl->elementSize), value, impl->elementSize);
-            // *(impl->buffer + index * impl->elementSize) = *(byte*) value;
-            // if (index >= impl->count) {
-            //     impl->count = index + 1;
-            // }
+            UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, impl->elementSize);
         }
 
         public void WriteBytes(int index, byte[] value) {
@@ -274,15 +267,11 @@ namespace Wargon.Nukecs {
             fixed (byte* ptr = value) {
                 UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
             }
-            // for (var i = 0; i < impl->elementSize; i++) {
-            //     impl->buffer[index * impl->elementSize+i] = value[i];
-            // }
         }
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
             if (index < 0 || index >= impl->capacity) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
-            // var target = impl->buffer + index * impl->elementSize;
             UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, sizeInBytes);
         }
 
@@ -448,7 +437,7 @@ namespace Wargon.Nukecs {
     [BurstCompile(CompileSynchronously = true)]
     public static class DynamicBufferExtensions {
         [BurstCompile(CompileSynchronously = true)]
-        public static void RemoveAndSwapBack<T>(ref this DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+        public static int RemoveAndSwapBack<T>(ref this DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             int index = 0;
             for (int i = 0; i < buffer.list.Length; i++) {
                 if (item.Equals(buffer.list.ElementAt(i))) {
@@ -456,7 +445,9 @@ namespace Wargon.Nukecs {
                     break;
                 }
             }
+            
             buffer.list.RemoveAtSwapBack(index);
+            return buffer.list.Length - 1;
         }
     }
 }
