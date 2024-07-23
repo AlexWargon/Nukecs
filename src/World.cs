@@ -152,11 +152,15 @@ namespace Wargon.Nukecs {
             internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
-                var e = new Entity(lastEntityIndex, self);
+                
                 if (lastEntityIndex >= entities.m_capacity) {
-                    entities.Resize(lastEntityIndex * 2, NativeArrayOptions.ClearMemory);
+                    entities.Resize(lastEntityIndex * 2);
                     entities.m_length = entities.m_capacity;
+                    
+                    entitiesArchetypes.Resize(lastEntityIndex * 2);
+                    entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
                 }
+                var e = new Entity(lastEntityIndex, self);
                 entities.ElementAt(lastEntityIndex) = e;
                 lastEntityIndex++;
                 return e;
@@ -245,7 +249,11 @@ namespace Wargon.Nukecs {
         public int StartPoolSize;
         public int StartComponentsAmount;
         public Allocator WorldAllocator => Allocator.Persistent;
-
+        public static WorldConfig Default16 => new WorldConfig() {
+            StartPoolSize = 16,
+            StartEntitiesAmount = 16,
+            StartComponentsAmount = 32
+        };
         public static WorldConfig Default => new WorldConfig() {
             StartPoolSize = 64,
             StartEntitiesAmount = 64,

@@ -8,6 +8,12 @@ namespace Wargon.Nukecs.Tests {
     public struct Transform : IComponent {
         public float3 position;
         public quaternion rotation;
+
+        public Matrix4x4 Matrix
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Matrix4x4.TRS(position, rotation, Vector3.one);
+        }
         // public float3 right {
         //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
         //     get => math.mul(rotation, math.right());
