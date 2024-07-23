@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -46,6 +47,7 @@ namespace Wargon.Nukecs {
                 }
             }
             ComponentAmount.Value.Data = count;
+            Debug.Log(count);
             _initialized = true;
         }
     }
@@ -69,6 +71,7 @@ namespace Wargon.Nukecs {
         [BurstDiscard]
         private static void Init() {
             ID.Data = Component.Count.Data++;
+            ComponentsMap.Init();
             ComponentsMap.Add(typeof(T), ID.Data);
             ComponentsMap.AddComponentType(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
             BoxedWriters.CreateWriter<T>(Index);
@@ -238,12 +241,49 @@ namespace Wargon.Nukecs {
                 return ptr;
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged {
-            if (index < 0 || index >= impl->capacity) {
+            if (index < 0) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
+            // *(T*) (impl->buffer + index * impl->elementSize) = value;
+            
+            CheckResize<T>(index);
             *(T*) (impl->buffer + index * impl->elementSize) = value;
+            // Set the value
+            //UnsafeUtility.WriteArrayElement(impl->buffer, index, value);
+        }
+        [BurstDiscard]
+        private void CheckResize<T>(int index) where T : unmanaged
+        {
+            if (index >= impl->capacity)
+            {
+                // Calculate new capacity
+                int newCapacity = math.max(impl->capacity * 2, index + 1);
+
+                // Allocate new buffer
+                byte* newBuffer = (byte*)UnsafeUtility.Malloc(
+                    newCapacity * impl->elementSize,
+                    UnsafeUtility.AlignOf<T>(),
+                    impl->allocator
+                );
+
+                if (newBuffer == null)
+                {
+                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+                }
+
+                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                // Copy old data to new buffer
+                UnsafeUtility.MemCpy(newBuffer, impl->buffer, impl->capacity * impl->elementSize);
+
+                // Free old buffer
+                UnsafeUtility.Free(impl->buffer, impl->allocator);
+
+                // Update impl
+                impl->buffer = newBuffer;
+                impl->capacity = newCapacity;
+            }
         }
 
         public ref T GetRef<T>(int index) where T : unmanaged {
@@ -314,10 +354,12 @@ namespace Wargon.Nukecs {
 
     internal static class BoxedWriters
     {
-        private static readonly IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
+        private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[8];
 
-        [RuntimeInitializeOnLoadMethod]
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
+            if (typeIndex >= writers.Length) {
+                Array.Resize(ref writers, typeIndex + 16);
+            }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
         }
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
