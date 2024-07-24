@@ -128,7 +128,7 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
-                ref var pool = ref pools.ElementAt(poolIndex);
+                ref var pool = ref pools.ElementAtNoCheck(poolIndex);
                 if (!pool.IsCreated) {
                     pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
                     poolsCount++;
@@ -273,23 +273,6 @@ namespace Wargon.Nukecs {
         };
     }
 
-    public static class UnsafeHelp {
-        public static UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
-            NativeArrayOptions options) where T : unmanaged {
-            return new UnsafeList<T>(size, allocator, options) {
-                m_length = size
-            };
-        }
-        public static unsafe UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
-            NativeArrayOptions options) where T : unmanaged {
-            var ptr = UnsafeList<T>.Create(size, allocator, options);
-            ptr->m_length = size;
-            return ptr;
-        }
 
-        public static int AlignOf(Type type) {
-            return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
-        }
-    }
 
 }
