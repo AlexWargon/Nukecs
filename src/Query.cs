@@ -147,7 +147,7 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref impl->GetEntity(index);
+            return ref impl->world->entities.ElementAtNoCheck(impl->entities.ElementAtNoCheck(index));
         }
 
         public void Dispose() {
@@ -298,89 +298,7 @@ namespace Wargon.Nukecs {
             return (bitmask1024._bitmaskArray[index] & (1UL << bitPosition)) != 0;
         }
     }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct BitmaskChunk {
-        private const int BitsPerElement = 64;
-        private const int ArraySize = 1024 / BitsPerElement;
-        internal fixed ulong bitmaskArray[ArraySize];
-
-        public static int SizeInBytes() {
-            return sizeof(ulong) * ArraySize;
-        }
-
-        public void Add(int position) {
-            int index = position / BitsPerElement;
-            int bitPosition = position % BitsPerElement;
-            bitmaskArray[index] |= 1UL << bitPosition;
-        }
-
-        public bool Has(int position) {
-            int index = position / BitsPerElement;
-            int bitPosition = position % BitsPerElement;
-            return (bitmaskArray[index] & (1UL << bitPosition)) != 0;
-        }
-
-        public void Remove(int position) {
-            int index = position / BitsPerElement;
-            int bitPosition = position % BitsPerElement;
-            bitmaskArray[index] &= ~(1UL << bitPosition);
-        }
-    }
-
-    public struct Bitmask64 {
-        private ulong bitmask;
-        private int count;
-
-
-        // Property to get the count of set bits
-        public int Count {
-            get { return count; }
-        }
-
-        // Method to add an element (set a specific bit)
-        public bool Add(int position) {
-            if (position < 0 || position >= 64) {
-                //throw new ArgumentOutOfRangeException(nameof(position), "Position must be between 0 and 63.");
-                return false;
-            }
-
-            if (!Has(position)) {
-                bitmask |= 1UL << position;
-                count++;
-                return true;
-            }
-
-            return false;
-        }
-
-        // Method to check if an element is present (a specific bit is set)
-        public bool Has(int position) {
-            if (position < 0 || position >= 64) {
-                throw new ArgumentOutOfRangeException(nameof(position), "Position must be between 0 and 63.");
-            }
-
-            return (bitmask & (1UL << position)) != 0;
-        }
-
-        // Method to clear an element (unset a specific bit)
-        public void Remove(int position) {
-            if (position < 0 || position >= 64) {
-                throw new ArgumentOutOfRangeException(nameof(position), "Position must be between 0 and 63.");
-            }
-
-            if (Has(position)) {
-                bitmask &= ~(1UL << position);
-                count--;
-            }
-        }
-
-        // Override ToString() to display the bitmask in binary form
-        public override string ToString() {
-            return Convert.ToString((long) bitmask, 2).PadLeft(64, '0');
-        }
-    }
-
+    
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct DynamicBitmask {
         private const int BitsPerUlong = 64;
