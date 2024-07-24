@@ -1,30 +1,8 @@
 ﻿using Unity.Mathematics;
 using UnityEngine;
 
-namespace Wargon.Nukecs.Tests.Sprites {
-    [CreateAssetMenu]
-    public class SpriteAnimationData : ScriptableObject {
-        public Sprite[] Frames;
-        public float FrameTime = .8f;
-
-        public void ToEntity(ref World world, float3 pos) {
-            var sprite = Frames[0];
-            var tex = sprite.texture;
-            if (SpriteRender.Singleton.atlases.Contains(tex) == false) {
-                SpriteRender.Singleton.atlases.Add(tex);
-                Debug.Log("ATLAS ADDED");
-            }
-
-            var frameSize = new float2(sprite.rect.width, sprite.rect.height);
-            Debug.Log(frameSize.ToString());
-            var startUV = new float2(sprite.rect.x / tex.width, sprite.rect.y / tex.height);
-            Debug.Log(startUV);
-            SpriteRender.Singleton.SpawnSprite(ref world, pos, 0, Frames.Length, FrameTime, frameSize, startUV, 10);
-        }
-    }
-}
-
-namespace Wargon.Nukecs.Tests {
+namespace Wargon.Nukecs.Tests
+{
     [CreateAssetMenu(fileName = "New Sprite Animation", menuName = "ECS/Sprite Animation")]
     public class SpriteAnimationData : ScriptableObject
     {
@@ -40,13 +18,10 @@ namespace Wargon.Nukecs.Tests {
             }
             
             SpriteRender.Singleton.Initialize(sprites[0].texture);
-            
-            // Создаем сущность
             var entity = world.CreateEntity();
             var transform = new Transform(position);
             transform.position.z = 0;
             entity.Add(transform);
-            // Подготавливаем данные для рендеринга
             var renderData = new SpriteRenderData
             {
                 SpriteIndex = 0,
@@ -60,7 +35,6 @@ namespace Wargon.Nukecs.Tests {
             };
             entity.Add(renderData);
 
-            // Подготавливаем данные для анимации
             var animationComponent = new SpriteAnimation
             {
                 FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),

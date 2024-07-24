@@ -9,9 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 657e91390822480f80359f806918d36b, type: 3}
   m_Name: New Sprite Animation
-  m_EditorClassIdentifier: Nukecs:Wargon.Nukecs.Tests:SpriteAnimationData
+  m_EditorClassIdentifier: 
   sprites:
   - {fileID: -2120246588, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
   - {fileID: -1558726824, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
@@ -19,4 +19,4 @@ MonoBehaviour:
   - {fileID: -2048606424, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
   - {fileID: 891605755, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
   - {fileID: 215816321, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
-  frameRate: 12
+  frameRate: 24
