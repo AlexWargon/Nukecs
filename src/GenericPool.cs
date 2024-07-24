@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
     public unsafe struct GenericPool : IDisposable {
@@ -116,7 +118,38 @@ namespace Wargon.Nukecs {
             }
             BoxedWriters.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
         }
+        [BurstDiscard]
+        private void CheckResize<T>(int index) where T : unmanaged
+        {
+            if (index >= impl->capacity)
+            {
+                // Calculate new capacity
+                int newCapacity = math.max(impl->capacity * 2, index + 1);
 
+                // Allocate new buffer
+                byte* newBuffer = (byte*)UnsafeUtility.Malloc(
+                    newCapacity * impl->elementSize,
+                    UnsafeUtility.AlignOf<T>(),
+                    impl->allocator
+                );
+
+                if (newBuffer == null)
+                {
+                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+                }
+
+                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                // Copy old data to new buffer
+                UnsafeUtility.MemCpy(newBuffer, impl->buffer, impl->capacity * impl->elementSize);
+
+                // Free old buffer
+                UnsafeUtility.Free(impl->buffer, impl->allocator);
+
+                // Update impl
+                impl->buffer = newBuffer;
+                impl->capacity = newCapacity;
+            }
+        }
         public void Dispose() {
             if (impl == null) return;
             var allocator = impl->allocator;

@@ -16,7 +16,11 @@ namespace Wargon.Nukecs.Tests {
             rotation = quaternion.identity;
             scale = new float3(1, 1, 1);
         }
-
+        public Matrix4x4 Matrix
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Matrix4x4.TRS(position, rotation, Vector3.one);
+        }
         // public float3 right {
         //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
         //     get => math.mul(rotation, math.right());
