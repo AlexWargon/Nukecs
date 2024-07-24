@@ -57,7 +57,7 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref Entity GetEntity(int index) {
-                return ref world->entities.ElementAt(entities[index]);
+                return ref world->entities.ElementAtNoCheck(entities.ElementAtNoCheck(index));
             }
 
             internal bool Has(int entity) {
@@ -135,12 +135,12 @@ namespace Wargon.Nukecs {
             this.impl = impl;
         }
 
-        public Query With<T>() where T : unmanaged {
+        public Query With<T>() where T :  unmanaged, IComponent {
             impl->With(ComponentType<T>.Index);
             return this;
         }
 
-        public Query None<T>() where T : unmanaged {
+        public Query None<T>() where T : unmanaged, IComponent {
             impl->None(ComponentType<T>.Index);
             return this;
         }

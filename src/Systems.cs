@@ -263,10 +263,15 @@ namespace Wargon.Nukecs {
             world.ECB.Playback(ref world);
         }
     }
+    /// <summary>
+    /// Single : execute in one of threads, but not in main
+    /// Parallel : execute parallel
+    /// Main : execute in main thread, need to axes to unity api
+    /// </summary>
     public enum SystemMode {
-        Single,
-        Parallel,
         Main,
+        Parallel,
+        Single
     }
 
     [JobProducerType(typeof(EntityJobSystemExtensions.EntityJobStruct<>))]

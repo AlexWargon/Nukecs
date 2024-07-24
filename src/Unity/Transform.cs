@@ -1,13 +1,22 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
 namespace Wargon.Nukecs.Tests {
-    [Serializable]
+    [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct Transform : IComponent {
         public float3 position;
         public quaternion rotation;
+        public float3 scale;
+
+        public Transform(float3 pos) {
+            position = pos;
+            rotation = quaternion.identity;
+            scale = new float3(1, 1, 1);
+        }
+
         // public float3 right {
         //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
         //     get => math.mul(rotation, math.right());

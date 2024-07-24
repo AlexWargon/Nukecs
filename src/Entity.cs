@@ -7,7 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
     [StructLayout(LayoutKind.Sequential)]
-    public readonly unsafe struct Entity {
+    public readonly unsafe struct Entity : IEquatable<Entity> {
         public readonly int id;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* worldPointer;
         public ref World World => ref World.Get(worldPointer->Id);
@@ -26,6 +26,18 @@ namespace Wargon.Nukecs {
 
         public override string ToString() {
             return $"e:{id}, {archetypeRef.ToString()}";
+        }
+
+        public static Entity Null => default;
+
+        public bool Equals(Entity other) {
+            return id == other.id && worldPointer == other.worldPointer;
+        }
+        public override bool Equals(object obj) {
+            return obj is Entity other && Equals(other);
+        }
+        public override int GetHashCode() {
+            return HashCode.Combine(id, unchecked((int) (long) worldPointer));
         }
     }
 
@@ -47,7 +59,7 @@ namespace Wargon.Nukecs {
             return ref pool.GetRef<DynamicBuffer<T>>(entity.id);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void RemoveBuffer<T>(this ref Entity entity) where T : unmanaged {
+        public static void RemoveBuffer<T>(this ref Entity entity) where T : unmanaged , IComponent {
             ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
             ref var buffer = ref pool.GetRef<DynamicBuffer<T>>(entity.id);
             buffer.Dispose();
@@ -56,7 +68,7 @@ namespace Wargon.Nukecs {
         }
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged {
+        public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent  {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
             //if (entity.archetypeRef.Has<T>()) return;
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
@@ -90,19 +102,19 @@ namespace Wargon.Nukecs {
         //     ecb.Add(entity.id, ptr);
         // }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Remove<T>(this ref Entity entity) where T : unmanaged {
+        public static void Remove<T>(this ref Entity entity) where T : unmanaged, IComponent  {
             entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<T>(entity.id);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T Get<T>(this in Entity entity) where T : unmanaged {
+        public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged {
+        public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
@@ -113,7 +125,7 @@ namespace Wargon.Nukecs {
         }
 
         [BurstCompile]
-        public static bool Has<T>(this in Entity entity) where T : unmanaged {
+        public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).impl->Has<T>();
         }
     }
