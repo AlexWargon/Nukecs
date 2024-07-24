@@ -41,7 +41,7 @@ namespace Wargon.Nukecs.Tests {
             //     // e.Add(new C1());
             //     // e.Add(new C2());
             // }
-            for (var i = 0; i < 1000; i++)
+            for (var i = 0; i < 2000; i++)
             {
                 var e = animationData.CreateAnimatedSpriteEntity(ref world, RandomEx.Float3(-5,5));
                 e.Add(new Input());
@@ -50,9 +50,9 @@ namespace Wargon.Nukecs.Tests {
         }
 
         private void Update() {
-            
+            InputService.Instance.Update();
             systems.OnUpdate(Time.deltaTime);
-            Sprites.SpriteRender.Singleton.Clear();
+            //Sprites.SpriteRender.Singleton.Clear();
             //systems.Run(Time.deltaTime);
         }
         private void OnDestroy() {
@@ -185,17 +185,19 @@ namespace Wargon.Nukecs.Tests {
         public bool fire;
         public bool use;
     }
-
+    
+    
+    [BurstCompile]
     public struct UserInputSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Main;
+        public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
             return world.CreateQuery().With<Input>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
             ref var input = ref entity.Get<Input>();
-            input.v = UnityEngine.Input.GetAxis("Vertical");
-            input.h = UnityEngine.Input.GetAxis("Horizontal");
+            input.v = InputService.Instance.GetAxis(InputAxis.Vertical);
+            input.h = InputService.Instance.GetAxis(InputAxis.Horizontal);
         }
     }
 
@@ -460,6 +462,7 @@ namespace Wargon.Nukecs.Tests {
             renderDataChunk[index] = lastData;
             matrixChunk[index] = lastMatrix;
             count--;
+            
         }
         public unsafe NativeArray<SpriteRenderData> RenderDataArray() {
             return NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(renderDataChunk, count, Allocator.None);
@@ -471,5 +474,63 @@ namespace Wargon.Nukecs.Tests {
 
     public struct RenderChunkIndex : IComponent {
         public int value;
+    }
+    
+    public struct Singleton<T> where T: unmanaged
+    {
+        private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();
+        public static ref T Instance
+        {
+            get
+            {
+                if (instance.Data.IsCreated == false)
+                {
+                    instance.Data.Value = new T();
+                    instance.Data.IsCreated = true;
+                }
+                
+                return ref instance.Data.Value;
+            }
+        }
+
+        private struct Reference
+        {
+            internal T Value;
+            internal bool IsCreated;
+        }
+    }
+    public struct InputService
+    {
+        public static ref InputService Instance => ref Singleton<InputService>.Instance;
+        private float Vertical;
+        private float Horizontal;
+        private byte Fire;
+        private byte Intercat;
+        public void Update()
+        {
+            Horizontal = UnityEngine.Input.GetAxisRaw(nameof(Horizontal));
+            Vertical = UnityEngine.Input.GetAxisRaw(nameof(Vertical));
+        }
+
+        public float GetAxis(InputAxis key)
+        {
+            return key switch
+            {
+                InputAxis.Vertical => Vertical,
+                _ => Horizontal
+            };
+        }
+    }
+
+
+    public enum InputAxis : short
+    {
+        Vertical,
+        Horizontal
+    }
+    public enum InputKey : short
+    {
+        Fire,
+        Interact
     }
 }
