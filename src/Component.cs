@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -46,6 +47,7 @@ namespace Wargon.Nukecs {
                 }
             }
             ComponentAmount.Value.Data = count;
+            Debug.Log(count);
             _initialized = true;
         }
     }
@@ -69,6 +71,7 @@ namespace Wargon.Nukecs {
         [BurstDiscard]
         private static void Init() {
             ID.Data = Component.Count.Data++;
+            ComponentsMap.Init();
             ComponentsMap.Add(typeof(T), ID.Data);
             ComponentsMap.AddComponentType(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
             BoxedWriters.CreateWriter<T>(Index);
@@ -129,7 +132,7 @@ namespace Wargon.Nukecs {
         public void Add(Type type, int index) {
             _typeByIndex[index] = type;
             _indexByType[type] = index;
-            if(TypesIndexes.Contains(index) == false)
+            if (TypesIndexes.Contains(index) == false)
                 TypesIndexes.Add(index);
             _nameToType[type.FullName] = type;
         }
@@ -193,10 +196,12 @@ namespace Wargon.Nukecs {
 
     internal static class BoxedWriters
     {
-        private static readonly IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
+        private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[8];
 
-        [RuntimeInitializeOnLoadMethod]
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
+            if (typeIndex >= writers.Length) {
+                Array.Resize(ref writers, typeIndex + 16);
+            }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
         }
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){

@@ -61,20 +61,21 @@ namespace Wargon.Nukecs {
             }
 
             internal bool Has(int entity) {
-                if (entitiesMap.Length <= entity) return false;
+                //if (entitiesMap.Length <= entity) return false;
                 return entitiesMap[entity] > 0;
             }
 
             internal void Add(int entity) {
-                if(Has(entity)) return;
                 if (entities.Length - 1 <= count) {
-                    entities.Resize(count * 2);
+                    entities.Resize(count * 2, NativeArrayOptions.ClearMemory);
+                    entities.m_length = entities.m_capacity;
                 }
 
                 if (entitiesMap.Length - 1 <= entity) {
-                    entitiesMap.Resize(count * 2);
+                    entitiesMap.Resize(count * 2, NativeArrayOptions.ClearMemory);
+                    entitiesMap.m_length = entities.m_capacity;
                 }
-
+                if(Has(entity)) return;
                 entities[count++] = entity;
                 entitiesMap[entity] = count;
             }
