@@ -155,13 +155,16 @@ namespace Wargon.Nukecs {
                 for (var i = 0; i < Query.Count; i++) {
                     System.OnUpdate(ref Query.GetEntity(i), dt);    
                 }
+                EcbJob.ECB = world.ECB;
+                EcbJob.world = world;
+                EcbJob.Run();
             }
             else {
-                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);    
+                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
+                EcbJob.ECB = world.ECB;
+                EcbJob.world = world;
+                jobHandle = EcbJob.Schedule(jobHandle);
             }
-            
-            EcbJob.ECB = world.ECB;
-            EcbJob.world = world;
             return EcbJob.Schedule(jobHandle);
         }
 
@@ -180,16 +183,20 @@ namespace Wargon.Nukecs {
         public ECBJob EcbJob;
 
         public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
+
             if (Mode == SystemMode.Main) {
                 System.OnUpdate(ref Query, dt);
+                EcbJob.ECB = world.ECB;
+                EcbJob.world = world;
+                EcbJob.Run();
             }
             else {
-                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);    
+                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
+                EcbJob.ECB = world.ECB;
+                EcbJob.world = world;
+                jobHandle = EcbJob.Schedule(jobHandle);
             }
-            
-            EcbJob.ECB = world.ECB;
-            EcbJob.world = world;
-            return EcbJob.Schedule(jobHandle);
+            return jobHandle;
         }
 
         public void Run(ref World world, float dt) {

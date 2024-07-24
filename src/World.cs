@@ -152,7 +152,6 @@ namespace Wargon.Nukecs {
             internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
-                
                 if (lastEntityIndex >= entities.m_capacity) {
                     entities.Resize(lastEntityIndex * 2);
                     entities.m_length = entities.m_capacity;
@@ -224,7 +223,7 @@ namespace Wargon.Nukecs {
             Unsafe = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref GenericPool GetPool<T>() where T : unmanaged {
             return ref Unsafe->GetPool<T>();
         }

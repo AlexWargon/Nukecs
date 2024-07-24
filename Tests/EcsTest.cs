@@ -43,9 +43,9 @@ namespace Wargon.Nukecs.Tests {
             // }
             for (var i = 0; i < 2000; i++)
             {
-                var e = animationData.CreateAnimatedSpriteEntity(ref world, RandomEx.Float3(-5,5));
+                var e = animationData.CreateAnimatedSpriteEntity(ref world, RandomEx.Float3(-2,2));
                 e.Add(new Input());
-                e.Add(new Speed(){value = 4f});
+                e.Add(new Speed{value = 4f});
             }
         }
 
@@ -295,29 +295,33 @@ namespace Wargon.Nukecs.Tests {
         }
         public static float4 CalculateSpriteTiling(int spriteIndex, int spritesPerRow, int spritesPerColumn)
         {
-            int row = spriteIndex / spritesPerRow;
-            int col = spriteIndex % spritesPerRow;
-            float tileWidth = 1f / spritesPerRow;
-            float tileHeight = 1f / spritesPerColumn;
+            var row = spriteIndex / spritesPerRow;
+            var col = spriteIndex % spritesPerRow;
+            var tileWidth = 1f / spritesPerRow;
+            var tileHeight = 1f / spritesPerColumn;
     
-            float x = col * tileWidth;
-            float y = (spritesPerColumn - 1 - row) * tileHeight;
-    
+            var x = col * tileWidth;
+            var y = (spritesPerColumn - 1 - row) * tileHeight;
             return new float4(x, y, tileWidth, tileHeight);
         }
     }
 
-    public struct SpriteRenderSystem : IQueryJobSystem {
+    public struct SpriteRenderSystem : IQueryJobSystem, ICreate
+    {
+        private World _world;
         public SystemMode Mode => SystemMode.Main;
         public Query GetQuery(ref World world) {
             return world.CreateQuery().With<SpriteRenderData>().With<RenderMatrix>();
         }
-
+        public void OnCreate(ref World world)
+        {
+            _world = world;
+        }
         public void OnUpdate(ref Query query, float deltaTime) {
-            SpriteRender.Singleton.Render(ref query);
+            SpriteRendering.Singleton.Render(ref query, ref _world);
         }
     }
-    public unsafe class SpriteRender : SingletonBase<SpriteRender> {
+    public class SpriteRendering : SingletonBase<SpriteRendering> {
         
         private Texture2D atlasTexture;
         private Material spriteMaterial;
@@ -326,9 +330,8 @@ namespace Wargon.Nukecs.Tests {
         private static readonly int texCoord = Shader.PropertyToID("_TexCoord");
         private static readonly int flip = Shader.PropertyToID("_Flip");
 
-
         public void Initialize(Texture2D texture2D) {
-            atlasTexture = texture2D; // Загрузите ваш атлас
+            atlasTexture = texture2D;
             spriteMaterial = new Material(Shader.Find("Custom/SpriteShaderCompatible"));
             spriteMaterial.mainTexture = atlasTexture;
             quadMesh = CreateQuadMesh();
@@ -352,16 +355,16 @@ namespace Wargon.Nukecs.Tests {
             return mesh;
         }
 
-        public void Render(ref Query query)
+        public void Render(ref Query query, ref World world)
         {
+            ref var dataPool = ref world.GetPool<SpriteRenderData>();
+            ref var matrixPool = ref world.GetPool<RenderMatrix>();
             var props = new MaterialPropertyBlock();
 
             for (int i = 0; i < query.Count; i++) {
                 var e = query.GetEntity(i);
-                var data = e.Read<SpriteRenderData>();
-                var matrix = e.Read<RenderMatrix>();
-                // Изменим логику установки _Flip
-                //GetMatrix(in data, out var finalTransform, out var vector);
+                var data = dataPool.GetRef<SpriteRenderData>(e.id);
+                var matrix = matrixPool.GetRef<RenderMatrix>(e.id);
 
                 props.Clear();
                 props.SetColor(color, data.Color);

@@ -17,7 +17,7 @@ namespace Wargon.Nukecs.Tests
                 return Entity.Null;
             }
             
-            SpriteRender.Singleton.Initialize(sprites[0].texture);
+            SpriteRendering.Singleton.Initialize(sprites[0].texture);
             var entity = world.CreateEntity();
             var transform = new Transform(position);
             transform.position.z = 0;
