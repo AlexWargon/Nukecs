@@ -1,15 +1,17 @@
-Shader "Custom/SpriteInstancing"
+Shader "Custom/SpriteShaderInstanced"
 {
     Properties
     {
-        _MainTex ("Texture", 2D) = "white" {}
+        _MainTex ("Sprite Texture", 2D) = "white" {}
+        _AlphaCutoff ("Alpha Cutoff", Range(0,1)) = 0.1
     }
+
     SubShader
     {
         Tags {"Queue"="Transparent" "RenderType"="Transparent"}
-        LOD 100
         Blend SrcAlpha OneMinusSrcAlpha
         Cull Off
+
         Pass
         {
             CGPROGRAM
@@ -17,10 +19,9 @@ Shader "Custom/SpriteInstancing"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma instancing_options procedural:setup
-
             #include "UnityCG.cginc"
 
-            struct appdata
+            struct appdata_t
             {
                 float4 vertex : POSITION;
                 float2 uv : TEXCOORD0;
@@ -29,24 +30,22 @@ Shader "Custom/SpriteInstancing"
 
             struct v2f
             {
-                float2 uv : TEXCOORD0;
                 float4 vertex : SV_POSITION;
+                float2 uv : TEXCOORD0;
+                fixed4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             sampler2D _MainTex;
-            float4 _MainTex_ST;
-
+            float _AlphaCutoff;
             struct SpriteRenderData
             {
                 int SpriteIndex;
-                float3 Position;
-                float4 Rotation;
-                float3 Scale;
                 float4 Color;
                 float4 SpriteTiling;
                 float FlipX;
                 float FlipY;
+                float2 Padding;
             };
 
             struct RenderMatrix
@@ -66,34 +65,37 @@ Shader "Custom/SpriteInstancing"
                 #endif
             }
 
-            v2f vert (appdata v)
+            v2f vert (appdata_t IN)
             {
-                v2f o;
-                UNITY_SETUP_INSTANCE_ID(v);
-                UNITY_TRANSFER_INSTANCE_ID(v, o);
-                o.vertex = UnityObjectToClipPos(v.vertex);
-                o.uv = TRANSFORM_TEX(v.uv, _MainTex);
-                return o;
-            }
-
-            fixed4 frag (v2f i) : SV_Target
-            {
-                UNITY_SETUP_INSTANCE_ID(i);
+                v2f OUT;
+                UNITY_SETUP_INSTANCE_ID(IN);
+                UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
+                OUT.vertex = UnityObjectToClipPos(IN.vertex);
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
-
-                float2 uv = i.uv * data.SpriteTiling.zw + data.SpriteTiling.xy;
-                if (data.FlipX > 0.5) uv.x = data.SpriteTiling.z - (uv.x - data.SpriteTiling.x) + data.SpriteTiling.x;
-                if (data.FlipY > 0.5) uv.y = data.SpriteTiling.w - (uv.y - data.SpriteTiling.y) + data.SpriteTiling.y;
-
-                fixed4 col = tex2D(_MainTex, uv) * data.Color;
+                float2 uv = IN.uv;
+                uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
+                uv.y = data.FlipY < 0 ? 1 - uv.y : uv.y;
+                
+                OUT.uv = uv * abs(data.SpriteTiling.zw) + data.SpriteTiling.xy;
+                OUT.color = data.Color;
+                return OUT;
                 #else
-                fixed4 col = tex2D(_MainTex, i.uv);
+                OUT.uv = IN.uv;
+                OUT.color = float4(1,1,1,1);
                 #endif
-                return col;
+                
+                return OUT;
+            }
+
+            fixed4 frag (v2f IN) : SV_Target
+            {
+                UNITY_SETUP_INSTANCE_ID(IN);
+                fixed4 c = tex2D(_MainTex, IN.uv) * IN.color;
+                clip(c.a - _AlphaCutoff);
+                return c;
             }
             ENDCG
-            
         }
     }
 }
