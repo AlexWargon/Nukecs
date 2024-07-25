@@ -1,15 +1,42 @@
-﻿using Unity.Mathematics;
+﻿using System;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
 {
     [CreateAssetMenu(fileName = "New Sprite Animation", menuName = "ECS/Sprite Animation")]
-    public class SpriteAnimationData : ScriptableObject
-    {
+    public class SpriteAnimationData : ScriptableObject {
+        public string AnimationName;
         public Sprite[] sprites;
         public float frameRate = 10f;
+        [SerializeField][HideInInspector]
+        private float4[] framesUV;
 
-        public unsafe Entity CreateAnimatedSpriteEntity(ref World world, float3 position)
+        private void OnValidate() {
+            framesUV = new float4[sprites.Length];
+            for (var index = 0; index < sprites.Length; index++) {
+                var sprite = sprites[index];
+                var frame = CalculateSpriteTiling(sprite);
+                framesUV[index] = frame;
+            }
+
+            AnimationName = name;
+        }
+
+        public void AddToStorage() {
+            var animationID = Animator.StringToHash(AnimationName);
+
+            if (!SpriteAnimationsStorage.Instance.Has(animationID)) {
+                var frames = new SpriteAnimationFrames(sprites.Length, animationID);
+                foreach (var float4 in framesUV) {
+                    frames.List.Add(float4);
+                }
+                SpriteAnimationsStorage.Instance.Add(animationID, frames);
+            }
+        }
+        public Entity CreateAnimatedSpriteEntity(ref World world, float3 position)
         {
             if (sprites == null || sprites.Length == 0)
             {
@@ -35,35 +62,77 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(renderData);
 
+
+            var animationID = Animator.StringToHash(AnimationName);
+            
             var animationComponent = new SpriteAnimation
             {
                 FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
                 FrameRate = frameRate,
                 CurrentTime = 0f,
                 col = 1,
-                row = 10
+                row = 10,
+                AnimationID = animationID
             };
-
-            for (int i = 0; i < animationComponent.FrameCount; i++)
-            {
-                animationComponent.SpriteIndices[i] = i + 4;
-            }
             entity.Add(animationComponent);
             entity.Add(new RenderMatrix());
-
+            
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture);
+            archetype.Add(entity);
             return entity;
         }
 
         private float4 CalculateSpriteTiling(Sprite sprite)
         {
-            Texture2D texture = sprite.texture;
-            Rect rect = sprite.textureRect;
+            var texture = sprite.texture;
+            var rect = sprite.textureRect;
             return new float4(
                 rect.x / texture.width,
                 rect.y / texture.height,
                 rect.width / texture.width,
                 rect.height / texture.height
             );
+        }
+    }
+        
+    public struct SpriteAnimationFrames : IDisposable {
+        public UnsafeList<float4> List;
+        public int AnimationID;
+        public SpriteAnimationFrames(int amount, int animationID) {
+            List = new UnsafeList<float4>(amount, Allocator.Persistent);
+            AnimationID = animationID;
+        }
+
+        public void Dispose() {
+            List.Dispose();
+        }
+    }
+
+    public struct SpriteAnimationsStorage : IDisposable {
+        public static ref SpriteAnimationsStorage Instance => ref Singleton<SpriteAnimationsStorage>.Instance;
+
+        private NativeHashMap<int, SpriteAnimationFrames> frames;
+        public bool isInitialized;
+        public void Initialize(int amount) {
+            if(isInitialized) return;
+            frames = new NativeHashMap<int, SpriteAnimationFrames>(amount, Allocator.Persistent);
+            isInitialized = true;
+        }
+
+        public bool Has(int id) => frames.ContainsKey(id);
+        public void Add(int id, SpriteAnimationFrames animationFrames) {
+            frames[id] = animationFrames;
+        }
+        public SpriteAnimationFrames GetFrames(int id) {
+            return frames[id];
+        }
+
+        public void Dispose() {
+            foreach (var kvPair in frames) {
+                kvPair.Value.Dispose();
+            }
+
+            frames.Dispose();
         }
     }
 }

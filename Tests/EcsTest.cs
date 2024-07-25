@@ -13,18 +13,20 @@ namespace Wargon.Nukecs.Tests {
         public GameObject sphere;
         public UnityEngine.Mesh mesh;
         public UnityEngine.Material material;
-        public SpriteAnimationData animationData;
+        public SpriteAnimationList animationData;
         void Awake() {
 
+            SpriteAnimationsStorage.Instance.Initialize(4);
             world = World.Create(WorldConfig.Default16384);
             systems = new Systems(ref world);
             systems
                 //.Add<MoveSystem4>()
                 .Add<UserInputSystem>()
                 .Add<MoveSystem>()
+                .Add<SpriteChangeAnimationSystem>()
                 .Add<SpriteAnimationSystem>()
-                .Add<GetRenderMatrixSystem>()
-                .Add<SpriteRenderSystem>()
+                .Add<UpdateChunkDataSystem>()
+                //.Add<SpriteRenderSystem>()
                 //.Add<ViewSystem>()
                 ;
 
@@ -41,9 +43,9 @@ namespace Wargon.Nukecs.Tests {
             //     // e.Add(new C1());
             //     // e.Add(new C2());
             // }
-            for (var i = 0; i < 2000; i++)
+            for (var i = 0; i < 12; i++)
             {
-                var e = animationData.CreateAnimatedSpriteEntity(ref world, RandomEx.Float3(-2,2));
+                var e = animationData.Convert(ref world, RandomEx.Float3(-2,2));
                 e.Add(new Input());
                 e.Add(new Speed{value = 4f});
             }
@@ -51,27 +53,29 @@ namespace Wargon.Nukecs.Tests {
 
         private void Update() {
             InputService.Instance.Update();
+            
             systems.OnUpdate(Time.deltaTime);
+            SpriteArchetypesStorage.Singleton.OnUpdate();
             //Sprites.SpriteRender.Singleton.Clear();
             //systems.Run(Time.deltaTime);
         }
         private void OnDestroy() {
             world.Dispose();
             World.DisposeStatic();
-                Sprites.SpriteRender.Singleton.OnDestroy();
+            SpriteAnimationsStorage.Instance.Dispose();
+            SpriteArchetypesStorage.Singleton.Dispose();
         }
 
         private Entity CreatePlayer() {
             var e = world.CreateEntity();
             e.Add(new Player());
             e.AddBuffer<InventoryItem>();
-            
             return e;
         }
 
     }
 
-    public struct ViewSystem : ISystem, ICreate {
+    public struct ViewSystem : ISystem, IOnCreate {
         private Query _query;
         public void OnCreate(ref World world) {
             _query = world.CreateQuery().With<View>().With<Transform>();
@@ -204,7 +208,7 @@ namespace Wargon.Nukecs.Tests {
     public struct AddItemEvent : IComponent { public Entity entity; }
     
     [BurstCompile]
-    public struct AddItemSystem : IEntityJobSystem, ICreate {
+    public struct AddItemSystem : IEntityJobSystem, IOnCreate {
         public SystemMode Mode => SystemMode.Parallel;
         private Query _playerQuery;
         public Query GetQuery(ref World world) {
@@ -236,39 +240,64 @@ namespace Wargon.Nukecs.Tests {
             return new Vector3(UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max),UnityEngine.Random.Range(min, max));
         }
     }
-    
+
     [StructLayout(LayoutKind.Sequential)]
     public struct SpriteRenderData : IComponent {
-        public int Layer;
         public int SpriteIndex;
         public float3 Position;
         public quaternion Rotation;
         public float3 Scale;
         public Color32 Color;
         public float4 SpriteTiling;
-        [MarshalAs(UnmanagedType.U1)]public bool FlipX;
-        [MarshalAs(UnmanagedType.U1)]public bool FlipY;
+        [MarshalAs(UnmanagedType.U1)] public bool FlipX;
+        [MarshalAs(UnmanagedType.U1)] public bool FlipY;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct SpriteAnimation : IComponent
+    public struct SpriteAnimation : IComponent
     {
         public const int MaxFrames = 16;
-        public fixed int SpriteIndices[MaxFrames];
         public int FrameCount;
         public float FrameRate;
         public float CurrentTime;
-        public int StartIndex;
         public int row;
         public int col;
+        public int AnimationID;
     }
-
+    public struct RenderMatrix : IComponent {
+        public Matrix4x4 Matrix;
+    }
+    public struct IndexInChunk : IComponent {
+        public int value;
+        public unsafe SpriteChunk* chunk;
+    }
     [StructLayout(LayoutKind.Sequential)]
     public struct ShaderProperties
     {
         public float GlowIntensity;
         public Color32 GlowColor;
     }
+    [BurstCompile]
+    public struct SpriteChangeAnimationSystem : IEntityJobSystem, IOnCreate {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<SpriteAnimation>().With<Input>();
+        }
+        
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            var input = entity.Read<Input>();
+            ref var anim = ref entity.Get<SpriteAnimation>();
+            anim.AnimationID = input.h is > 0f or < 0f ? Run : Idle;
+        }
+
+        public void OnCreate(ref World world) {
+            Run = Animator.StringToHash(nameof(Run));
+            Idle = Animator.StringToHash(nameof(Idle));
+        }
+
+        private int Run;
+        private int Idle;
+    } 
     [BurstCompile]
     public struct SpriteAnimationSystem : IEntityJobSystem
     {
@@ -285,12 +314,13 @@ namespace Wargon.Nukecs.Tests {
             animation.CurrentTime += deltaTime;
             float frameDuration = 1f / animation.FrameRate;
             int frameIndex = (int)(animation.CurrentTime / frameDuration) % animation.FrameCount;
-            renderData.SpriteIndex = animation.SpriteIndices[frameIndex];
+            renderData.SpriteIndex = frameIndex;
             renderData.Position = transform.position;
             renderData.Rotation = transform.rotation;
             renderData.Scale = new float3(1, 1, 1);
             renderData.FlipX = input.h < 0f;
-            renderData.SpriteTiling = CalculateSpriteTiling(renderData.SpriteIndex, animation.row, animation.col);
+            //renderData.SpriteTiling = CalculateSpriteTiling(renderData.SpriteIndex, animation.row, animation.col);
+            renderData.SpriteTiling = GetSpriteTiling(renderData.SpriteIndex, animation.AnimationID);
             transform.position.z = transform.position.y*.1f;
         }
         public static float4 CalculateSpriteTiling(int spriteIndex, int spritesPerRow, int spritesPerColumn)
@@ -302,11 +332,19 @@ namespace Wargon.Nukecs.Tests {
     
             var x = col * tileWidth;
             var y = (spritesPerColumn - 1 - row) * tileHeight;
-            return new float4(x, y, tileWidth, tileHeight);
+            var r = new float4(x, y, tileWidth, tileHeight);
+            Debug.Log(r);
+            return r;
+        }
+
+        private static float4 GetSpriteTiling(int spriteIndex, int animationID)
+        {
+            var r = SpriteAnimationsStorage.Instance.GetFrames(animationID).List.ElementAt(spriteIndex);
+            return r;
         }
     }
 
-    public struct SpriteRenderSystem : IQueryJobSystem, ICreate
+    public struct SpriteRenderSystem : IQueryJobSystem, IOnCreate
     {
         private World _world;
         public SystemMode Mode => SystemMode.Main;
@@ -318,7 +356,8 @@ namespace Wargon.Nukecs.Tests {
             _world = world;
         }
         public void OnUpdate(ref Query query, float deltaTime) {
-            SpriteRendering.Singleton.Render(ref query, ref _world);
+            SpriteArchetypesStorage.Singleton.OnUpdate();
+            //SpriteRendering.Singleton.Render(ref query, ref _world);
         }
     }
     public class SpriteRendering : SingletonBase<SpriteRendering> {
@@ -338,20 +377,21 @@ namespace Wargon.Nukecs.Tests {
         }
         private Mesh CreateQuadMesh()
         {
-            Mesh mesh = new Mesh();
-            mesh.vertices = new Vector3[] {
-                new (-0.5f, -0.5f, 0),
-                new (0.5f, -0.5f, 0),
-                new (0.5f, 0.5f, 0),
-                new (-0.5f, 0.5f, 0)
+            var mesh = new Mesh {
+                vertices = new Vector3[] {
+                    new (-0.5f, -0.5f, 0),
+                    new (0.5f, -0.5f, 0),
+                    new (0.5f, 0.5f, 0),
+                    new (-0.5f, 0.5f, 0)
+                },
+                uv = new Vector2[] {
+                    new (0, 0),
+                    new (1, 0),
+                    new (1, 1),
+                    new (0, 1)
+                },
+                triangles = new [] { 0, 1, 2, 0, 2, 3 }
             };
-            mesh.uv = new Vector2[] {
-                new (0, 0),
-                new (1, 0),
-                new (1, 1),
-                new (0, 1)
-            };
-            mesh.triangles = new [] { 0, 1, 2, 0, 2, 3 };
             return mesh;
         }
 
@@ -369,139 +409,50 @@ namespace Wargon.Nukecs.Tests {
                 props.Clear();
                 props.SetColor(color, data.Color);
                 props.SetVector(texCoord, data.SpriteTiling);
-                props.SetVector(flip, matrix.vector);
-                Graphics.DrawMesh(quadMesh, matrix.matrix, spriteMaterial, 0, null, 0, props);
-
-                //Debug.DrawLine(data.Transform.c3.xyz, data.Transform.c3.xyz + Vector3.up, Color.red, 0.1f);
+                //props.SetVector(flip, matrix.Vector);
+                Graphics.DrawMesh(quadMesh, matrix.Matrix, spriteMaterial, 0, null, 0, props);
             }
         }
-        
-        [BurstCompile]
-        private static void GetMatrix(in SpriteRenderData data, out Matrix4x4 finalTransform, out Vector4 vector4) {
-            var flipX = data.FlipX ? -1 : 1;
-            var flipY = data.FlipY ? -1 : 1;
-            // Создаем матрицу трансформации
-            var scaleMatrix = Matrix4x4.Scale(new Vector3(
-                data.Scale.x * math.abs(flipX),
-                data.Scale.y * math.abs(flipY),
-                data.Scale.z
-            ));
-
-            var rotationMatrix = Matrix4x4.Rotate(data.Rotation);
-            var positionMatrix = Matrix4x4.Translate(data.Position);
-            finalTransform = positionMatrix * rotationMatrix * scaleMatrix;
-            vector4 =  new Vector4(flipX, flipY, 1, 1);
-        }
-    }
-
-    public struct RenderMatrix : IComponent {
-        public Matrix4x4 matrix;
-        public Vector4 vector;
     }
 
     [BurstCompile]
-    public struct GetRenderMatrixSystem : IEntityJobSystem {
+    public struct UpdateChunkDataSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<RenderMatrix>().With<SpriteRenderData>();
+            return world.CreateQuery().With<RenderMatrix>().With<SpriteRenderData>().With<IndexInChunk>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
             var data = entity.Read<SpriteRenderData>();
             ref var matrix = ref entity.Get<RenderMatrix>();
+            ref var chunkIndex = ref entity.Get<IndexInChunk>();
             
             GetMatrix(in data, ref matrix);
 
+            unsafe {
+                chunkIndex.chunk->UpdateData(chunkIndex.value, data, matrix);
+            }
+            
         }
         [BurstCompile]
         private static void GetMatrix(in SpriteRenderData data, ref RenderMatrix renderMatrix) {
-            var flipX = data.FlipX ? -1 : 1;
-            var flipY = data.FlipY ? -1 : 1;
-            // Создаем матрицу трансформации
-            var scaleMatrix = Matrix4x4.Scale(new Vector3(
-                data.Scale.x * math.abs(flipX),
-                data.Scale.y * math.abs(flipY),
+            var scale = new Vector3(
+                data.Scale.x * (data.FlipX ? -1 : 1),
+                data.Scale.y * (data.FlipY ? -1 : 1),
                 data.Scale.z
-            ));
+            );
+
+            // Создаем матрицу трансформации
+            var scaleMatrix = Matrix4x4.Scale(scale);
             var rotationMatrix = Matrix4x4.Rotate(data.Rotation);
             var positionMatrix = Matrix4x4.Translate(data.Position);
-            renderMatrix.matrix = positionMatrix * rotationMatrix * scaleMatrix;
-            renderMatrix.vector = new Vector4(flipX, flipY, 1, 1);
+
+            // Комбинируем матрицы
+            renderMatrix.Matrix = positionMatrix * rotationMatrix * scaleMatrix;
         }
     }
 
-    public struct SpriteChunk {
-        internal unsafe SpriteRenderData* renderDataChunk;
-        internal unsafe RenderMatrix* matrixChunk;
-        internal int count;
-        internal int capacity;
-        internal int lastRemoved;
 
-        public static unsafe SpriteChunk* Craete(int size) {
-            var ptr = (SpriteChunk*)UnsafeUtility.Malloc(sizeof(SpriteChunk), UnsafeUtility.AlignOf<SpriteChunk>(),
-                Allocator.Persistent);
-            *ptr = new SpriteChunk() {
-                renderDataChunk = UnsafeHelp.Malloc<SpriteRenderData>(size, Allocator.Persistent),
-                matrixChunk = UnsafeHelp.Malloc<RenderMatrix>(size, Allocator.Persistent),
-                count = 0,
-                capacity = size,
-                lastRemoved = 0
-            };
-            return ptr;
-        }
-        public unsafe int Add(SpriteRenderData data, RenderMatrix matrix) {
-            var index = count;
-            renderDataChunk[count] = data;
-            matrixChunk[count] = matrix;
-            count++;
-            return index;
-        }
-
-        public unsafe void Remove(int index) {
-            var last = count - 1;
-            var lastData = renderDataChunk[last];
-            var lastMatrix = matrixChunk[last];
-            
-            renderDataChunk[index] = lastData;
-            matrixChunk[index] = lastMatrix;
-            count--;
-            
-        }
-        public unsafe NativeArray<SpriteRenderData> RenderDataArray() {
-            return NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(renderDataChunk, count, Allocator.None);
-        }
-        public unsafe NativeArray<SpriteRenderData> MatrixArray() {
-            return NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(matrixChunk, count, Allocator.None);
-        }
-    }
-
-    public struct RenderChunkIndex : IComponent {
-        public int value;
-    }
-    
-    public struct Singleton<T> where T: unmanaged
-    {
-        private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();
-        public static ref T Instance
-        {
-            get
-            {
-                if (instance.Data.IsCreated == false)
-                {
-                    instance.Data.Value = new T();
-                    instance.Data.IsCreated = true;
-                }
-                
-                return ref instance.Data.Value;
-            }
-        }
-
-        private struct Reference
-        {
-            internal T Value;
-            internal bool IsCreated;
-        }
-    }
     public struct InputService
     {
         public static ref InputService Instance => ref Singleton<InputService>.Instance;
@@ -530,10 +481,5 @@ namespace Wargon.Nukecs.Tests {
     {
         Vertical,
         Horizontal
-    }
-    public enum InputKey : short
-    {
-        Fire,
-        Interact
     }
 }

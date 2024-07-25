@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: SpriteMaterial
-  m_Shader: {fileID: 4800000, guid: 400a60c1017fff441bd9f4e109bde6cc, type: 3}
+  m_Shader: {fileID: 4800000, guid: 53bc2f31fc7ff7d4b8920d1284583292, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -80,5 +80,6 @@ Material:
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _Flip: {r: 1, g: 1, b: 1, a: 1}
     - _TexCoord: {r: 0, g: 0, b: 1, a: 1}
   m_BuildTextureStacks: []

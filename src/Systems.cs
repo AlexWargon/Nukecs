@@ -20,7 +20,7 @@ namespace Wargon.Nukecs {
 
         public Systems Add<T>() where T : struct, IJobSystem {
             T system = default;
-            if (system is ICreate s) {
+            if (system is IOnCreate s) {
                 s.OnCreate(ref world);
                 system = (T) s;
             }
@@ -33,7 +33,7 @@ namespace Wargon.Nukecs {
 
         public Systems Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
             T system = default;
-            if (system is ICreate s) {
+            if (system is IOnCreate s) {
                 s.OnCreate(ref world);
                 system = (T) s;
             }
@@ -50,7 +50,7 @@ namespace Wargon.Nukecs {
         
         public Systems Add<T>(float dymmy = 1f) where T : struct, IQueryJobSystem {
             T system = default;
-            if (system is ICreate s) {
+            if (system is IOnCreate s) {
                 s.OnCreate(ref world);
                 system = (T) s;
             }
@@ -87,7 +87,7 @@ namespace Wargon.Nukecs {
         // }
         public Systems Add<T>(int dymmy = 1) where T : struct, ISystem {
             T system = default;
-            if (system is ICreate s) {
+            if (system is IOnCreate s) {
                 s.OnCreate(ref world);
                 system = (T) s;
             }
@@ -613,7 +613,7 @@ namespace Wargon.Nukecs {
     //     }
     // }
     
-    public interface ICreate {
+    public interface IOnCreate {
         void OnCreate(ref World world);
     }
     public interface ISystem {
