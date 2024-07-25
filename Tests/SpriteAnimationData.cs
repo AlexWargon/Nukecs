@@ -44,21 +44,19 @@ namespace Wargon.Nukecs.Tests
                 return Entity.Null;
             }
             
-            SpriteRendering.Singleton.Initialize(sprites[0].texture);
+            //SpriteRendering.Singleton.Initialize(sprites[0].texture);
             var entity = world.CreateEntity();
             var transform = new Transform(position);
+
             transform.position.z = 0;
             entity.Add(transform);
             var renderData = new SpriteRenderData
             {
                 SpriteIndex = 0,
-                Position = position,
-                Rotation = quaternion.identity,
-                Scale = new float3(1,1,1),
-                Color = new Color32(255, 255, 255, 255),
-                FlipX = true,
-                FlipY = false,
-                SpriteTiling = new float4(0, 0, 0.25f, 0.25f)
+                Color = new float4(1, 1, 1, 1),
+                FlipX = 0f,
+                FlipY = 0f,
+                SpriteTiling = CalculateSpriteTiling(sprites[0])
             };
             entity.Add(renderData);
 
@@ -77,7 +75,7 @@ namespace Wargon.Nukecs.Tests
             entity.Add(animationComponent);
             entity.Add(new RenderMatrix());
             
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture, ref world);
             archetype.Add(entity);
             return entity;
         }

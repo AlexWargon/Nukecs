@@ -1,8 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -17,7 +15,7 @@ namespace Wargon.Nukecs.Tests {
         void Awake() {
 
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default16384);
+            world = World.Create(WorldConfig.Default_1_000_000);
             systems = new Systems(ref world);
             systems
                 //.Add<MoveSystem4>()
@@ -43,9 +41,9 @@ namespace Wargon.Nukecs.Tests {
             //     // e.Add(new C1());
             //     // e.Add(new C2());
             // }
-            for (var i = 0; i < 12; i++)
+            for (var i = 0; i < 1000; i++)
             {
-                var e = animationData.Convert(ref world, RandomEx.Float3(-2,2));
+                var e = animationData.Convert(ref world, RandomEx.Float3(-10,10));
                 e.Add(new Input());
                 e.Add(new Speed{value = 4f});
             }
@@ -55,7 +53,7 @@ namespace Wargon.Nukecs.Tests {
             InputService.Instance.Update();
             
             systems.OnUpdate(Time.deltaTime);
-            SpriteArchetypesStorage.Singleton.OnUpdate();
+            
             //Sprites.SpriteRender.Singleton.Clear();
             //systems.Run(Time.deltaTime);
         }
@@ -242,106 +240,10 @@ namespace Wargon.Nukecs.Tests {
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct SpriteRenderData : IComponent {
-        public int SpriteIndex;
-        public float3 Position;
-        public quaternion Rotation;
-        public float3 Scale;
-        public Color32 Color;
-        public float4 SpriteTiling;
-        [MarshalAs(UnmanagedType.U1)] public bool FlipX;
-        [MarshalAs(UnmanagedType.U1)] public bool FlipY;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct SpriteAnimation : IComponent
-    {
-        public const int MaxFrames = 16;
-        public int FrameCount;
-        public float FrameRate;
-        public float CurrentTime;
-        public int row;
-        public int col;
-        public int AnimationID;
-    }
-    public struct RenderMatrix : IComponent {
-        public Matrix4x4 Matrix;
-    }
-    public struct IndexInChunk : IComponent {
-        public int value;
-        public unsafe SpriteChunk* chunk;
-    }
-    [StructLayout(LayoutKind.Sequential)]
     public struct ShaderProperties
     {
         public float GlowIntensity;
         public Color32 GlowColor;
-    }
-    [BurstCompile]
-    public struct SpriteChangeAnimationSystem : IEntityJobSystem, IOnCreate {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<SpriteAnimation>().With<Input>();
-        }
-        
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            var input = entity.Read<Input>();
-            ref var anim = ref entity.Get<SpriteAnimation>();
-            anim.AnimationID = input.h is > 0f or < 0f ? Run : Idle;
-        }
-
-        public void OnCreate(ref World world) {
-            Run = Animator.StringToHash(nameof(Run));
-            Idle = Animator.StringToHash(nameof(Idle));
-        }
-
-        private int Run;
-        private int Idle;
-    } 
-    [BurstCompile]
-    public struct SpriteAnimationSystem : IEntityJobSystem
-    {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<SpriteAnimation>().With<SpriteRenderData>().With<Transform>().With<Input>();
-        }
-
-        public unsafe void OnUpdate(ref Entity entity, float deltaTime) {
-            ref var animation = ref entity.Get<SpriteAnimation>();
-            ref var renderData = ref entity.Get<SpriteRenderData>();
-            ref var transform = ref entity.Get<Transform>();
-            var input = entity.Read<Input>();
-            animation.CurrentTime += deltaTime;
-            float frameDuration = 1f / animation.FrameRate;
-            int frameIndex = (int)(animation.CurrentTime / frameDuration) % animation.FrameCount;
-            renderData.SpriteIndex = frameIndex;
-            renderData.Position = transform.position;
-            renderData.Rotation = transform.rotation;
-            renderData.Scale = new float3(1, 1, 1);
-            renderData.FlipX = input.h < 0f;
-            //renderData.SpriteTiling = CalculateSpriteTiling(renderData.SpriteIndex, animation.row, animation.col);
-            renderData.SpriteTiling = GetSpriteTiling(renderData.SpriteIndex, animation.AnimationID);
-            transform.position.z = transform.position.y*.1f;
-        }
-        public static float4 CalculateSpriteTiling(int spriteIndex, int spritesPerRow, int spritesPerColumn)
-        {
-            var row = spriteIndex / spritesPerRow;
-            var col = spriteIndex % spritesPerRow;
-            var tileWidth = 1f / spritesPerRow;
-            var tileHeight = 1f / spritesPerColumn;
-    
-            var x = col * tileWidth;
-            var y = (spritesPerColumn - 1 - row) * tileHeight;
-            var r = new float4(x, y, tileWidth, tileHeight);
-            Debug.Log(r);
-            return r;
-        }
-
-        private static float4 GetSpriteTiling(int spriteIndex, int animationID)
-        {
-            var r = SpriteAnimationsStorage.Instance.GetFrames(animationID).List.ElementAt(spriteIndex);
-            return r;
-        }
     }
 
     public struct SpriteRenderSystem : IQueryJobSystem, IOnCreate
@@ -356,103 +258,10 @@ namespace Wargon.Nukecs.Tests {
             _world = world;
         }
         public void OnUpdate(ref Query query, float deltaTime) {
-            SpriteArchetypesStorage.Singleton.OnUpdate();
+            SpriteArchetypesStorage.Singleton.OnUpdate(ref _world);
             //SpriteRendering.Singleton.Render(ref query, ref _world);
         }
     }
-    public class SpriteRendering : SingletonBase<SpriteRendering> {
-        
-        private Texture2D atlasTexture;
-        private Material spriteMaterial;
-        private Mesh quadMesh;
-        private static readonly int color = Shader.PropertyToID("_Color");
-        private static readonly int texCoord = Shader.PropertyToID("_TexCoord");
-        private static readonly int flip = Shader.PropertyToID("_Flip");
-
-        public void Initialize(Texture2D texture2D) {
-            atlasTexture = texture2D;
-            spriteMaterial = new Material(Shader.Find("Custom/SpriteShaderCompatible"));
-            spriteMaterial.mainTexture = atlasTexture;
-            quadMesh = CreateQuadMesh();
-        }
-        private Mesh CreateQuadMesh()
-        {
-            var mesh = new Mesh {
-                vertices = new Vector3[] {
-                    new (-0.5f, -0.5f, 0),
-                    new (0.5f, -0.5f, 0),
-                    new (0.5f, 0.5f, 0),
-                    new (-0.5f, 0.5f, 0)
-                },
-                uv = new Vector2[] {
-                    new (0, 0),
-                    new (1, 0),
-                    new (1, 1),
-                    new (0, 1)
-                },
-                triangles = new [] { 0, 1, 2, 0, 2, 3 }
-            };
-            return mesh;
-        }
-
-        public void Render(ref Query query, ref World world)
-        {
-            ref var dataPool = ref world.GetPool<SpriteRenderData>();
-            ref var matrixPool = ref world.GetPool<RenderMatrix>();
-            var props = new MaterialPropertyBlock();
-
-            for (int i = 0; i < query.Count; i++) {
-                var e = query.GetEntity(i);
-                var data = dataPool.GetRef<SpriteRenderData>(e.id);
-                var matrix = matrixPool.GetRef<RenderMatrix>(e.id);
-
-                props.Clear();
-                props.SetColor(color, data.Color);
-                props.SetVector(texCoord, data.SpriteTiling);
-                //props.SetVector(flip, matrix.Vector);
-                Graphics.DrawMesh(quadMesh, matrix.Matrix, spriteMaterial, 0, null, 0, props);
-            }
-        }
-    }
-
-    [BurstCompile]
-    public struct UpdateChunkDataSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<RenderMatrix>().With<SpriteRenderData>().With<IndexInChunk>();
-        }
-
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            var data = entity.Read<SpriteRenderData>();
-            ref var matrix = ref entity.Get<RenderMatrix>();
-            ref var chunkIndex = ref entity.Get<IndexInChunk>();
-            
-            GetMatrix(in data, ref matrix);
-
-            unsafe {
-                chunkIndex.chunk->UpdateData(chunkIndex.value, data, matrix);
-            }
-            
-        }
-        [BurstCompile]
-        private static void GetMatrix(in SpriteRenderData data, ref RenderMatrix renderMatrix) {
-            var scale = new Vector3(
-                data.Scale.x * (data.FlipX ? -1 : 1),
-                data.Scale.y * (data.FlipY ? -1 : 1),
-                data.Scale.z
-            );
-
-            // Создаем матрицу трансформации
-            var scaleMatrix = Matrix4x4.Scale(scale);
-            var rotationMatrix = Matrix4x4.Rotate(data.Rotation);
-            var positionMatrix = Matrix4x4.Translate(data.Position);
-
-            // Комбинируем матрицы
-            renderMatrix.Matrix = positionMatrix * rotationMatrix * scaleMatrix;
-        }
-    }
-
-
     public struct InputService
     {
         public static ref InputService Instance => ref Singleton<InputService>.Instance;
