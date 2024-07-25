@@ -41,9 +41,9 @@ namespace Wargon.Nukecs.Tests {
             //     // e.Add(new C1());
             //     // e.Add(new C2());
             // }
-            for (var i = 0; i < 1000; i++)
+            for (var i = 0; i < 10000; i++)
             {
-                var e = animationData.Convert(ref world, RandomEx.Float3(-10,10));
+                var e = animationData.Convert(ref world, RandomEx.Float3(-50,50));
                 e.Add(new Input());
                 e.Add(new Speed{value = 4f});
             }

@@ -32,7 +32,7 @@ Shader "Custom/SpriteShaderInstanced"
             {
                 float4 vertex : SV_POSITION;
                 float2 uv : TEXCOORD0;
-                fixed4 color : COLOR;
+                float4 color : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -45,7 +45,9 @@ Shader "Custom/SpriteShaderInstanced"
                 float4 SpriteTiling;
                 float FlipX;
                 float FlipY;
-                float2 Padding;
+                float ShadowAngle;
+                float ShadowLength;
+                float ShadowDistortion;
             };
 
             struct RenderMatrix
