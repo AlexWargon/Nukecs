@@ -251,32 +251,7 @@ namespace Wargon.Nukecs {
             _handle.Free();
         }
     }
-    // public unsafe struct Pools {
-    //     public void** pools;
-    //     public int amount;
-    //     public Pools(int amount, Allocator allocator) {
-    //         pools = (void**)UnsafeUtility.Malloc(sizeof(void*) * amount, UnsafeUtility.AlignOf<IntPtr>(), allocator);
-    //         this.amount = amount;
-    //     }
-    //
-    //     internal UnsafeList<T>* GetPool<T>(World.WorldImpl* world) where T : unmanaged {
-    //         var index = ComponentType<T>.Index;
-    //         var list =  (UnsafeList<T>*)pools[index];
-    //         if (list == null) {
-    //             list = UnsafeList<T>.Create(world->config.StartPoolSize, world->allocator,
-    //                 NativeArrayOptions.ClearMemory);
-    //             pools[index] = (IntPtr)list;
-    //         }
-    //         return list;
-    //     }
-    //
-    //     internal void Dispose() {
-    //         for (int i = 0; i < amount; i++) {
-    //             var ptr = pools[i];
-    //             
-    //         }
-    //     }
-    // }
+
     public struct Transforms {
         internal UnityEngine.Jobs.TransformAccessArray Array;
         internal World World;
