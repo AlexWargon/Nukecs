@@ -10,6 +10,7 @@ using UnityEngine;
 namespace Wargon.Nukecs.Tests {
     public static class ShaderNames {
         public const string Sprites = "Custom/SpriteShaderInstanced";
+        public const string SpritesWithShadow = "Custom/SpriteShaderInstancedWithShadow";
     }
     public class SpriteArchetypesStorage : SingletonBase<SpriteArchetypesStorage> {
         internal SpriteArchetype[] archetypes = new SpriteArchetype[3];
@@ -210,20 +211,20 @@ namespace Wargon.Nukecs.Tests {
             argsBuffer?.Release();
         }
     }
-        [BurstCompile]
-        public struct FillDataJob : IJob {
-            public GenericPool datas;
-            public GenericPool matrixs;
-            public NativeArray<SpriteRenderData> dataOut;
-            public NativeArray<RenderMatrix> matrixOut;
-            public int count;
-            public void Execute() {
-                for (int index = 1; index < count+1; index++) {
-                    dataOut[index] = datas.GetRef<SpriteRenderData>(index);
-                    matrixOut[index] = matrixs.GetRef<RenderMatrix>(index);
-                }
+    [BurstCompile]
+    public struct FillDataJob : IJob {
+        public GenericPool datas;
+        public GenericPool matrixs;
+        public NativeArray<SpriteRenderData> dataOut;
+        public NativeArray<RenderMatrix> matrixOut;
+        public int count;
+        public void Execute() {
+            for (int index = 1; index < count+1; index++) {
+                dataOut[index] = datas.GetRef<SpriteRenderData>(index);
+                matrixOut[index] = matrixs.GetRef<RenderMatrix>(index);
             }
         }
+    }
     public struct SpriteChunk {
         internal unsafe SpriteRenderData* renderDataChunk;
         internal unsafe RenderMatrix* matrixChunk;
@@ -364,9 +365,11 @@ namespace Wargon.Nukecs.Tests {
         public float4 SpriteTiling;
         public float FlipX; // Changed from bool to float
         public float FlipY; // Changed from bool to float
-        // Padding to ensure 16-byte alignment
-        public float2 Padding;
+        public float ShadowAngle;
+        public float ShadowLength;
+        public float ShadowDistortion;
     }
+    [StructLayout(LayoutKind.Sequential)]
     public struct RenderMatrix : IComponent {
         public Matrix4x4 Matrix;
     }
@@ -381,7 +384,7 @@ namespace Wargon.Nukecs.Tests {
         public int col;
         public int AnimationID;
     }
-
+    [StructLayout(LayoutKind.Sequential)]
     public struct IndexInChunk : IComponent {
         public int value;
         public unsafe SpriteChunk* chunk;

@@ -6,14 +6,35 @@ using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
 {
+
+// #if UNITY_EDITOR
+//     using UnityEditor;
+//     [CustomEditor(typeof(SpriteAnimationData))]
+//     public class SpriteAnimationDataEditor : Editor {
+//         private float shadowLen;
+//         public override void OnInspectorGUI() {
+//             base.OnInspectorGUI();
+//
+//             var world = World.Get(0);
+//             if(world.IsAlive == false) return;
+//             var data = target as SpriteAnimationData;
+//             var shadowLen = data.shadowLen;
+//             data.shadowLen = EditorGUILayout.FloatField("shadow len", data.shadowLen);
+//             
+//         }
+//     }
+// #endif
+    
     [CreateAssetMenu(fileName = "New Sprite Animation", menuName = "ECS/Sprite Animation")]
     public class SpriteAnimationData : ScriptableObject {
         public string AnimationName;
         public Sprite[] sprites;
+        public Color color;
         public float frameRate = 10f;
         [SerializeField][HideInInspector]
         private float4[] framesUV;
-
+        [HideInInspector]
+        public float shadowLen;
         private void OnValidate() {
             framesUV = new float4[sprites.Length];
             for (var index = 0; index < sprites.Length; index++) {
@@ -50,6 +71,7 @@ namespace Wargon.Nukecs.Tests
 
             transform.position.z = 0;
             entity.Add(transform);
+
             var renderData = new SpriteRenderData
             {
                 SpriteIndex = 0,
@@ -58,6 +80,9 @@ namespace Wargon.Nukecs.Tests
                 FlipY = 0f,
                 SpriteTiling = CalculateSpriteTiling(sprites[0])
             };
+            renderData.ShadowAngle = 135f; // угол в градусах
+            renderData.ShadowLength = 1f; // длина тени
+            renderData.ShadowDistortion = 0.5f; // искажение тени
             entity.Add(renderData);
 
 
