@@ -83,7 +83,7 @@ namespace Wargon.Nukecs.Tests.Sprites {
         public void SpawnSprite(ref World world, float3 position, int atlasIndex, int frameCount, float frameTime, float2 frameSize, float2 startUV, int framesPerRow)
         {
             var entity = world.CreateEntity();
-            entity.Add(new Transform(){position = position});
+            entity.Add(new Transform(){Position = position});
             entity.Add( new SpriteAnimation
             {
                 atlasIndex = atlasIndex,

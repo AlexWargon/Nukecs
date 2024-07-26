@@ -13,7 +13,7 @@ namespace Wargon.Nukecs.Tests.Sprites {
             
             ref var anim = ref entity.Get<SpriteAnimation>();
             ref var renderData = ref entity.Get<SpriteRenderData>();
-            var position = entity.Read<Transform>().position;
+            var position = entity.Read<Transform>().Position;
             anim.elapsedTime += deltaTime;
             if (anim.elapsedTime >= anim.frameTime)
             {

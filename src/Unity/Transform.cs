@@ -7,19 +7,19 @@ using UnityEngine;
 namespace Wargon.Nukecs.Tests {
     [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct Transform : IComponent {
-        public float3 position;
-        public quaternion rotation;
-        public float3 scale;
+        public float3 Position;
+        public quaternion Rotation;
+        public float3 Scale;
 
         public Transform(float3 pos) {
-            position = pos;
-            rotation = quaternion.identity;
-            scale = new float3(1, 1, 1);
+            Position = pos;
+            Rotation = quaternion.identity;
+            Scale = new float3(1, 1, 1);
         }
         public Matrix4x4 Matrix
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Matrix4x4.TRS(position, rotation, Vector3.one);
+            get => Matrix4x4.TRS(Position, Rotation, Vector3.one);
         }
         // public float3 right {
         //     [MethodImpl(MethodImplOptions.AggressiveInlining)]

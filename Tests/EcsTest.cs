@@ -41,9 +41,8 @@ namespace Wargon.Nukecs.Tests {
             //     // e.Add(new C1());
             //     // e.Add(new C2());
             // }
-            for (var i = 0; i < 10000; i++)
-            {
-                var e = animationData.Convert(ref world, RandomEx.Float3(-50,50));
+            for (var i = 0; i < 1000000; i++) {
+                Entity e = animationData.Convert(ref world, RandomEx.Float3(-120,120));
                 e.Add(new Input());
                 e.Add(new Speed{value = 4f});
             }
@@ -84,8 +83,8 @@ namespace Wargon.Nukecs.Tests {
                 ref var entity = ref _query.GetEntity(i);
                 var view = entity.Read<View>();
                 var transform = entity.Read<Transform>();
-                view.value.Value.transform.position = transform.position;
-                view.value.Value.transform.rotation = transform.rotation;
+                view.value.Value.transform.position = transform.Position;
+                view.value.Value.transform.rotation = transform.Rotation;
             }
         }
     }
@@ -102,7 +101,7 @@ namespace Wargon.Nukecs.Tests {
             var speed = entity.Read<Speed>();
             var input = entity.Read<Input>();
 
-            transform.position += new float3(input.h, input.v, 0) * speed.value * deltaTime;
+            transform.Position += new float3(input.h, input.v, 0) * speed.value * deltaTime;
 
         }
     }
@@ -123,14 +122,14 @@ namespace Wargon.Nukecs.Tests {
                 float remainingTime = deltaTime;
                 while (remainingTime > 0) {
                     float stepTime = math.min(fixedDeltaTime, remainingTime);
-                    float3 newPosition = transform.position + speed.value * stepTime * math.right();
+                    float3 newPosition = transform.Position + speed.value * stepTime * math.right();
         
                     if (newPosition.x > 100) {
-                        transform.position.x = 100;
+                        transform.Position.x = 100;
                         entity.Destroy();
                         break;
                     }
-                    transform.position = newPosition;
+                    transform.Position = newPosition;
                     remainingTime -= stepTime;
                 }
             }

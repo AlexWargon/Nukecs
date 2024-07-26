@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Wargon.Nukecs.Tests
 {
@@ -69,7 +70,7 @@ namespace Wargon.Nukecs.Tests
             var entity = world.CreateEntity();
             var transform = new Transform(position);
 
-            transform.position.z = 0;
+            transform.Position.z = 0;
             entity.Add(transform);
 
             var renderData = new SpriteRenderData
@@ -92,7 +93,7 @@ namespace Wargon.Nukecs.Tests
             {
                 FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
                 FrameRate = frameRate,
-                CurrentTime = 0f,
+                CurrentTime = Random.value,
                 col = 1,
                 row = 10,
                 AnimationID = animationID
@@ -156,6 +157,24 @@ namespace Wargon.Nukecs.Tests
             }
 
             frames.Dispose();
+        }
+    }
+
+    public static class RandomIndex {
+        private static int current;
+        private static int[] array5 = new[] {
+            1,
+            3,
+            2,
+            0,
+            5,
+            4,
+            3
+        };
+
+        public static int Next() {
+            if (current == array5.Length - 1) current = 0;
+            return array5[current++];
         }
     }
 }

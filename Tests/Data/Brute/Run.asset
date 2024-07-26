@@ -1,0 +1,105 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 657e91390822480f80359f806918d36b, type: 3}
+  m_Name: Run
+  m_EditorClassIdentifier: 
+  AnimationName: Idle
+  sprites:
+  - {fileID: 1405039794, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 405558177, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 573282554, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 1750257301, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -1880292177, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 80226667, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -2064695112, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 1168109412, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 1463716279, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 1005183741, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -728511086, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -211777739, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -363229942, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 1480487293, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -591983899, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: 266944583, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  - {fileID: -448595159, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
+  color: {r: 1, g: 1, b: 1, a: 1}
+  frameRate: 12
+  framesUV:
+  - x: 0.074630044
+    y: 0.8278215
+    z: 0.101856515
+    w: 0.14435694
+  - x: 0.2725024
+    y: 0.8319718
+    z: 0.10403644
+    w: 0.14243937
+  - x: 0.4661194
+    y: 0.8340995
+    z: 0.1082395
+    w: 0.14035591
+  - x: 0.6596517
+    y: 0.83407
+    z: 0.11694224
+    w: 0.13810843
+  - x: 0.85747427
+    y: 0.8340995
+    z: 0.11895951
+    w: 0.13395818
+  - x: 0.05752401
+    y: 0.62994915
+    z: 0.12534553
+    w: 0.1358463
+  - x: 0.25747427
+    y: 0.62558883
+    z: 0.12752292
+    w: 0.14233433
+  - x: 0.46392107
+    y: 0.62569386
+    z: 0.123312965
+    w: 0.14643657
+  - x: 0.674525
+    y: 0.62768704
+    z: 0.112681575
+    w: 0.14670976
+  - x: 0.8702402
+    y: 0.6298147
+    z: 0.12119221
+    w: 0.1445442
+  - x: 0.059736427
+    y: 0.43420452
+    z: 0.13804463
+    w: 0.14010163
+  - x: 0.25750372
+    y: 0.43420452
+    z: 0.14249627
+    w: 0.13797396
+  - x: 0.4553466
+    y: 0.43415174
+    z: 0.14465338
+    w: 0.13589908
+  - x: 0.6597364
+    y: 0.42782155
+    z: 0.13781814
+    w: 0.14010163
+  - x: 0.8618641
+    y: 0.42347556
+    z: 0.12526079
+    w: 0.14657527
+  - x: 0.06824707
+    y: 0.22768705
+    z: 0.11890977
+    w: 0.14449142
+  - x: 0.27675772
+    y: 0.22771649
+    z: 0.10818672
+    w: 0.14668033
+  shadowLen: 0
