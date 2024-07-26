@@ -1,6 +1,6 @@
 Shader "Custom/SpriteShaderInstancedWithShadow"
 {
-        Properties
+    Properties
     {
         _MainTex ("Sprite Texture", 2D) = "white" {}
         _AlphaCutoff ("Alpha Cutoff", Range(0,1)) = 0.1
@@ -15,6 +15,96 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
         Blend SrcAlpha OneMinusSrcAlpha
         Cull Off
 
+        CGINCLUDE
+        #include "UnityCG.cginc"
+
+        struct Transform
+        {
+            float3 Position;
+            float4 Rotation;
+            float3 Scale;
+        };
+
+        struct SpriteRenderData
+        {
+            int SpriteIndex;
+            float4 Color;
+            float4 SpriteTiling;
+            float FlipX;
+            float FlipY;
+            float ShadowAngle;
+            float ShadowLength;
+            float ShadowDistortion;
+        };
+
+        #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+        StructuredBuffer<Transform> _Transforms;
+        StructuredBuffer<SpriteRenderData> _Properties;
+        #endif
+
+        float4x4 QuaternionToMatrix(float4 quat)
+        {
+            float4x4 m = float4x4(float4(0, 0, 0, 0), float4(0, 0, 0, 0), float4(0, 0, 0, 0), float4(0, 0, 0, 0));
+            
+            float x = quat.x, y = quat.y, z = quat.z, w = quat.w;
+            float x2 = x + x, y2 = y + y, z2 = z + z;
+            float xx = x * x2, xy = x * y2, xz = x * z2;
+            float yy = y * y2, yz = y * z2, zz = z * z2;
+            float wx = w * x2, wy = w * y2, wz = w * z2;
+
+            m[0][0] = 1.0 - (yy + zz);
+            m[0][1] = xy - wz;
+            m[0][2] = xz + wy;
+
+            m[1][0] = xy + wz;
+            m[1][1] = 1.0 - (xx + zz);
+            m[1][2] = yz - wx;
+
+            m[2][0] = xz - wy;
+            m[2][1] = yz + wx;
+            m[2][2] = 1.0 - (xx + yy);
+
+            m[3][3] = 1.0;
+            
+            return m;
+        }
+
+        float4x4 CalculateTRSMatrix(Transform transform, float flipX, float flipY)
+        {
+            float3 scale = float3(transform.Scale.x * (flipX > 0 ? -1 : 1),
+                    transform.Scale.y * (flipY > 0 ? -1 : 1),
+                    transform.Scale.z
+                );
+            
+            float4x4 S = float4x4(
+                scale.x, 0, 0, 0,
+                0, scale.y, 0, 0,
+                0, 0, scale.z, 0,
+                0, 0, 0, 1
+            );
+
+            float4x4 R = QuaternionToMatrix(transform.Rotation);
+
+            float4x4 T = float4x4(
+                1, 0, 0, transform.Position.x,
+                0, 1, 0, transform.Position.y,
+                0, 0, 1, transform.Position.z,
+                0, 0, 0, 1
+            );
+
+            return mul(T, mul(R, S));
+        }
+
+        void setup()
+        {
+            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+            Transform transform = _Transforms[unity_InstanceID];
+            SpriteRenderData data = _Properties[unity_InstanceID];
+            unity_ObjectToWorld = CalculateTRSMatrix(transform, data.FlipX, data.FlipY);
+            #endif
+        }
+        ENDCG
+
         // Pass для рендеринга тени
         Pass
         {
@@ -26,7 +116,6 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma instancing_options procedural:setup
-            #include "UnityCG.cginc"
 
             struct appdata_t
             {
@@ -48,36 +137,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             float _ShadowAngle;
             float _ShadowLength;
             float _ShadowDistortion;
-
-            struct SpriteRenderData
-            {
-                int SpriteIndex;
-                float4 Color;
-                float4 SpriteTiling;
-                float FlipX;
-                float FlipY;
-                float ShadowAngle;
-                float ShadowLength;
-                float ShadowDistortion;
-            };
-
-            struct RenderMatrix
-            {
-                float4x4 Matrix;
-            };
-
-            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-            StructuredBuffer<RenderMatrix> _Matrices;
-            StructuredBuffer<SpriteRenderData> _Properties;
-            #endif
-
-            void setup()
-            {
-                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-                unity_ObjectToWorld = _Matrices[unity_InstanceID].Matrix;
-                #endif
-            }
-
+            
             v2f vert (appdata_t IN)
             {
                 v2f OUT;
@@ -96,21 +156,17 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                 float shadowLength = _ShadowLength;
                 float shadowDistortion = _ShadowDistortion;
                 #endif
-
-                // Определяем, является ли эта вершина нижней
-                bool isBottomVertex = IN.vertex.y < 0.01; // Предполагаем, что y=0 это низ спрайта
+            
+                const bool isBottomVertex = IN.vertex.y < 0.01;
 
                 if (!isBottomVertex)
                 {
-                    // Для верхних вершин применяем смещение и искажение
-                    float2 shadowOffset = float2(cos(shadowAngle), sin(shadowAngle)) * shadowLength;
+                    const float2 shadowOffset = float2(cos(shadowAngle), sin(shadowAngle)) * shadowLength;
                     worldPos.xy += shadowOffset;
                     
-                    // Искажение по вертикали
-                    float verticalOffset = (1 - IN.vertex.y) * shadowDistortion;
+                    const float verticalOffset = (1 - IN.vertex.y) * shadowDistortion;
                     worldPos.y -= verticalOffset;
 
-                    // Применяем наклон только к правой стороне
                     if (IN.vertex.x > 0)
                     {
                         worldPos.x += verticalOffset * tan(shadowAngle);
@@ -119,7 +175,6 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
 
                 OUT.vertex = UnityWorldToClipPos(float4(worldPos, 1));
 
-                // Вычисляем UV так же, как для спрайта
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 float2 uv = IN.uv;
                 uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
@@ -152,7 +207,6 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #pragma instancing_options procedural:setup
-            #include "UnityCG.cginc"
 
             struct appdata_t
             {
@@ -171,34 +225,6 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
 
             sampler2D _MainTex;
             float _AlphaCutoff;
-            struct SpriteRenderData
-            {
-                int SpriteIndex;
-                float4 Color;
-                float4 SpriteTiling;
-                float FlipX;
-                float FlipY;
-                float ShadowAngle;
-                float ShadowLength;
-                float ShadowDistortion;
-            };
-
-            struct RenderMatrix
-            {
-                float4x4 Matrix;
-            };
-
-            #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-            StructuredBuffer<RenderMatrix> _Matrices;
-            StructuredBuffer<SpriteRenderData> _Properties;
-            #endif
-
-            void setup()
-            {
-                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-                unity_ObjectToWorld = _Matrices[unity_InstanceID].Matrix;
-                #endif
-            }
 
             v2f vert (appdata_t IN)
             {
