@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
-    public unsafe class EcsTest : MonoBehaviour {
+    public class EcsTest : MonoBehaviour {
         private World world;
         private Systems systems;
         public GameObject sphere;
@@ -13,9 +13,9 @@ namespace Wargon.Nukecs.Tests {
         public UnityEngine.Material material;
         public SpriteAnimationList animationData;
         void Awake() {
-
+            Application.targetFrameRate = 144;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default_1_000_000);
+            world = World.Create(WorldConfig.Default16384);
             systems = new Systems(ref world);
             systems
                 //.Add<MoveSystem4>()
@@ -24,25 +24,12 @@ namespace Wargon.Nukecs.Tests {
                 .Add<SpriteChangeAnimationSystem>()
                 .Add<SpriteAnimationSystem>()
                 .Add<UpdateChunkDataSystem>()
-                //.Add<SpriteRenderSystem>()
+                .Add<SpriteRenderSystem>()
                 //.Add<ViewSystem>()
                 ;
 
-            // for (var i = 0; i < 3; i++)
-            // {
-            //     var e = world.CreateEntity();
-            //     e.Add(new Transform {
-            //         position = RandomEx.Vector3(-10.0f,10.0f),
-            //         rotation = quaternion.identity
-            //     });
-            //     e.Add(new Speed{value = 20f});
-            //     e.Add(new Mesh{value = mesh});
-            //     e.Add(new Material{value = material});
-            //     // e.Add(new C1());
-            //     // e.Add(new C2());
-            // }
-            for (var i = 0; i < 1000000; i++) {
-                Entity e = animationData.Convert(ref world, RandomEx.Float3(-120,120));
+            for (var i = 0; i < 1000; i++) {
+                Entity e = animationData.Convert(ref world, RandomEx.Float3(-25,25));
                 e.Add(new Input());
                 e.Add(new Speed{value = 4f});
             }
@@ -50,11 +37,7 @@ namespace Wargon.Nukecs.Tests {
 
         private void Update() {
             InputService.Instance.Update();
-            
             systems.OnUpdate(Time.deltaTime);
-            
-            //Sprites.SpriteRender.Singleton.Clear();
-            //systems.Run(Time.deltaTime);
         }
         private void OnDestroy() {
             world.Dispose();
@@ -245,22 +228,7 @@ namespace Wargon.Nukecs.Tests {
         public Color32 GlowColor;
     }
 
-    public struct SpriteRenderSystem : IQueryJobSystem, IOnCreate
-    {
-        private World _world;
-        public SystemMode Mode => SystemMode.Main;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<SpriteRenderData>().With<RenderMatrix>();
-        }
-        public void OnCreate(ref World world)
-        {
-            _world = world;
-        }
-        public void OnUpdate(ref Query query, float deltaTime) {
-            SpriteArchetypesStorage.Singleton.OnUpdate(ref _world);
-            //SpriteRendering.Singleton.Render(ref query, ref _world);
-        }
-    }
+
     public struct InputService
     {
         public static ref InputService Instance => ref Singleton<InputService>.Instance;

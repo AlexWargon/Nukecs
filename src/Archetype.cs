@@ -21,6 +21,13 @@ namespace Wargon.Nukecs {
         }
     }
 
+    internal unsafe struct ArchetypePureUnsafe {
+        internal UnsafeHashMap<int, GenericPool> pools;
+
+        public ref T GetComponent<T>(int id) where T : unmanaged, IComponent {
+            return ref pools[ComponentType<T>.Index].GetRef<T>(id);
+        }
+    }
     internal unsafe struct ArchetypeImpl {
         internal DynamicBitmask mask;
         internal UnsafeList<int> types;
@@ -170,32 +177,8 @@ namespace Wargon.Nukecs {
             edge.Execute(entity);
         }
 
-        internal void OnEntityChangeRemove(ref Entity entity, int component) {
-            //if (id == 0 && component < 0) return;
-            if (transactions.TryGetValue(component, out var edge)) {
-                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-                world->EFB.Add(entity.id, edge);
-                //Debug.Log($"EXIST {edge.toMove->id}");
-                return;
-            }
-
-            CreateTransaction(component);
-            edge = transactions[component];
-            world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-            world->EFB.Add(entity.id, edge);
-        }
-
         public void Destroy(int entity) {
             destroyEdge.Execute(entity);
-        }
-
-        internal void Filter(ref Entity entity, int component) {
-            //if (id == 0 && component < 0) return;
-            if (this.Has(component)) return;
-            if (transactions.TryGetValue(component, out var edge)) {
-                edge.Execute(entity.id);
-                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-            }
         }
 
         internal void CreateTransaction(int component) {
@@ -212,8 +195,7 @@ namespace Wargon.Nukecs {
             if (remove == false) {
                 newTypes.Add(component);
             }
-            //Debug.Log($"Component {component}");
-            //Debug.Log($"REMOVE? {remove}");
+
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
             var otherArchetype = otherArchetypeStruct.impl;
             var otherEdge = new Edge(ref otherArchetypeStruct, world->allocator);
@@ -339,16 +321,6 @@ namespace Wargon.Nukecs {
             for (int i = 0; i < addEntity->Length; i++) {
                 addEntity->ElementAt(i)->Add(entity);
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void AddToAddEntity(Query.QueryUnsafe* q) {
-            addEntity->Add(q);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void AddToRemoveEntity(Query.QueryUnsafe* q) {
-            removeEntity->Add(q);
         }
 
         public void Dispose() {
