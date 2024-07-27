@@ -99,8 +99,7 @@ namespace Wargon.Nukecs.Tests
                 AnimationID = animationID
             };
             entity.Add(animationComponent);
-            entity.Add(new RenderMatrix());
-            
+
             ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture, ref world);
             archetype.Add(entity);
             return entity;

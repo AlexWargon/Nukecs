@@ -1,7 +1,8 @@
-using UnityEditor;
+
 using UnityEngine;
 using UnityEngine.UIElements;
-
+#if UNITY_EDITOR
+using UnityEditor;
 public class EntityBlueprintEditor : EditorWindow
 {
     [SerializeField]
@@ -28,3 +29,4 @@ public class EntityBlueprintEditor : EditorWindow
         root.Add(labelFromUXML);
     }
 }
+#endif

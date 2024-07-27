@@ -19,7 +19,7 @@ MonoBehaviour:
   - {fileID: 528682375, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
   - {fileID: -184966817, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
   color: {r: 1, g: 1, b: 1, a: 1}
-  frameRate: 12
+  frameRate: 14
   framesUV:
   - x: 0
     y: 0

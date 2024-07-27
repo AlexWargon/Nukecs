@@ -45,12 +45,12 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
         float4x4 QuaternionToMatrix(float4 quat)
         {
             float4x4 m = float4x4(float4(0, 0, 0, 0), float4(0, 0, 0, 0), float4(0, 0, 0, 0), float4(0, 0, 0, 0));
-            
-            float x = quat.x, y = quat.y, z = quat.z, w = quat.w;
-            float x2 = x + x, y2 = y + y, z2 = z + z;
-            float xx = x * x2, xy = x * y2, xz = x * z2;
-            float yy = y * y2, yz = y * z2, zz = z * z2;
-            float wx = w * x2, wy = w * y2, wz = w * z2;
+
+            const float x = quat.x, y = quat.y, z = quat.z, w = quat.w;
+            const float x2 = x + x, y2 = y + y, z2 = z + z;
+            const float xx = x * x2, xy = x * y2, xz = x * z2;
+            const float yy = y * y2, yz = y * z2, zz = z * z2;
+            const float wx = w * x2, wy = w * y2, wz = w * z2;
 
             m[0][0] = 1.0 - (yy + zz);
             m[0][1] = xy - wz;
@@ -75,17 +75,17 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                     transform.Scale.y * (flipY > 0 ? -1 : 1),
                     transform.Scale.z
                 );
-            
-            float4x4 S = float4x4(
+
+            const float4x4 S = float4x4(
                 scale.x, 0, 0, 0,
                 0, scale.y, 0, 0,
                 0, 0, scale.z, 0,
                 0, 0, 0, 1
             );
 
-            float4x4 R = QuaternionToMatrix(transform.Rotation);
+            const float4x4 R = QuaternionToMatrix(transform.Rotation);
 
-            float4x4 T = float4x4(
+            const float4x4 T = float4x4(
                 1, 0, 0, transform.Position.x,
                 0, 1, 0, transform.Position.y,
                 0, 0, 1, transform.Position.z,
@@ -105,7 +105,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
         }
         ENDCG
 
-        // Pass для рендеринга тени
+        // Pass render shadow
         Pass
         {
             ZWrite Off
@@ -148,13 +148,13 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
 
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
-                float shadowAngle = radians(data.ShadowAngle);
-                float shadowLength = data.ShadowLength;
-                float shadowDistortion = data.ShadowDistortion;
+                const float shadowAngle = radians(data.ShadowAngle);
+                const float shadowLength = data.ShadowLength;
+                const float shadowDistortion = data.ShadowDistortion;
                 #else
-                float shadowAngle = radians(_ShadowAngle);
-                float shadowLength = _ShadowLength;
-                float shadowDistortion = _ShadowDistortion;
+                const float shadowAngle = radians(_ShadowAngle);
+                const float shadowLength = _ShadowLength;
+                const float shadowDistortion = _ShadowDistortion;
                 #endif
             
                 const bool isBottomVertex = IN.vertex.y < 0.01;
@@ -199,7 +199,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             ENDCG
         }
 
-        // Pass для рендеринга спрайта
+        // Pass render sprite
         Pass
         {
             CGPROGRAM

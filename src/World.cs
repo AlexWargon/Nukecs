@@ -160,13 +160,29 @@ namespace Wargon.Nukecs {
                     entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
                 }
                 var e = new Entity(lastEntityIndex, self);
-                entities.ElementAt(lastEntityIndex) = e;
+                entities.ElementAtNoCheck(lastEntityIndex) = e;
                 lastEntityIndex++;
+                return e;
+            }
+            internal Entity CreateEntity<T1>(in T1 c1) 
+                where T1 : unmanaged, IComponent 
+            {
+                var e = CreateEntity();
+                e.Add(in c1);
+                return e;
+            }
+            internal Entity CreateEntity<T1, T2>(in T1 c1, in T2 c2) 
+                where T1 : unmanaged, IComponent 
+                where T2 : unmanaged, IComponent 
+            {
+                var e = CreateEntity();
+                e.Add(in c1);
+                e.Add(in c2);
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref Entity GetEntity(int id) {
-                return ref entities.ElementAt(id);
+                return ref entities.ElementAtNoCheck(id);
             }
 
             public Archetype CreateArchetype(params int[] types) {
@@ -227,10 +243,22 @@ namespace Wargon.Nukecs {
         public ref GenericPool GetPool<T>() where T : unmanaged {
             return ref Unsafe->GetPool<T>();
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity CreateEntity() {
             return Unsafe->CreateEntity();
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Entity CreateEntity<T1>(in T1 c1) where T1 : unmanaged, IComponent {
+            return Unsafe->CreateEntity(in c1);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Entity CreateEntity<T1,T2>(in T1 c1, in T2 c2) 
+            where T1 : unmanaged, IComponent 
+            where T2 : unmanaged, IComponent
+        {
+            return Unsafe->CreateEntity(in c1, in c2);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int id) {
             return ref Unsafe->GetEntity(id);

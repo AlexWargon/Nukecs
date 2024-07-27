@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using UnityEditor;
-using UnityEngine;
-using Wargon.Nukecs;
 
+using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
 namespace Wargon.Nukecs.Tests {
     public class ComponentEditorWindow : UnityEditor.EditorWindow {
         private SerializedProperty componentDataProperty;
@@ -267,3 +267,4 @@ private SerializedProperty componentsProperty;
         }
     }
 }
+#endif

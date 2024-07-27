@@ -102,7 +102,6 @@ namespace Wargon.Nukecs {
         }
         public void OnUpdate(float dt) {
             dependencies.Complete();
-            SpriteArchetypesStorage.Singleton.OnUpdate(ref world);
             for (var i = 0; i < runners.Count; i++) {
                 dependencies = runners[i].Schedule(ref world, dt, ref dependencies);
             }
