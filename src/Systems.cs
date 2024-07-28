@@ -12,11 +12,13 @@ namespace Wargon.Nukecs {
         internal JobHandle dependencies;
         private List<ISystemRunner> runners;
         private World world;
-
+        //private ECBSystem _ecbSystem;
         public Systems(ref World world) {
             this.dependencies = default;
             this.runners = new List<ISystemRunner>();
             this.world = world;
+            //_ecbSystem = default;
+            //_ecbSystem.OnCreate(ref world);
         }
 
         public Systems Add<T>() where T : struct, IJobSystem {
@@ -101,9 +103,10 @@ namespace Wargon.Nukecs {
             return this;
         }
         public void OnUpdate(float dt) {
-            dependencies.Complete();
+            world.Dependecies.Complete();
+            //_ecbSystem.OnUpdate(ref world, dt);
             for (var i = 0; i < runners.Count; i++) {
-                dependencies = runners[i].Schedule(ref world, dt, ref dependencies);
+                world.Dependecies = runners[i].Schedule(ref world, dt, ref world.Dependecies);
             }
         }
 
@@ -118,6 +121,37 @@ namespace Wargon.Nukecs {
         public EntityFilterBuffer EFB;
         public void Execute() {
             EFB.Playback();
+        }
+    }
+    public unsafe struct ECBSystem : ISystem, IOnCreate {
+        public static ref ECBSystem Singleton => ref Singleton<ECBSystem>.Instance;
+        public void OnCreate(ref World world) {
+            ecbList = new UnsafeList<EntityCommandBuffer>(3, world.Unsafe->allocator);
+            Singleton<ECBSystem>.Set(ref this);
+        }
+        private int count;
+        private UnsafeList<EntityCommandBuffer> ecbList;
+        public ref EntityCommandBuffer CreateEcb() {
+            if (ecbList.Length >= count) {
+                var ecb = new EntityCommandBuffer(1024);
+                ecbList.Add(ecb);
+            }
+            var index = count;
+            count++;
+            return ref ecbList.ElementAt(index);
+        }
+        public void OnUpdate(ref World world, float deltaTime) {
+            for (int i = 0; i < count; i++) {
+                ecbList.ElementAt(i).Playback(ref world);
+            }
+            count = 0;
+        }
+
+        internal void OnDestroy() {
+            foreach (var entityCommandBuffer in ecbList) {
+                entityCommandBuffer.Clear();
+            }
+            ecbList.Dispose();
         }
     }
     [BurstCompile]

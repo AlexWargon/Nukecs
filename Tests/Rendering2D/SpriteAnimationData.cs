@@ -101,7 +101,7 @@ namespace Wargon.Nukecs.Tests
             entity.Add(animationComponent);
 
             ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture, ref world);
-            archetype.Add(entity);
+            archetype.AddInitial(ref entity);
             return entity;
         }
 

@@ -167,10 +167,6 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                     const float verticalOffset = (1 - IN.vertex.y) * shadowDistortion;
                     worldPos.y -= verticalOffset;
 
-                    if (IN.vertex.x > 0)
-                    {
-                        worldPos.x += verticalOffset * tan(shadowAngle);
-                    }
                 }
 
                 OUT.vertex = UnityWorldToClipPos(float4(worldPos, 1));

@@ -62,6 +62,8 @@ namespace Wargon.Nukecs {
                 PlayParticleReference = 8,
                 ReuseView = 9,
                 SetActiveEntity = 10,
+                Cull,
+                UnCull
             }
         }
 
@@ -215,6 +217,26 @@ namespace Wargon.Nukecs {
                 count++;
             }
 
+            public void Cull(int entity, int thread) {
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(new ECBCommand() {
+                    Entity = entity,
+                    EcbCommandType = ECBCommand.Type.Cull,
+                    ComponentType = ComponentType<Culled>.Index
+                });
+                count++;
+            }
+
+            public void UnCull(int entity, int thread) {
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(new ECBCommand() {
+                    Entity = entity,
+                    EcbCommandType = ECBCommand.Type.UnCull,
+                    ComponentType = ComponentType<Culled>.Index
+                });
+                count++;
+            }
+
 #if !UNITY_EDITOR
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -304,7 +326,7 @@ namespace Wargon.Nukecs {
         public void Clear() {
             ecb->Clear();
         }
-
+        
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int entity) where T : unmanaged {
@@ -339,6 +361,13 @@ namespace Wargon.Nukecs {
             ecb->Destroy(entity, ThreadIndex);
         }
 
+        public void Cull(int entity) {
+            ecb->Cull(entity, ThreadIndex);
+        }
+
+        public void UnCull(int entity) {
+            ecb->UnCull(entity, ThreadIndex);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PlayParticleReference(int entity, bool value) {
             ecb->PlayParticleReference(entity, value, ThreadIndex);
@@ -371,6 +400,13 @@ namespace Wargon.Nukecs {
                             break;
                         case ECBCommand.Type.CreateEntity:
                             world.CreateEntity();
+                            break;
+                        
+                        case ECBCommand.Type.Cull:
+                            
+                            break;
+                        case ECBCommand.Type.UnCull:
+                            
                             break;
                         default:
                             throw new ArgumentOutOfRangeException();
@@ -413,8 +449,20 @@ namespace Wargon.Nukecs {
                         case ECBCommand.Type.DestroyEntity:
                             archetype.Destroy(cmd.Entity);
                             break;
-                        default:
-                            throw new ArgumentOutOfRangeException();
+                        
+                        case ECBCommand.Type.Cull:
+                            if(archetype.Has(ComponentType<Culled>.Index)) break;
+                            ref var e = ref world.GetEntity(cmd.Entity);
+                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                            e.Get<SpriteChunkReference>().chunk->Remove(in e);
+                            break;
+                        case ECBCommand.Type.UnCull:
+                            if(archetype.Has(ComponentType<Culled>.Index) == false) break;
+                            e = ref world.GetEntity(cmd.Entity);
+                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
+                            e.Get<SpriteChunkReference>().chunk->Add(in e);
+                            break;
+
                     }
                 }
 

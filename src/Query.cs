@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -8,14 +7,17 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Query : IDisposable {
-        
+    public readonly unsafe struct Query : IDisposable {
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl->count;
         }
 
+        public bool IsValid {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => impl !=null && impl->IsCreated;
+        }
         internal struct QueryUnsafe {
             internal DynamicBitmask with;
             internal DynamicBitmask none;
@@ -24,7 +26,7 @@ namespace Wargon.Nukecs {
             internal int count;
             [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
             [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
-
+            public bool IsCreated => world != null;
             internal static void Free(QueryUnsafe* queryImpl) {
                 queryImpl->Free();
                 var allocator = queryImpl->world->allocator;

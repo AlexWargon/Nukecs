@@ -202,4 +202,98 @@ namespace Wargon.Nukecs {
             return !left.Equals(right);
         }
     }
+    [StructLayout(LayoutKind.Sequential)]
+
+    public unsafe struct ObjectRef<T> : IEquatable<ObjectRef<T>>, IDisposable where T : class
+    {
+        private IntPtr pointer;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator ObjectRef<T>(T instance)
+        {
+            return new ObjectRef<T>(instance);
+        }
+
+        public ObjectRef(T instance)
+        {
+            pointer = instance == null ? IntPtr.Zero : (IntPtr)GCHandle.Alloc(instance, GCHandleType.Weak);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator T(ObjectRef<T> objectRef)
+        {
+            return objectRef.Value;
+        }
+
+        public T Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if (pointer == IntPtr.Zero) return null;
+                var handle = GCHandle.FromIntPtr(pointer);
+                return handle.IsAllocated ? handle.Target as T : null;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set
+            {
+                if (pointer != IntPtr.Zero)
+                {
+                    GCHandle.FromIntPtr(pointer).Free();
+                }
+                pointer = value == null ? IntPtr.Zero : (IntPtr)GCHandle.Alloc(value, GCHandleType.Weak);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Equals(ObjectRef<T> other)
+        {
+            return pointer == other.pointer;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override bool Equals(object obj)
+        {
+            return obj is ObjectRef<T> other && Equals(other);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator bool(ObjectRef<T> obj)
+        {
+            return obj.IsValid();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override int GetHashCode()
+        {
+            return pointer.GetHashCode();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsValid()
+        {
+            if (pointer == IntPtr.Zero) return false;
+            var handle = GCHandle.FromIntPtr(pointer);
+            return handle.IsAllocated && handle.Target != null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator ==(ObjectRef<T> left, ObjectRef<T> right)
+        {
+            return left.Equals(right);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator !=(ObjectRef<T> left, ObjectRef<T> right)
+        {
+            return !left.Equals(right);
+        }
+
+        public void Dispose() {
+            if (pointer != IntPtr.Zero)
+            {
+                GCHandle.FromIntPtr(pointer).Free();
+            }
+        }
+    }
 }
