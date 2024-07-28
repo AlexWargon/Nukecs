@@ -20,6 +20,10 @@ namespace Wargon.Nukecs.Tests {
             }
         }
 
+        public static void Set(ref T reference) {
+            instance.Data.Value = reference;
+            instance.Data.IsCreated = true;
+        }
         private struct Reference
         {
             internal T Value;

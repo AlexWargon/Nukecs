@@ -11,7 +11,8 @@ namespace Wargon.Nukecs.Editor {
             var w = GetWindow<WorldDebug>();
         }
 
-        private Dictionary<int, QueryInfo> QueryLables = new();
+        private Dictionary<int, QueryInfo> QueryLabels = new();
+        private Dictionary<int, ArchetypeInfo> ArchetypeLabels = new();
         public void CreateGUI()
         {
             // Each editor window contains a root VisualElement object
@@ -60,10 +61,11 @@ namespace Wargon.Nukecs.Editor {
             var label = new Label(info);
             label.name = info;
             label.schedule.Execute(() => {
-                var inf = QueryLables[index];
-                label.text = $"{inf.Label.name}{inf.Query->count}";
+                var inf = QueryLabels[index];
+                if(inf.Query->world!=null)
+                    label.text = $"{inf.Label.name}{inf.Query->count}";
             }).Every(50);
-            QueryLables[index] = new QueryInfo {
+            QueryLabels[index] = new QueryInfo {
                 Label = label,
                 Query = queryImpl
             };
@@ -71,13 +73,29 @@ namespace Wargon.Nukecs.Editor {
         }
 
         private Label ArchetypeInfo(Archetype archetype, int id) {
-            return new Label(archetype.impl->ToString());
+            var label = new Label(archetype.impl->ToString());
+            label.schedule.Execute(() => {
+                var inf = ArchetypeLabels[id];
+                if(inf.Archetype->IsCreated)
+                    label.text = inf.Archetype->ToString();
+            }).Every(100);
+            ArchetypeLabels[id] = new ArchetypeInfo {
+                Label = label,
+                Archetype = archetype.impl
+            };
+            
+            return label;
         }
     }
 
     internal unsafe class QueryInfo {
         internal Label Label;
         internal Query.QueryUnsafe* Query;
+    }
+
+    internal unsafe class ArchetypeInfo {
+        internal Label Label;
+        internal ArchetypeImpl* Archetype;
     }
 }
 #endif

@@ -76,9 +76,10 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged {
-            if (index < 0 || index >= impl->capacity) {
+            if (index < 0) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
+            CheckResize<T>(index);
             *(T*) (impl->buffer + index * impl->elementSize) = value;
         }
 
@@ -86,8 +87,8 @@ namespace Wargon.Nukecs {
             if (index < 0 || index >= impl->capacity) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
-            //return ref ((T*)impl->buffer)[index];
-            return ref *(T*) (impl->buffer + index * impl->elementSize);
+            return ref ((T*)impl->buffer)[index];
+            //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
 
         public void SetPtr(int index, void* value) {
@@ -158,6 +159,22 @@ namespace Wargon.Nukecs {
             impl->count = 0;
             UnsafeUtility.Free(impl, allocator);
             IsCreated = false;
+        }
+
+        public ComponentPool<T> AsComponentPool<T>() where T : unmanaged {
+            return new ComponentPool<T>(impl->buffer);
+        }
+    }
+    
+    public readonly unsafe struct ComponentPool<T> where T : unmanaged {
+        [NativeDisableUnsafePtrRestriction]
+        private readonly T* buffer;
+
+        internal ComponentPool(void* buffer) {
+            this.buffer = (T*) buffer;
+        }
+        public ref T Get(int index) {
+            return ref buffer[index];
         }
     }
 }

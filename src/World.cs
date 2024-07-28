@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -39,8 +40,10 @@ namespace Wargon.Nukecs {
         internal WorldUnsafe* Unsafe;
         internal ref EntityCommandBuffer ECB => ref Unsafe->ECB;
         internal ref EntityFilterBuffer EFB => ref Unsafe->EFB;
+
+        public ref JobHandle Dependecies => ref Unsafe->systemsJobDependencies;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
-        internal unsafe struct WorldUnsafe {
+        internal struct WorldUnsafe {
             internal int Id;
             internal Allocator allocator;
             internal UnsafeList<Entity> entities;
@@ -57,7 +60,8 @@ namespace Wargon.Nukecs {
             internal EntityFilterBuffer EFB;
             [NativeDisableUnsafePtrRestriction] 
             internal WorldUnsafe* self;
-            
+
+            internal JobHandle systemsJobDependencies;
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
                 var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
@@ -89,6 +93,7 @@ namespace Wargon.Nukecs {
                 this.poolsMask = DynamicBitmask.CreateForComponents();
                 this.ECB = new EntityCommandBuffer(256);
                 this.EFB = new EntityFilterBuffer(256);
+                this.systemsJobDependencies = default;
                 this.self = self;
                 var s = ComponentType<DestroyEntity>.Index;
             }
@@ -116,7 +121,7 @@ namespace Wargon.Nukecs {
                 foreach (var kvPair in archetypesMap) {
                     kvPair.Value.Dispose();
                 }
-
+                
                 archetypesList.Dispose();
                 archetypesMap.Dispose();
                 poolsCount = 0;
@@ -155,7 +160,6 @@ namespace Wargon.Nukecs {
                 if (lastEntityIndex >= entities.m_capacity) {
                     entities.Resize(lastEntityIndex * 2);
                     entities.m_length = entities.m_capacity;
-                    
                     entitiesArchetypes.Resize(lastEntityIndex * 2);
                     entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
                 }
@@ -166,7 +170,7 @@ namespace Wargon.Nukecs {
             }
             internal Entity CreateEntity<T1>(in T1 c1) 
                 where T1 : unmanaged, IComponent 
-            {
+            {   
                 var e = CreateEntity();
                 e.Add(in c1);
                 return e;
@@ -239,18 +243,22 @@ namespace Wargon.Nukecs {
             Unsafe = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref GenericPool GetPool<T>() where T : unmanaged {
             return ref Unsafe->GetPool<T>();
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity CreateEntity() {
             return Unsafe->CreateEntity();
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity CreateEntity<T1>(in T1 c1) where T1 : unmanaged, IComponent {
             return Unsafe->CreateEntity(in c1);
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity CreateEntity<T1,T2>(in T1 c1, in T2 c2) 
             where T1 : unmanaged, IComponent 

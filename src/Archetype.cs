@@ -9,7 +9,7 @@ using UnityEngine;
 using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs {
-    public unsafe struct Archetype : IDisposable {
+    public unsafe struct Archetype {
         [NativeDisableUnsafePtrRestriction] internal ArchetypeImpl* impl;
 
         internal bool Has<T>() where T : unmanaged {
@@ -18,6 +18,7 @@ namespace Wargon.Nukecs {
 
         public void Dispose() {
             ArchetypeImpl.Destroy(impl);
+            impl = null;
         }
     }
 
@@ -132,7 +133,6 @@ namespace Wargon.Nukecs {
                         }
                     }
                 }
-
             }
         }
 
@@ -145,24 +145,6 @@ namespace Wargon.Nukecs {
             return edge;
         }
 
-        //if component remove, component will be negative
-        internal void OnEntityChange(ref Entity entity, int component) {
-            //if (id == 0 && component < 0) return;
-            if (transactions.TryGetValue(component, out var edge)) {
-                //entity.archetype = edge.toMove;
-                world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-                world->EFB.Add(entity.id, edge);
-
-                //Debug.Log($"EXIST {edge.toMove->id}");
-                return;
-            }
-
-            CreateTransaction(component);
-            edge = transactions[component];
-            world->entitiesArchetypes.ElementAt(entity.id) = edge.toMove;
-            //entity.archetype = edge.toMove;
-            world->EFB.Add(entity.id, edge);
-        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void OnEntityChangeECB(int entity, int component) {
             if (transactions.TryGetValue(component, out var edge)) {
@@ -170,7 +152,6 @@ namespace Wargon.Nukecs {
                 edge.Execute(entity);
                 return;
             }
-
             CreateTransaction(component);
             edge = transactions[component];
             world->entitiesArchetypes.ElementAt(entity) = edge.toMove;

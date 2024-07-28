@@ -13,23 +13,30 @@ namespace Wargon.Nukecs.Tests {
         public UnityEngine.Material material;
         public SpriteAnimationList animationData;
         void Awake() {
-            Application.targetFrameRate = 144;
+            //Application.targetFrameRate = 144;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default16384);
+            world = World.Create(WorldConfig.Default_1_000_000);
             systems = new Systems(ref world);
             systems
                 //.Add<MoveSystem4>()
+                
+                .Add<UpdateCameraCullingSystem>()
+                //.Add<CullingSystem>()
+                .Add<CullSpritesSystem>()
+                .Add<UnCullSpritesSystem>()
+                .Add<UpdateChunkDataSystem>()
                 .Add<UserInputSystem>()
                 .Add<MoveSystem>()
                 .Add<SpriteChangeAnimationSystem>()
                 .Add<SpriteAnimationSystem>()
-                .Add<UpdateChunkDataSystem>()
+                
                 .Add<SpriteRenderSystem>()
+                
                 //.Add<ViewSystem>()
                 ;
 
             for (var i = 0; i < 1000; i++) {
-                Entity e = animationData.Convert(ref world, RandomEx.Float3(-25,25));
+                Entity e = animationData.Convert(ref world, RandomEx.Float3(-15,15));
                 e.Add(new Input());
                 e.Add(new Speed{value = 4f});
             }
