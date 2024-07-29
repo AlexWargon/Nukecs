@@ -16,13 +16,12 @@ namespace Wargon.Nukecs {
         public int Capacity => ecb->Capacity;
         public int Count => ecb->count;
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
-        internal int ThreadIndex;
+        internal int ThreadIndex => JobsUtility.ThreadIndex;
 
         public EntityCommandBuffer(int startSize) {
             ecb = (ECBInternal*) UnsafeUtility.Malloc(sizeof(ECBInternal), UnsafeUtility.AlignOf<ECBInternal>(),
                 Allocator.Persistent);
             *ecb = new ECBInternal();
-            ThreadIndex = 0;
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
             ecb->perThreadBuffer = Chains(startSize);
             ecb->isCreated = 1;
@@ -63,7 +62,8 @@ namespace Wargon.Nukecs {
                 ReuseView = 9,
                 SetActiveEntity = 10,
                 Cull,
-                UnCull
+                UnCull,
+                Copy
             }
         }
 
@@ -237,72 +237,13 @@ namespace Wargon.Nukecs {
                 count++;
             }
 
-#if !UNITY_EDITOR
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-            [BurstCompile]
-            public void Playback(ref World world) {
-                //if(internalBuffer->IsEmpty) return;
-                for (var i = 0; i < perThreadBuffer->Length; i++) {
-                    var buffer = perThreadBuffer->ElementAt(i);
-                    if (buffer->IsEmpty) continue;
-
-                    for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
-                        ref var cmd = ref buffer->ElementAt(cmdIndex);
-                        switch (cmd.EcbCommandType) {
-                            case ECBCommand.Type.AddComponent:
-                                ref var e = ref world.GetEntity(cmd.Entity);
-                                // ref var pool = ref world._impl->GetUntypedPool(cmd.ComponentType);
-                                // pool.SetPtr(e.id, cmd.Component);
-                                // UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                                e.archetypeRef.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                                break;
-                            case ECBCommand.Type.AddComponentNoData:
-                                e = ref world.GetEntity(cmd.Entity);
-                                e.archetypeRef.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                                //world.GetEntity(cmd.Entity).AddByTypeID(cmd.ComponentType);
-                                break;
-                            case ECBCommand.Type.RemoveComponent:
-                                e = ref world.GetEntity(cmd.Entity);
-                                e.archetypeRef.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                                //Debug.Log("REMOVED IN ECB");
-                                break;
-                            case ECBCommand.Type.SetComponent:
-
-                                break;
-                            case ECBCommand.Type.CreateEntity:
-                                world.CreateEntity();
-                                break;
-                            case ECBCommand.Type.DestroyEntity:
-                                //world.GetEntity(cmd.Entity).Destroy();
-                                break;
-                            case ECBCommand.Type.ChangeTransformRefPosition:
-                                //world.GetEntity(cmd.Entity).Get<TransformRef>().value.position = new Vector3(cmd.Position.x, cmd.Position.y, cmd.Position.z);
-                                break;
-                            case ECBCommand.Type.SetActiveGameObject:
-                                //world.GetEntity(cmd.Entity).Get<Pooled>().SetActive(cmd.active == 1);
-                                break;
-                            case ECBCommand.Type.SetActiveEntity:
-                                //ref var e = ref world.GetEntity(cmd.Entity);
-                                //EntityPool.Back(e, e.Get<PooledEntity>());
-                                break;
-                            case ECBCommand.Type.PlayParticleReference:
-                                //if (cmd.active == 1) {
-                                //    world.GetEntity(cmd.Entity).Get<Particle>().value.Play();
-                                //}
-                                //else {
-                                //    world.GetEntity(cmd.Entity).Get<Particle>().value.Stop();
-                                //}
-                                break;
-                            case ECBCommand.Type.ReuseView:
-                                break;
-                            default:
-                                throw new ArgumentOutOfRangeException();
-                        }
-                    }
-
-                    buffer->Clear();
-                }
+            public void Copy(int entity, int thread) {
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(new ECBCommand {
+                    Entity = entity,
+                    EcbCommandType = ECBCommand.Type.Copy
+                });
+                count++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -367,6 +308,10 @@ namespace Wargon.Nukecs {
 
         public void UnCull(int entity) {
             ecb->UnCull(entity, ThreadIndex);
+        }
+
+        public void Copy(int entity) {
+            ecb->Copy(entity, ThreadIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PlayParticleReference(int entity, bool value) {

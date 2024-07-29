@@ -8,6 +8,7 @@ using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
     public unsafe struct GenericPool : IDisposable {
+        public int Count => impl->count;
         [NativeDisableUnsafePtrRestriction] internal Impl* impl;
         public bool IsCreated;
         public static GenericPool Create<T>(int size, Allocator allocator) where T : unmanaged {
@@ -81,6 +82,7 @@ namespace Wargon.Nukecs {
             }
             CheckResize<T>(index);
             *(T*) (impl->buffer + index * impl->elementSize) = value;
+            impl->count++;
         }
 
         public ref T GetRef<T>(int index) where T : unmanaged {
@@ -118,6 +120,13 @@ namespace Wargon.Nukecs {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
             }
             BoxedWriters.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
+        }
+
+        public void Copy(int source, int destination) {
+            if (impl->elementSize != 1) {
+                UnsafeUtility.MemCpy(impl->buffer + destination * impl->elementSize, impl->buffer + source * impl->elementSize, impl->elementSize);
+            }
+            impl->count++;
         }
         [BurstDiscard]
         private void CheckResize<T>(int index) where T : unmanaged

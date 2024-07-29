@@ -18,7 +18,12 @@ namespace Wargon.Nukecs {
             this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
                 this.worldPointer->GetArchetype(0);
         }
-
+        internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype) {
+            this.id = id;
+            this.worldPointer = worldPointer;
+            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
+                this.worldPointer->GetArchetype(archetype);
+        }
         internal ref ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *worldPointer->entitiesArchetypes.ElementAt(this.id).impl;
@@ -76,20 +81,20 @@ namespace Wargon.Nukecs {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<T>(entity.id);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void AddBytes(this in Entity entity, byte[] component, int componentIndex) {
             if (entity.archetypeRef.Has(componentIndex)) return;
             entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add(entity.id, componentIndex);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void AddBytesUnsafe(this in Entity entity, byte* component, int sizeInBytes,
             int componentIndex) {
             if (entity.archetypeRef.Has(componentIndex)) return;
             entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void AddObject(this in Entity entity, IComponent component) {
             var componentIndex = ComponentsMap.Index(component.GetType());
             entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
@@ -118,15 +123,20 @@ namespace Wargon.Nukecs {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
-        [BurstCompile]
+        [BurstCompile][MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Destroy(this in Entity entity) {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Destroy(entity.id);
         }
 
-        [BurstCompile]
+        [BurstCompile][MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).impl->Has<T>();
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Entity Copy(this in Entity entity) {
+            ref var arch = ref entity.archetypeRef;
+            return arch.Copy(in entity);
         }
     }
 

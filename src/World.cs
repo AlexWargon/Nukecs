@@ -4,7 +4,9 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
+using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs {
     public unsafe struct World : IDisposable {
@@ -12,7 +14,7 @@ namespace Wargon.Nukecs {
         private static int lastFreeSlot;
         private static int lastWorldID;
         public static ref World Get(int index) => ref worlds[index];
-
+        
         public static World Create() {
             Component.Initialization();
             World world;
@@ -41,16 +43,17 @@ namespace Wargon.Nukecs {
         internal ref EntityCommandBuffer ECB => ref Unsafe->ECB;
         internal ref EntityFilterBuffer EFB => ref Unsafe->EFB;
 
-        public ref JobHandle Dependecies => ref Unsafe->systemsJobDependencies;
+        public ref JobHandle Dependencies => ref Unsafe->systemsJobDependencies;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal struct WorldUnsafe {
             internal int Id;
             internal Allocator allocator;
             internal UnsafeList<Entity> entities;
+            internal UnsafeList<int> reservedEntities;
             internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeList<GenericPool> pools;
             internal int poolsCount;
-            internal UnsafePtrList<Query.QueryUnsafe> queries;
+            internal UnsafePtrList<QueryUnsafe> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
             internal UnsafePtrList<ArchetypeImpl> archetypesList;
             internal int lastEntityIndex;
@@ -62,6 +65,8 @@ namespace Wargon.Nukecs {
             internal WorldUnsafe* self;
 
             internal JobHandle systemsJobDependencies;
+            internal int job_worker_count;
+            internal UnsafeList<int> DefaultNoneTypes;
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
                 var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
@@ -69,8 +74,8 @@ namespace Wargon.Nukecs {
                 return ptr;
             }
 
-            internal Query.QueryUnsafe* CreateQuery() {
-                var ptr = Query.QueryUnsafe.Create(self);
+            internal QueryUnsafe* CreateQuery() {
+                var ptr = QueryUnsafe.Create(self);
                 queries.Add(ptr);
                 return ptr;
             }
@@ -80,11 +85,12 @@ namespace Wargon.Nukecs {
                 this.allocator = allocator;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
                     NativeArrayOptions.ClearMemory);
+                this.reservedEntities = new UnsafeList<int>(128, allocator, NativeArrayOptions.ClearMemory);
                 this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(config.StartEntitiesAmount,
                     allocator, NativeArrayOptions.ClearMemory);
                 this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(config.StartComponentsAmount, allocator,
                     NativeArrayOptions.ClearMemory);
-                this.queries = new UnsafePtrList<Query.QueryUnsafe>(32, allocator);
+                this.queries = new UnsafePtrList<QueryUnsafe>(32, allocator);
                 this.archetypesList = new UnsafePtrList<ArchetypeImpl>(32, allocator);
                 this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, allocator);
                 this.lastEntityIndex = 1;
@@ -94,10 +100,16 @@ namespace Wargon.Nukecs {
                 this.ECB = new EntityCommandBuffer(256);
                 this.EFB = new EntityFilterBuffer(256);
                 this.systemsJobDependencies = default;
+                this.DefaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
                 this.self = self;
+                job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 var s = ComponentType<DestroyEntity>.Index;
+                SetDefaultNone();
             }
 
+            private void SetDefaultNone() {
+                DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index);
+            }
             internal void Init(WorldUnsafe* self) {
                 this.self = self;
                 CreateArchetype();
@@ -113,8 +125,8 @@ namespace Wargon.Nukecs {
 
                 pools.Dispose();
                 for (var index = 0; index < queries.Length; index++) {
-                    Query.QueryUnsafe* ptr = queries[index];
-                    Query.QueryUnsafe.Free(ptr);
+                    QueryUnsafe* ptr = queries[index];
+                    QueryUnsafe.Free(ptr);
                 }
 
                 queries.Dispose();
@@ -163,8 +175,40 @@ namespace Wargon.Nukecs {
                     entitiesArchetypes.Resize(lastEntityIndex * 2);
                     entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
                 }
-                var e = new Entity(lastEntityIndex, self);
-                entities.ElementAtNoCheck(lastEntityIndex) = e;
+
+                Entity e;
+                var last = lastEntityIndex;
+                if (reservedEntities.m_length > 0) {
+                    last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.m_length - 1);
+                    e = new Entity(last, self);
+                    entities.ElementAtNoCheck(last) = e;
+                    return e;
+                }
+                e = new Entity(last, self);
+                entities.ElementAtNoCheck(last) = e;
+                lastEntityIndex++;
+                return e;
+            }
+
+            internal Entity CreateEntity(int archetype) {
+                if (lastEntityIndex >= entities.m_capacity) {
+                    entities.Resize(lastEntityIndex * 2);
+                    entities.m_length = entities.m_capacity;
+                    entitiesArchetypes.Resize(lastEntityIndex * 2);
+                    entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
+                }
+                Entity e;
+                var last = lastEntityIndex;
+                if (reservedEntities.m_length > 0) {
+                    last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.m_length - 1);
+                    e = new Entity(last, self, archetype);
+                    entities.ElementAtNoCheck(last) = e;
+                    return e;
+                }
+                e = new Entity(last, self, archetype);
+                entities.ElementAtNoCheck(last) = e;
                 lastEntityIndex++;
                 return e;
             }
@@ -275,6 +319,10 @@ namespace Wargon.Nukecs {
         public Query CreateQuery() {
             return new Query(Unsafe->CreateQuery());
         }
+
+        public void Update() {
+            Unsafe->ECB.Playback(ref this);
+        }
     }
 
 
@@ -297,6 +345,11 @@ namespace Wargon.Nukecs {
         public static WorldConfig Default256 => new WorldConfig() {
             StartPoolSize = 256,
             StartEntitiesAmount = 256,
+            StartComponentsAmount = 32
+        };
+        public static WorldConfig Default1024 => new WorldConfig() {
+            StartPoolSize = 1024,
+            StartEntitiesAmount = 1024,
             StartComponentsAmount = 32
         };
         public static WorldConfig Default16384 => new WorldConfig() {

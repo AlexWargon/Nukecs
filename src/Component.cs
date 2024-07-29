@@ -54,6 +54,7 @@ namespace Wargon.Nukecs {
         public int size;
         public int index;
         public int align;
+        public bool isTag;
     }
     public struct ComponentType<T> where T : unmanaged {
         internal static readonly SharedStatic<int> ID = SharedStatic<int>.GetOrCreate<ComponentType<T>>();
@@ -97,7 +98,8 @@ namespace Wargon.Nukecs {
             ComponentTypes.Data.TryAdd(index, new ComponentType {
                 align = align,
                 size = size,
-                index = index
+                index = index,
+                isTag = size == 1
             });
         }
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
