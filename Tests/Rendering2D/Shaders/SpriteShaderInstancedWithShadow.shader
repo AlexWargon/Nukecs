@@ -5,9 +5,10 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
         _MainTex ("Sprite Texture", 2D) = "white" {}
         _AlphaCutoff ("Alpha Cutoff", Range(0,1)) = 0.1
         _ShadowColor ("Shadow Color", Color) = (0, 0, 0, 0.5)
-        _ShadowAngle ("Shadow Angle", Range(0, 90)) = 45
+        _ShadowAngle ("Shadow Angle", Range(0, 360)) = 45
         _ShadowLength ("Shadow Length", Float) = 1
         _ShadowDistortion ("Shadow Distortion", Range(0, 1)) = 0.5
+        _ShadowOffset("Shadow Offset", Vector) = (0,0,0)
     }
     SubShader
     {
@@ -24,7 +25,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             float4 Rotation;
             float3 Scale;
         };
-
+        
         struct SpriteRenderData
         {
             int SpriteIndex;
@@ -137,7 +138,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             float _ShadowAngle;
             float _ShadowLength;
             float _ShadowDistortion;
-            
+            float3 _ShadowOffset;
             v2f vert (appdata_t IN)
             {
                 v2f OUT;
@@ -166,9 +167,10 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                     
                     const float verticalOffset = (1 - IN.vertex.y) * shadowDistortion;
                     worldPos.y -= verticalOffset;
-
+                    
                 }
-
+                worldPos.x += _ShadowOffset.x;
+                worldPos.y += _ShadowOffset.y;
                 OUT.vertex = UnityWorldToClipPos(float4(worldPos, 1));
 
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED

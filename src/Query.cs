@@ -13,122 +13,13 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl->count;
         }
+        
+        internal int CountMulti => impl->count / impl->world->job_worker_count;
 
         public bool IsValid {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl !=null && impl->IsCreated;
         }
-        internal struct QueryUnsafe {
-            internal DynamicBitmask with;
-            internal DynamicBitmask none;
-            internal UnsafeList<int> entities;
-            internal UnsafeList<int> entitiesMap;
-            internal int count;
-            [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
-            [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
-            public bool IsCreated => world != null;
-            internal static void Free(QueryUnsafe* queryImpl) {
-                queryImpl->Free();
-                var allocator = queryImpl->world->allocator;
-                UnsafeUtility.Free(queryImpl, allocator);
-            }
-
-            private void Free() {
-                with.Dispose();
-                none.Dispose();
-                entities.Dispose();
-                entitiesMap.Dispose();
-            }
-
-            internal static QueryUnsafe* Create(World.WorldUnsafe* world) {
-                var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
-                *ptr = new QueryUnsafe(world, ptr);
-                return ptr;
-            }
-
-            internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self) {
-                this.world = world;
-                this.with = DynamicBitmask.CreateForComponents();
-                this.none = DynamicBitmask.CreateForComponents();
-                this.count = 0;
-                this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
-                    world->allocator, NativeArrayOptions.ClearMemory);
-                this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
-                    world->allocator, NativeArrayOptions.ClearMemory);
-                this.self = self;
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public ref Entity GetEntity(int index) {
-                return ref world->entities.ElementAtNoCheck(entities.ElementAtNoCheck(index));
-            }
-
-            internal bool Has(int entity) {
-                //if (entitiesMap.Length <= entity) return false;
-                return entitiesMap[entity] > 0;
-            }
-
-            internal void Add(int entity) {
-                if (entities.Length - 1 <= count) {
-                    entities.Resize(count * 2, NativeArrayOptions.ClearMemory);
-                    entities.m_length = entities.m_capacity;
-                }
-
-                if (entitiesMap.Length - 1 <= entity) {
-                    entitiesMap.Resize(count * 2, NativeArrayOptions.ClearMemory);
-                    entitiesMap.m_length = entities.m_capacity;
-                }
-                if(Has(entity)) return;
-                entities[count++] = entity;
-                entitiesMap[entity] = count;
-            }
-
-            internal void Remove(int entity) {
-                if (!Has(entity)) return;
-                var index = entitiesMap[entity] - 1;
-                entitiesMap[entity] = 0;
-                count--;
-                if (count > index) {
-                    entities[index] = entities[count];
-                    entitiesMap[entities[index]] = index + 1;
-                }
-            }
-
-            public QueryUnsafe* With(int type) {
-                with.Add(type);
-                return self;
-            }
-
-            public bool HasWith(int type) {
-                return with.Has(type);
-            }
-
-            public bool HasNone(int type) {
-                return none.Has(type);
-            }
-
-            public QueryUnsafe* None(int type) {
-                none.Add(type);
-                return self;
-            }
-
-            public override string ToString() {
-                var sb = new StringBuilder();
-                sb.Append($"Query");
-                foreach (var typesIndex in ComponentsMap.TypesIndexes) {
-                    if (HasWith(typesIndex)) {
-                        sb.Append($".With<{ComponentsMap.GetType(typesIndex).Name}>()");
-                    }
-
-                    if (HasNone(typesIndex)) {
-                        sb.Append($".None<{ComponentsMap.GetType(typesIndex).Name}>()");
-                    }
-                }
-
-                sb.Append($".Count = {count}");
-                return sb.ToString();
-            }
-        }
-
 
         internal Query(World.WorldUnsafe* world) {
             impl = QueryUnsafe.Create(world);
@@ -192,12 +83,125 @@ namespace Wargon.Nukecs {
         }
 
     }
+    internal unsafe struct QueryUnsafe {
+        internal DynamicBitmask with;
+        internal DynamicBitmask none;
+        internal UnsafeList<int> entities;
+        internal UnsafeList<int> entitiesMap;
+        internal int count;
+        [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
+        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
+        public bool IsCreated => world != null;
+        internal static void Free(QueryUnsafe* queryImpl) {
+            queryImpl->Free();
+            var allocator = queryImpl->world->allocator;
+            UnsafeUtility.Free(queryImpl, allocator);
+        }
 
+        private void Free() {
+            with.Dispose();
+            none.Dispose();
+            entities.Dispose();
+            entitiesMap.Dispose();
+        }
+
+        internal static QueryUnsafe* Create(World.WorldUnsafe* world) {
+            var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
+            *ptr = new QueryUnsafe(world, ptr);
+            return ptr;
+        }
+
+        internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self) {
+            this.world = world;
+            this.with = DynamicBitmask.CreateForComponents();
+            this.none = DynamicBitmask.CreateForComponents();
+            this.count = 0;
+            this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
+                world->allocator, NativeArrayOptions.ClearMemory);
+            this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
+                world->allocator, NativeArrayOptions.ClearMemory);
+            this.self = self;
+            
+            foreach (var type in world->DefaultNoneTypes) {
+                none.Add(type);
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref Entity GetEntity(int index) {
+            return ref world->entities.ElementAtNoCheck(entities.ElementAtNoCheck(index));
+        }
+
+        internal bool Has(int entity) {
+            //if (entitiesMap.Length <= entity) return false;
+            return entitiesMap[entity] > 0;
+        }
+
+        internal void Add(int entity) {
+            if (entities.Length - 1 <= count) {
+                entities.Resize(count * 2, NativeArrayOptions.ClearMemory);
+                entities.m_length = entities.m_capacity;
+            }
+
+            if (entitiesMap.Length - 1 <= entity) {
+                entitiesMap.Resize(entity * 2, NativeArrayOptions.ClearMemory);
+                entitiesMap.m_length = entities.m_capacity;
+            }
+            if(Has(entity)) return;
+            entities[count++] = entity;
+            entitiesMap[entity] = count;
+        }
+
+        internal void Remove(int entity) {
+            if (!Has(entity)) return;
+            var index = entitiesMap[entity] - 1;
+            entitiesMap[entity] = 0;
+            count--;
+            if (count > index) {
+                entities[index] = entities[count];
+                entitiesMap[entities[index]] = index + 1;
+            }
+        }
+
+        public QueryUnsafe* With(int type) {
+            with.Add(type);
+            return self;
+        }
+
+        public bool HasWith(int type) {
+            return with.Has(type);
+        }
+
+        public bool HasNone(int type) {
+            return none.Has(type);
+        }
+
+        public QueryUnsafe* None(int type) {
+            none.Add(type);
+            return self;
+        }
+
+        public override string ToString() {
+            var sb = new StringBuilder();
+            sb.Append($"Query");
+            foreach (var typesIndex in ComponentsMap.TypesIndexes) {
+                if (HasWith(typesIndex)) {
+                    sb.Append($".With<{ComponentsMap.GetType(typesIndex).Name}>()");
+                }
+
+                if (HasNone(typesIndex)) {
+                    sb.Append($".None<{ComponentsMap.GetType(typesIndex).Name}>()");
+                }
+            }
+
+            sb.Append($".Count = {count}");
+            return sb.ToString();
+        }
+    }
     public unsafe ref struct QueryEnumerator {
         private int _lastIndex;
-        private readonly Query.QueryUnsafe* _query;
+        private readonly QueryUnsafe* _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal QueryEnumerator(Query.QueryUnsafe* queryUnsafe) {
+        internal QueryEnumerator(QueryUnsafe* queryUnsafe) {
             _query = queryUnsafe;
             _lastIndex = -1;
         }
@@ -373,7 +377,6 @@ namespace Wargon.Nukecs {
                 throw new ArgumentOutOfRangeException(nameof(position),
                     $"Position must be between 0 and {maxBits - 1}.");
             }
-
             int index = position / BitsPerUlong;
             int bitPosition = position % BitsPerUlong;
 
@@ -416,4 +419,119 @@ namespace Wargon.Nukecs {
             bitmaskArray = null;
         }
     }
+
+    public struct RO<TComponent> where TComponent : unmanaged, IComponent {
+        internal int index;
+        internal readonly GenericPool pool;
+        
+    }
+    public struct Ref<TComponent> where TComponent : unmanaged, IComponent {
+        internal int index;
+        internal GenericPool pool;
+        public ref TComponent Value => ref pool.GetRef<TComponent>(index);
+    }
+    public struct QueryTuple<T1,T2> 
+        where T1: unmanaged, IComponent
+        where T2: unmanaged, IComponent {
+
+        public int entity;
+        public GenericPool pool1;
+        public GenericPool pool2;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator QueryTuple<T1,T2>((Ref<T1>,Ref<T2>) instance)
+        {
+            return new QueryTuple<T1, T2>();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
+            Ref<T1> ref1 = new Ref<T1>() {
+                pool = queryTuple.pool1,
+                index = queryTuple.entity
+            };
+            Ref<T2> ref2 = new Ref<T2>() {
+                pool = queryTuple.pool2,
+                index = queryTuple.entity
+            };
+            return (ref1, ref2);
+        }
+    }
+    public unsafe struct Query<TTuple> where TTuple : struct, ITuple {
+        [NativeDisableUnsafePtrRestriction] private readonly QueryUnsafe* _unsafe;
+        public int Count => _unsafe->count;
+        private void* _queryTuplePtr;
+        internal Query(TTuple tuple, World.WorldUnsafe* worldUnsafe) {
+            _unsafe = QueryUnsafe.Create(worldUnsafe);
+            
+            for (int i = 0; i < tuple.Length; i++) {
+                var t = tuple[i];
+                _unsafe->With(ComponentsMap.Index(t.GetType()));
+            }
+
+            _queryTuplePtr = null;
+        }
+
+        public (Ref<TC1>, Ref<TC2>) Get<TC1, TC2>(int index) 
+            where TC1 : unmanaged, IComponent
+            where TC2 : unmanaged, IComponent
+        {
+            if (_queryTuplePtr == null) {
+                var ptr = UnsafeHelp.Malloc<QueryTuple<TC1, TC2>>(Allocator.Persistent);
+                *ptr = new QueryTuple<TC1, TC2> {
+                    pool1 = _unsafe->world->GetPool<TC1>(),
+                    pool2 = _unsafe->world->GetPool<TC2>()
+                };
+                _queryTuplePtr = ptr;
+            }
+            var tuple = (QueryTuple<TC1, TC2>*)_queryTuplePtr;
+            tuple->entity = _unsafe->GetEntity(index).id;
+            return *tuple;
+        }
+
+        public QueryIterator<T1, T2> Iter<T1, T2>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent {
+            QueryIterator<T1, T2> iterator = new() {
+                _query = this
+            };
+            return iterator;
+        }
+
+        public struct QueryIterator<T1,T2> 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+        {
+            internal Query<TTuple> _query;
+            public QueryEnumerator GetEnumerator() {
+                return new QueryEnumerator(ref _query);
+            }
+            public ref struct QueryEnumerator {
+                private int _lastIndex;
+                private Query<TTuple> _query;
+                private readonly QueryUnsafe* _queryUnsafe;
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                internal QueryEnumerator(ref Query<TTuple> query) {
+                    _query = query;
+                    _queryUnsafe = query._unsafe;
+                    _lastIndex = -1;
+                }
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                public bool MoveNext() {
+                    _lastIndex++;
+                    return _queryUnsafe->count > _lastIndex;
+                }
+
+                public void Reset() {
+                    _lastIndex = -1;
+                }
+
+                public (Ref<T1>, Ref<T2>) Current {
+                    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                    get => _query.Get<T1,T2>(_lastIndex);
+                }
+            }
+        }
+    }
+    
 }

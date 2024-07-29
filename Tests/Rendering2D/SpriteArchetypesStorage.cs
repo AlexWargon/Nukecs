@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -36,7 +35,8 @@ namespace Wargon.Nukecs.Tests {
                 Material = material,
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
-                Chunk = SpriteChunk.Create(world.Unsafe->config.StartEntitiesAmount)
+                Chunk = SpriteChunk.Create(world.Unsafe->config.StartEntitiesAmount),
+                camera = Camera.main
             };
             archetypes[count] = arch;
             count++;
@@ -92,6 +92,7 @@ namespace Wargon.Nukecs.Tests {
         private ComputeBuffer propertiesBuffer;
         private static readonly int matrices = Shader.PropertyToID("_Transforms");
         private static readonly int properties = Shader.PropertyToID("_Properties");
+        public Camera camera;
         public void AddInitial(ref Entity entity) {
             Chunk->AddInitial(entity.id);
             entity.Add(new SpriteChunkReference {
@@ -175,11 +176,15 @@ namespace Wargon.Nukecs.Tests {
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(dataArray));
             }
+
+            dataArray.Dispose();
             var matrixArray = MatrixArray();
             if (matrixArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(matrixArray));
             }
+
+            matrixArray.Dispose();
 #endif
             SpriteChunk.Destroy(Chunk);
             transformsBuffer?.Release();
@@ -243,13 +248,6 @@ namespace Wargon.Nukecs.Tests {
                 matrixChunk[lastIndex] = matrixChunk[entityIndex];
             }
             count--;
-            // var index = entityToIndex[entity.id] - 1;
-            // entityToIndex[entity.id] = 0;
-            // count--;
-            // if (count > index) {
-            //     indexToEntity[index] = indexToEntity[count];
-            //     entityToIndex[indexToEntity[index]] = index + 1;
-            // }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void UpdateData(int entity, in SpriteRenderData data, in Transform matrix) {
@@ -265,189 +263,6 @@ namespace Wargon.Nukecs.Tests {
             chunk->entityToIndex.Dispose();
             chunk->entitiesSet.Dispose();
             UnsafeUtility.Free(chunk, Allocator.Persistent);
-        }
-    }
-    [BurstCompile]
-    public struct SpriteAnimationSystem : IEntityJobSystem
-    {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery()
-                .With<SpriteAnimation>()
-                .With<SpriteRenderData>()
-                .With<Transform>()
-                .With<Input>()
-                .None<Culled>();
-        }
-
-        public unsafe void OnUpdate(ref Entity entity, float deltaTime) {
-            ref var animation = ref entity.Get<SpriteAnimation>();
-            ref var renderData = ref entity.Get<SpriteRenderData>();
-            ref var transform = ref entity.Get<Transform>();
-            ref readonly var input = ref entity.Read<Input>();
-            
-            animation.CurrentTime += deltaTime;
-            float frameDuration = 1f / animation.FrameRate;
-            var frames = SpriteAnimationsStorage.Instance.GetFrames(animation.AnimationID).List;
-            int frameIndex = (int)(animation.CurrentTime / frameDuration) % frames.Length;
-            renderData.SpriteIndex = frameIndex;
-            renderData.FlipX = input.h < 0 ? -1 : 0;
-            //renderData.SpriteTiling = CalculateSpriteTiling(renderData.SpriteIndex, animation.row, animation.col);
-            renderData.SpriteTiling = GetSpriteTiling(renderData.SpriteIndex, ref frames);
-            transform.Position.z = transform.Position.y*.1f;
-        }
-        private static float4 GetSpriteTiling(int spriteIndex, ref UnsafeList<float4> frames) {
-            var r = frames.ElementAt(spriteIndex);
-            return r;
-        }
-    }
-
-    [BurstCompile]
-    public unsafe struct UpdateChunkDataSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery()
-                .With<SpriteRenderData>()
-                .With<SpriteChunkReference>()
-                .With<Transform>()
-                .None<Culled>();
-        }
-
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            ref readonly var data = ref entity.Read<SpriteRenderData>();
-            ref var chunkIndex = ref entity.Get<SpriteChunkReference>();
-            ref readonly var transform = ref entity.Read<Transform>();
-            ref var chunk = ref *chunkIndex.chunk;
-            chunk.UpdateData(entity.id, in data, in transform);
-        }
-    }
-    
-    public struct SpriteRenderSystem : ISystem
-    {
-        // public SystemMode Mode => SystemMode.Main;
-        // public Query GetQuery(ref World world) {
-        //     return world.CreateQuery()
-        //         .With<SpriteRenderData>()
-        //         .None<Culled>();
-        // }
-        // public void OnUpdate(ref Query query, float deltaTime) {
-        //     SpriteArchetypesStorage.Singleton.OnUpdate();
-        // }
-
-        public void OnUpdate(ref World world, float deltaTime) {
-            SpriteArchetypesStorage.Singleton.OnUpdate();
-        }
-    }
-    [BurstCompile]
-    public struct SpriteChangeAnimationSystem : IEntityJobSystem, IOnCreate {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery()
-                .With<SpriteAnimation>()
-                .With<Input>()
-                .None<Culled>();
-        }
-        
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            ref readonly var input = ref entity.Read<Input>();
-            ref var anim = ref entity.Get<SpriteAnimation>();
-            anim.AnimationID = input.h is > 0f or < 0f ? Run : Idle;
-        }
-
-        public void OnCreate(ref World world) {
-            Run = Animator.StringToHash(nameof(Run));
-            Idle = Animator.StringToHash(nameof(Idle));
-        }
-        private int Run;
-        private int Idle;
-    } 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct SpriteRenderData : IComponent {
-        public int SpriteIndex;
-        public float4 Color;
-        public float4 SpriteTiling;
-        public float FlipX; // Changed from bool to float
-        public float FlipY; // Changed from bool to float
-        public float ShadowAngle;
-        public float ShadowLength;
-        public float ShadowDistortion;
-    }
-    [StructLayout(LayoutKind.Sequential)]
-    public struct RenderMatrix : IComponent {
-        public float4x4 Matrix;
-    }
-    [StructLayout(LayoutKind.Sequential)]
-    public struct SpriteAnimation : IComponent
-    {
-        public const int MaxFrames = 16;
-        public int FrameCount;
-        public float FrameRate;
-        public float CurrentTime;
-        public int row;
-        public int col;
-        public int AnimationID;
-    }
-    [StructLayout(LayoutKind.Sequential)]
-    public struct SpriteChunkReference : IComponent {
-        public unsafe SpriteChunk* chunk;
-    }
-    public struct Culled : IComponent { }
-    
-    public struct UpdateCameraCullingSystem : ISystem, IOnCreate {
-        private Camera _camera;
-        public void OnCreate(ref World world) {
-            _camera = Camera.main;
-        }
-        public void OnUpdate(ref World world, float deltaTime) {
-            CullingData.instance.Update(_camera);
-        }
-    }
-    [BurstCompile]
-    public struct CullSpritesSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery()
-                .With<SpriteRenderData>()
-                .With<SpriteChunkReference>()
-                .None<Culled>();
-        }
-
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            var data = CullingData.instance;
-            var xMax = data.xMax;
-            var yMax = data.yMax;
-            var xMin = data.xMin;
-            var yMin = data.yMin;
-            ref readonly var transform = ref entity.Read<Transform>();
-            if (!(transform.Position.x < xMax && 
-                  transform.Position.x > xMin &&
-                  transform.Position.y < yMax && 
-                  transform.Position.y > yMin)) {
-                entity.Cull();
-            }
-        }
-    }
-    [BurstCompile]
-    public struct UnCullSpritesSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery()
-                .With<SpriteRenderData>()
-                .With<Culled>()
-                .With<SpriteChunkReference>();
-        }
-
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            var data = CullingData.instance;
-            var xMax = data.xMax;
-            var yMax = data.yMax;
-            var xMin = data.xMin;
-            var yMin = data.yMin;
-            ref readonly var transform = ref entity.Read<Transform>();
-            if (transform.Position.x < xMax && transform.Position.x > xMin && transform.Position.y < yMax &&
-                transform.Position.y > yMin) {
-                entity.UnCull();
-            }
         }
     }
 
@@ -469,22 +284,22 @@ namespace Wargon.Nukecs.Tests {
         public void OnUpdate(ref World world, float deltaTime) {
             var data = CullingData.instance;
             var transforms = world.GetPool<Transform>().AsComponentPool<Transform>();
-            world.Dependecies = new CullJob {
+            world.Dependencies = new CullJob {
                 xMax = data.xMax,
                 xMin = data.xMin,
                 yMax = data.yMax,
                 yMin = data.yMin,
                 transforms = transforms,
                 query = unculled,
-            }.Schedule(unculled.Count, 1, world.Dependecies);
-            world.Dependecies = new UnCullJob {
+            }.Schedule(unculled.Count, 1, world.Dependencies);
+            world.Dependencies = new UnCullJob {
                 xMax = data.xMax,
                 xMin = data.xMin,
                 yMax = data.yMax,
                 yMin = data.yMin,
                 transforms = transforms,
                 query = culled,
-            }.Schedule(culled.Count, 1, world.Dependecies);
+            }.Schedule(culled.Count, 1, world.Dependencies);
         }
         [BurstCompile]
         private struct CullJob : IJobParallelFor {
@@ -563,4 +378,6 @@ namespace Wargon.Nukecs.Tests {
             yMin = CameraPositions.y - Height / 2;
         }
     }
+    
+    public struct IsPrefab : IComponent {}
 }

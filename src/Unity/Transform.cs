@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Mathematics;
-using UnityEngine;
+
 namespace Wargon.Nukecs.Tests {
     [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct Transform : IComponent {
@@ -16,10 +16,10 @@ namespace Wargon.Nukecs.Tests {
             Rotation = quaternion.identity;
             Scale = new float3(1, 1, 1);
         }
-        public Matrix4x4 Matrix
+        public float4x4 Matrix
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Matrix4x4.TRS(Position, Rotation, Vector3.one);
+            get => float4x4.TRS(Position, Rotation, Scale);
         }
         // public float3 right {
         //     [MethodImpl(MethodImplOptions.AggressiveInlining)]

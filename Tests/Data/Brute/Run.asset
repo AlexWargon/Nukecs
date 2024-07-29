@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 657e91390822480f80359f806918d36b, type: 3}
   m_Name: Run
   m_EditorClassIdentifier: 
-  AnimationName: Idle
+  AnimationName: Run
   sprites:
   - {fileID: 1405039794, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
   - {fileID: 405558177, guid: ba82b18c24632494f9f9d9ef525210b5, type: 3}
