@@ -252,7 +252,24 @@ namespace Wargon.Nukecs.Tests {
             count++;
             return index;
         }
-
+        public unsafe int Add(in Entity entity, in Transform transform) {
+            var index = count;
+            if (entity.id >= entityToIndex.m_length) {
+                var newCapacity = entity.id * 2;
+                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
+                entityToIndex.m_length = entityToIndex.m_capacity;
+                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
+                indexToEntity.m_length = indexToEntity.m_capacity;
+                UnsafeHelp.Resize(capacity, newCapacity, matrixChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, renderDataChunk, Allocator.Persistent);
+                capacity = newCapacity;
+            }
+            indexToEntity[count] = entity.id;
+            entityToIndex[entity.id] = count;
+            matrixChunk[count] = transform;
+            count++;
+            return index;
+        }
         public unsafe void Remove(in Entity entity) {
             if(count <= 0) return;
             var lastIndex = count - 1;

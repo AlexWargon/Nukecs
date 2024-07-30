@@ -15,14 +15,14 @@ namespace Wargon.Nukecs {
         internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
             this.worldPointer = worldPointer;
-            worldPointer->entitiesArchetypes.ElementAt(this.id) =
+            worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
                 this.worldPointer->GetArchetype(0);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype) {
             this.id = id;
             this.worldPointer = worldPointer;
-            worldPointer->entitiesArchetypes.ElementAt(this.id) =
+            worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
                 this.worldPointer->GetArchetype(archetype);
         }
         internal ref ArchetypeImpl archetypeRef {
