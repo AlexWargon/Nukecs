@@ -45,7 +45,7 @@ namespace Wargon.Nukecs {
             public int Entity;
             public Type EcbCommandType;
             public int ComponentType;
-            public int ComponentSize;
+            public int AdditionalData;
             public float3 Position;
             public byte active;
 
@@ -63,7 +63,8 @@ namespace Wargon.Nukecs {
                 SetActiveEntity = 10,
                 Cull,
                 UnCull,
-                Copy
+                Copy,
+                CreateCopy
             }
         }
 
@@ -125,7 +126,7 @@ namespace Wargon.Nukecs {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,
                     ComponentType = ComponentType<T>.Index,
-                    ComponentSize = size
+                    AdditionalData = size
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -241,11 +242,21 @@ namespace Wargon.Nukecs {
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(new ECBCommand {
                     Entity = entity,
-                    EcbCommandType = ECBCommand.Type.Copy
+                    EcbCommandType = ECBCommand.Type.CreateCopy
                 });
                 count++;
             }
 
+            public void Copy(int from, int to, int thread) {
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(new ECBCommand {
+                    Entity = from,
+                    EcbCommandType = ECBCommand.Type.Copy,
+                    AdditionalData = to
+                });
+                count++;
+            }
+            
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Dispose() {
                 for (var i = 0; i < perThreadBuffer->Length; i++) {
@@ -312,6 +323,10 @@ namespace Wargon.Nukecs {
 
         public void Copy(int entity) {
             ecb->Copy(entity, ThreadIndex);
+        }
+        
+        public void Copy(int from, int to) {
+            ecb->Copy(from, to, ThreadIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PlayParticleReference(int entity, bool value) {
@@ -407,7 +422,9 @@ namespace Wargon.Nukecs {
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             e.Get<SpriteChunkReference>().chunk->Add(in e);
                             break;
-
+                        case ECBCommand.Type.Copy:
+                            archetype.Copy(cmd.Entity, cmd.AdditionalData);
+                            break;
                     }
                 }
 

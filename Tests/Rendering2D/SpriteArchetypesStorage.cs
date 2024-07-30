@@ -84,7 +84,6 @@ namespace Wargon.Nukecs.Tests {
     public unsafe struct SpriteArchetype : IDisposable {
         [NativeDisableUnsafePtrRestriction]
         internal SpriteChunk* Chunk;
-        private int count => Chunk->count;
         public int instanceID;
         internal Material Material;
         internal Mesh mesh;
@@ -108,10 +107,10 @@ namespace Wargon.Nukecs.Tests {
         }
         
         public void OnUpdate() {
-            
+            var count = Chunk->count;
             if(count == 0) return;
-            var dataArray = RenderDataArray();
-            var matrixArray = MatrixArray();
+            var dataArray = RenderDataArray(count);
+            var matrixArray = MatrixArray(count);
             
             if (transformsBuffer == null || transformsBuffer.count != count)
             {
@@ -143,7 +142,7 @@ namespace Wargon.Nukecs.Tests {
             dataArray.Dispose();
         }
 
-        private NativeArray<SpriteRenderData> RenderDataArray() 
+        private NativeArray<SpriteRenderData> RenderDataArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(
                 Chunk->renderDataChunk, 
@@ -156,7 +155,7 @@ namespace Wargon.Nukecs.Tests {
             return array;
         }
 
-        private NativeArray<Transform> MatrixArray() 
+        private NativeArray<Transform> MatrixArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Transform>(
                 Chunk->matrixChunk, 
@@ -171,14 +170,14 @@ namespace Wargon.Nukecs.Tests {
 
         public void Dispose() {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var dataArray = RenderDataArray();
+            var dataArray = RenderDataArray(Chunk->count);
             if (dataArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(dataArray));
             }
 
             dataArray.Dispose();
-            var matrixArray = MatrixArray();
+            var matrixArray = MatrixArray(Chunk->count);
             if (matrixArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(matrixArray));
@@ -223,6 +222,12 @@ namespace Wargon.Nukecs.Tests {
         }
         public int AddInitial(int entity) {
             var index = count;
+            if (entity >= entityToIndex.m_length) {
+                entityToIndex.Resize(entity * 2, NativeArrayOptions.ClearMemory);
+                entityToIndex.m_length = entityToIndex.m_capacity;
+                indexToEntity.Resize(entity * 2, NativeArrayOptions.ClearMemory);
+                indexToEntity.m_length = indexToEntity.m_capacity;
+            }
             indexToEntity[count] = entity;
             entityToIndex[entity] = count;
             count++;
@@ -230,6 +235,18 @@ namespace Wargon.Nukecs.Tests {
         }
         public int Add(in Entity entity) {
             var index = count;
+            if (entity.id >= entityToIndex.m_length) {
+                var newCapacity = entity.id * 2;
+                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
+                entityToIndex.m_length = entityToIndex.m_capacity;
+                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
+                indexToEntity.m_length = indexToEntity.m_capacity;
+                unsafe {
+                    UnsafeHelp.Resize(capacity, newCapacity, matrixChunk, Allocator.Persistent);
+                    UnsafeHelp.Resize(capacity, newCapacity, renderDataChunk, Allocator.Persistent);
+                }
+                capacity = newCapacity;
+            }
             indexToEntity[count] = entity.id;
             entityToIndex[entity.id] = count;
             count++;
@@ -237,6 +254,7 @@ namespace Wargon.Nukecs.Tests {
         }
 
         public unsafe void Remove(in Entity entity) {
+            if(count <= 0) return;
             var lastIndex = count - 1;
             var lastEntityID = indexToEntity[lastIndex];
             var entityID = entity.id;
@@ -378,6 +396,15 @@ namespace Wargon.Nukecs.Tests {
             yMin = CameraPositions.y - Height / 2;
         }
     }
-    
-    public struct IsPrefab : IComponent {}
+
+    public struct ClearRenderOnEntityDestroySystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<DestroyEntity>().With<SpriteChunkReference>().None<Culled>();
+        }
+
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            entity.Get<SpriteChunkReference>().ChunkRef.Remove(in entity);
+        }
+    }
 }

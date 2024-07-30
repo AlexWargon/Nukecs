@@ -11,17 +11,18 @@ namespace Wargon.Nukecs {
         public readonly int id;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* worldPointer;
         public ref World World => ref World.Get(worldPointer->Id);
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
+            worldPointer->entitiesArchetypes.ElementAt(this.id) =
                 this.worldPointer->GetArchetype(0);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype) {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
+            worldPointer->entitiesArchetypes.ElementAt(this.id) =
                 this.worldPointer->GetArchetype(archetype);
         }
         internal ref ArchetypeImpl archetypeRef {
@@ -118,12 +119,45 @@ namespace Wargon.Nukecs {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
+        public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent 
+        {
+            return (
+                new Ref<T1>{index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
+                new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()});
+        }
+        public static (Ref<T1>, Ref<T2>, Ref<T3>) Get<T1, T2, T3>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+        {
+            return (
+                new Ref<T1>{index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
+                new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()},
+                new Ref<T3>{index = entity.id, pool = entity.worldPointer->GetPool<T3>()});
+        }
+        public static (Ref<T1>, Ref<T2>, Ref<T3>,Ref<T4>) Get<T1, T2, T3, T4>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+        {
+            return (
+                new Ref<T1>{index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
+                new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()},
+                new Ref<T3>{index = entity.id, pool = entity.worldPointer->GetPool<T3>()},
+                new Ref<T4>{index = entity.id, pool = entity.worldPointer->GetPool<T4>()});
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
-
-        [BurstCompile][MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void DestroyLate(this ref Entity entity) {
+            entity.Add(new DestroyEntity());
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Destroy(this in Entity entity) {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Destroy(entity.id);
@@ -137,6 +171,12 @@ namespace Wargon.Nukecs {
         public static Entity Copy(this in Entity entity) {
             ref var arch = ref entity.archetypeRef;
             return arch.Copy(in entity);
+        }
+
+        public static Entity CopyVieECB(this in Entity entity) {
+            var e = entity.worldPointer->CreateEntity();
+            entity.worldPointer->ECB.Copy(from:entity.id, to:e.id);
+            return e;
         }
     }
 

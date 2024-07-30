@@ -15,7 +15,7 @@ namespace Wargon.Nukecs {
     public interface IComponent { }
     public struct IsAlive : IComponent { }
     public struct DestroyEntity : IComponent { }
-
+    public struct IsPrefab : IComponent { }
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -329,6 +329,15 @@ namespace Wargon.Nukecs {
             return ptr;
         }
 
+        public static ref UnsafeList<T> ResizeUnsafeList<T>(ref UnsafeList<T> list, int size,
+            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged {
+            list.Resize(size, options);
+            list.m_length = size;
+            return ref list;
+        }
+        public static int AlignOf(ComponentType type) {
+            return type.size + sizeof(byte) * 2 - type.size;
+        }
         public static int AlignOf(Type type) {
             return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
         }
@@ -338,6 +347,100 @@ namespace Wargon.Nukecs {
         }
         public static unsafe T* Malloc<T>(int elements, Allocator allocator) where T : unmanaged {
             return (T*)UnsafeUtility.Malloc(sizeof(T) * elements, UnsafeUtility.AlignOf<T>(), allocator);
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, T* buffer, Allocator allocator) where T : unmanaged
+        {
+            // Calculate new capacity
+
+            var typeSize = sizeof(T);
+            // Allocate new buffer
+            var newBuffer = (T*)UnsafeUtility.Malloc(
+                newCapacity * typeSize,
+                UnsafeUtility.AlignOf<T>(),
+                allocator
+            );
+
+            if (newBuffer == null)  
+            {
+                throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+            }
+
+            //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+            // Copy old data to new buffer
+            UnsafeUtility.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
+
+            // Free old buffer
+            UnsafeUtility.Free(buffer, allocator);
+
+            // Update impl
+            buffer = newBuffer;
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void CheckResize<T>(int index, ref int capacity, T* buffer, Allocator allocator) where T : unmanaged
+        {
+            if (index >= capacity)
+            {
+                // Calculate new capacity
+                var newCapacity = math.max(capacity * 2, index + 1);
+                var typeSize = sizeof(T);
+                // Allocate new buffer
+                var newBuffer = (T*)UnsafeUtility.Malloc(
+                    newCapacity * sizeof(T),
+                    UnsafeUtility.AlignOf<T>(),
+                    allocator
+                );
+
+                if (newBuffer == null)
+                {
+                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+                }
+
+                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                // Copy old data to new buffer
+                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
+
+                // Free old buffer
+                UnsafeUtility.Free(buffer, allocator);
+
+                // Update impl
+                buffer = newBuffer;
+                capacity = newCapacity;
+            }
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void CheckResize<T>(int index, ref int capacity, void* buffer, Allocator allocator, int typeSize, int align) where T : unmanaged
+        {
+            if (index >= capacity)
+            {
+                // Calculate new capacity
+                int newCapacity = math.max(capacity * 2, index + 1);
+                // Allocate new buffer
+                void* newBuffer = UnsafeUtility.Malloc(
+                    newCapacity * sizeof(T),
+                    align,
+                    allocator
+                );
+
+                if (newBuffer == null)
+                {
+                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+                }
+
+                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                // Copy old data to new buffer
+                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
+
+                // Free old buffer
+                UnsafeUtility.Free(buffer, allocator);
+
+                // Update impl
+                buffer = newBuffer;
+                capacity = newCapacity;
+            }
         }
     }
 }
