@@ -38,6 +38,13 @@ Shader "Custom/SpriteShaderInstanced"
 
             sampler2D _MainTex;
             float _AlphaCutoff;
+            struct Transform
+            {
+                float3 Position;
+                float4 Rotation;
+                float3 Scale;
+            };
+            
             struct SpriteRenderData
             {
                 int SpriteIndex;
@@ -49,21 +56,69 @@ Shader "Custom/SpriteShaderInstanced"
                 float ShadowLength;
                 float ShadowDistortion;
             };
-
-            struct RenderMatrix
+            float4x4 QuaternionToMatrix(float4 quat)
             {
-                float4x4 Matrix;
-            };
+                float4x4 m = float4x4(float4(0, 0, 0, 0), float4(0, 0, 0, 0), float4(0, 0, 0, 0), float4(0, 0, 0, 0));
 
+                const float x = quat.x, y = quat.y, z = quat.z, w = quat.w;
+                const float x2 = x + x, y2 = y + y, z2 = z + z;
+                const float xx = x * x2, xy = x * y2, xz = x * z2;
+                const float yy = y * y2, yz = y * z2, zz = z * z2;
+                const float wx = w * x2, wy = w * y2, wz = w * z2;
+
+                m[0][0] = 1.0 - (yy + zz);
+                m[0][1] = xy - wz;
+                m[0][2] = xz + wy;
+
+                m[1][0] = xy + wz;
+                m[1][1] = 1.0 - (xx + zz);
+                m[1][2] = yz - wx;
+
+                m[2][0] = xz - wy;
+                m[2][1] = yz + wx;
+                m[2][2] = 1.0 - (xx + yy);
+
+                m[3][3] = 1.0;
+                
+                return m;
+            }
+
+            float4x4 CalculateTRSMatrix(Transform transform, float flipX, float flipY)
+            {
+                float3 scale = float3(transform.Scale.x * (flipX > 0 ? -1 : 1),
+                        transform.Scale.y * (flipY > 0 ? -1 : 1),
+                        transform.Scale.z
+                    );
+
+                const float4x4 S = float4x4(
+                    scale.x, 0, 0, 0,
+                    0, scale.y, 0, 0,
+                    0, 0, scale.z, 0,
+                    0, 0, 0, 1
+                );
+
+                const float4x4 R = QuaternionToMatrix(transform.Rotation);
+
+                const float4x4 T = float4x4(
+                    1, 0, 0, transform.Position.x,
+                    0, 1, 0, transform.Position.y,
+                    0, 0, 1, transform.Position.z,
+                    0, 0, 0, 1
+                );
+
+                return mul(T, mul(R, S));
+            }
             #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-            StructuredBuffer<RenderMatrix> _Matrices;
+            StructuredBuffer<Transform> _Transforms;
             StructuredBuffer<SpriteRenderData> _Properties;
             #endif
 
             void setup()
             {
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-                unity_ObjectToWorld = _Matrices[unity_InstanceID].Matrix;
+                Transform transform = _Transforms[unity_InstanceID];
+                SpriteRenderData data = _Properties[unity_InstanceID];
+                unity_ObjectToWorld = CalculateTRSMatrix(transform, data.FlipX, data.FlipY);
                 #endif
             }
 
@@ -73,6 +128,7 @@ Shader "Custom/SpriteShaderInstanced"
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
                 OUT.vertex = UnityObjectToClipPos(IN.vertex);
+
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
                 float2 uv = IN.uv;
@@ -81,7 +137,6 @@ Shader "Custom/SpriteShaderInstanced"
                 
                 OUT.uv = uv * abs(data.SpriteTiling.zw) + data.SpriteTiling.xy;
                 OUT.color = data.Color;
-                return OUT;
                 #else
                 OUT.uv = IN.uv;
                 OUT.color = float4(1,1,1,1);

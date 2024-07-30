@@ -158,7 +158,7 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
-                ref var pool = ref pools.ElementAt(poolIndex);
+                ref var pool = ref pools.ElementAtNoCheck(poolIndex);
                 if (!pool.IsCreated) {
                     pool = GenericPool.Create(ComponentsMap.GetComponentType(poolIndex), config.StartPoolSize, allocator);
                     poolsCount++;

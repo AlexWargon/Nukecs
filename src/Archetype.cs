@@ -159,11 +159,13 @@ namespace Wargon.Nukecs {
                 var q = queries.ElementAt(i);
                 q->Add(newEntity.id);
             }
-            foreach (var type in types) {
-                ref var pool = ref world->GetUntypedPool(type);
+
+            for (var index = 0; index < types.m_length; index++)
+            {
+                ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Copy(entity.id, newEntity.id);
             }
-            
+
             return newEntity;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

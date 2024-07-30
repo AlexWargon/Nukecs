@@ -20,7 +20,7 @@ namespace Wargon.Nukecs.Tests {
         void Awake() {
             Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default_1_000_000);
+            world = World.Create(WorldConfig.Default163840);
             systems = new Systems(ref world)
 
                 //.Add<MoveSystem4>()
@@ -46,17 +46,28 @@ namespace Wargon.Nukecs.Tests {
             CreateBulletPrefab();
             CreatePlayerPrefab();
             world.Update();
+            // for (var i = 0; i < 1; i++) {
+            //     // var e = animationData.Convert(ref world, RandomEx.Float3(-50,50));
+            //     // e.Add(new Input());
+            //     // e.Add(new Speed{value = 4f});
+            //     var e = world.SpawnPrefab(in playerPrefab);
+            //     e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
+            //     e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
+            //     Debug.Log(e.Get<Transform>().Position);
+            //     //e.Remove<IsPrefab>();
+            // }
+            //var s = new Query<(Transform, SpriteAnimation)>();
+        }
+
+        private void Start()
+        {
             for (var i = 0; i < 1; i++) {
-                // var e = animationData.Convert(ref world, RandomEx.Float3(-50,50));
-                // e.Add(new Input());
-                // e.Add(new Speed{value = 4f});
                 var e = world.SpawnPrefab(in playerPrefab);
                 e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
                 e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
-                //e.Remove<IsPrefab>();
             }
-            //var s = new Query<(Transform, SpriteAnimation)>();
         }
+
         private Entity playerPrefab;
         private Entity bulletPrefab;
         private void CreatePlayerPrefab() {
@@ -64,8 +75,9 @@ namespace Wargon.Nukecs.Tests {
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
-            playerPrefab.Add(new Gun{BulletsAmount = 300, Cooldown = 0.1f, Spread = 10f});
+            playerPrefab.Add(new Gun{BulletsAmount = 6, Cooldown = 0.1f, Spread = 10f});
             playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
+            playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }
         private void CreateBulletPrefab() {
             bulletPrefab = world.CreateEntity();
@@ -75,7 +87,7 @@ namespace Wargon.Nukecs.Tests {
             bulletPrefab.Add(new Transform(RandomEx.Float3(-5,5)));
             bulletPrefab.Add(new Speed{value = 42f});
             bulletPrefab.Add(new Lifetime{value = 1f});
-
+            bulletPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in bulletPrefab);
         }
         
         private void Update() {
@@ -88,7 +100,7 @@ namespace Wargon.Nukecs.Tests {
                 for (int i = 0; i < 10; i++) {
                     var e = world.SpawnPrefab(in playerPrefab);
                     e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
-                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e, e.Get<Transform>());
+                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e, e.Get<Transform>(), in e.Get<SpriteRenderData>());
                 }
             }
             if (UnityEngine.Input.GetKey(KeyCode.R)) {
@@ -363,11 +375,12 @@ namespace Wargon.Nukecs.Tests {
 
                 for (int i = 0; i < gun.BulletsAmount; i++) {
                     var bullet =  World.SpawnPrefab(in prefab.Value);
-                    ref var bt = ref bullet.Get<Transform>();                
+                    var (btRef, chunk, data) = bullet.Get<Transform, SpriteChunkReference, SpriteRenderData>();
+                    ref var bt = ref btRef.Value;
                     var rot = Quaternion.AngleAxis(rotZ + Random.Range(-gun.Spread,gun.Spread), Vector3.forward);
                     bt.Rotation = rot;
                     bt.Position = t.Position;
-                    bullet.Get<SpriteChunkReference>().ChunkRef.Add(in bullet, in bt);
+                    chunk.Value.ChunkRef.Add(in bullet, in bt, in data.Value);
                     gun.CooldownCounter = gun.Cooldown;                    
                 }
             }

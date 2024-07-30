@@ -43,7 +43,11 @@ namespace Wargon.Nukecs {
         public ref Entity GetEntity(int index) {
             return ref impl->world->entities.ElementAtNoCheck(impl->entities.ElementAtNoCheck(index));
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetEntityIndex(int index)
+        {
+            return impl->entities.ElementAtNoCheck(index);
+        }
         public void Dispose() {
             var allocator = impl->world->allocator;
             UnsafeUtility.Free(impl, allocator);
@@ -131,7 +135,11 @@ namespace Wargon.Nukecs {
         public ref Entity GetEntity(int index) {
             return ref world->entities.ElementAtNoCheck(entities.ElementAtNoCheck(index));
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetEntityID(int index)
+        {
+            return entities.ElementAtNoCheck(index);
+        }
         internal bool Has(int entity) {
             //if (entitiesMap.m_length <= entity) return false;
             return entitiesMap[entity] > 0;

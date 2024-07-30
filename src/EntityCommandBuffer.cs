@@ -28,14 +28,13 @@ namespace Wargon.Nukecs {
         }
 
         private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize) {
-            var threads = JobsUtility.JobWorkerCount + 1;
+            var threads = JobsUtility.ThreadIndexCount + 2;
             UnsafePtrList<UnsafeList<ECBCommand>>* ptrList =
                 UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, Allocator.Persistent);
             for (int i = 0; i < threads; i++) {
                 var list = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
                 ptrList->Add(list);
             }
-
             return ptrList;
         }
 
@@ -409,7 +408,6 @@ namespace Wargon.Nukecs {
                         case ECBCommand.Type.DestroyEntity:
                             archetype.Destroy(cmd.Entity);
                             break;
-                        
                         case ECBCommand.Type.Cull:
                             if(archetype.Has(ComponentType<Culled>.Index)) break;
                             ref var e = ref world.GetEntity(cmd.Entity);
@@ -426,6 +424,7 @@ namespace Wargon.Nukecs {
                             archetype.Copy(cmd.Entity, cmd.AdditionalData);
                             break;
                     }
+                    ecb->count--;
                 }
 
                 buffer->Clear();

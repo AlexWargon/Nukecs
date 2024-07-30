@@ -9,6 +9,8 @@ namespace Wargon.Nukecs.Tests {
         public Color color = Color.white;
         [HideInInspector]
         public float4 uv;
+        [SerializeField]
+        private Shader shader;
         private void OnValidate() {
             uv = SpriteUtility.CalculateSpriteTiling(sprite);
         }
@@ -36,7 +38,7 @@ namespace Wargon.Nukecs.Tests {
             };
             entity.Add(in renderData);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
             archetype.AddInitial(ref entity);
             return renderData;
         }
