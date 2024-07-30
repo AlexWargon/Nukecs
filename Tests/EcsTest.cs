@@ -39,7 +39,6 @@ namespace Wargon.Nukecs.Tests {
                 .Add<SpriteChangeAnimationSystem>()
                 .Add<SpriteAnimationSystem>()
                 //.Add<RotateSpriteSystem>()
-                
                 .Add<ShootSystem>()
                 
                 //.Add<ViewSystem>()
@@ -57,9 +56,7 @@ namespace Wargon.Nukecs.Tests {
                 //e.Remove<IsPrefab>();
             }
             //var s = new Query<(Transform, SpriteAnimation)>();
-
         }
-
         private Entity playerPrefab;
         private Entity bulletPrefab;
         private void CreatePlayerPrefab() {
@@ -67,7 +64,7 @@ namespace Wargon.Nukecs.Tests {
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
-            playerPrefab.Add(new Gun{BulletsAmount = 5, Cooldown = 0.1f, Spread = 10f});
+            playerPrefab.Add(new Gun{BulletsAmount = 300, Cooldown = 0.1f, Spread = 10f});
             playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
         }
         private void CreateBulletPrefab() {
@@ -91,14 +88,15 @@ namespace Wargon.Nukecs.Tests {
                 for (int i = 0; i < 10; i++) {
                     var e = world.SpawnPrefab(in playerPrefab);
                     e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
-                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
+                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e, e.Get<Transform>());
                 }
             }
             if (UnityEngine.Input.GetKey(KeyCode.R)) {
                 for (int i = 0; i < 10; i++) {
                     var e = world.SpawnPrefab(in bulletPrefab);
-                    e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
-                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
+                    ref var t = ref e.Get<Transform>();
+                    t.Position = RandomEx.Float3(-5, 5);
+                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e, in t);
                 }
             }
             InputService.Instance.Update();
@@ -330,7 +328,7 @@ namespace Wargon.Nukecs.Tests {
     }
     [BurstCompile]
     public struct LifetimeSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Main;
+        public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
             return world.CreateQuery().With<Lifetime>().With<Culled>(); // only that entities that not rendering
         }
@@ -342,7 +340,7 @@ namespace Wargon.Nukecs.Tests {
             }
         }
     }
-
+    [BurstCompile]
     public struct ShootSystem : IEntityJobSystem {
         private World World;
         public SystemMode Mode => SystemMode.Main;
@@ -369,7 +367,7 @@ namespace Wargon.Nukecs.Tests {
                     var rot = Quaternion.AngleAxis(rotZ + Random.Range(-gun.Spread,gun.Spread), Vector3.forward);
                     bt.Rotation = rot;
                     bt.Position = t.Position;
-                    bullet.Get<SpriteChunkReference>().ChunkRef.Add(in bullet);
+                    bullet.Get<SpriteChunkReference>().ChunkRef.Add(in bullet, in bt);
                     gun.CooldownCounter = gun.Cooldown;                    
                 }
             }
@@ -396,6 +394,4 @@ namespace Wargon.Nukecs.Tests {
             entity.Remove<AddRemove>();
         }
     }
-    
-
 }

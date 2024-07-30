@@ -41,7 +41,6 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction] 
         internal WorldUnsafe* Unsafe;
         internal ref EntityCommandBuffer ECB => ref Unsafe->ECB;
-        internal ref EntityFilterBuffer EFB => ref Unsafe->EFB;
 
         public ref JobHandle Dependencies => ref Unsafe->systemsJobDependencies;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
@@ -60,7 +59,6 @@ namespace Wargon.Nukecs {
             internal WorldConfig config;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
-            internal EntityFilterBuffer EFB;
             [NativeDisableUnsafePtrRestriction] 
             internal WorldUnsafe* self;
 
@@ -99,7 +97,6 @@ namespace Wargon.Nukecs {
                 this.config = config;
                 this.poolsMask = DynamicBitmask.CreateForComponents();
                 this.ECB = new EntityCommandBuffer(256);
-                this.EFB = new EntityFilterBuffer(256);
                 this.systemsJobDependencies = default;
                 this.DefaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
                 this.self = self;
@@ -141,7 +138,6 @@ namespace Wargon.Nukecs {
                 poolsCount = 0;
                 poolsMask.Dispose();
                 ECB.Dispose();
-                EFB.Dispose();
                 DefaultNoneTypes.Dispose();
                 reservedEntities.Dispose();
                 self = null;
