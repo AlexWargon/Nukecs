@@ -46,8 +46,8 @@ namespace Wargon.Nukecs {
         public ref JobHandle Dependencies => ref Unsafe->systemsJobDependencies;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal struct WorldUnsafe {
-            internal int Id;
-            internal Allocator allocator;
+            internal readonly int Id;
+            internal readonly Allocator allocator;
             internal UnsafeList<Entity> entities;
             internal UnsafeList<int> reservedEntities;
             internal UnsafeList<Archetype> entitiesArchetypes;
@@ -65,8 +65,9 @@ namespace Wargon.Nukecs {
             internal WorldUnsafe* self;
 
             internal JobHandle systemsJobDependencies;
-            internal int job_worker_count;
+            internal readonly int job_worker_count;
             internal UnsafeList<int> DefaultNoneTypes;
+            internal int entitiesAmount;
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
                 var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
@@ -103,6 +104,7 @@ namespace Wargon.Nukecs {
                 this.DefaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
                 this.self = self;
                 job_worker_count = JobsUtility.JobWorkerMaximumCount;
+                entitiesAmount = 0;
                 var s = ComponentType<DestroyEntity>.Index;
                 SetDefaultNone();
             }
@@ -140,6 +142,8 @@ namespace Wargon.Nukecs {
                 poolsMask.Dispose();
                 ECB.Dispose();
                 EFB.Dispose();
+                DefaultNoneTypes.Dispose();
+                reservedEntities.Dispose();
                 self = null;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -170,13 +174,13 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
                 if (lastEntityIndex >= entities.m_capacity) {
-                    entities.Resize(lastEntityIndex * 2);
-                    entities.m_length = entities.m_capacity;
-                    entitiesArchetypes.Resize(lastEntityIndex * 2);
-                    entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
+                    var newCapacity = lastEntityIndex * 2;
+                    UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
+                    UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
 
                 Entity e;
+                entitiesAmount++;
                 var last = lastEntityIndex;
                 if (reservedEntities.m_length > 0) {
                     last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
@@ -190,15 +194,15 @@ namespace Wargon.Nukecs {
                 lastEntityIndex++;
                 return e;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity(int archetype) {
                 if (lastEntityIndex >= entities.m_capacity) {
-                    entities.Resize(lastEntityIndex * 2);
-                    entities.m_length = entities.m_capacity;
-                    entitiesArchetypes.Resize(lastEntityIndex * 2);
-                    entitiesArchetypes.m_length = entitiesArchetypes.m_capacity;
+                    var newCapacity = lastEntityIndex * 2;
+                    UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
+                    UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
                 Entity e;
+                entitiesAmount++;
                 var last = lastEntityIndex;
                 if (reservedEntities.m_length > 0) {
                     last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
@@ -211,6 +215,11 @@ namespace Wargon.Nukecs {
                 entities.ElementAtNoCheck(last) = e;
                 lastEntityIndex++;
                 return e;
+            }
+        
+            internal void OnDestroyEntity(int entity) {
+                reservedEntities.Add(entity);
+                entitiesAmount--;
             }
             internal Entity CreateEntity<T1>(in T1 c1) 
                 where T1 : unmanaged, IComponent 
@@ -226,6 +235,12 @@ namespace Wargon.Nukecs {
                 var e = CreateEntity();
                 e.Add(in c1);
                 e.Add(in c2);
+                return e;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public Entity SpawnPrefab(in Entity prefab) {
+                var e = prefab.Copy();
+                e.Remove<IsPrefab>();
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -263,6 +278,7 @@ namespace Wargon.Nukecs {
             internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
                 var hash = ArchetypeImpl.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    types.Dispose();
                     return archetype;
                 }
 
@@ -297,7 +313,10 @@ namespace Wargon.Nukecs {
         public Entity CreateEntity() {
             return Unsafe->CreateEntity();
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Entity SpawnPrefab(in Entity prefab) {
+            return Unsafe->SpawnPrefab(in prefab);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity CreateEntity<T1>(in T1 c1) where T1 : unmanaged, IComponent {
             return Unsafe->CreateEntity(in c1);

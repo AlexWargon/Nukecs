@@ -1,12 +1,13 @@
 using System;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Wargon.Nukecs.Tests {
     public class EcsTest : MonoBehaviour {
+        [SerializeField] private int fps = 144;
         private World world;
         private Systems systems;
         public GameObject sphere;
@@ -14,46 +15,47 @@ namespace Wargon.Nukecs.Tests {
         public Material material;
         public SpriteAnimationList animationData;
         public SpriteData bulletSprite;
+        public int reserved;
+        public int entities;
         void Awake() {
-            //Application.targetFrameRate = 144;
+            Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default163840);
+            world = World.Create(WorldConfig.Default_1_000_000);
             systems = new Systems(ref world)
 
                 //.Add<MoveSystem4>()
                 .Add<SpriteRenderSystem>()
                 .Add<UpdateCameraCullingSystem>()
                 //.Add<CullingSystem>()
+                .Add<LifetimeSystem>()
+                //.Add<ClearRenderOnEntityDestroySystem>()
                 .Add<CullSpritesSystem>()
                 .Add<UnCullSpritesSystem>()
+                
                 .Add<UpdateChunkDataSystem>()
                 .Add<UserInputSystem>()
                 .Add<MoveSystem>()
                 .Add<MoveBulletSystem>()
                 .Add<SpriteChangeAnimationSystem>()
                 .Add<SpriteAnimationSystem>()
-                .Add<RotateSpriteSystem>()
+                //.Add<RotateSpriteSystem>()
+                
+                .Add<ShootSystem>()
+                
                 //.Add<ViewSystem>()
                 ;
-            
-            CreatePlayerPrefab();
             CreateBulletPrefab();
+            CreatePlayerPrefab();
             world.Update();
-            for (var i = 0; i < 2; i++) {
+            for (var i = 0; i < 1; i++) {
                 // var e = animationData.Convert(ref world, RandomEx.Float3(-50,50));
                 // e.Add(new Input());
                 // e.Add(new Speed{value = 4f});
-
-                var e = playerPrefab.Copy();
+                var e = world.SpawnPrefab(in playerPrefab);
                 e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
                 e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
-                e.Remove<IsPrefab>();
                 //e.Remove<IsPrefab>();
             }
-            Debug.Log(UnsafeUtility.SizeOf<IsAlive>());
-            Debug.Log(UnsafeUtility.SizeOf<IsPrefab>());
-            Debug.Log(UnsafeUtility.SizeOf<DestroyEntity>());
-            Debug.Log(UnsafeUtility.SizeOf<Transform>());
             //var s = new Query<(Transform, SpriteAnimation)>();
 
         }
@@ -65,6 +67,8 @@ namespace Wargon.Nukecs.Tests {
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
+            playerPrefab.Add(new Gun{BulletsAmount = 5, Cooldown = 0.1f, Spread = 10f});
+            playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
         }
         private void CreateBulletPrefab() {
             bulletPrefab = world.CreateEntity();
@@ -72,25 +76,29 @@ namespace Wargon.Nukecs.Tests {
             bulletPrefab.Add(new IsPrefab());
             bulletPrefab.Add(new Bullet());
             bulletPrefab.Add(new Transform(RandomEx.Float3(-5,5)));
-            bulletPrefab.Add(new Speed{value = 22f});
+            bulletPrefab.Add(new Speed{value = 42f});
+            bulletPrefab.Add(new Lifetime{value = 1f});
 
         }
         
         private void Update() {
+            unsafe {
+                reserved = world.Unsafe->reservedEntities.Length;
+                entities = world.Unsafe->entitiesAmount;
+            }
+            
             if (UnityEngine.Input.GetKey(KeyCode.Space)) {
                 for (int i = 0; i < 10; i++) {
-                    var e = playerPrefab.Copy();
+                    var e = world.SpawnPrefab(in playerPrefab);
                     e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
                     e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
-                    e.Remove<IsPrefab>();
                 }
             }
             if (UnityEngine.Input.GetKey(KeyCode.R)) {
                 for (int i = 0; i < 10; i++) {
-                    var e = bulletPrefab.Copy();
+                    var e = world.SpawnPrefab(in bulletPrefab);
                     e.Get<Transform>().Position = RandomEx.Float3(-5, 5);
                     e.Get<SpriteChunkReference>().ChunkRef.Add(in e);
-                    e.Remove<IsPrefab>();
                 }
             }
             InputService.Instance.Update();
@@ -111,7 +119,7 @@ namespace Wargon.Nukecs.Tests {
         }
 
     }
-    public struct Bullet : IComponent {}
+
     [BurstCompile]
     public struct MoveBulletSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -153,22 +161,6 @@ namespace Wargon.Nukecs.Tests {
         }
     }
 
-    public struct ViewSystem : ISystem, IOnCreate {
-        private Query _query;
-        public void OnCreate(ref World world) {
-            _query = world.CreateQuery().With<View>().With<Transform>();
-        }
-        
-        public void OnUpdate(ref World world, float deltaTime) {
-            for (var i = 0; i < _query.Count; i++) {
-                ref var entity = ref _query.GetEntity(i);
-                var view = entity.Read<View>();
-                var transform = entity.Read<Transform>();
-                view.value.Value.transform.position = transform.Position;
-                view.value.Value.transform.rotation = transform.Rotation;
-            }
-        }
-    }
     
     [BurstCompile(CompileSynchronously = true)]
     public struct MoveSystem : IEntityJobSystem {
@@ -182,37 +174,6 @@ namespace Wargon.Nukecs.Tests {
             var speed = entity.Read<Speed>();
             var input = entity.Read<Input>();
             transform.Position += new float3(input.h, input.v, 0) * speed.value * deltaTime;
-        }
-    }
-    [BurstCompile(CompileSynchronously = true)]
-    public struct MoveSystem4 : IQueryJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<Transform>().With<Speed>();
-        }
-
-        private const float fixedDeltaTime = 1f / 60f;
-        [BurstCompile(CompileSynchronously = true)]
-        public void OnUpdate(ref Query query, float deltaTime) {
-
-            foreach (ref var entity in query) {
-                ref var transform = ref entity.Get<Transform>();
-                var speed = entity.Read<Speed>();
-    
-                float remainingTime = deltaTime;
-                while (remainingTime > 0) {
-                    float stepTime = math.min(fixedDeltaTime, remainingTime);
-                    float3 newPosition = transform.Position + speed.value * stepTime * math.right();
-        
-                    if (newPosition.x > 100) {
-                        transform.Position.x = 100;
-                        entity.Destroy();
-                        break;
-                    }
-                    transform.Position = newPosition;
-                    remainingTime -= stepTime;
-                }
-            }
         }
     }
 
@@ -259,7 +220,6 @@ namespace Wargon.Nukecs.Tests {
         public bool use;
     }
     
-    
     [BurstCompile]
     public struct UserInputSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -271,6 +231,7 @@ namespace Wargon.Nukecs.Tests {
             ref var input = ref entity.Get<Input>();
             input.v = InputService.Instance.GetAxis(InputAxis.Vertical);
             input.h = InputService.Instance.GetAxis(InputAxis.Horizontal);
+            input.fire = InputService.Instance.Fire;
         }
     }
 
@@ -322,13 +283,16 @@ namespace Wargon.Nukecs.Tests {
         public static ref InputService Instance => ref Singleton<InputService>.Instance;
         private float Vertical;
         private float Horizontal;
-        private byte Fire;
-        private byte Intercat;
-        public float2 MousePos;
+        public bool Fire;
+        public byte Intercat;
+        public float3 MousePos;
         public void Update()
         {
             Horizontal = UnityEngine.Input.GetAxisRaw(nameof(Horizontal));
             Vertical = UnityEngine.Input.GetAxisRaw(nameof(Vertical));
+            var mousePosV = Camera.main.ScreenToWorldPoint(UnityEngine.Input.mousePosition);
+            MousePos = new float3(mousePosV.x, mousePosV.y, 0);
+            Fire = UnityEngine.Input.GetButton("Fire1");
         }
 
         public float GetAxis(InputAxis key)
@@ -348,7 +312,69 @@ namespace Wargon.Nukecs.Tests {
     }
     
     public struct AddRemove : IComponent{}
+    public struct Bullet : IComponent {}
+
+    public struct BulletPrefab : IComponent {
+        public Entity Value;
+    }
     
+    public struct Lifetime : IComponent {
+        public float value;
+    }
+
+    public struct Gun : IComponent {
+        public int BulletsAmount;
+        public float Spread;
+        public float Cooldown;
+        public float CooldownCounter;
+    }
+    [BurstCompile]
+    public struct LifetimeSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Main;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<Lifetime>().With<Culled>(); // only that entities that not rendering
+        }
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            ref var lifetime = ref entity.Get<Lifetime>();
+            lifetime.value -= deltaTime;
+            if (lifetime.value <= 0f) {
+                entity.DestroyLate();
+            }
+        }
+    }
+
+    public struct ShootSystem : IEntityJobSystem {
+        private World World;
+        public SystemMode Mode => SystemMode.Main;
+        public Query GetQuery(ref World world) {
+            World = world;
+            return world.CreateQuery().With<Gun>().With<Input>().With<Transform>().With<BulletPrefab>();
+        }
+
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            ref readonly var input = ref entity.Read<Input>();
+            ref var gun = ref entity.Get<Gun>();
+            gun.CooldownCounter -= deltaTime;
+            if (input.fire && gun.CooldownCounter <= 0) {
+                ref readonly var t = ref entity.Read<Transform>();
+                ref readonly var prefab = ref entity.Read<BulletPrefab>();
+                //var (t, prefab) = entity.Get<Transform, BulletPrefab>();
+                var mpos = InputService.Instance.MousePos;   
+                var dif = mpos - t.Position;
+                var rotZ = math.atan2(dif.y, dif.x) * Mathf.Rad2Deg;
+
+                for (int i = 0; i < gun.BulletsAmount; i++) {
+                    var bullet =  World.SpawnPrefab(in prefab.Value);
+                    ref var bt = ref bullet.Get<Transform>();                
+                    var rot = Quaternion.AngleAxis(rotZ + Random.Range(-gun.Spread,gun.Spread), Vector3.forward);
+                    bt.Rotation = rot;
+                    bt.Position = t.Position;
+                    bullet.Get<SpriteChunkReference>().ChunkRef.Add(in bullet);
+                    gun.CooldownCounter = gun.Cooldown;                    
+                }
+            }
+        }
+    }
     public struct AddComponentSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
@@ -370,4 +396,6 @@ namespace Wargon.Nukecs.Tests {
             entity.Remove<AddRemove>();
         }
     }
+    
+
 }

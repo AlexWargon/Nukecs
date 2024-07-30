@@ -5,6 +5,7 @@ using System.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 
 namespace Wargon.Nukecs {
     public readonly unsafe struct Query : IDisposable {
@@ -132,19 +133,20 @@ namespace Wargon.Nukecs {
         }
 
         internal bool Has(int entity) {
-            //if (entitiesMap.Length <= entity) return false;
+            //if (entitiesMap.m_length <= entity) return false;
             return entitiesMap[entity] > 0;
         }
-
+        
         internal void Add(int entity) {
-            if (entities.Length - 1 <= count) {
-                entities.Resize(count * 2, NativeArrayOptions.ClearMemory);
-                entities.m_length = entities.m_capacity;
+            if (entities.m_capacity - 1 <= count) {
+                var newSize = count * 2;
+                entities = UnsafeHelp.ResizeUnsafeList(ref entities, newSize, NativeArrayOptions.ClearMemory);
             }
 
-            if (entitiesMap.Length - 1 <= entity) {
-                entitiesMap.Resize(entity * 2, NativeArrayOptions.ClearMemory);
-                entitiesMap.m_length = entities.m_capacity;
+            if (entitiesMap.m_capacity - 1 <= entity) {
+                var newSize = entity * 2;
+                entitiesMap = UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newSize, NativeArrayOptions.ClearMemory);
+                Debug.Log($"RESIZE Q {newSize}");
             }
             if(Has(entity)) return;
             entities[count++] = entity;
@@ -428,8 +430,13 @@ namespace Wargon.Nukecs {
     public struct Ref<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
         internal GenericPool pool;
-        public ref TComponent Value => ref pool.GetRef<TComponent>(index);
+
+        public ref TComponent Value {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref pool.GetRef<TComponent>(index);
+        }
     }
+
     public struct QueryTuple<T1,T2> 
         where T1: unmanaged, IComponent
         where T2: unmanaged, IComponent {

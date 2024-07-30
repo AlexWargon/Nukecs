@@ -142,6 +142,17 @@ namespace Wargon.Nukecs {
             return edge;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void Copy(in int from, in int to) {
+            for (int i = 0; i < queries.Length; i++) {
+                var q = queries.ElementAt(i);
+                q->Add(to);
+            }
+            foreach (var type in types) {
+                ref var pool = ref world->GetUntypedPool(type);
+                pool.Copy(from, to);
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity Copy(in Entity entity) {
             var newEntity = world->CreateEntity(id);
             for (int i = 0; i < queries.Length; i++) {
@@ -170,9 +181,10 @@ namespace Wargon.Nukecs {
 
         public void Destroy(int entity) {
             destroyEdge.Execute(entity);
+            world->OnDestroyEntity(entity);
         }
-        
-        internal void CreateTransaction(int component) {
+
+        private void CreateTransaction(int component) {
             var remove = component < 0;
             var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->allocator,
                 NativeArrayOptions.ClearMemory);

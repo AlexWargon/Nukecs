@@ -8,7 +8,7 @@ namespace Wargon.Nukecs.Tests {
             return world.CreateQuery()
                 .With<SpriteRenderData>()
                 .With<SpriteChunkReference>()
-                .None<Culled>();
+                .None<Culled>().None<DestroyEntity>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {

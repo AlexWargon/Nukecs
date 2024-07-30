@@ -13,6 +13,7 @@ namespace Wargon.Nukecs {
         internal JobHandle dependencies;
         private List<ISystemRunner> runners;
         private World world;
+        
         //private ECBSystem _ecbSystem;
         public Systems(ref World world) {
             this.dependencies = default;
@@ -20,6 +21,7 @@ namespace Wargon.Nukecs {
             this.world = world;
             //_ecbSystem = default;
             //_ecbSystem.OnCreate(ref world);
+            Add<EntityDestroySystem>();
         }
 
         public Systems Add<T>() where T : struct, IJobSystem {
@@ -64,7 +66,7 @@ namespace Wargon.Nukecs {
             return this;
         }
         
-        public Systems Add<T>(float dymmy = 1f) where T : struct, IQueryJobSystem {
+        public Systems Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -184,7 +186,16 @@ namespace Wargon.Nukecs {
             worldUnsafe.GetEntity(0);
         }
     }
-    
+    [BurstCompile]
+    public struct EntityDestroySystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.CreateQuery().With<DestroyEntity>();
+        }
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            entity.Destroy();
+        }
+    }
     internal interface ISystemRunner {
         JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle);
         void Run(ref World world, float dt);
