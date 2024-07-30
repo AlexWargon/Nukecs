@@ -118,7 +118,7 @@ namespace Wargon.Nukecs {
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
-
+        
         public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent 
@@ -127,6 +127,7 @@ namespace Wargon.Nukecs {
                 new Ref<T1>{index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
                 new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()});
         }
+        
         public static (Ref<T1>, Ref<T2>, Ref<T3>) Get<T1, T2, T3>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
@@ -137,6 +138,7 @@ namespace Wargon.Nukecs {
                 new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()},
                 new Ref<T3>{index = entity.id, pool = entity.worldPointer->GetPool<T3>()});
         }
+        
         public static (Ref<T1>, Ref<T2>, Ref<T3>,Ref<T4>) Get<T1, T2, T3, T4>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent

@@ -21,20 +21,46 @@ namespace Wargon.Nukecs.Tests {
                 archetypes[i].OnUpdate();
             }
         }
-        public unsafe ref SpriteArchetype Add(Texture2D atlas, ref World world) {
+        public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world) {
             Resize();
+            var shaderID = shader.GetInstanceID();
             var instanceID = atlas.GetInstanceID();
-            var h = Has(instanceID);
+            var h = Has(instanceID, shaderID);
             if (h.has) {
                 return ref archetypes[h.index];
             };
-            var material = new Material(Shader.Find(ShaderNames.SpritesWithShadow)) {
+            var material = new Material(shader) {
                 mainTexture = atlas
             };
             var arch = new SpriteArchetype {
                 Material = material,
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
+                shaderID = shaderID,
+                Chunk = SpriteChunk.Create(world.Unsafe->config.StartEntitiesAmount),
+                camera = Camera.main
+            };
+            archetypes[count] = arch;
+            count++;
+            return ref archetypes[count-1];
+        }
+        public unsafe ref SpriteArchetype Add(Texture2D atlas, ref World world) {
+            Resize();
+            var shader = Shader.Find(ShaderNames.SpritesWithShadow);
+            var shaderID = shader.GetInstanceID();
+            var instanceID = atlas.GetInstanceID();
+            var h = Has(instanceID, shaderID);
+            if (h.has) {
+                return ref archetypes[h.index];
+            };
+            var material = new Material(shader) {
+                mainTexture = atlas
+            };
+            var arch = new SpriteArchetype {
+                Material = material,
+                mesh = CreateQuadMesh(),
+                instanceID = instanceID,
+                shaderID = shaderID,
                 Chunk = SpriteChunk.Create(world.Unsafe->config.StartEntitiesAmount),
                 camera = Camera.main
             };
@@ -43,9 +69,11 @@ namespace Wargon.Nukecs.Tests {
             return ref archetypes[count-1];
         }
 
-        private (int index, bool has) Has(int id) {
-            for (var i = count; i >= 0; i--) {
-                if (archetypes[i].instanceID == id) return (i, true);
+        private (int index, bool has) Has(int id, int shader) {
+            for (var i = count; i >= 0; i--)
+            {
+                ref readonly var  arch = ref archetypes[i];
+                if (arch.instanceID == id && arch.shaderID == shader) return (i, true);
             }
 
             return (0, false);
@@ -85,6 +113,7 @@ namespace Wargon.Nukecs.Tests {
         [NativeDisableUnsafePtrRestriction]
         internal SpriteChunk* Chunk;
         public int instanceID;
+        public int shaderID;
         internal Material Material;
         internal Mesh mesh;
         private ComputeBuffer transformsBuffer;
@@ -108,7 +137,9 @@ namespace Wargon.Nukecs.Tests {
         
         public void OnUpdate() {
             var count = Chunk->count;
+
             if(count == 0) return;
+            
             var dataArray = RenderDataArray(count);
             var matrixArray = MatrixArray(count);
             
@@ -267,6 +298,25 @@ namespace Wargon.Nukecs.Tests {
             indexToEntity[count] = entity.id;
             entityToIndex[entity.id] = count;
             matrixChunk[count] = transform;
+            count++;
+            return index;
+        }
+        public unsafe int Add(in Entity entity, in Transform transform, in SpriteRenderData data) {
+            var index = count;
+            if (entity.id >= entityToIndex.m_length) {
+                var newCapacity = entity.id * 2;
+                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
+                entityToIndex.m_length = entityToIndex.m_capacity;
+                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
+                indexToEntity.m_length = indexToEntity.m_capacity;
+                UnsafeHelp.Resize(capacity, newCapacity, matrixChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, renderDataChunk, Allocator.Persistent);
+                capacity = newCapacity;
+            }
+            indexToEntity[count] = entity.id;
+            entityToIndex[entity.id] = count;
+            matrixChunk[count] = transform;
+            renderDataChunk[count] = data;
             count++;
             return index;
         }

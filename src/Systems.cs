@@ -644,6 +644,7 @@ namespace Wargon.Nukecs {
         void OnUpdate(ref Entity entity, ref T1 c1, ref T2 c2, float dt);
     }
 
+
     public interface IQueryJobSystem<T> where T : struct, ITuple {
         public Query<T> GetQuery(Query<T> query) {
             return query;
@@ -656,5 +657,89 @@ namespace Wargon.Nukecs {
     }
     public interface ISystem {
         void OnUpdate(ref World world, float deltaTime);
+    }
+    [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]
+    public interface IEntityIndexJobSystem
+    {
+        SystemMode Mode { get; }
+        void OnUpdate<T1>(ref T1 c1, float dt) where T1 : unmanaged, IComponent;
+    }
+    public static class EntityIndexJobSystemExtensions<T1> where T1 : unmanaged, IComponent {
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct EntityJobStruct<TJob> where TJob : struct, IEntityIndexJobSystem {
+            public TJob JobData;
+            public Query query;
+            public World world;
+            public float deltaTime;
+
+            internal static readonly SharedStatic<IntPtr> JobReflectionData =
+                SharedStatic<IntPtr>.GetOrCreate<EntityJobStruct<TJob>>();
+
+            [BurstDiscard]
+            internal static void Initialize() {
+                if (JobReflectionData.Data == IntPtr.Zero) {
+                    JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(EntityJobStruct<TJob>),
+                        typeof(TJob),  new ExecuteJobFunction(Execute));
+                }
+            }
+
+            private delegate void ExecuteJobFunction(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
+                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
+            
+            public static void Execute(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
+                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
+                if(fullData.query.Count == 0) return;
+                while (true) {
+                    if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
+                        break;
+                    //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
+                    ref var c1pool = ref fullData.world.GetPool<T1>();
+                    for (var i = begin; i < end; i++) {
+                        unsafe
+                        {
+                            var e = fullData.query.impl->GetEntityID(i);
+                            fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), fullData.deltaTime);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        public static void EarlyJobInit<T>() where T : struct, IEntityIndexJobSystem {
+            EntityJobStruct<T>.Initialize();
+        }
+
+        public static IntPtr GetReflectionData<T>() where T : struct, IEntityIndexJobSystem {
+            EntityJobStruct<T>.Initialize();
+            return EntityJobStruct<T>.JobReflectionData.Data;
+        }
+    }
+
+    public static class EXT
+    {
+        public static unsafe JobHandle Schedule<TJob,T>(this TJob jobData, ref Query query, float deltaTime,
+            SystemMode mode, JobHandle dependsOn = default)
+            where TJob : struct, IEntityIndexJobSystem 
+            where T : unmanaged, IComponent {
+            var fullData = new EntityIndexJobSystemExtensions<T>.EntityJobStruct<TJob> {
+                JobData = jobData,
+                query = query,
+                deltaTime = deltaTime
+            };
+            
+            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+                EntityIndexJobSystemExtensions<T>.GetReflectionData<TJob>(), dependsOn,
+                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+            switch (mode) {
+                case SystemMode.Single:
+                    return JobsUtility.Schedule(ref scheduleParams);
+                case SystemMode.Parallel:
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
+            }
+            //var workers = JobsUtility.JobWorkerCount;
+            //var batchCount = query.Count > workers ? query.Count / workers : 1;
+            return dependsOn;
+        }
     }
 }
