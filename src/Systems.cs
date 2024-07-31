@@ -129,13 +129,7 @@ namespace Wargon.Nukecs {
             }
         }
     }
-    [BurstCompile]
-    public struct EFBJob : IJob {
-        public EntityFilterBuffer EFB;
-        public void Execute() {
-            EFB.Playback();
-        }
-    }
+
     public unsafe struct ECBSystem : ISystem, IOnCreate {
         public static ref ECBSystem Singleton => ref Singleton<ECBSystem>.Instance;
         public void OnCreate(ref World world) {
@@ -263,56 +257,56 @@ namespace Wargon.Nukecs {
             world.ECB.Playback(ref world);
         }
     }
-    internal class EntityJobSystemRunner<TSystem,T1,T2> : ISystemRunner where TSystem : struct, IEntityJobSystem<T1,T2> 
-        where T1 : unmanaged, IComponent
-        where T2 : unmanaged, IComponent
-    {
-        public TSystem System;
-        public Query Query;
-        public SystemMode Mode;
-        public ECBJob EcbJob;
-        private GenericJobWrapper JobWrapper;
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
-            if (Mode == SystemMode.Main) {
-                for (var i = 0; i < Query.Count; i++) {
-                    ref var e = ref Query.GetEntity(i);
-                    System.OnUpdate(ref e, ref e.Get<T1>(), ref e.Get<T2>(), dt);    
-                }
-            }
-            else {
-                JobWrapper.c1pool = world.GetPool<T1>().AsComponentPool<T1>();
-                JobWrapper.c2pool = world.GetPool<T2>().AsComponentPool<T2>();
-                JobWrapper.query = Query;
-                JobWrapper.dt = dt;
-                JobWrapper.system = System;
-                jobHandle = JobWrapper.Schedule(Query.Count, 1, jobHandle);
-            }
-            
-            EcbJob.ECB = world.ECB;
-            EcbJob.world = world;
-            return EcbJob.Schedule(jobHandle);
-        }
-    
-        public void Run(ref World world, float dt) {
-            for (int i = 0; i < Query.Count; i++) {
-                ref var e = ref Query.GetEntity(i);
-                System.OnUpdate(ref e, ref e.Get<T1>(), ref e.Get<T2>(), dt);
-            }
-            world.ECB.Playback(ref world);
-        }
-        [BurstCompile]
-        internal struct GenericJobWrapper : IJobParallelFor {
-            public ComponentPool<T1> c1pool;
-            public ComponentPool<T2> c2pool;
-            public TSystem system;
-            public Query query;
-            public float dt;
-            public void Execute(int index) {
-                ref var e = ref query.GetEntity(index);
-                system.OnUpdate(ref e, ref c1pool.Get(e.id), ref c2pool.Get(e.id), dt);
-            }
-        }
-    }
+    // internal class EntityJobSystemRunner<TSystem,T1,T2> : ISystemRunner where TSystem : struct, IEntityJobSystem<T1,T2> 
+    //     where T1 : unmanaged, IComponent
+    //     where T2 : unmanaged, IComponent
+    // {
+    //     public TSystem System;
+    //     public Query Query;
+    //     public SystemMode Mode;
+    //     public ECBJob EcbJob;
+    //     private GenericJobWrapper JobWrapper;
+    //     public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
+    //         if (Mode == SystemMode.Main) {
+    //             for (var i = 0; i < Query.Count; i++) {
+    //                 ref var e = ref Query.GetEntity(i);
+    //                 System.OnUpdate(ref e, ref e.Get<T1>(), ref e.Get<T2>(), dt);    
+    //             }
+    //         }
+    //         else {
+    //             JobWrapper.c1pool = world.GetPool<T1>().AsComponentPool<T1>();
+    //             JobWrapper.c2pool = world.GetPool<T2>().AsComponentPool<T2>();
+    //             JobWrapper.query = Query;
+    //             JobWrapper.dt = dt;
+    //             JobWrapper.system = System;
+    //             jobHandle = JobWrapper.Schedule(Query.Count, 1, jobHandle);
+    //         }
+    //         
+    //         EcbJob.ECB = world.ECB;
+    //         EcbJob.world = world;
+    //         return EcbJob.Schedule(jobHandle);
+    //     }
+    //
+    //     public void Run(ref World world, float dt) {
+    //         for (int i = 0; i < Query.Count; i++) {
+    //             ref var e = ref Query.GetEntity(i);
+    //             System.OnUpdate(ref e, ref e.Get<T1>(), ref e.Get<T2>(), dt);
+    //         }
+    //         world.ECB.Playback(ref world);
+    //     }
+    //     [BurstCompile]
+    //     internal struct GenericJobWrapper : IJobParallelFor {
+    //         public ComponentPool<T1> c1pool;
+    //         public ComponentPool<T2> c2pool;
+    //         public TSystem system;
+    //         public Query query;
+    //         public float dt;
+    //         public void Execute(int index) {
+    //             ref var e = ref query.GetEntity(index);
+    //             system.OnUpdate(ref e, ref c1pool.Get(e.id), ref c2pool.Get(e.id), dt);
+    //         }
+    //     }
+    // }
     internal class QueryJobSystemRunner<TSystem,T> : ISystemRunner where TSystem : struct, IQueryJobSystem<T> 
         where T : struct, ITuple
     {
@@ -637,12 +631,7 @@ namespace Wargon.Nukecs {
             return dependsOn;
         }
     }
-    // [JobProducerType(typeof(EntityJobSystemT2Extensions.EntityJobStruct<,,>))]
-    public interface IEntityJobSystem<T1,T2> where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent{
-        SystemMode Mode { get; }
-        Query GetQuery(ref World world);
-        void OnUpdate(ref Entity entity, ref T1 c1, ref T2 c2, float dt);
-    }
+
 
 
     public interface IQueryJobSystem<T> where T : struct, ITuple {
@@ -715,9 +704,11 @@ namespace Wargon.Nukecs {
             return EntityJobStruct<T>.JobReflectionData.Data;
         }
     }
+   
 
     public static class EXT
     {
+
         public static unsafe JobHandle Schedule<TJob,T>(this TJob jobData, ref Query query, float deltaTime,
             SystemMode mode, JobHandle dependsOn = default)
             where TJob : struct, IEntityIndexJobSystem 

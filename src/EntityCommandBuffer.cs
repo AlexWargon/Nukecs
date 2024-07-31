@@ -67,17 +67,6 @@ namespace Wargon.Nukecs {
             }
         }
 
-        public sealed partial class ECBCommandType {
-            public const byte AddComponent = 0;
-            public const byte RemoveComponent = 1;
-            public const byte SetComponent = 2;
-            public const byte CreateEntity = 3;
-            public const byte DestroyEntity = 4;
-            public const byte ChangeGOPosition = 5;
-            public const byte SetActive = 6;
-            public const byte PlayParticle = 7;
-        }
-
         internal struct ECBInternal {
             internal byte isCreated;
 
@@ -311,19 +300,19 @@ namespace Wargon.Nukecs {
         public void Destroy(int entity) {
             ecb->Destroy(entity, ThreadIndex);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Cull(int entity) {
             ecb->Cull(entity, ThreadIndex);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void UnCull(int entity) {
             ecb->UnCull(entity, ThreadIndex);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int entity) {
             ecb->Copy(entity, ThreadIndex);
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int from, int to) {
             ecb->Copy(from, to, ThreadIndex);
         }
@@ -426,7 +415,6 @@ namespace Wargon.Nukecs {
                     }
                     ecb->count--;
                 }
-
                 buffer->Clear();
             }
         }
