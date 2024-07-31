@@ -25,7 +25,6 @@ namespace Wargon.Nukecs.Tests {
             foreach (var kvPair in _frames) {
                 kvPair.Value.Dispose();
             }
-
             _frames.Dispose();
         }
     }

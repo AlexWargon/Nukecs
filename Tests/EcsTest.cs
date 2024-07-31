@@ -75,7 +75,7 @@ namespace Wargon.Nukecs.Tests {
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
-            playerPrefab.Add(new Gun{BulletsAmount = 6, Cooldown = 0.1f, Spread = 10f});
+            playerPrefab.Add(new Gun{BulletsAmount = 16, Cooldown = 0.05f, Spread = 16f});
             playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }
@@ -143,6 +143,7 @@ namespace Wargon.Nukecs.Tests {
             t.Position += math.mul(t.Rotation, math.right()) * s.value * deltaTime;
         }
     }
+
     [BurstCompile]
     public struct RotateSpriteSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
