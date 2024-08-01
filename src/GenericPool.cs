@@ -97,6 +97,14 @@ namespace Wargon.Nukecs {
             return ref ((T*)impl->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
+
+        public ref T GetShared<T>() where T : unmanaged{
+            return ref ((T*)impl->buffer)[0];
+        }
+        
+        public void SetShared<T>(in T value) where T : unmanaged{
+            ((T*)impl->buffer)[0] = value;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, void* value) {
             if (index < 0 || index >= impl->capacity) {

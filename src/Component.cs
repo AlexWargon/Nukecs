@@ -16,6 +16,9 @@ namespace Wargon.Nukecs {
     public struct IsAlive : IComponent { }
     public struct DestroyEntity : IComponent { }
     public struct IsPrefab : IComponent { }
+    public struct ChildOf : IComponent {
+        public Entity Value;
+    }
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }

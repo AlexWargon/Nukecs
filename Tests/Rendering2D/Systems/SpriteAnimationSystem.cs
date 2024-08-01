@@ -9,7 +9,7 @@ namespace Wargon.Nukecs.Tests {
     {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery()
+            return world.Query()
                 .With<SpriteAnimation>()
                 .With<SpriteRenderData>()
                 .With<Transform>()

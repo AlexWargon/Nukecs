@@ -8,6 +8,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using Wargon.Nukecs.Tests;
+using Transform = Wargon.Nukecs.Tests.Transform;
 
 
 namespace Wargon.Nukecs {
@@ -407,7 +408,11 @@ namespace Wargon.Nukecs {
                             if(archetype.Has(ComponentType<Culled>.Index) == false) break;
                             e = ref world.GetEntity(cmd.Entity);
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            e.Get<SpriteChunkReference>().chunk->Add(in e);
+                            var (chunk, transform, renderData) =
+                                e.Read<SpriteChunkReference, Transform, SpriteRenderData>();
+
+                            chunk.ChunkRef.Add(in e, in transform, in renderData);
+                            //e.Get<SpriteChunkReference>().chunk->Add(in e);
                             break;
                         case ECBCommand.Type.Copy:
                             archetype.Copy(cmd.Entity, cmd.AdditionalData);

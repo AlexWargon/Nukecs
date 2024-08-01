@@ -92,10 +92,10 @@ namespace Wargon.Nukecs.Tests {
         {
             var mesh = new Mesh {
                 vertices = new Vector3[] {
-                    new (-0.5f, -0.5f, 0),
-                    new (0.5f, -0.5f, 0),
-                    new (0.5f, 0.5f, 0),
-                    new (-0.5f, 0.5f, 0)
+                    new (0, 0, 0),
+                    new (1, 0, 0),
+                    new (1, 1, 0),
+                    new (0, 1, 0)
                 },
                 uv = new Vector2[] {
                     new (0, 0),
@@ -387,12 +387,12 @@ namespace Wargon.Nukecs.Tests {
 
     public struct CullingSystem : ISystem, IOnCreate {
         public void OnCreate(ref World world) {
-            culled = world.CreateQuery()
+            culled = world.Query()
                 .With<SpriteRenderData>()
                 .With<SpriteChunkReference>()
                 .With<Culled>();
                 
-            unculled = world.CreateQuery()
+            unculled = world.Query()
                 .With<SpriteRenderData>()
                 .With<SpriteChunkReference>()
                 .None<Culled>();
@@ -501,7 +501,7 @@ namespace Wargon.Nukecs.Tests {
     public struct ClearRenderOnEntityDestroySystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<DestroyEntity>().With<SpriteChunkReference>().None<Culled>();
+            return world.Query().With<DestroyEntity>().With<SpriteChunkReference>().None<Culled>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {

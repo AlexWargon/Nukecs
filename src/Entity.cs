@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs {
     [StructLayout(LayoutKind.Sequential)]
@@ -118,7 +119,7 @@ namespace Wargon.Nukecs {
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent 
@@ -127,7 +128,7 @@ namespace Wargon.Nukecs {
                 new Ref<T1>{index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
                 new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()});
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (Ref<T1>, Ref<T2>, Ref<T3>) Get<T1, T2, T3>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
@@ -138,7 +139,7 @@ namespace Wargon.Nukecs {
                 new Ref<T2>{index = entity.id, pool = entity.worldPointer->GetPool<T2>()},
                 new Ref<T3>{index = entity.id, pool = entity.worldPointer->GetPool<T3>()});
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (Ref<T1>, Ref<T2>, Ref<T3>,Ref<T4>) Get<T1, T2, T3, T4>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
@@ -154,6 +155,51 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+        }
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static (ReadRef<T1>, ReadRef<T2>) ReadRef<T1, T2>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent 
+        {
+            return (
+                new ReadRef<T1>(entity.id, ref entity.worldPointer->GetPool<T1>()),
+                new ReadRef<T2>(entity.id, ref entity.worldPointer->GetPool<T2>())
+                );
+        }
+
+        public static ValueTuple<T1,T2> Read<T1, T2>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent 
+        {
+            return (
+                    entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+                    entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id)
+                );
+        }
+        public static ValueTuple<T1,T2,T3> Read<T1, T2, T3>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent 
+            where T3 : unmanaged, IComponent 
+        {
+            return (
+                    entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+                    entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
+                    entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id)
+                );
+        }
+
+        public static (T1,T2,T3,T4) Read<T1, T2, T3, T4>(this in Entity entity) 
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent 
+            where T3 : unmanaged, IComponent 
+            where T4 : unmanaged, IComponent 
+        {
+            return (
+                    entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+                    entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
+                    entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id),
+                    entity.worldPointer->GetPool<T4>().GetRef<T4>(entity.id)
+                );
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void DestroyLate(this ref Entity entity) {
@@ -179,6 +225,15 @@ namespace Wargon.Nukecs {
             var e = entity.worldPointer->CreateEntity();
             entity.worldPointer->ECB.Copy(from:entity.id, to:e.id);
             return e;
+        }
+        
+        public static void AddChild(this in Entity entity, Entity child){
+            if(child.Has<ChildOf>())
+            {
+                child.Get<ChildOf>().Value = entity;
+            }
+            child.Add(new ChildOf { Value = entity});
+            child.Add(new OnAddChildWithTransformEvent());
         }
     }
 

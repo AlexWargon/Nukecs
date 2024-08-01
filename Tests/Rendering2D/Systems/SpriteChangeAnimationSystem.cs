@@ -6,7 +6,7 @@ namespace Wargon.Nukecs.Tests {
     public struct SpriteChangeAnimationSystem : IEntityJobSystem, IOnCreate {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery()
+            return world.Query()
                 .With<SpriteAnimation>()
                 .With<Input>()
                 .None<Culled>();

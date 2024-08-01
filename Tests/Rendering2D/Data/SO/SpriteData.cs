@@ -35,7 +35,14 @@ namespace Wargon.Nukecs.Tests {
                 ShadowLength = 1f,
                 ShadowDistortion = 0.5f,
                 Layer = layer,
-                PixelsPerUnit = 1 / sprite.pixelsPerUnit * math.min(sprite.textureRect.width, sprite.textureRect.height)
+                PixelsPerUnit = sprite.pixelsPerUnit,
+                SpriteSize = new float2(sprite.rect.width, sprite.rect.height),
+                Pivot = new float2(
+                    sprite.pivot.x / sprite.rect.width,
+                    sprite.pivot.y / sprite.rect.height
+                ),
+                
+                
             };
             entity.Add(in renderData);
 
