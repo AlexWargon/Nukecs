@@ -14,9 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sprite: {fileID: 342615737, guid: 14989098d8973f64085180f8862368bf, type: 3}
   color: {r: 1, g: 1, b: 1, a: 1}
+  layer: 10
   uv:
     x: 0
-    y: 0
+    y: 0.265625
     z: 0.265625
     w: 0.171875
   shader: {fileID: 4800000, guid: e7fff00a97e7ff044bab2e5d730ddeca, type: 3}

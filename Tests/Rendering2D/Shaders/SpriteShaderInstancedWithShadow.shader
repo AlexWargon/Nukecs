@@ -14,8 +14,9 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
     {
         Tags {"Queue"="Transparent" "RenderType"="Transparent"}
         Blend SrcAlpha OneMinusSrcAlpha
-        Cull Off
-
+        //ZTest Off
+        //Cull off
+        //ZWrite On
         CGINCLUDE
         #include "UnityCG.cginc"
 
@@ -36,6 +37,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             float ShadowAngle;
             float ShadowLength;
             float ShadowDistortion;
+            int Layer;
         };
 
         #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
@@ -172,7 +174,6 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                 worldPos.x += _ShadowOffset.x;
                 worldPos.y += _ShadowOffset.y;
                 OUT.vertex = UnityWorldToClipPos(float4(worldPos, 1));
-
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 float2 uv = IN.uv;
                 uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
@@ -230,9 +231,12 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
                 OUT.vertex = UnityObjectToClipPos(IN.vertex);
+                float4 worldPosition = mul(unity_ObjectToWorld, IN.vertex);
 
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
+                worldPosition.z -= data.Layer * 0.0001;
+                OUT.vertex = UnityWorldToClipPos(worldPosition);
                 float2 uv = IN.uv;
                 uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
                 uv.y = data.FlipY < 0 ? 1 - uv.y : uv.y;

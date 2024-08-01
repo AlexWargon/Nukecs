@@ -37,6 +37,7 @@ namespace Wargon.Nukecs.Tests
         public Sprite[] sprites;
         //[HideInInspector]
         public Color color = Color.white;
+        public int layer = 0;
         [SerializeField]
         private bool randomColor;
         public float frameRate = 10f;
@@ -90,7 +91,8 @@ namespace Wargon.Nukecs.Tests
                 SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprites[0]),
                 ShadowAngle = 135f,
                 ShadowLength = 1f,
-                ShadowDistortion = 0.5f
+                ShadowDistortion = 0.5f,
+                Layer = layer
             };
             entity.Add(renderData);
 

@@ -10,8 +10,9 @@ Shader "Custom/SpriteShaderInstanced"
     {
         Tags {"Queue"="Transparent" "RenderType"="Transparent"}
         Blend SrcAlpha OneMinusSrcAlpha
-        Cull Off
-
+        //ZTest Off
+        //Cull off
+        //ZWrite On
         Pass
         {
             CGPROGRAM
@@ -55,6 +56,7 @@ Shader "Custom/SpriteShaderInstanced"
                 float ShadowAngle;
                 float ShadowLength;
                 float ShadowDistortion;
+                int Layer;
             };
             float4x4 QuaternionToMatrix(float4 quat)
             {
@@ -128,9 +130,12 @@ Shader "Custom/SpriteShaderInstanced"
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
                 OUT.vertex = UnityObjectToClipPos(IN.vertex);
-
+                float4 worldPosition = mul(unity_ObjectToWorld, IN.vertex);
+                
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
+                worldPosition.z -= data.Layer * 0.0001;
+                OUT.vertex = UnityWorldToClipPos(worldPosition);
                 float2 uv = IN.uv;
                 uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
                 uv.y = data.FlipY < 0 ? 1 - uv.y : uv.y;
