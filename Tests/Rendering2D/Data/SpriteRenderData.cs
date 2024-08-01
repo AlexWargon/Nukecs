@@ -12,5 +12,6 @@ namespace Wargon.Nukecs.Tests {
         public float ShadowAngle;
         public float ShadowLength;
         public float ShadowDistortion;
+        public int Layer;
     }
 }

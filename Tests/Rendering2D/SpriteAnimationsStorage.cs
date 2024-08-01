@@ -4,7 +4,6 @@ using Unity.Collections;
 namespace Wargon.Nukecs.Tests {
     public struct SpriteAnimationsStorage : IDisposable {
         public static ref SpriteAnimationsStorage Instance => ref Singleton<SpriteAnimationsStorage>.Instance;
-
         private NativeHashMap<int, SpriteAnimationFrames> _frames;
         private bool _isInitialized;
         public void Initialize(int amount) {

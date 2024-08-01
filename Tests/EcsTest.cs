@@ -75,7 +75,7 @@ namespace Wargon.Nukecs.Tests {
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
-            playerPrefab.Add(new Gun{BulletsAmount = 16, Cooldown = 0.05f, Spread = 16f});
+            playerPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.02f, Spread = 0f});
             playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }

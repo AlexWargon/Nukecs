@@ -7,6 +7,7 @@ namespace Wargon.Nukecs.Tests {
     public class SpriteData : ScriptableObject {
         public Sprite sprite;
         public Color color = Color.white;
+        public int layer = 0;
         [HideInInspector]
         public float4 uv;
         [SerializeField]
@@ -34,7 +35,8 @@ namespace Wargon.Nukecs.Tests {
                 SpriteTiling = uv,
                 ShadowAngle = 135f,
                 ShadowLength = 1f,
-                ShadowDistortion = 0.5f
+                ShadowDistortion = 0.5f,
+                Layer = layer
             };
             entity.Add(in renderData);
 
