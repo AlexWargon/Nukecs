@@ -12,6 +12,7 @@ namespace Wargon.Nukecs.Tests {
         public float ShadowLength;
         public float ShadowDistortion;
         public int Layer;
+        public float PixelsPerUnit;
     }
 
     public struct Sprite : IComponent
@@ -27,6 +28,6 @@ namespace Wargon.Nukecs.Tests {
     {
         public float ShadowAngle;
         public float ShadowLenght;
-        public float ShadowDestortion;
+        public float ShadowDistortion;
     }
 }

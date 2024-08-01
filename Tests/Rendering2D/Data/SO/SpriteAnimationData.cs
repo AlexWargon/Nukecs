@@ -81,17 +81,19 @@ namespace Wargon.Nukecs.Tests
             transform.Position.z = 0;
             entity.Add(transform);
             var d = color;
+            var sprite = sprites[0];
             
             var renderData = new SpriteRenderData
             {
                 Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
                 FlipX = 0f,
                 FlipY = 0f,
-                SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprites[0]),
+                SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprite),
                 ShadowAngle = 135f,
                 ShadowLength = 1f,
                 ShadowDistortion = 0.5f,
-                Layer = layer
+                Layer = layer,
+                PixelsPerUnit = 1 / sprite.pixelsPerUnit * sprite.textureRect.width
             };
             entity.Add(renderData);
 
@@ -107,7 +109,7 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(animationComponent);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture, shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
             archetype.AddInitial(ref entity);
             return entity;
         }

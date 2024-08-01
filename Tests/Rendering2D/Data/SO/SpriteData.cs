@@ -34,7 +34,8 @@ namespace Wargon.Nukecs.Tests {
                 ShadowAngle = 135f,
                 ShadowLength = 1f,
                 ShadowDistortion = 0.5f,
-                Layer = layer
+                Layer = layer,
+                PixelsPerUnit = 1 / sprite.pixelsPerUnit * math.min(sprite.textureRect.width, sprite.textureRect.height)
             };
             entity.Add(in renderData);
 
