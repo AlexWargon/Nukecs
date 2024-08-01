@@ -1,11 +1,10 @@
-﻿using System;
-using Unity.Mathematics;
+﻿using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
     [CreateAssetMenu(fileName = "New Sprite", menuName = "ECS/Sprite")]
     public class SpriteData : ScriptableObject {
-        public Sprite sprite;
+        public UnityEngine.Sprite sprite;
         public Color color = Color.white;
         public int layer = 0;
         [HideInInspector]
@@ -28,7 +27,6 @@ namespace Wargon.Nukecs.Tests {
             
             var renderData = new SpriteRenderData
             {
-                SpriteIndex = 0,
                 Color = new float4(d.r, d.g, d.b, d.a),
                 FlipX = 0f,
                 FlipY = 0f,

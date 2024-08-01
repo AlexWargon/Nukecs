@@ -39,4 +39,4 @@ MonoBehaviour:
     y: 0.46875
     z: 0.1875
     w: 0.1875
-  shadowLen: 0
+  shader: {fileID: 4800000, guid: e7fff00a97e7ff044bab2e5d730ddeca, type: 3}

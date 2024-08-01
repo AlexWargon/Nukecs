@@ -8,8 +8,6 @@ namespace Wargon.Nukecs.Tests {
         public int FrameCount;
         public float FrameRate;
         public float CurrentTime;
-        public int row;
-        public int col;
         public int AnimationID;
     }
 }

@@ -48,7 +48,6 @@ Shader "Custom/SpriteShaderInstanced"
             
             struct SpriteRenderData
             {
-                int SpriteIndex;
                 float4 Color;
                 float4 SpriteTiling;
                 float FlipX;
