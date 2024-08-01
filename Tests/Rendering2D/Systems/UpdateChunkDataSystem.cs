@@ -5,7 +5,7 @@ namespace Wargon.Nukecs.Tests {
     public unsafe struct UpdateChunkDataSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery()
+            return world.Query()
                 .With<SpriteRenderData>()
                 .With<SpriteChunkReference>()
                 .With<Transform>()

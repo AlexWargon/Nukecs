@@ -57,6 +57,8 @@ Shader "Custom/SpriteShaderInstanced"
                 float ShadowDistortion;
                 int Layer;
                 float PixelsPerUnit;
+                float2 SpriteSize;
+                float2 Pivot;
             };
             float4x4 QuaternionToMatrix(float4 quat)
             {
@@ -134,7 +136,9 @@ Shader "Custom/SpriteShaderInstanced"
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
                 float4 localPosition = IN.vertex;
-                localPosition.xy *= data.PixelsPerUnit;
+                localPosition.xy *= data.SpriteSize;
+                localPosition.xy -= data.Pivot * data.SpriteSize;
+                localPosition.xy /= data.PixelsPerUnit;
                 float4 worldPosition = mul(unity_ObjectToWorld, localPosition);
                 worldPosition.z -= data.Layer * 0.0001;
                 OUT.vertex = UnityWorldToClipPos(worldPosition);

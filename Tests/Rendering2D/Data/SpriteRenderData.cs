@@ -13,6 +13,8 @@ namespace Wargon.Nukecs.Tests {
         public float ShadowDistortion;
         public int Layer;
         public float PixelsPerUnit;
+        public float2 SpriteSize;
+        public float2 Pivot;
     }
 
     public struct Sprite : IComponent

@@ -5,7 +5,7 @@ namespace Wargon.Nukecs.Tests {
     public struct UnCullSpritesSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery()
+            return world.Query()
                 .With<SpriteRenderData>()
                 .With<Culled>()
                 .With<SpriteChunkReference>().None<DestroyEntity>();

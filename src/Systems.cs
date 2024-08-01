@@ -184,7 +184,7 @@ namespace Wargon.Nukecs {
     public struct EntityDestroySystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.CreateQuery().With<DestroyEntity>();
+            return world.Query().With<DestroyEntity>();
         }
         public void OnUpdate(ref Entity entity, float deltaTime) {
             entity.Destroy();

@@ -433,18 +433,36 @@ namespace Wargon.Nukecs {
     public struct RO<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
         internal readonly GenericPool pool;
-        
     }
     public struct Ref<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
         internal GenericPool pool;
-
         public ref TComponent Value {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref pool.GetRef<TComponent>(index);
         }
     }
-
+    public readonly ref struct Read<TComponent> where TComponent : unmanaged, IComponent {
+        internal readonly TComponent Value;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Read(ref TComponent value){
+            this.Value = value;
+        }
+    }
+    public readonly struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
+        internal readonly int index;
+        internal readonly GenericPool pool;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ReadRef(int index, ref GenericPool pool){
+            this.index = index;
+            this.pool = pool;
+        }
+        public unsafe ref readonly TComponent Value {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref ((TComponent*) pool.impl->buffer)[index];
+        }
+    }
+    
     public struct QueryTuple<T1,T2> 
         where T1: unmanaged, IComponent
         where T2: unmanaged, IComponent {

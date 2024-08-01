@@ -21,16 +21,14 @@ namespace Wargon.Nukecs.Tests {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => float4x4.TRS(Position, Rotation, Scale);
         }
-        // public float3 right {
-        //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //     get => math.mul(rotation, math.right());
-        // }
-        // public float3 left {
-        //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //     get => math.mul(rotation, math.left());
-        // }
     }
-    
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LocalTransform : IComponent{
+        public float3 Position;
+        public quaternion Rotation;
+        public float3 Scale;
+    }
+    public struct OnAddChildWithTransformEvent : IComponent{}
     [BurstCompile]
     public static class TransformExtensions {
         [BurstCompile][MethodImpl(MethodImplOptions.AggressiveInlining)]

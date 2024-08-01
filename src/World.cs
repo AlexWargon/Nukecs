@@ -152,10 +152,7 @@ namespace Wargon.Nukecs {
                 }
                 return ref pool;
             }
-            [BurstDiscard]
-            private void LogPool<T>(int index) {
-                Debug.Log($"Pool [{typeof(T).Name}. Index {index}]");
-            }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.ElementAtNoCheck(poolIndex);
@@ -331,7 +328,7 @@ namespace Wargon.Nukecs {
             return ref Unsafe->GetEntity(id);
         }
 
-        public Query CreateQuery() {
+        public Query Query() {
             return new Query(Unsafe->CreateQuery());
         }
 
