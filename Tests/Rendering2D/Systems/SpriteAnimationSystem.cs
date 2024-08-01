@@ -27,14 +27,13 @@ namespace Wargon.Nukecs.Tests {
             var frameDuration = 1f / animation.FrameRate;
             var frames = SpriteAnimationsStorage.Instance.GetFrames(animation.AnimationID).List;
             var frameIndex = (int)(animation.CurrentTime / frameDuration) % frames.Length;
-            renderData.SpriteIndex = frameIndex;
 
             if(input.h is > 0 or < 0)
             {
                 renderData.FlipX = input.h < 0 ? -1 : 0;
             }
             //renderData.FlipX = math.abs(flipX - renderData.FlipX) > 0.5f ? flipX : renderData.FlipX;
-            renderData.SpriteTiling = GetSpriteTiling(renderData.SpriteIndex, ref frames);
+            renderData.SpriteTiling = GetSpriteTiling(frameIndex, ref frames);
             transform.Position.z = transform.Position.y*0.01f;
         }
         private static float4 GetSpriteTiling(int spriteIndex, ref UnsafeList<float4> frames) {

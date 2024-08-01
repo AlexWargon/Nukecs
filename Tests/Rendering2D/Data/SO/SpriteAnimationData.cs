@@ -34,7 +34,7 @@ namespace Wargon.Nukecs.Tests
     [CreateAssetMenu(fileName = "New Sprite Animation", menuName = "ECS/Sprite Animation")]
     public class SpriteAnimationData : ScriptableObject {
         public string AnimationName;
-        public Sprite[] sprites;
+        public UnityEngine.Sprite[] sprites;
         //[HideInInspector]
         public Color color = Color.white;
         public int layer = 0;
@@ -43,8 +43,8 @@ namespace Wargon.Nukecs.Tests
         public float frameRate = 10f;
         [SerializeField][HideInInspector]
         private float4[] framesUV;
-        [HideInInspector]
-        public float shadowLen;
+
+        [SerializeField] private Shader shader;
         private void OnValidate() {
             framesUV = new float4[sprites.Length];
             for (var index = 0; index < sprites.Length; index++) {
@@ -84,7 +84,6 @@ namespace Wargon.Nukecs.Tests
             
             var renderData = new SpriteRenderData
             {
-                SpriteIndex = 0,
                 Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
                 FlipX = 0f,
                 FlipY = 0f,
@@ -104,13 +103,11 @@ namespace Wargon.Nukecs.Tests
                 FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
                 FrameRate = frameRate,
                 CurrentTime = Random.value,
-                col = 1,
-                row = 10,
                 AnimationID = animationID
             };
             entity.Add(animationComponent);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprites[0].texture, shader, ref world);
             archetype.AddInitial(ref entity);
             return entity;
         }

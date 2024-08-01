@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
     internal static class SpriteUtility {
-        public static float4 CalculateSpriteTiling(Sprite sprite)
+        public static float4 CalculateSpriteTiling(UnityEngine.Sprite sprite)
         {
             var texture = sprite.texture;
             var rect = sprite.textureRect;
