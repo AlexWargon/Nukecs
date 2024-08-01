@@ -37,6 +37,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             float ShadowLength;
             float ShadowDistortion;
             int Layer;
+            float PixelsPerUnit;
         };
 
         #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
@@ -150,9 +151,13 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
 
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
+                float4 localPosition = IN.vertex;
+                localPosition.xy *= data.PixelsPerUnit;
+                worldPos = mul(unity_ObjectToWorld, localPosition);
                 const float shadowAngle = radians(data.ShadowAngle);
                 const float shadowLength = data.ShadowLength;
                 const float shadowDistortion = data.ShadowDistortion;
+                
                 #else
                 const float shadowAngle = radians(_ShadowAngle);
                 const float shadowLength = _ShadowLength;
@@ -230,10 +235,13 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                 UNITY_SETUP_INSTANCE_ID(IN);
                 UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
                 OUT.vertex = UnityObjectToClipPos(IN.vertex);
-                float4 worldPosition = mul(unity_ObjectToWorld, IN.vertex);
-
+               
+                
                 #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
                 SpriteRenderData data = _Properties[unity_InstanceID];
+                float4 localPosition = IN.vertex;
+                localPosition.xy *= data.PixelsPerUnit;
+                float4 worldPosition = mul(unity_ObjectToWorld, localPosition);
                 worldPosition.z -= data.Layer * 0.0001;
                 OUT.vertex = UnityWorldToClipPos(worldPosition);
                 float2 uv = IN.uv;
