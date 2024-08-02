@@ -144,18 +144,20 @@ namespace Wargon.Nukecs {
             //if (entitiesMap.m_length <= entity) return false;
             return entitiesMap[entity] > 0;
         }
-        
-        internal void Add(int entity) {
-            if (entities.m_capacity - 1 <= count) {
+        internal void Add(int entity) 
+        {
+            if (count >= entities.m_capacity) 
+            {
                 var newSize = count * 2;
-                entities = UnsafeHelp.ResizeUnsafeList(ref entities, newSize, NativeArrayOptions.ClearMemory);
+                UnsafeHelp.ResizeUnsafeList(ref entities, newSize, NativeArrayOptions.ClearMemory);
             }
 
-            if (entitiesMap.m_capacity - 1 <= entity) {
+            if (entity >= entitiesMap.m_capacity) 
+            {
                 var newSize = entity * 2;
-                entitiesMap = UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newSize, NativeArrayOptions.ClearMemory);
-                Debug.Log($"RESIZE Q {newSize}");
+                UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newSize, NativeArrayOptions.ClearMemory);
             }
+
             if(Has(entity)) return;
             entities[count++] = entity;
             entitiesMap[entity] = count;
@@ -322,7 +324,6 @@ namespace Wargon.Nukecs {
         private int count;
         private int maxBits;
         private int arraySize;
-        
         
         public static DynamicBitmask CreateForComponents() {
             return new DynamicBitmask(ComponentAmount.Value.Data);

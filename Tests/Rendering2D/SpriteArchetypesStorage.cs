@@ -288,10 +288,16 @@ namespace Wargon.Nukecs.Tests {
         public int AddInitial(int entity) {
             var index = count;
             if (entity >= entityToIndex.m_length) {
-                entityToIndex.Resize(entity * 2, NativeArrayOptions.ClearMemory);
+                var newCapacity = entity * 2;
+                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 entityToIndex.m_length = entityToIndex.m_capacity;
-                indexToEntity.Resize(entity * 2, NativeArrayOptions.ClearMemory);
+                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
+                unsafe {
+                    UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                    UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
+                }
+                capacity = newCapacity;
             }
             indexToEntity[count] = entity;
             entityToIndex[entity] = count;
@@ -307,8 +313,8 @@ namespace Wargon.Nukecs.Tests {
                 indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
                 unsafe {
-                    UnsafeHelp.Resize(capacity, newCapacity, matrixChunk, Allocator.Persistent);
-                    UnsafeHelp.Resize(capacity, newCapacity, renderDataChunk, Allocator.Persistent);
+                    UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                    UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
                 }
                 capacity = newCapacity;
             }
@@ -325,8 +331,8 @@ namespace Wargon.Nukecs.Tests {
                 entityToIndex.m_length = entityToIndex.m_capacity;
                 indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
-                UnsafeHelp.Resize(capacity, newCapacity, matrixChunk, Allocator.Persistent);
-                UnsafeHelp.Resize(capacity, newCapacity, renderDataChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
                 capacity = newCapacity;
             }
             indexToEntity[count] = entity.id;
@@ -343,8 +349,8 @@ namespace Wargon.Nukecs.Tests {
                 entityToIndex.m_length = entityToIndex.m_capacity;
                 indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
-                UnsafeHelp.Resize(capacity, newCapacity, matrixChunk, Allocator.Persistent);
-                UnsafeHelp.Resize(capacity, newCapacity, renderDataChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
                 capacity = newCapacity;
             }
             indexToEntity[count] = entity.id;

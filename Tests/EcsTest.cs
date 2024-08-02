@@ -1,6 +1,5 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
@@ -24,7 +23,7 @@ namespace Wargon.Nukecs.Tests
         void Awake() {
             Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default163840);
+            world = World.Create(WorldConfig.Default1024);
             systems = new Systems(ref world);
             systems
                 //.Add<MoveSystem4>()
@@ -35,14 +34,13 @@ namespace Wargon.Nukecs.Tests
                 .Add<ClearRenderOnEntityDestroySystem>()
                 .Add<CullSpritesSystem>()
                 .Add<UnCullSpritesSystem>()
-                
                 .Add<UpdateChunkDataSystem>()
                 .Add<UserInputSystem>()
                 .Add<MoveSystem>()
                 .Add<MoveBulletSystem>()
                 .Add<SpriteChangeAnimationSystem>()
                 .Add<SpriteAnimationSystem>()
-                .Add<RotateSpriteSystem>()
+                //.Add<RotateSpriteSystem>()
                 .Add<ShootSystem>()
                 .Add<UpdateTransformOnAddChildSystem>()
                 .Add<TransformChildSystem>()
@@ -68,34 +66,36 @@ namespace Wargon.Nukecs.Tests
         private void Start()
         {
             for (var i = 0; i < 1; i++) {
-                    var e = world.SpawnPrefab(in playerPrefab);
-                    ref var t = ref e.Get<Transform>();
-                    t.Position = RandomEx.Float3(-5, 5);
-                    e.Get<SpriteChunkReference>().ChunkRef.Add(in e, t, in e.Get<SpriteRenderData>());
+                var e = world.SpawnPrefab(in playerPrefab);
+                ref var t = ref e.Get<Transform>();
+                t.Position = RandomEx.Float3(-5, 5);
+                e.Get<SpriteChunkReference>().ChunkRef.Add(in e, t, in e.Get<SpriteRenderData>());
 
-                    var g = world.SpawnPrefab(in gunPrefab);
-                    ref var tg = ref g.Get<Transform>();
-                    tg.Position = t.Position;
-                    g.Get<SpriteChunkReference>().ChunkRef.Add(in g, tg, in g.Get<SpriteRenderData>());
-                    e.AddChild(g);
-                    
-
+                // var g = world.SpawnPrefab(in gunPrefab);
+                // ref var tg = ref g.Get<Transform>();
+                // tg.Position = t.Position;
+                // g.Get<SpriteChunkReference>().ChunkRef.Add(in g, tg, in g.Get<SpriteRenderData>());
+                // e.AddChild(g);
+                
             }
         }
 
         private Entity playerPrefab;
         private Entity bulletPrefab;
         private Entity gunPrefab;
-        private void CreatePlayerPrefab() {
+        private void CreatePlayerPrefab() 
+        {
             playerPrefab = animationData.Convert(ref world, RandomEx.Float3(-5,5));
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
-            playerPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.01f, Spread = 0f});
+            playerPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.5f, Spread = 0f});
             playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }
-        private void CreateBulletPrefab() {
+
+        private void CreateBulletPrefab() 
+        {
             bulletPrefab = world.CreateEntity();
             bulletSprite.AddToEntity(ref world, ref bulletPrefab);
             bulletPrefab.Add(new IsPrefab());
@@ -106,7 +106,8 @@ namespace Wargon.Nukecs.Tests
             bulletPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in bulletPrefab);
         }
         
-        private void CreateGunPrefab(float3 pos){
+        private void CreateGunPrefab(float3 pos)
+        {
             gunPrefab = world.CreateEntity();
             gunSprite.AddToEntity(ref world, ref gunPrefab);
             gunPrefab.Add(new IsPrefab());
@@ -126,43 +127,35 @@ namespace Wargon.Nukecs.Tests
                     t.Position = RandomEx.Float3(-5, 5);
                     e.Get<SpriteChunkReference>().ChunkRef.Add(in e, t, in e.Get<SpriteRenderData>());
 
-                    var g = world.SpawnPrefab(in gunPrefab);
-                    ref var tg = ref g.Get<Transform>();
-                    tg.Position = t.Position;
-                    g.Get<SpriteChunkReference>().ChunkRef.Add(in g, tg, in g.Get<SpriteRenderData>());
-
-                    e.AddChild(g);
-                    
-                    
-                    var g2 = world.SpawnPrefab(in gunPrefab);
-                    ref var tg2 = ref g2.Get<Transform>();
-                    tg2.Position = tg.Position + math.right();
-                    g2.Get<SpriteChunkReference>().ChunkRef.Add(in g2, tg2, in g2.Get<SpriteRenderData>());
-                    g.AddChild(g2);
-                    
-                    var g3 = world.SpawnPrefab(in gunPrefab);
-                    ref var tg3 = ref g3.Get<Transform>();
-                    tg3.Position = tg2.Position + math.right();
-                    g3.Get<SpriteChunkReference>().ChunkRef.Add(in g3, tg3, in g3.Get<SpriteRenderData>());
-                    g2.AddChild(g3);
-                    
-                    var g4 = world.SpawnPrefab(in gunPrefab);
-                    ref var tg4 = ref g4.Get<Transform>();
-                    tg4.Position = tg3.Position + math.right();
-                    g4.Get<SpriteChunkReference>().ChunkRef.Add(in g4, tg4, in g4.Get<SpriteRenderData>());
-                    g3.AddChild(g4);
-                    
-                    var g5 = world.SpawnPrefab(in gunPrefab);
-                    ref var tg5 = ref g5.Get<Transform>();
-                    tg5.Position = tg4.Position + math.right();
-                    g5.Get<SpriteChunkReference>().ChunkRef.Add(in g5, tg5, in g5.Get<SpriteRenderData>());
-                    g4.AddChild(g5);
+                    // var g = world.SpawnPrefab(in gunPrefab);
+                    // ref var tg = ref g.Get<Transform>();
+                    // tg.Position = t.Position;
+                    // g.Get<SpriteChunkReference>().ChunkRef.Add(in g, tg, in g.Get<SpriteRenderData>());
+                    //
+                    // e.AddChild(g);
+                    //
+                    //
+                    // AddChild(e, gunPrefab, 50);
                 }
             }
 
             InputService.Instance.Update();
             systems.OnUpdate(Time.deltaTime);
         }
+
+        private void AddChild(Entity parent, Entity prefab, int depth) {
+            while (true) {
+                var e = world.SpawnPrefab(in prefab);
+                ref var t = ref e.Get<Transform>();
+                t.Position = parent.Get<Transform>().Position + math.right();
+                e.Get<SpriteChunkReference>().ChunkRef.Add(in e, t, in e.Get<SpriteRenderData>());
+                parent.AddChild(e);
+                depth--;
+                if (depth == 0) return;
+                parent = e;
+            }
+        }
+
         private void OnDestroy() {
             world.Dispose();
             World.DisposeStatic();
@@ -309,7 +302,6 @@ namespace Wargon.Nukecs.Tests
         }
         public void OnUpdate(ref Entity entity, float deltaTime) {
             ref var addItemEvent = ref entity.Get<AddItemEvent>();
-
             ref var playerE = ref _playerQuery.GetEntity(0);
             ref var inventory = ref playerE.Get<Inventory>();
             ref var inventorySlots = ref playerE.GetBuffer<InventoryItem>();
@@ -388,6 +380,7 @@ namespace Wargon.Nukecs.Tests
         public float Cooldown;
         public float CooldownCounter;
     }
+
     [BurstCompile]
     public struct LifetimeSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -398,10 +391,11 @@ namespace Wargon.Nukecs.Tests
             ref var lifetime = ref entity.Get<Lifetime>();
             lifetime.value -= deltaTime;
             if (lifetime.value <= 0f) {
-                entity.DestroyLate();
+                entity.Destroy();
             }
         }
     }
+
     [BurstCompile]
     public struct ShootSystem : IEntityJobSystem {
         private World World;

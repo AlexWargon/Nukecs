@@ -187,7 +187,7 @@ namespace Wargon.Nukecs {
             return world.Query().With<DestroyEntity>();
         }
         public void OnUpdate(ref Entity entity, float deltaTime) {
-            entity.Destroy();
+            entity.DestroyNow();
         }
     }
     internal interface ISystemRunner {
