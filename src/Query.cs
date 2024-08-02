@@ -5,6 +5,7 @@ using System.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -60,39 +61,12 @@ namespace Wargon.Nukecs {
         public QueryEnumerator GetEnumerator() {
             return new QueryEnumerator(this.impl);
         }
-        public NativeArray<T> ToComponentDataArray<T>(AllocatorManager.AllocatorHandle allocator)
-            where T : unmanaged, IComponent
-        {
-            // CalculateEntityCount() syncs any jobs that could affect the filtering results for this query
-            //int entityCount = impl->count;
-            // We also need to complete any jobs writing to the component we're gathering.
-            //var typeIndex = ComponentType<T>.Index;
-            //_Access->DependencyManager->CompleteWriteDependency(typeIndex);
-            
-// #if ENABLE_UNITY_COLLECTIONS_CHECKS
-//             var componentType = new ComponentTypeHandle<T>(SafetyHandles->GetSafetyHandleForComponentTypeHandle(TypeManager.GetTypeIndex<T>(), true), true, _Access->EntityComponentStore->GlobalSystemVersion);
-//             AtomicSafetyHandle.CheckReadAndThrow(componentType.m_Safety);
-// #else
-            //var componentType = new ComponentTypeHandle<T>(true, _Access->EntityComponentStore->GlobalSystemVersion);
-//#endif
-
-// #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-//             int indexInEntityQuery = GetIndexInEntityQuery(typeIndex);
-//             if (indexInEntityQuery == -1)
-//                 throw new InvalidOperationException($"Trying ToComponentDataArray of {TypeManager.GetType(typeIndex)} but the required component type was not declared in the EntityQuery.");
-// #endif
-
-            
-            //return ChunkIterationUtility.CreateComponentDataArray(allocator, ref componentType, entityCount, outer);
-            return new NativeArray<T>(impl->count, allocator.ToAllocator, NativeArrayOptions.UninitializedMemory);
-        }
-
     }
     internal unsafe struct QueryUnsafe {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
         internal UnsafeList<int> entities;
-        internal UnsafeList<int> entitiesMap;
+        internal UnsafeParallelHashMap<int, int> entitiesMap;
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
@@ -123,8 +97,7 @@ namespace Wargon.Nukecs {
             this.count = 0;
             this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
                 world->allocator, NativeArrayOptions.ClearMemory);
-            this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
-                world->allocator, NativeArrayOptions.ClearMemory);
+            this.entitiesMap = new UnsafeParallelHashMap<int,int>(world->config.StartEntitiesAmount, world->allocator);
             this.self = self;
             
             foreach (var type in world->DefaultNoneTypes) {
@@ -140,29 +113,30 @@ namespace Wargon.Nukecs {
         {
             return entities.ElementAtNoCheck(index);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool Has(int entity) {
             //if (entitiesMap.m_length <= entity) return false;
             return entitiesMap[entity] > 0;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void EnsureCapacity(int requiredCapacity)
+        {
+            if (requiredCapacity > entities.m_capacity)
+            {
+                int newCapacity = math.max(entities.m_capacity * 2, requiredCapacity);
+                UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity, NativeArrayOptions.ClearMemory);
+                //UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newCapacity, NativeArrayOptions.ClearMemory);
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity) 
         {
-            if (count >= entities.m_capacity) 
-            {
-                var newSize = count * 2;
-                UnsafeHelp.ResizeUnsafeList(ref entities, newSize, NativeArrayOptions.ClearMemory);
-            }
-
-            if (entity >= entitiesMap.m_capacity) 
-            {
-                var newSize = entity * 2;
-                UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newSize, NativeArrayOptions.ClearMemory);
-            }
-
+            EnsureCapacity(count + 1);
             if(Has(entity)) return;
-            entities[count++] = entity;
+            entities.ElementAtNoCheck(count++) = entity;
             entitiesMap[entity] = count;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity) {
             if (!Has(entity)) return;
             var index = entitiesMap[entity] - 1;

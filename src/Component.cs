@@ -76,7 +76,6 @@ namespace Wargon.Nukecs {
             ComponentsMap.Add(typeof(T), ID.Data);
             ComponentsMap.AddComponentType(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
             BoxedWriters.CreateWriter<T>(Index);
-            //Debug.Log($"{typeof(T).Name} with id {id.Data}");
         }
     }
 
@@ -317,6 +316,10 @@ namespace Wargon.Nukecs {
         public static unsafe ref T ElementAtNoCheck<T>(this UnsafeList<T> list, int index) where T : unmanaged {
             return ref list.Ptr[index];
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe ref T* ElementAtNoCheck<T>(this UnsafePtrList<T> list, int index) where T: unmanaged{
+            return ref list.Ptr[index];
+        }
     }
     public static class UnsafeHelp {
         public static UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
@@ -338,7 +341,6 @@ namespace Wargon.Nukecs {
         {
             list.Resize(size, options);
             list.m_length = size;
-            Debug.Log($"Resized list {size}");
             return ref list;
         }
 
@@ -390,7 +392,7 @@ namespace Wargon.Nukecs {
 
             // Update impl
             buffer = newBuffer;
-            Debug.Log($"Resized ptr from {oldCapacity} to {newCapacity}");
+            //Debug.Log($"Resized ptr from {oldCapacity} to {newCapacity}");
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

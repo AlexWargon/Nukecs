@@ -26,7 +26,6 @@ namespace Wargon.Nukecs.Tests
             world = World.Create(WorldConfig.Default1024);
             systems = new Systems(ref world);
             systems
-                //.Add<MoveSystem4>()
                 .Add<SpriteRenderSystem>()
                 .Add<UpdateCameraCullingSystem>()
                 //.Add<CullingSystem>()
@@ -89,7 +88,7 @@ namespace Wargon.Nukecs.Tests
             playerPrefab.Add(new Input());
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
-            playerPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.5f, Spread = 0f});
+            playerPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.01f, Spread = 0f});
             playerPrefab.Add(new BulletPrefab{Value = bulletPrefab});
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }
