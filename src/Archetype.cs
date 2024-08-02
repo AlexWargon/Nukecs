@@ -144,7 +144,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Copy(in int from, in int to) {
             for (int i = 0; i < queries.Length; i++) {
-                var q = queries.ElementAt(i);
+                var q = queries.ElementAtNoCheck(i);
                 q->Add(to);
             }
             foreach (var type in types) {
@@ -156,7 +156,7 @@ namespace Wargon.Nukecs {
         internal Entity Copy(in Entity entity) {
             var newEntity = world->CreateEntity(id);
             for (int i = 0; i < queries.Length; i++) {
-                var q = queries.ElementAt(i);
+                var q = queries.ElementAtNoCheck(i);
                 q->Add(newEntity.id);
             }
 
