@@ -156,7 +156,7 @@ namespace Wargon.Nukecs {
         public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (ReadRef<T1>, ReadRef<T2>) ReadRef<T1, T2>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent 
@@ -181,11 +181,9 @@ namespace Wargon.Nukecs {
             where T2 : unmanaged, IComponent 
             where T3 : unmanaged, IComponent 
         {
-            return (
-                    entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+            return (entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
                     entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
-                    entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id)
-                );
+                    entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id)); 
         }
 
         public static (T1,T2,T3,T4) Read<T1, T2, T3, T4>(this in Entity entity) 
@@ -194,19 +192,17 @@ namespace Wargon.Nukecs {
             where T3 : unmanaged, IComponent 
             where T4 : unmanaged, IComponent 
         {
-            return (
-                    entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+            return (entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
                     entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
                     entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id),
-                    entity.worldPointer->GetPool<T4>().GetRef<T4>(entity.id)
-                );
+                    entity.worldPointer->GetPool<T4>().GetRef<T4>(entity.id));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void DestroyLate(this ref Entity entity) {
+        public static void Destroy(this ref Entity entity) {
             entity.Add(new DestroyEntity());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Destroy(this in Entity entity) {
+        internal static void DestroyNow(this in Entity entity) {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Destroy(entity.id);
         }
@@ -240,15 +236,6 @@ namespace Wargon.Nukecs {
     public static unsafe class Unsafe {
         public static T* Malloc<T>(Allocator allocator) where T : unmanaged {
             return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
-        }
-    }
-
-    
-
-    public static class Nukecs {
-        [BurstDiscard]
-        public static void Log(string message) {
-            UnityEngine.Debug.Log(message);
         }
     }
 

@@ -325,6 +325,7 @@ namespace Wargon.Nukecs {
                 m_length = size
             };
         }
+
         public static unsafe UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
             NativeArrayOptions options) where T : unmanaged {
             var ptr = UnsafeList<T>.Create(size, allocator, options);
@@ -333,11 +334,21 @@ namespace Wargon.Nukecs {
         }
 
         public static ref UnsafeList<T> ResizeUnsafeList<T>(ref UnsafeList<T> list, int size,
-            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged {
+            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
+        {
             list.Resize(size, options);
             list.m_length = size;
+            Debug.Log($"Resized list {size}");
             return ref list;
         }
+
+        public static unsafe void ResizeUnsafeList<T>(ref UnsafeList<T>* list, int size,
+            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
+        {
+            list->Resize(size, options);
+            list->m_length = size;
+        }
+
         public static int AlignOf(ComponentType type) {
             return type.size + sizeof(byte) * 2 - type.size;
         }
@@ -353,7 +364,7 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, T* buffer, Allocator allocator) where T : unmanaged
+        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, ref T* buffer, Allocator allocator) where T : unmanaged
         {
             // Calculate new capacity
 
@@ -379,6 +390,7 @@ namespace Wargon.Nukecs {
 
             // Update impl
             buffer = newBuffer;
+            Debug.Log($"Resized ptr from {oldCapacity} to {newCapacity}");
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

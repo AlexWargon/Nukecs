@@ -6,9 +6,11 @@ namespace Wargon.Nukecs.Tests {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
             return world.Query()
+                .With<Transform>()
                 .With<SpriteRenderData>()
                 .With<Culled>()
-                .With<SpriteChunkReference>().None<DestroyEntity>();
+                .With<SpriteChunkReference>()
+                .None<DestroyEntity>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
