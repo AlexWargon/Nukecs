@@ -224,7 +224,6 @@ namespace Wargon.Nukecs {
             if (position < 0 || position >= MaxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
                     $"Position must be between 0 and {MaxBits - 1}.");
-                return false;
             }
 
             int index = position / BitsPerElement;
@@ -347,7 +346,6 @@ namespace Wargon.Nukecs {
             if (position < 0 || position >= maxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
                     $"Position must be between 0 and {maxBits - 1}. Position = {position}");
-                return false;
             }
 
             int index = position / BitsPerUlong;

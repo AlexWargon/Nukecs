@@ -5,6 +5,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct GenericPool : IDisposable {
@@ -92,7 +93,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef<T>(int index) where T : unmanaged {
             if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] with capacity {impl->capacity}.");
             }
             return ref ((T*)impl->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
@@ -107,39 +108,51 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, void* value) {
-            if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            if (impl->elementSize != 1) {
+                if (index < 0) {
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                }
+                CheckResize(index);
+                UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, impl->elementSize);
             }
-            UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, impl->elementSize);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value) {
-            if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
-            }
-            fixed (byte* ptr = value) {
-                UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
+            if (impl->elementSize != 1) {
+                if (index < 0) {
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                }
+                CheckResize(index);
+                fixed (byte* ptr = value) {
+                    UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
+                }
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
-            if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            if (impl->elementSize != 1) {
+                if (index < 0) {
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                }
+                CheckResize(index);
+                UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, sizeInBytes);
             }
-            UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, sizeInBytes);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
-            if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+            if (impl->elementSize != 1) {
+                if (index < 0) {
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                }
+                CheckResize(index);
+                BoxedWriters.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
             }
-            BoxedWriters.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
             if (impl->elementSize != 1) {
-                CheckResize(destination);
+                CheckResize(math.max(destination, source));
                 UnsafeUtility.MemCpy(impl->buffer + destination * impl->elementSize, impl->buffer + source * impl->elementSize, impl->elementSize);
             }
             impl->count++;
@@ -165,7 +178,7 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
                 // Copy old data to new buffer
                 UnsafeUtility.MemCpy(newBuffer, impl->buffer, impl->capacity * impl->elementSize);
 
@@ -175,6 +188,7 @@ namespace Wargon.Nukecs {
                 // Update impl
                 impl->buffer = newBuffer;
                 impl->capacity = newCapacity;
+                //Debug.Log($"GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] resized on set");
             }
         }
         [BurstDiscard]
@@ -198,7 +212,7 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
                 // Copy old data to new buffer
                 UnsafeUtility.MemCpy(newBuffer, impl->buffer, impl->capacity * impl->elementSize);
 
@@ -208,6 +222,7 @@ namespace Wargon.Nukecs {
                 // Update impl
                 impl->buffer = newBuffer;
                 impl->capacity = newCapacity;
+                //Debug.Log($"GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] resized on copy");
             }
         }
         public void Dispose() {

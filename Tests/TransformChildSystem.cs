@@ -1,9 +1,10 @@
 using Unity.Burst;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
 {
-    [BurstCompile]
+    //[BurstCompile]
     public struct UpdateTransformOnAddChildSystem : IEntityJobSystem
     {
         public SystemMode Mode => SystemMode.Parallel;
@@ -19,14 +20,15 @@ namespace Wargon.Nukecs.Tests
             ref var childTransform = ref tref.Value;
             
             ref readonly var parentTransform = ref cref.Value.Value.Read<Transform>();
-            // Вычисляем локальную трансформацию относительно родителя
+            // Get local transform values relevent to parent
             var localPosition = math.mul(math.inverse(parentTransform.Rotation), childTransform.Position - parentTransform.Position) / parentTransform.Scale;
             var localRotation = math.mul(math.inverse(parentTransform.Rotation), childTransform.Rotation);
             var localScale = childTransform.Scale / parentTransform.Scale;
 
-            // Добавляем или обновляем LocalTransform
+            // Add or update LocalTransform
             if (child.Has<LocalTransform>())
             {
+                //debug.has();
                 ref var localTransform = ref child.Get<LocalTransform>();
                 localTransform.Position = localPosition;
                 localTransform.Rotation = localRotation;
@@ -34,6 +36,7 @@ namespace Wargon.Nukecs.Tests
             }
             else
             {
+                Debug.Log($"e : {child.id} has no");
                 child.Add(new LocalTransform
                 {
                     Position = localPosition,
@@ -45,7 +48,14 @@ namespace Wargon.Nukecs.Tests
             child.Remove<OnAddChildWithTransformEvent>();
         }
     }
-
+    public static class debug{
+        public static void has(){
+            Debug.Log("has");
+        }
+        public static void has_no(){
+            Debug.Log("has no");
+        }
+    } 
     [BurstCompile]
     public struct TransformChildSystem : IEntityJobSystem
     {

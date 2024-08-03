@@ -11,7 +11,7 @@ Shader "Custom/SpriteShaderInstanced"
         Tags {"Queue"="Transparent" "RenderType"="Transparent"}
         Blend SrcAlpha OneMinusSrcAlpha
         //ZTest Off
-        //Cull off
+        Cull off
         //ZWrite On
         Pass
         {

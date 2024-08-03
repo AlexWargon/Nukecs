@@ -1,17 +1,13 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs.LowLevel.Unsafe;
-using Unity.Mathematics;
-using UnityEngine;
-using Wargon.Nukecs.Tests;
-using Transform = Wargon.Nukecs.Tests.Transform;
-
-
-namespace Wargon.Nukecs {
+﻿namespace Wargon.Nukecs {
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Unity.Jobs.LowLevel.Unsafe;
+    using Unity.Mathematics;
+    using Wargon.Nukecs.Tests;
+    
     public unsafe struct EntityCommandBuffer : IDisposable {
         [NativeDisableUnsafePtrRestriction] private readonly ECBInternal* ecb;
         public int Capacity => ecb->Capacity;

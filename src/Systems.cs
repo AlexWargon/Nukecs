@@ -21,7 +21,8 @@ namespace Wargon.Nukecs {
             this.world = world;
             //_ecbSystem = default;
             //_ecbSystem.OnCreate(ref world);
-            Add<EntityDestroySystem>();
+            this.Add<EntityDestroySystem>();
+            this.Add<OnPrefabSpawnSystem>();
         }
 
         public Systems Add<T>() where T : struct, IJobSystem {
@@ -82,25 +83,6 @@ namespace Wargon.Nukecs {
             return this;
         }
 
-        // public Systems Add<TSystem,T1,T2>(byte dymmy = 1) where TSystem : struct, IEntityJobSystem<T1,T2> 
-        //     where T1 : unmanaged, IComponent 
-        //     where T2 : unmanaged, IComponent
-        // {
-        //     TSystem system = default;
-        //     if (system is IOnCreate s) {
-        //         s.OnCreate(ref world);
-        //         system = (TSystem) s;
-        //     }
-        //     
-        //     var runner = new EntityJobSystemRunner<TSystem,T1,T2> {
-        //         System = system,
-        //         Mode = system.Mode,
-        //         EcbJob = default
-        //     };
-        //     runner.Query = runner.System.GetQuery(ref world);
-        //     runners.Add(runner);
-        //     return this;
-        // }
         public Systems Add<T>(int dymmy = 1) where T : struct, ISystem {
             T system = default;
             if (system is IOnCreate s) {
@@ -180,15 +162,9 @@ namespace Wargon.Nukecs {
             worldUnsafe.GetEntity(0);
         }
     }
-    [BurstCompile]
-    public struct EntityDestroySystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.Query().With<DestroyEntity>();
-        }
-        public void OnUpdate(ref Entity entity, float deltaTime) {
-            entity.DestroyNow();
-        }
+
+    public class SystemsGroup{
+        
     }
     internal interface ISystemRunner {
         JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle);
