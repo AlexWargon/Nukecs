@@ -20,7 +20,7 @@ MonoBehaviour:
   - {fileID: -184966817, guid: 7e453da923924bc49a105359c0b08e26, type: 3}
   color: {r: 1, g: 1, b: 1, a: 1}
   layer: 0
-  randomColor: 1
+  randomColor: 0
   frameRate: 14
   framesUV:
   - x: 0.65625

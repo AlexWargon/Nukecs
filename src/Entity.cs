@@ -2,7 +2,6 @@ namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
-    using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
     using Wargon.Nukecs.Tests;
@@ -12,6 +11,7 @@ namespace Wargon.Nukecs {
         public readonly int id;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* worldPointer;
         public ref World World => ref World.Get(worldPointer->Id);
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
@@ -48,7 +48,6 @@ namespace Wargon.Nukecs {
         }
     }
 
-    [BurstCompile]
     public static unsafe class EntityExtensions {
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -73,7 +72,6 @@ namespace Wargon.Nukecs {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<DynamicBuffer<T>>(entity.id);
         }
-        [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent  {
             //entity.archetype->OnEntityChange(ref entity, ComponentMeta<T>.Index);
@@ -208,7 +206,7 @@ namespace Wargon.Nukecs {
             ecb.Destroy(entity.id);
         }
 
-        [BurstCompile][MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return entity.archetypeRef.Has<T>();
         }
@@ -224,12 +222,13 @@ namespace Wargon.Nukecs {
             return e;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddChild(this in Entity entity, Entity child){
-            if(child.Has<ChildOf>())
-            {
+        public static void AddChild(this in Entity entity, Entity child) {
+            if(child.Has<ChildOf>()) {
                 child.Get<ChildOf>().Value = entity;
+            }else {
+                child.Add(new ChildOf { Value = entity});
             }
-            child.Add(new ChildOf { Value = entity});
+            
             child.Add(new OnAddChildWithTransformEvent());
         }
     }

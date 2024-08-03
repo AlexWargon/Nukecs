@@ -398,6 +398,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
     }
+    [BurstCompile]
     public struct GunRotationSystem : IEntityJobSystem
     {
         public SystemMode Mode => SystemMode.Parallel;
@@ -427,57 +428,22 @@ namespace Wargon.Nukecs.Tests
 
             if (rotZ > 0)
             {
-                //weapon.FlipY = 1;
-                // var pos = weapon.transform.localPosition;
                 localTransform.Position.z = 1f;
-                // weapon.transform.localPosition = pos;
             }
             if (rotZ < 0)
             {
-                //weapon.FlipY = 0;
-                // var pos = weapon.transform.localPosition;
                 localTransform.Position.z = -1f;
-                // weapon.transform.localPosition = pos;
             }
 
             if (rotZ < 90 && rotZ > -90)
             {
                 weapon.FlipY = 0;
             }
-
             else
             {
                 weapon.FlipY = 1;
             }
         }
-        // private void SetSide(float rotZ, SpriteRenderer weapon, SpriteRenderer ownder, Transform transform)
-        // {
-
-        //     if (rotZ > 0)
-        //     {
-        //         var pos = weapon.transform.localPosition;
-        //         pos.z = 1f;
-        //         weapon.transform.localPosition = pos;
-        //     }
-        //     if (rotZ < 0)
-        //     {
-        //         var pos = weapon.transform.localPosition;
-        //         pos.z = -1f;
-        //         weapon.transform.localPosition = pos;
-        //     }
-
-        //     if (rotZ < 90 && rotZ > -90)
-        //     {
-        //         transform.localScale = right;
-        //         ownder.flipX = false;
-        //     }
-
-        //     else
-        //     {
-        //         transform.localScale = left;
-        //         ownder.flipX = true;
-        //     }
-        // }
     }
     [BurstCompile]
     public struct ShootSystem : IEntityJobSystem {
