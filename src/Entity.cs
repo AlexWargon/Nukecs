@@ -1,12 +1,12 @@
-using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Wargon.Nukecs.Tests;
-
 namespace Wargon.Nukecs {
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Wargon.Nukecs.Tests;
+
     [StructLayout(LayoutKind.Sequential)]
     public readonly unsafe struct Entity : IEquatable<Entity> {
         public readonly int id;
@@ -28,7 +28,7 @@ namespace Wargon.Nukecs {
         }
         internal ref ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *worldPointer->entitiesArchetypes.ElementAt(this.id).impl;
+            get => ref *worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id).impl;
         }
 
         public override string ToString() {
@@ -49,7 +49,7 @@ namespace Wargon.Nukecs {
     }
 
     [BurstCompile]
-    public static unsafe class EntityExt {
+    public static unsafe class EntityExtensions {
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref DynamicBuffer<T> GetBuffer<T>(this ref Entity entity) where T : unmanaged {
@@ -109,7 +109,7 @@ namespace Wargon.Nukecs {
         //     ecb.Add(entity.id, ptr);
         // }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Remove<T>(this ref Entity entity) where T : unmanaged, IComponent  {
+        public static void Remove<T>(this in Entity entity) where T : unmanaged, IComponent  {
             entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<T>(entity.id);
@@ -166,7 +166,7 @@ namespace Wargon.Nukecs {
                 new ReadRef<T2>(entity.id, ref entity.worldPointer->GetPool<T2>())
                 );
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ValueTuple<T1,T2> Read<T1, T2>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent 
@@ -176,6 +176,7 @@ namespace Wargon.Nukecs {
                     entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id)
                 );
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ValueTuple<T1,T2,T3> Read<T1, T2, T3>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent 
@@ -185,7 +186,7 @@ namespace Wargon.Nukecs {
                     entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
                     entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id)); 
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (T1,T2,T3,T4) Read<T1, T2, T3, T4>(this in Entity entity) 
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent 
@@ -209,20 +210,20 @@ namespace Wargon.Nukecs {
 
         [BurstCompile][MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent  {
-            return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).impl->Has<T>();
+            return entity.archetypeRef.Has<T>();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Entity Copy(this in Entity entity) {
             ref var arch = ref entity.archetypeRef;
             return arch.Copy(in entity);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Entity CopyVieECB(this in Entity entity) {
             var e = entity.worldPointer->CreateEntity();
             entity.worldPointer->ECB.Copy(from:entity.id, to:e.id);
             return e;
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddChild(this in Entity entity, Entity child){
             if(child.Has<ChildOf>())
             {
@@ -238,13 +239,4 @@ namespace Wargon.Nukecs {
             return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
         }
     }
-
-    // public unsafe struct Pools {
-    //     public void* pools;
-    //     public int count;
-    //     public void Add<T>() where T : unmanaged {
-    //         var array = new NativeArray<T>(256, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-    //         pools[count++] = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>()
-    //     }
-    // }
 }

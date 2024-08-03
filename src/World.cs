@@ -1,14 +1,14 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
-using UnityEngine;
-using Wargon.Nukecs.Tests;
+﻿namespace Wargon.Nukecs {
 
-namespace Wargon.Nukecs {
+    using System;
+    using System.Runtime.CompilerServices;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Unity.Jobs;
+    using Unity.Jobs.LowLevel.Unsafe;
+    using UnityEngine;
+
     public unsafe struct World : IDisposable {
         private static readonly World[] worlds = new World[4];
         private static int lastFreeSlot;
@@ -48,6 +48,7 @@ namespace Wargon.Nukecs {
             internal readonly int Id;
             internal readonly Allocator allocator;
             internal UnsafeList<Entity> entities;
+            internal UnsafeList<Entity> prefabesToSpawn;
             internal UnsafeList<int> reservedEntities;
             internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeList<GenericPool> pools;
@@ -72,8 +73,8 @@ namespace Wargon.Nukecs {
                 ptr->Init(ptr);
                 return ptr;
             }
-
-            internal QueryUnsafe* CreateQuery() {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal QueryUnsafe* Query() {
                 var ptr = QueryUnsafe.Create(self);
                 queries.Add(ptr);
                 return ptr;
@@ -84,6 +85,7 @@ namespace Wargon.Nukecs {
                 this.allocator = allocator;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
                     NativeArrayOptions.ClearMemory);
+                this.prefabesToSpawn = new UnsafeList<Entity>(64, allocator, NativeArrayOptions.ClearMemory);
                 this.reservedEntities = new UnsafeList<int>(128, allocator, NativeArrayOptions.ClearMemory);
                 this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(config.StartEntitiesAmount,
                     allocator, NativeArrayOptions.ClearMemory);
@@ -102,7 +104,8 @@ namespace Wargon.Nukecs {
                 this.self = self;
                 job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 entitiesAmount = 0;
-                var s = ComponentType<DestroyEntity>.Index;
+                _ = ComponentType<DestroyEntity>.Index;
+                _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
             }
 
@@ -140,6 +143,7 @@ namespace Wargon.Nukecs {
                 ECB.Dispose();
                 DefaultNoneTypes.Dispose();
                 reservedEntities.Dispose();
+                prefabesToSpawn.Dispose();
                 self = null;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -198,18 +202,15 @@ namespace Wargon.Nukecs {
                 entitiesAmount++;
                 var last = lastEntityIndex;
                 if (reservedEntities.m_length > 0) {
-                    last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
+                    last = reservedEntities.ElementAtNoCheck(reservedEntities.m_length - 1);
                     reservedEntities.RemoveAt(reservedEntities.m_length - 1);
-                    e = new Entity(last, self, archetype);
-                    entities.ElementAtNoCheck(last) = e;
-                    return e;
                 }
                 e = new Entity(last, self, archetype);
                 entities.ElementAtNoCheck(last) = e;
                 lastEntityIndex++;
                 return e;
             }
-        
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
                 reservedEntities.Add(entity);
                 entitiesAmount--;
@@ -233,14 +234,14 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Entity SpawnPrefab(in Entity prefab) {
                 var e = prefab.Copy();
-                e.Remove<IsPrefab>();
+                prefabesToSpawn.Add(e);
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAtNoCheck(id);
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Archetype CreateArchetype(params int[] types) {
                 var ptr = ArchetypeImpl.Create(self, types);
                 Archetype archetype;
@@ -249,7 +250,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype CreateArchetype(ref UnsafeList<int> types) {
                 var ptr = ArchetypeImpl.Create(self, ref types);
                 Archetype archetype;
@@ -258,7 +259,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private Archetype CreateArchetype() {
                 var ptr = ArchetypeImpl.Create(self);
                 Archetype archetype;
@@ -267,7 +268,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
                 var hash = ArchetypeImpl.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
@@ -277,10 +278,12 @@ namespace Wargon.Nukecs {
 
                 return CreateArchetype(ref types);
             }
-            [BurstDiscard]
+            [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void GetOrCreateArchetype(ref UnsafeList<int> types, out Archetype archetype) {
                 archetype = GetOrCreateArchetype(ref types);
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }
@@ -329,7 +332,7 @@ namespace Wargon.Nukecs {
         }
 
         public Query Query() {
-            return new Query(Unsafe->CreateQuery());
+            return new Query(Unsafe->Query());
         }
 
         public void Update() {
