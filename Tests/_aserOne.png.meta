@@ -172,6 +172,27 @@ TextureImporter:
       indices: 
       edges: []
       weights: []
+    - serializedVersion: 2
+      name: _aserOne_3
+      rect:
+        serializedVersion: 2
+        x: 226
+        y: 71
+        width: 27
+        height: 13
+      alignment: 9
+      pivot: {x: 0.14814815, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 5b4a49cf1020c94408a646f891859dda
+      internalID: 764826025
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     physicsShape: []
     bones: []
@@ -186,6 +207,7 @@ TextureImporter:
       _aserOne_0: -1636753542
       _aserOne_1: -600888791
       _aserOne_2: -417857750
+      _aserOne_3: 764826025
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

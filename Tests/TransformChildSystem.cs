@@ -28,7 +28,6 @@ namespace Wargon.Nukecs.Tests
             // Add or update LocalTransform
             if (child.Has<LocalTransform>())
             {
-                //debug.has();
                 ref var localTransform = ref child.Get<LocalTransform>();
                 localTransform.Position = localPosition;
                 localTransform.Rotation = localRotation;
@@ -36,7 +35,6 @@ namespace Wargon.Nukecs.Tests
             }
             else
             {
-                Debug.Log($"e : {child.id} has no");
                 child.Add(new LocalTransform
                 {
                     Position = localPosition,
