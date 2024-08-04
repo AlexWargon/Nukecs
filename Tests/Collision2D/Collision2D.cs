@@ -1,16 +1,34 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
-using Unity.Mathematics;
-using UnityEngine;
-using Wargon.Nukecs;
-using Transform = Wargon.Nukecs.Tests.Transform;
+﻿namespace Wargon.Nukecs
+{
+
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
+    using System.Threading.Tasks;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Unity.Jobs;
+    using Unity.Mathematics;
+    using UnityEngine;
+    using Transform = Tests.Transform;
+    public class Collision2DGroup : SystemsGroup{
+        public Collision2DGroup(ref World world) : base(ref world){
+
+            this.name = "Collision2D";
+                //.Add(new Collision2DOnRectangleOnConvertEntitySystem())
+             Add<CollisionClearGridCellsSystem>()
+            //.Add<CollidersSizeUpdateSystem>()
+            .Add<Collision2DPopulateRectsSystem>()
+            .Add<Collision2DPopulateCirclesSystem>()
+            .Add<UpdateCirclePositionsSystem>()
+            .Add<Collision2DSystem>()
+            .Add<VelocitySystem>();
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
-    public struct Circle2D : IEquatable<Circle2D> {
+    public struct Circle2D : IComponent, IEquatable<Circle2D> {
         public int index;
         public int version;
         public int cellIndex;
@@ -31,10 +49,10 @@ using Transform = Wargon.Nukecs.Tests.Transform;
             return other.index == index;
         }
     }
-    public struct Body2D {
+    public struct Body2D : IComponent {
         public float2 velocity;
     }
-    public struct Rectangle2D {
+    public struct Rectangle2D : IComponent {
         public int index;
         public float w;
         public float h;
@@ -91,7 +109,6 @@ using Transform = Wargon.Nukecs.Tests.Transform;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    [BurstCompile]
     public unsafe struct BufferInt256 {
         private fixed int buffer[256];
 
@@ -125,7 +142,7 @@ using Transform = Wargon.Nukecs.Tests.Transform;
     public struct Grid2DCell {
         public int W;
         public int H;
-        public int index;
+        public int Index;
         public float2 Pos;
         public BufferInt256 CollidersBuffer;
         public BufferInt128 RectanglesBuffer;
@@ -162,7 +179,6 @@ using Transform = Wargon.Nukecs.Tests.Transform;
         internal GenericPool circleColliders;
         internal GenericPool rectColliders;
         internal GenericPool trasforms;
-        public NativeQueue<HitInfo> StayHits;
         public int W, H, CellSize;
         private readonly World world;
 
@@ -180,7 +196,6 @@ using Transform = Wargon.Nukecs.Tests.Transform;
             rectColliders = world.GetPool<Rectangle2D>();
 
             Hits = new NativeQueue<HitInfo>(Allocator.Persistent);
-            StayHits = new NativeQueue<HitInfo>(Allocator.Persistent);
 
             for (var x = 0; x < W; x++)
             for (var y = 0; y < H; y++) {
@@ -191,7 +206,7 @@ using Transform = Wargon.Nukecs.Tests.Transform;
                     Pos = new Vector2(x * cellSize, y * cellSize) + offset + Position,
                     CollidersBuffer = default,
                     RectanglesBuffer = default,
-                    index = i
+                    Index = i
                 };
                 cells[i] = cell;
             }
@@ -219,7 +234,7 @@ using Transform = Wargon.Nukecs.Tests.Transform;
                     Pos = new Vector2(x * cellSize, y * cellSize) + Offset + Position,
                     CollidersBuffer = default,
                     RectanglesBuffer = default,
-                    index = i
+                    Index = i
                 };
                 cells[i] = cell;
             }
@@ -257,7 +272,6 @@ using Transform = Wargon.Nukecs.Tests.Transform;
         public void Clear() {
             cells.Dispose();
             Hits.Dispose();
-            StayHits.Dispose();
         }
     }
     public static class MathHelp {
@@ -271,14 +285,53 @@ using Transform = Wargon.Nukecs.Tests.Transform;
             return x < xint ? xint - 1 : xint;
         }
     }
+    public struct CollisionClearGridCellsSystem : ISystem {
+        public void OnUpdate(ref World world, float dt){
+            var grind2d = Grid2D.Instance;
+            world.Dependencies = new ClearJob {
+                cells = grind2d.cells
+            }.Schedule(grind2d.cells.Length, 1, world.Dependencies);
+        }
 
+        [BurstCompile]
+        private struct ClearJob : IJobParallelFor {
+            public UnsafeList<Grid2DCell> cells;
+
+            public void Execute(int i) {
+                var cell = cells[i];
+                cell.CollidersBuffer.Clear();
+                cell.RectanglesBuffer.Clear();
+                cells[i] = cell;
+            }
+        }
+    }
+    [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
+    public struct UpdateCirclePositionsSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world)
+        {
+            return world.Query().With<Transform>().With<Body2D>().With<Circle2D>();
+        }
+
+        public void OnUpdate(ref Entity entity, float deltaTime)
+        {
+            ref readonly var body = ref entity.Read<Body2D>();
+            ref var collider = ref entity.Get<Circle2D>();
+            var pos = entity.Get<Transform>().Position;
+            collider.position = new float2(pos.x, pos.y);
+            collider.position += body.velocity;
+        }
+    }
     public struct Collision2DSystem : ISystem, IOnCreate {
         private GenericPool transforms;
         private GenericPool colliders;
         private GenericPool rectangles;
         private GenericPool bodies;
         public void OnCreate(ref World world) {
-            
+            transforms = world.GetPool<Transform>();
+            colliders = world.GetPool<Circle2D>();
+            rectangles = world.GetPool<Rectangle2D>();
+            bodies = world.GetPool<Body2D>();
         }
         public void OnUpdate(ref World world, float deltaTime) {
             Collision2DMark2ParallelHitsJob collisionJob1 = new() {
@@ -299,8 +352,6 @@ using Transform = Wargon.Nukecs.Tests.Transform;
 
             world.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.Dependencies);
         }
-
-
     }
     [BurstCompile]
     public struct Collision2DMark2ParallelHitsJob : IJobParallelFor {
@@ -331,7 +382,7 @@ using Transform = Wargon.Nukecs.Tests.Transform;
                     for (var i = 0; i < cell1.CollidersBuffer.Count; i++) {
                         var e1 = cell1.CollidersBuffer[i];
                         ref var c1 = ref colliders.Get(e1);
-                        //ref var t1 = ref transforms.Get(circle1.index);
+                        ref var t1 = ref transforms.Get(e1);
                         ref var b1 = ref bodies.Get(e1);
 
                         for (var iteration = 0; iteration < iterations; iteration++)
@@ -339,7 +390,7 @@ using Transform = Wargon.Nukecs.Tests.Transform;
                             var e2 = cell2.CollidersBuffer[j];
                             if (e1 == e2) continue;
                             ref var c2 = ref colliders.Get(e2);
-
+                            ref var t2 = ref transforms.Get(e2);
                             if ((c1.collideWith & c2.layer) == c2.layer)
                                 if (Grid2D.IsOverlap(in c1, in c2, out var distance)) {
                                     c1.collided = true;
@@ -444,4 +495,187 @@ using Transform = Wargon.Nukecs.Tests.Transform;
                     To = circle2.index
                 };
             }
+    }
+    public struct CollidersSizeUpdateSystem : ISystem, IOnCreate {
+        private GenericPool circles;
+        private Query query;
+        private GenericPool transforms;
+        public void OnCreate(ref World world)
+        {
+            query = world.Query().With<Circle2D>().With<Transform>();
+            circles = world.GetPool<Circle2D>();
+            transforms = world.GetPool<Transform>();
         }
+        public void OnUpdate(ref World world, float deltaTime)
+        {
+            world.Dependencies = new Job {
+                    transforms = transforms.AsComponentPool<Transform>(),
+                    circles = circles.AsComponentPool<Circle2D>(),
+                    query = query
+            }.Schedule(query.Count, 1, world.Dependencies);
+        }
+
+
+
+        [BurstCompile]
+        private struct Job : IJobParallelFor {
+            public ComponentPool<Transform> transforms;
+            public ComponentPool<Circle2D> circles;
+            public Query query;
+
+            public void Execute(int index) {
+                var e = query.GetEntity(index);
+                ref var circle = ref circles.Get(e.id);
+                var transform = transforms.Get(e.id);
+                if (circle.oneFrame == false)
+                    circle.radius = transform.Scale.x * circle.radiusDefault;
+            }
+        }
+    }
+    public struct Collision2DPopulateRectsSystem : ISystem, IOnCreate {
+        private GenericPool colliders;
+        private Query query;
+        private GenericPool transforms;
+
+        public void OnUpdate(ref World world, float deltaTime)
+        {
+            var grid2D = Grid2D.Instance;
+            var populateJob = new PopulateCellsJob {
+                    query = query,
+                    rectangles = colliders.AsComponentPool<Rectangle2D>(),
+                    transforms = transforms.AsComponentPool<Transform>(),
+                    cells = grid2D.cells,
+                    cellSizeX = grid2D.CellSize,
+                    cellSizeY = grid2D.CellSize,
+                    Offset = grid2D.Offset,
+                    GridPosition = grid2D.Position,
+                    W = grid2D.W,
+                    H = grid2D.H
+                };
+                world.Dependencies = populateJob.Schedule(query.Count, 1, world.Dependencies);
+        }
+
+        public void OnCreate(ref World world)
+        {
+            query = world.Query().With<Rectangle2D>().With<Transform>();
+            colliders = world.GetPool<Rectangle2D>();
+            transforms = world.GetPool<Transform>();
+        }
+
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
+        public struct PopulateCellsJob : IJobParallelFor {
+            public Query query;
+            public UnsafeList<Grid2DCell> cells;
+            public ComponentPool<Transform> transforms;
+            public ComponentPool<Rectangle2D> rectangles;
+            public int cellSizeX, cellSizeY, W, H;
+            public Vector2 Offset;
+            public Vector2 GridPosition;
+
+            public void Execute(int index) {
+                var e = query.GetEntity(index);
+                ref var rect = ref rectangles.Get(e.id);
+                
+                ref var transform = ref transforms.Get(e.id);
+                
+                var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
+                var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
+                var cellIndex = py * W + px;
+                if (cellIndex > -1 && cellIndex < cells.Length) {
+                    var cell = cells[cellIndex];
+                    cell.RectanglesBuffer.Add(rect.index);
+                    cells[cellIndex] = cell;
+                }
+            }
+
+            private static int floor(float x) {
+                var xi = (int)x;
+                return x < xi ? xi - 1 : xi;
+            }
+        }
+    }
+
+    public struct Collision2DPopulateCirclesSystem : ISystem, IOnCreate {
+        private GenericPool colliders;
+        public Query query;
+        private GenericPool transforms;
+        public void OnCreate(ref World world)
+        {
+            query = world.Query().With<Circle2D>().With<Transform>();
+            colliders = world.GetPool<Circle2D>();
+            transforms = world.GetPool<Transform>();
+        }
+
+        public void OnUpdate(ref World world, float deltaTime)
+        {
+            var grid2D = Grid2D.Instance;
+            var populateJob = new PopulateCellsJob {
+                query = query,
+                colliders = colliders.AsComponentPool<Circle2D>(),
+                transforms = transforms.AsComponentPool<Transform>(),
+                cells = grid2D.cells,
+                cellSizeX = grid2D.CellSize,
+                cellSizeY = grid2D.CellSize,
+                Offset = grid2D.Offset,
+                GridPosition = grid2D.Position,
+                W = grid2D.W,
+                H = grid2D.H
+            };
+            world.Dependencies = populateJob.Schedule(query.Count, 1, world.Dependencies);
+        }
+
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
+        public struct PopulateCellsJob : IJobParallelFor {
+            public Query query;
+            public UnsafeList<Grid2DCell> cells;
+            public ComponentPool<Circle2D> colliders;
+            public ComponentPool<Transform> transforms;
+            public int cellSizeX, cellSizeY, W, H;
+            public Vector2 Offset;
+            public Vector2 GridPosition;
+
+            public void Execute(int index) {
+                var e = query.GetEntity(index);
+                ref var circle = ref colliders.Get(e.id);
+                circle.collided = false;
+                ref var transform = ref transforms.Get(e.id);
+                circle.position = new float2(transform.Position.x, transform.Position.y);
+                var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
+                var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
+
+                if (px >= 0 && px < W && py >= 0 && py < H) {
+                    var cellIndex = py * W + px;
+                    if (cellIndex > -1 && cellIndex < cells.Length) {
+                        var cell = cells[cellIndex];
+                        cell.CollidersBuffer.Add(circle.index);
+                        circle.cellIndex = cellIndex;
+                        cells[cellIndex] = cell;
+                    }
+                }
+            }
+
+            private int floor(float x) {
+                var xi = (int)x;
+                return x < xi ? xi - 1 : xi;
+            }
+        }   
+    }
+    [BurstCompile]
+    public struct VelocitySystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world)
+        {
+            return world.Query().With<Body2D>().With<Transform>();
+        }
+        public void OnUpdate(ref Entity entity, float deltaTime)
+        {
+            ref var body = ref entity.Get<Body2D>();
+            ref var transform = ref entity.Get<Transform>();
+            Vector3 velocity = default;
+            var pos = new float3(transform.Position.x + body.velocity.x, transform.Position.y + body.velocity.y, 0);
+            transform.Position = Vector3.SmoothDamp(transform.Position, pos, ref velocity, 0.005F, 1000.0F, deltaTime);
+
+            body.velocity = float2.zero;
+        }
+    }
+}  

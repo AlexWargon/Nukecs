@@ -8,7 +8,8 @@ using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Wargon.Nukecs.Tests;
 
-namespace Wargon.Nukecs {
+namespace Wargon.Nukecs
+{
     public unsafe struct Systems {
         internal JobHandle dependencies;
         private List<ISystemRunner> runners;
@@ -97,6 +98,17 @@ namespace Wargon.Nukecs {
             runners.Add(runner);
             return this;
         }
+
+        public Systems Add<T>(T group) where T : SystemsGroup{
+            group.world = world;
+            for (int i = 0; i < group.runners.Count; i++)
+            {
+                runners.Add(group.runners[i]);
+            }
+
+            return this;
+        }
+
         public void OnUpdate(float dt) {
             world.Dependencies.Complete();
             //_ecbSystem.OnUpdate(ref world, dt);
@@ -161,10 +173,6 @@ namespace Wargon.Nukecs {
             ECB.PlaybackParallel(ref world, threadIndex);
             worldUnsafe.GetEntity(0);
         }
-    }
-
-    public class SystemsGroup{
-        
     }
     internal interface ISystemRunner {
         JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle);

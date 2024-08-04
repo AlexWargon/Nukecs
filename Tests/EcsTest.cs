@@ -21,6 +21,8 @@ namespace Wargon.Nukecs.Tests
             Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
             world = World.Create(WorldConfig.Default1024);
+            const int cellSize = 2;
+            var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
             systems = new Systems(ref world)
 
                 .Add<SpriteRenderSystem>()
@@ -41,11 +43,11 @@ namespace Wargon.Nukecs.Tests
                 //.Add<RotateSpriteSystem>()
                 .Add<GunRotationSystem>()
                 .Add<ShootSystem>()
-                
+                .Add(new Collision2DGroup(ref world))
                 
                 //.Add<ViewSystem>()
                 ;
-            
+
             CreateBulletPrefab();
             CreateGunPrefab(float3.zero);
             CreatePlayerPrefab();
@@ -87,6 +89,7 @@ namespace Wargon.Nukecs.Tests
             playerPrefab.Add(new Speed{value = 4f});
             playerPrefab.Add(new IsPrefab());
             playerPrefab.Add(new GunReference());
+            playerPrefab.Add(new Body2D());
 
             
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
@@ -126,6 +129,7 @@ namespace Wargon.Nukecs.Tests
                     SpawnPlayer();
                 }
             }
+
             InputService.Instance.Update();
             systems.OnUpdate(Time.deltaTime);
         }
@@ -144,10 +148,13 @@ namespace Wargon.Nukecs.Tests
         }
 
         private void OnDestroy() {
+            world.Dependencies.Complete();
+            Grid2D.Instance.Clear();
             world.Dispose();
             World.DisposeStatic();
             SpriteAnimationsStorage.Instance.Dispose();
             SpriteArchetypesStorage.Singleton.Dispose();
+            
         }
 
         private Entity CreatePlayer() {
@@ -169,6 +176,14 @@ namespace Wargon.Nukecs.Tests
             gun.Get<SpriteChunkReference>().ChunkRef.Add(in gun, gunTransform, in gun.Get<SpriteRenderData>());
             e.AddChild(gun);
             e.Get<GunReference>().Value = gun;
+
+            e.Add(new Circle2D
+            {
+                radius = .4f,
+                layer = CollisionLayer.Player,
+                collideWith = CollisionLayer.Player,
+                index = e.id
+            });
         }
     }
 
@@ -219,14 +234,14 @@ namespace Wargon.Nukecs.Tests
     public struct MoveSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.Query().With<Transform>().With<Speed>().With<Input>();
+            return world.Query().With<Body2D>().With<Speed>().With<Input>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
-            ref var transform = ref entity.Get<Transform>();
+            ref var transform = ref entity.Get<Body2D>();
             var speed = entity.Read<Speed>();
             var input = entity.Read<Input>();
-            transform.Position += new float3(input.h, input.v, 0) * speed.value * deltaTime;
+            transform.velocity += new float2(input.h, input.v) * speed.value * deltaTime;
         }
     }
 
