@@ -67,7 +67,7 @@ namespace Wargon.Nukecs {
         internal DynamicBitmask none;
         internal UnsafeList<int> entities;
         internal UnsafeParallelHashMap<int, int> entitiesMap;
-        internal int count;
+        internal volatile int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
         public bool IsCreated => world != null;
@@ -539,5 +539,10 @@ namespace Wargon.Nukecs {
             }
         }
     }
-    
+    public interface IFilter
+    {
+        
+    }
+    public struct With<T> : IFilter where T: struct, ITuple { }
+    public struct None<T> : IFilter where T: struct, ITuple { }
 }

@@ -6,8 +6,8 @@
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs.LowLevel.Unsafe;
     using Unity.Mathematics;
+    using Wargon.Nukecs.Transforms;
     using Wargon.Nukecs.Tests;
-    
     public unsafe struct EntityCommandBuffer : IDisposable {
         [NativeDisableUnsafePtrRestriction] private readonly ECBInternal* ecb;
         public int Capacity => ecb->Capacity;

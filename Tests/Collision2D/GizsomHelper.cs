@@ -1,11 +1,10 @@
-namespace Wargon.Nukecs
+namespace Wargon.Nukecs.Collision2D
 {
 
     using System;
     using System.Collections.Generic;
-    using Unity.Collections;
     using UnityEngine;
-    using Transform = Tests.Transform;
+    using Transform = Transforms.Transform;
 
     public class GizsomHelper : MonoBehaviour
     {
@@ -20,7 +19,7 @@ namespace Wargon.Nukecs
             GizsomDrawer.Instance = drawer;
             drawer.AddRender(new Colliders2DRenders(green, red));
         }
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
         private void OnDrawGizmos()
         {
             if(!render) return;
@@ -53,11 +52,11 @@ namespace Wargon.Nukecs
             }
             public void Draw()
             {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 for (int i = 0; i < gizmosList.Count; i++) {
                     gizmosList[i].Render();
                 }
-    #endif
+#endif
             }
         }
 
@@ -70,7 +69,7 @@ namespace Wargon.Nukecs
             private readonly Color green;
             private readonly Color red;
             public void Render() {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 for (int i = 0; i < query.Count; i++)
                 {
                     var entity = query.GetEntityIndex(i);
@@ -84,16 +83,16 @@ namespace Wargon.Nukecs
                     var entity = query2.GetEntityIndex(i);
                     ref var c = ref rectangles.GetRef<Rectangle2D>(entity);
                     ref var transform = ref transforms.GetRef<Transform>(entity);
-                    Vector3 Y1 = new Vector3(transform.Position.x, transform.Position.y + c.h);
-                    Vector3 X1 = new Vector3(transform.Position.x, transform.Position.y);
-                    Vector3 Y2 = new Vector3(transform.Position.x + c.w, transform.Position.y + c.h);
-                    Vector3 X2 = new Vector3(transform.Position.x + c.w, transform.Position.y);
+                    var Y1 = new Vector3(transform.Position.x, transform.Position.y + c.h);
+                    var X1 = new Vector3(transform.Position.x, transform.Position.y);
+                    var Y2 = new Vector3(transform.Position.x + c.w, transform.Position.y + c.h);
+                    var X2 = new Vector3(transform.Position.x + c.w, transform.Position.y);
                     Debug.DrawLine(X1, Y1, green);
                     Debug.DrawLine(Y1, Y2, green);
                     Debug.DrawLine(Y2, X2, green);
                     Debug.DrawLine(X2, X1, green);
                 }
-    #endif
+#endif
             }
             public Colliders2DRenders(Color g, Color r) {
                 ref var world = ref World.Get(0);
@@ -111,32 +110,32 @@ namespace Wargon.Nukecs
     public static class DebugUtility {
             public static readonly Queue<(Action,Color)> Buffer = new Queue<(Action, Color)>();
             public static void DrawRect(Vector2 pos, Vector2 size, Color color, Color colorOutline) {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 ;
                 Buffer.Enqueue((() => {
                     UnityEditor.Handles.DrawSolidRectangleWithOutline(new Rect(pos, size), color, colorOutline);
                 }
                     ,color));
-    #endif
+#endif
             }
 
             public static void DrawCircle(Vector2 pos, float radius, Color color, float thick) {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 Buffer.Enqueue((() => {
                         UnityEditor.Handles.DrawWireDisc(pos, Vector3.forward, radius, thick);}
                     ,color));
-    #endif
+#endif
             }
 
         public static void DrawLabel(string text, Vector3 pos, Color color, GUIStyle style)
         {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
                 if (style == null) style = GUIStyle.none;
                 style.normal.textColor = color;
                 Buffer.Enqueue((
                     ()=>{UnityEditor.Handles.Label(pos, text, style);}
                     , color));
-    #endif
+#endif
         }
     }
 }

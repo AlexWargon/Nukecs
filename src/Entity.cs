@@ -4,7 +4,7 @@ namespace Wargon.Nukecs {
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Wargon.Nukecs.Tests;
+    using Wargon.Nukecs.Transforms;
 
     [StructLayout(LayoutKind.Sequential)]
     public readonly unsafe struct Entity : IEquatable<Entity> {

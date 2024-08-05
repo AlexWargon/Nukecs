@@ -19,6 +19,26 @@
     public struct ChildOf : IComponent {
         public Entity Value;
     }
+    
+    public struct DynamicBuffer<T> : IComponent, IDisposable where T : unmanaged {
+        internal UnsafeList<T> list;
+        public DynamicBuffer(int capacity) {
+            list = new UnsafeList<T>(capacity, Allocator.Persistent);
+        }
+        public unsafe ref T ElementAt(int index) => ref list.Ptr[index];
+        public void Add(in T item) {
+            list.Add(in item);
+        }
+        public void RemoveAt(int index) {
+            list.RemoveAt(index);
+        }
+        public void Clear() {
+            list.Clear();
+        }
+        public void Dispose() {
+            list.Dispose();
+        }
+    }
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -255,49 +275,15 @@
             _handle.Free();
         }
     }
-
-    public struct Transforms {
-        internal UnityEngine.Jobs.TransformAccessArray Array;
-        internal World World;
-        internal int lastFreeIndex;
-        public void Add(ref Entity e, Transform transform) {
-            var index = lastFreeIndex > 0 ? lastFreeIndex : Array.length;
-            Array.Add(transform);
-            e.Add(new TransformIndex{value = index});
-        }
-        
-        public void Remove(ref Entity e, Transform transform) {
-            lastFreeIndex = Array.length;
-            Array.RemoveAtSwapBack(e.Get<TransformIndex>().value);
-        }
-    }
-
     public struct TransformIndex : IComponent {
         public int value;
     }
 
-    public struct DynamicBuffer<T> : IComponent, IDisposable where T : unmanaged {
-        internal UnsafeList<T> list;
-
-        public DynamicBuffer(int capacity) {
-            list = new UnsafeList<T>(capacity, Allocator.Persistent);
-        }
-        public ref T ElementAt(int index) => ref list.ElementAt(index);
-        public void Add(in T item) {
-            list.Add(in item);
-        }
-        public void RemoveAt(int index) {
-            list.RemoveAt(index);
-        }
-        public void Dispose() {
-            list.Dispose();
-        }
-    }
 
     [BurstCompile(CompileSynchronously = true)]
     public static class DynamicBufferExtensions {
         [BurstCompile(CompileSynchronously = true)]
-        public static int RemoveAndSwapBack<T>(ref this DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+        public static int RemoveAtSwapBack<T>(ref this DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             int index = 0;
             for (int i = 0; i < buffer.list.Length; i++) {
                 if (item.Equals(buffer.list.ElementAt(i))) {
@@ -305,7 +291,6 @@
                     break;
                 }
             }
-            
             buffer.list.RemoveAtSwapBack(index);
             return buffer.list.Length - 1;
         }

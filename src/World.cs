@@ -56,7 +56,7 @@
             internal UnsafePtrList<QueryUnsafe> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
             internal UnsafePtrList<ArchetypeImpl> archetypesList;
-            internal int lastEntityIndex;
+            internal volatile int lastEntityIndex;
             internal WorldConfig config;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
@@ -66,7 +66,7 @@
             internal JobHandle systemsJobDependencies;
             internal readonly int job_worker_count;
             internal UnsafeList<int> DefaultNoneTypes;
-            internal int entitiesAmount;
+            internal volatile int entitiesAmount;
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
                 var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
@@ -335,6 +335,12 @@
             return new Query(Unsafe->Query());
         }
 
+        public Query Query<T>() where T: struct, ITuple {
+            return new Query(Unsafe->Query());
+        }
+        public Query Query<T>(byte dymmy = 1) where T: struct, IFilter {
+            return new Query(Unsafe->Query());
+        }
         public void Update() {
             Unsafe->ECB.Playback(ref this);
         }

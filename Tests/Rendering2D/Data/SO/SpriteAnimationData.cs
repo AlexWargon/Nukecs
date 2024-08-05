@@ -1,6 +1,7 @@
 ﻿using Unity.Mathematics;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs.Tests
 {
