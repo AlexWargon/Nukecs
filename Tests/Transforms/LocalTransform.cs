@@ -2,6 +2,7 @@
     
     using System.Runtime.InteropServices;
     using Unity.Mathematics;
+    
     [StructLayout(LayoutKind.Sequential)]
     public struct LocalTransform : IComponent{
         public float3 Position;

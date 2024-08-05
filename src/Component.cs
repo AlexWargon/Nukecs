@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using System.Collections;
+
+namespace Wargon.Nukecs {
     
     using System;
     using System.Collections.Generic;
@@ -19,26 +21,69 @@
     public struct ChildOf : IComponent {
         public Entity Value;
     }
-    
-    public struct DynamicBuffer<T> : IComponent, IDisposable where T : unmanaged {
+    public struct Child : IEquatable<Child> {
+        public Entity Value;
+        public bool Equals(Child other) {
+            return Value == other.Value;
+        }
+    }
+    public unsafe struct DynamicBuffer<T> : IComponent, IDisposable where T : unmanaged {
         internal UnsafeList<T> list;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public DynamicBuffer(int capacity) {
             list = new UnsafeList<T>(capacity, Allocator.Persistent);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe ref T ElementAt(int index) => ref list.Ptr[index];
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item) {
             list.Add(in item);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index) {
             list.RemoveAt(index);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear() {
             list.Clear();
         }
         public void Dispose() {
             list.Dispose();
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe Enumerator GetEnumerator() {
+            fixed (UnsafeList<T>* ptr = &list) {
+                return new Enumerator(ptr);
+            }
+        }
+        public unsafe struct Enumerator {
+            public UnsafeList<T>* listPtr;
+            private int index;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public Enumerator(UnsafeList<T>* list) {
+                listPtr = list;
+                index = -1;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext() {
+                index++;
+                return index < listPtr->m_length;
+            }
+            public void Reset() {
+                index = -1;
+            }
+
+            public ref T Current {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref listPtr->Ptr[index];
+            }
+
+            public void Dispose() {
+                
+            }
+        }
     }
+    
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -283,7 +328,7 @@
     [BurstCompile(CompileSynchronously = true)]
     public static class DynamicBufferExtensions {
         [BurstCompile(CompileSynchronously = true)]
-        public static int RemoveAtSwapBack<T>(ref this DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+        public static int RemoveAtSwapBack<T>(this ref DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             int index = 0;
             for (int i = 0; i < buffer.list.Length; i++) {
                 if (item.Equals(buffer.list.ElementAt(i))) {

@@ -76,7 +76,7 @@ namespace Wargon.Nukecs.Tests
                 return Entity.Null;
             }
 
-            var entity = world.CreateEntity();
+            var entity = world.Entity();
             var transform = new Transform(position);
 
             transform.Position.z = 0;
