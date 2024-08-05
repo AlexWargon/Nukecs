@@ -80,7 +80,7 @@ namespace Wargon.Nukecs.Tests
 
         private void CreateBulletPrefab() 
         {
-            bulletPrefab = world.CreateEntity();
+            bulletPrefab = world.Entity();
             bulletSprite.AddToEntity(ref world, ref bulletPrefab);
             bulletPrefab.Add(new IsPrefab());
             bulletPrefab.Add(new Bullet());
@@ -99,7 +99,7 @@ namespace Wargon.Nukecs.Tests
         
         private void CreateGunPrefab(float3 pos)
         {
-            gunPrefab = world.CreateEntity();
+            gunPrefab = world.Entity();
             gunSprite.AddToEntity(ref world, ref gunPrefab);
             gunPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.3f, Spread = 2f});
             gunPrefab.Add(new BulletPrefab{Value = bulletPrefab});
@@ -148,7 +148,7 @@ namespace Wargon.Nukecs.Tests
         }
 
         private Entity CreatePlayer() {
-            var e = world.CreateEntity();
+            var e = world.Entity();
             e.Add(new Player());
             e.AddBuffer<InventoryItem>();
             return e;

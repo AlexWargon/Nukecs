@@ -344,7 +344,7 @@
                             e.archetypeRef.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             break;
                         case ECBCommand.Type.CreateEntity:
-                            world.CreateEntity();
+                            world.Entity();
                             break;
                         
                         case ECBCommand.Type.Cull:
@@ -389,7 +389,7 @@
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             break;
                         case ECBCommand.Type.CreateEntity:
-                            world.CreateEntity();
+                            world.Entity();
                             break;
                         case ECBCommand.Type.DestroyEntity:
                             archetype.Destroy(cmd.Entity);

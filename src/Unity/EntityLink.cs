@@ -8,7 +8,7 @@ namespace Wargon.Nukecs.Tests {
         public List<ComponentData> components;
 
         public void Convert(ref World world) {
-            var e = world.CreateEntity();
+            var e = world.Entity();
             foreach (var component in components) {
                 e.AddBytes(component.componentData, ComponentsMap.Index(component.componentName));
             }

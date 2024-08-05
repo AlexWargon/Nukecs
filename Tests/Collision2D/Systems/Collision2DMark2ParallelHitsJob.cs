@@ -150,4 +150,26 @@ namespace Wargon.Nukecs.Collision2D {
             };
         }
     }
+
+    public struct Collision2DData {
+        public Entity Other;
+        public float2 Position;
+        public float2 Normal;
+    }
+    public struct CollidedFlag : IComponent {}
+    public struct OnCollisionDamageSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.Query().With<DynamicBuffer<Collision2DData>>().With<CollidedFlag>();
+        }
+
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            ref var buffer = ref entity.GetBuffer<Collision2DData>();
+            foreach (var data in buffer) {
+
+            }
+            buffer.Clear();
+            entity.Remove<CollidedFlag>();
+        }
+    }
 }

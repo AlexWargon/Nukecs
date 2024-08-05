@@ -35,7 +35,7 @@ namespace Wargon.Nukecs {
             return $"e:{id}, {archetypeRef.ToString()}";
         }
 
-        public static Entity Null => default;
+        public static Entity Null = default;
 
         public bool Equals(Entity other) {
             return id == other.id && worldPointer == other.worldPointer;
@@ -45,6 +45,14 @@ namespace Wargon.Nukecs {
         }
         public override int GetHashCode() {
             return HashCode.Combine(id, unchecked((int) (long) worldPointer));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator == (in Entity one, in Entity two) {
+            return one.id == two.id && one.worldPointer->Id == two.worldPointer->Id;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator != (in Entity one, in Entity two) {
+            return one.id != two.id || one.worldPointer->Id != two.worldPointer->Id;
         }
     }
 
@@ -222,17 +230,39 @@ namespace Wargon.Nukecs {
             return e;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void AddChild(this in Entity entity, Entity child) {
+        public static void AddChild(this ref Entity entity, Entity child) {
             if(child.Has<ChildOf>()) {
+                // ref var oldParent = ref child.Get<ChildOf>().Value;
+                // ref var children = ref oldParent.GetBuffer<Child>();
+                // foreach (ref var child1 in children) {
+                //     if (child1.Value == child) {
+                //         children.RemoveAtSwapBack(in child1);
+                //         break;
+                //     }
+                // }    
                 child.Get<ChildOf>().Value = entity;
-            }else {
+            }
+            else
+            {
                 child.Add(new ChildOf { Value = entity});
             }
-            
+            //entity.GetBuffer<Child>().Add(new Child(){Value = child});
             child.Add(new OnAddChildWithTransformEvent());
         }
-    }
 
+        public static void RemoveChild(this ref Entity entity, Entity child) {
+            // ref var children = ref entity.GetBuffer<Child>();
+            // foreach (ref var child1 in children) {
+            //     if (child1.Value == child) {
+            //         children.RemoveAtSwapBack(in child1);
+            //         
+            //         break;
+            //     }
+            // }
+            child.Remove<ChildOf>();
+        }
+    }
+    
     public static unsafe class Unsafe {
         public static T* Malloc<T>(Allocator allocator) where T : unmanaged {
             return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);

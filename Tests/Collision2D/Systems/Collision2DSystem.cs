@@ -1,7 +1,7 @@
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
-    using Wargon.Nukecs.Transforms;
+    using Transforms;
 
     public struct Collision2DSystem : ISystem, IOnCreate {
         private GenericPool transforms;
@@ -30,7 +30,6 @@ namespace Wargon.Nukecs.Collision2D
                 cellSize = grind2D.CellSize,
                 iterations = 1
             };
-
             world.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.Dependencies);
         }
     }

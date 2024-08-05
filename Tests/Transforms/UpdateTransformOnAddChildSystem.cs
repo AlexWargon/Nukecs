@@ -1,5 +1,7 @@
 ﻿namespace Wargon.Nukecs.Transforms {
+    
     using Unity.Mathematics;
+    
     public struct UpdateTransformOnAddChildSystem : IEntityJobSystem
     {
         public SystemMode Mode => SystemMode.Parallel;

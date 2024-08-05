@@ -41,8 +41,6 @@ namespace Wargon.Nukecs.Tests {
                     sprite.pivot.x / sprite.rect.width,
                     sprite.pivot.y / sprite.rect.height
                 ),
-                
-                
             };
             entity.Add(in renderData);
 
