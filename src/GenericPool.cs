@@ -242,13 +242,13 @@ namespace Wargon.Nukecs {
     
     public readonly unsafe struct ComponentPool<T> where T : unmanaged {
         [NativeDisableUnsafePtrRestriction]
-        private readonly T* buffer;
+        private readonly T* _buffer;
 
         internal ComponentPool(void* buffer) {
-            this.buffer = (T*) buffer;
+            _buffer = (T*) buffer;
         }
         public ref T Get(int index) {
-            return ref buffer[index];
+            return ref _buffer[index];
         }
     }
 }

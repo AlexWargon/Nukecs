@@ -1,5 +1,5 @@
 ﻿using Unity.Burst;
-
+using Wargon.Nukecs.Transforms;
 namespace Wargon.Nukecs.Tests {
     [BurstCompile]
     public unsafe struct UpdateChunkDataSystem : IEntityJobSystem {
