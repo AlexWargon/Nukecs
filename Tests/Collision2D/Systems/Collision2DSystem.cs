@@ -16,7 +16,8 @@ namespace Wargon.Nukecs.Collision2D
         }
         public void OnUpdate(ref World world, float deltaTime) {
             var grind2D = Grid2D.Instance;
-            var collisionJob1 = new Collision2DMark2ParallelHitsJob {
+            grind2D.Hits.Clear();
+            var collisionJob1 = new Collision2DHitsParallelJob {
                 colliders = colliders.AsComponentPool<Circle2D>(),
                 transforms = transforms.AsComponentPool<Transform>(),
                 bodies = bodies.AsComponentPool<Body2D>(),
@@ -28,7 +29,8 @@ namespace Wargon.Nukecs.Collision2D
                 Offset = grind2D.Offset,
                 GridPosition = grind2D.Position,
                 cellSize = grind2D.CellSize,
-                iterations = 1
+                iterations = 1,
+                world = world
             };
             world.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.Dependencies);
         }

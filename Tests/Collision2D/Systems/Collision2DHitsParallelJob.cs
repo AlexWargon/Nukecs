@@ -8,7 +8,7 @@ namespace Wargon.Nukecs.Collision2D {
     using Transform = Transforms.Transform;
 
     [BurstCompile]
-    public struct Collision2DMark2ParallelHitsJob : IJobParallelFor {
+    public struct Collision2DHitsParallelJob : IJobParallelFor {
         public UnsafeList<Grid2DCell> cells;
         public ComponentPool<Circle2D> colliders;
         public ComponentPool<Transform> transforms;
@@ -18,7 +18,7 @@ namespace Wargon.Nukecs.Collision2D {
         [WriteOnly] public UnsafeList<HitInfo>.ParallelWriter collisionEnterList;
         public float2 Offset, GridPosition;
         public int W, H, cellSize, iterations;
-
+        public World world;
         public void Execute(int idx) {
             var x = idx % W;
             var y = idx / W;
@@ -152,12 +152,45 @@ namespace Wargon.Nukecs.Collision2D {
     }
 
     public struct Collision2DData {
-        public Entity Other;
+        public int Other;
         public float2 Position;
         public float2 Normal;
     }
+
+    public struct SetCollisionsSystem : ISystem
+    {
+        public void OnUpdate(ref World world, float deltaTime)
+        {
+            var hits = Grid2D.Instance.Hits;
+            var hitsArray = hits.ToArray(Allocator.TempJob);
+
+            hitsArray.Dispose();
+        }
+        public struct Fill : IJobParallelFor
+        {
+            public World World;
+            public NativeArray<HitInfo> hits;
+            public ComponentPool<DynamicBuffer<Collision2DData>> collisionsData;
+            public void Execute(int index)
+            {
+                var hit = hits[index];
+                ref var buffer1 = ref collisionsData.Get(hit.From);
+                ref var buffer2 = ref collisionsData.Get(hit.To);
+                
+                buffer1.Add(new Collision2DData
+                {
+                    Other = hit.To
+                });
+                buffer2.Add(new Collision2DData
+                {
+                    Other = hit.From
+                });
+            }
+        }
+    }
     public struct CollidedFlag : IComponent {}
-    public struct OnCollisionDamageSystem : IEntityJobSystem {
+    [BurstCompile(FloatPrecision.Low, FloatMode.Fast)]
+    public struct CollisionsClear : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
             return world.Query().With<DynamicBuffer<Collision2DData>>().With<CollidedFlag>();
@@ -165,9 +198,6 @@ namespace Wargon.Nukecs.Collision2D {
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
             ref var buffer = ref entity.GetBuffer<Collision2DData>();
-            foreach (var data in buffer) {
-
-            }
             buffer.Clear();
             entity.Remove<CollidedFlag>();
         }

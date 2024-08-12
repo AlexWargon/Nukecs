@@ -287,6 +287,16 @@
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }
+
+            internal void Dispose<T>(ref GenericPool pool, ref Entity entity) where T : unmanaged, IComponent, IDisposable
+            {
+                ref var component = ref pool.GetRef<T>(entity.id);
+                component.Dispose();
+                pool.Set(entity.id, default(T));
+                ECB.Remove<T>(entity.id);
+                ECB.Remove<Dispose<T>>(entity.id);
+            }
+            
         }
 
         public void Dispose() {

@@ -18,6 +18,7 @@ namespace Wargon.Nukecs {
     public struct IsAlive : IComponent { }
     public struct DestroyEntity : IComponent { }
     public struct IsPrefab : IComponent { }
+    public struct Dispose<T> : IComponent where T : struct, IComponent{ }
     public struct ChildOf : IComponent {
         public Entity Value;
     }
@@ -51,12 +52,12 @@ namespace Wargon.Nukecs {
             list.Dispose();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe Enumerator GetEnumerator() {
+        public Enumerator GetEnumerator() {
             fixed (UnsafeList<T>* ptr = &list) {
                 return new Enumerator(ptr);
             }
         }
-        public unsafe struct Enumerator {
+        public struct Enumerator {
             public UnsafeList<T>* listPtr;
             private int index;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -123,6 +124,7 @@ namespace Wargon.Nukecs {
         public int index;
         public int align;
         public bool isTag;
+        public bool isDisposable;
     }
     public struct ComponentType<T> where T : unmanaged {
         internal static readonly SharedStatic<int> ID = SharedStatic<int>.GetOrCreate<ComponentType<T>>();
@@ -139,7 +141,7 @@ namespace Wargon.Nukecs {
             ID.Data = Component.Count.Data++;
             ComponentsMap.Init();
             ComponentsMap.Add(typeof(T), ID.Data);
-            ComponentsMap.AddComponentType(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
+            ComponentsMap.AddComponentType<T>(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
             BoxedWriters.CreateWriter<T>(Index);
         }
     }
@@ -161,12 +163,13 @@ namespace Wargon.Nukecs {
             _initialized = true;
         }
 
-        public static void AddComponentType(int align, int index, int size) {
+        public static void AddComponentType<T>(int align, int index, int size) {
             ComponentTypes.Data.TryAdd(index, new ComponentType {
                 align = align,
                 size = size,
                 index = index,
-                isTag = size == 1
+                isTag = size == 1,
+                isDisposable = typeof(IDisposable).IsAssignableFrom(typeof(T))
             });
         }
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
