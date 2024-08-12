@@ -11,6 +11,7 @@
             .Add<Collision2DPopulateRectsSystem>()
             .Add<Collision2DPopulateCirclesSystem>()
             //.Add<UpdateCirclePositionsSystem>()
+             //.Add<CollisionsClear>()
             .Add<Collision2DSystem>()
              
             ;

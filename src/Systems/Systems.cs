@@ -10,15 +10,17 @@ using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs
 {
-    public unsafe struct Systems {
+    public unsafe class Systems {
         internal JobHandle dependencies;
         private List<ISystemRunner> runners;
+        private List<ISystemRunner> disposeSystems;
         private World world;
         
         //private ECBSystem _ecbSystem;
         public Systems(ref World world) {
             this.dependencies = default;
             this.runners = new List<ISystemRunner>();
+            this.disposeSystems = new List<ISystemRunner>();
             this.world = world;
             //_ecbSystem = default;
             //_ecbSystem.OnCreate(ref world);
@@ -91,14 +93,59 @@ namespace Wargon.Nukecs
                 system = (T) s;
             }
             
-            var runner = new SystemMainThreadRunner<T> {
+            var runner = new SystemMainThreadRunnerStruct<T> {
                 System = system,
                 EcbJob = default
             };
             runners.Add(runner);
             return this;
         }
+        public Systems Add<T>(long dymmy = 1) where T : class, ISystem, new() {
+            T system = new T();
+            if (system is IOnCreate s) {
+                s.OnCreate(ref world);
+                system = (T) s;
+            }
+            
+            var runner = new SystemMainThreadRunnerClass<T> {
+                System = system,
+                EcbJob = default
+            };
+            runners.Add(runner);
+            return this;
+        }
+        private Systems AddSysyem<T>(T system) where T : class, ISystem, new() {
+            if (system is IOnCreate s) {
+                s.OnCreate(ref world);
+                system = (T) s;
+            }
+            
+            var runner = new SystemMainThreadRunnerClass<T> {
+                System = system,
+                EcbJob = default
+            };
+            runners.Add(runner);
+            return this;
+        }
+        private void AddDisposeSystem<T>() where T: unmanaged, IComponent, IDisposable
+        {
+            AddSysyem(new DisposeSystem<T>());
+        }
+        private void InitDisposeSystems()
+        {
+            var addMethod = typeof(Systems).GetMethod(nameof(AddDisposeSystem));
 
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies) {
+                var types = assembly.GetTypes();
+                foreach (var type in types) {
+                    if (typeof(IComponent).IsAssignableFrom(type) && typeof(IDisposable).IsAssignableFrom(type))
+                    {
+                        addMethod?.MakeGenericMethod(type).Invoke(this, null);
+                    }
+                }
+            }
+        }
         public Systems Add<T>(T group) where T : SystemsGroup{
             group.world = world;
             for (int i = 0; i < group.runners.Count; i++)
@@ -110,10 +157,15 @@ namespace Wargon.Nukecs
         }
 
         public void OnUpdate(float dt) {
+            
             world.Dependencies.Complete();
             //_ecbSystem.OnUpdate(ref world, dt);
             for (var i = 0; i < runners.Count; i++) {
                 world.Dependencies = runners[i].Schedule(ref world, dt, ref world.Dependencies);
+            }
+            for (var i = 0; i < disposeSystems.Count; i++)
+            {
+                world.Dependencies = disposeSystems[i].Schedule(ref world, dt, ref world.Dependencies);
             }
         }
 
@@ -179,118 +231,6 @@ namespace Wargon.Nukecs
         void Run(ref World world, float dt);
     }
 
-    internal class EntityJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
-        public TSystem System;
-        public Query Query;
-        public SystemMode Mode;
-        public ECBJob EcbJob;
-
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
-            if (Mode == SystemMode.Main) {
-                for (var i = 0; i < Query.Count; i++) {
-                    System.OnUpdate(ref Query.GetEntity(i), dt);    
-                }
-                EcbJob.ECB = world.ECB;
-                EcbJob.world = world;
-                EcbJob.Run();
-            }
-            else {
-                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
-                EcbJob.ECB = world.ECB;
-                EcbJob.world = world;
-                jobHandle = EcbJob.Schedule(jobHandle);
-            }
-            return EcbJob.Schedule(jobHandle);
-        }
-
-        public void Run(ref World world, float dt) {
-            for (int i = 0; i < Query.Count; i++) {
-                System.OnUpdate(ref this.Query.GetEntity(i), dt);
-            }
-            world.ECB.Playback(ref world);
-        }
-    }
-    
-    internal class QueryJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IQueryJobSystem {
-        public TSystem System;
-        public Query Query;
-        public SystemMode Mode;
-        public ECBJob EcbJob;
-
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
-
-            if (Mode == SystemMode.Main) {
-                System.OnUpdate(ref Query, dt);
-                EcbJob.ECB = world.ECB;
-                EcbJob.world = world;
-                EcbJob.Run();
-            }
-            else {
-                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
-                EcbJob.ECB = world.ECB;
-                EcbJob.world = world;
-                jobHandle = EcbJob.Schedule(jobHandle);
-            }
-            return jobHandle;
-        }
-
-        public void Run(ref World world, float dt) {
-            for (int i = 0; i < Query.Count; i++) {
-                System.OnUpdate(ref Query, dt);
-            }
-            world.ECB.Playback(ref world);
-        }
-    }
-    // internal class EntityJobSystemRunner<TSystem,T1,T2> : ISystemRunner where TSystem : struct, IEntityJobSystem<T1,T2> 
-    //     where T1 : unmanaged, IComponent
-    //     where T2 : unmanaged, IComponent
-    // {
-    //     public TSystem System;
-    //     public Query Query;
-    //     public SystemMode Mode;
-    //     public ECBJob EcbJob;
-    //     private GenericJobWrapper JobWrapper;
-    //     public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
-    //         if (Mode == SystemMode.Main) {
-    //             for (var i = 0; i < Query.Count; i++) {
-    //                 ref var e = ref Query.GetEntity(i);
-    //                 System.OnUpdate(ref e, ref e.Get<T1>(), ref e.Get<T2>(), dt);    
-    //             }
-    //         }
-    //         else {
-    //             JobWrapper.c1pool = world.GetPool<T1>().AsComponentPool<T1>();
-    //             JobWrapper.c2pool = world.GetPool<T2>().AsComponentPool<T2>();
-    //             JobWrapper.query = Query;
-    //             JobWrapper.dt = dt;
-    //             JobWrapper.system = System;
-    //             jobHandle = JobWrapper.Schedule(Query.Count, 1, jobHandle);
-    //         }
-    //         
-    //         EcbJob.ECB = world.ECB;
-    //         EcbJob.world = world;
-    //         return EcbJob.Schedule(jobHandle);
-    //     }
-    //
-    //     public void Run(ref World world, float dt) {
-    //         for (int i = 0; i < Query.Count; i++) {
-    //             ref var e = ref Query.GetEntity(i);
-    //             System.OnUpdate(ref e, ref e.Get<T1>(), ref e.Get<T2>(), dt);
-    //         }
-    //         world.ECB.Playback(ref world);
-    //     }
-    //     [BurstCompile]
-    //     internal struct GenericJobWrapper : IJobParallelFor {
-    //         public ComponentPool<T1> c1pool;
-    //         public ComponentPool<T2> c2pool;
-    //         public TSystem system;
-    //         public Query query;
-    //         public float dt;
-    //         public void Execute(int index) {
-    //             ref var e = ref query.GetEntity(index);
-    //             system.OnUpdate(ref e, ref c1pool.Get(e.id), ref c2pool.Get(e.id), dt);
-    //         }
-    //     }
-    // }
     internal class QueryJobSystemRunner<TSystem,T> : ISystemRunner where TSystem : struct, IQueryJobSystem<T> 
         where T : struct, ITuple
     {
@@ -330,23 +270,8 @@ namespace Wargon.Nukecs
             }
         }
     }
-    internal class SystemJobRunner<TSystem> : ISystemRunner where TSystem : struct, IJobSystem {
-        public TSystem System;
-        public ECBJob EcbJob;
 
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
-            System.Schedule(ref world, dt, jobHandle);
-            EcbJob.ECB = world.ECB;
-            EcbJob.world = world;
-            return EcbJob.Schedule(jobHandle);
-        }
-
-        public void Run(ref World world, float dt) {
-            System.OnUpdate(ref world, dt);
-            world.ECB.Playback(ref world);
-        }
-    }
-    internal class SystemMainThreadRunner<TSystem> : ISystemRunner where TSystem : struct, ISystem {
+    internal class GenericSystemMainThreadRunner<TSystem> : ISystemRunner where TSystem : struct, ISystem {
         internal TSystem System;
         internal ECBJob EcbJob;
 
@@ -616,8 +541,6 @@ namespace Wargon.Nukecs
         }
     }
 
-
-
     public interface IQueryJobSystem<T> where T : struct, ITuple {
         public Query<T> GetQuery(Query<T> query) {
             return query;
@@ -631,12 +554,51 @@ namespace Wargon.Nukecs
     public interface ISystem {
         void OnUpdate(ref World world, float deltaTime);
     }
+
+    public abstract class System<T> : ISystem, IOnCreate  where T : unmanaged, IComponent
+    {
+        private Query Query;
+        public abstract void OnUpdate(ref Entity entity, ref T component, float deltaTime);
+        public void OnUpdate(ref World world, float deltaTime)
+        {
+            foreach (ref var entity in Query)
+            {
+                OnUpdate(ref entity, ref entity.Get<T>(), deltaTime);
+            }
+        }
+
+        public void OnCreate(ref World world)
+        {
+            Query = world.Query().With<T>();
+        }
+    }
+
+    public unsafe class DisposeSystem<T> : ISystem, IOnCreate where T : unmanaged, IComponent, IDisposable
+    {
+        private Query query;
+        private GenericPool pool;
+        public void OnUpdate(ref World world, float deltaTime)
+        {
+            if(query.Count == 0) return;
+            foreach (ref var entity in query)
+            {
+                world.Unsafe->Dispose<T>(ref pool, ref entity);
+            }
+        }
+        public void OnCreate(ref World world)
+        {
+            query = world.Query().With<T>().With<Dispose<T>>();
+            pool = world.GetPool<T>();
+        }
+    }
+    
     [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]
     public interface IEntityIndexJobSystem
     {
         SystemMode Mode { get; }
         void OnUpdate<T1>(ref T1 c1, float dt) where T1 : unmanaged, IComponent;
     }
+    
     public static class EntityIndexJobSystemExtensions<T1> where T1 : unmanaged, IComponent {
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntityJobStruct<TJob> where TJob : struct, IEntityIndexJobSystem {
@@ -692,7 +654,6 @@ namespace Wargon.Nukecs
 
     public static class EXT
     {
-
         public static unsafe JobHandle Schedule<TJob,T>(this TJob jobData, ref Query query, float deltaTime,
             SystemMode mode, JobHandle dependsOn = default)
             where TJob : struct, IEntityIndexJobSystem 

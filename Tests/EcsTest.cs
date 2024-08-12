@@ -61,7 +61,6 @@ namespace Wargon.Nukecs.Tests
         {
             SpawnPlayer();
         }
-
         private Entity playerPrefab;
         private Entity bulletPrefab;
         private Entity gunPrefab;
@@ -73,7 +72,7 @@ namespace Wargon.Nukecs.Tests
             playerPrefab.Add(new IsPrefab());
             playerPrefab.Add(new GunReference());
             playerPrefab.Add(new Body2D());
-
+            //playerPrefab.AddBuffer<Collision2DData>();
             
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }
@@ -101,7 +100,7 @@ namespace Wargon.Nukecs.Tests
         {
             gunPrefab = world.Entity();
             gunSprite.AddToEntity(ref world, ref gunPrefab);
-            gunPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.3f, Spread = 2f});
+            gunPrefab.Add(new Gun{BulletsAmount = 33, Cooldown = 0.1f, Spread = 16f});
             gunPrefab.Add(new BulletPrefab{Value = bulletPrefab});
             gunPrefab.Add(new IsPrefab());
             gunPrefab.Add(new Transform(pos));
@@ -451,11 +450,11 @@ namespace Wargon.Nukecs.Tests
     }
     [BurstCompile]
     public struct ShootSystem : IEntityJobSystem {
-        private World World;
+        private World world;
         public SystemMode Mode => SystemMode.Main;
         public Query GetQuery(ref World world) 
         {
-            World = world;
+            this.world = world;
             return world.Query().With<GunReference>().With<Input>().With<Transform>();
         }
 
@@ -475,7 +474,7 @@ namespace Wargon.Nukecs.Tests
 
                 for (int i = 0; i < gun.BulletsAmount; i++) 
                 {
-                    var bullet =  World.SpawnPrefab(in prefab.Value);
+                    var bullet =  world.SpawnPrefab(in prefab.Value);
                     var (btRef, chunk, data) = bullet.Get<Transform, SpriteChunkReference, SpriteRenderData>();
                     ref var bt = ref btRef.Value;
                     var rot = Quaternion.AngleAxis(UnityEngine.Random.Range(-gun.Spread,gun.Spread), Vector3.forward);
@@ -485,6 +484,14 @@ namespace Wargon.Nukecs.Tests
                     gun.CooldownCounter = gun.Cooldown; 
                 }
             }
+        }
+    }
+
+    public class GenTestSystem : System<DynamicBuffer<Child>>
+    {
+        public override void OnUpdate(ref Entity entity, ref DynamicBuffer<Child> component, float deltaTime)
+        {
+            
         }
     }
 }

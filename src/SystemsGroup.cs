@@ -68,7 +68,7 @@ namespace Wargon.Nukecs
                 system = (T) s;
             }
             
-            var runner = new SystemMainThreadRunner<T> {
+            var runner = new SystemMainThreadRunnerStruct<T> {
                 System = system,
                 EcbJob = default
             };
