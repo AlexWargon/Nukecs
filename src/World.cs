@@ -34,7 +34,7 @@
             return world;
         }
         public static void DisposeStatic() {
-            ComponentsMap.ComponentTypes.Data.Dispose();
+            ComponentsMap.Dispose();
             ComponentsMap.Save();
         }
         public bool IsAlive => Unsafe != null;
@@ -56,7 +56,7 @@
             internal UnsafePtrList<QueryUnsafe> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
             internal UnsafePtrList<ArchetypeImpl> archetypesList;
-            internal volatile int lastEntityIndex;
+            
             internal WorldConfig config;
             internal DynamicBitmask poolsMask;
             internal EntityCommandBuffer ECB;
@@ -66,7 +66,8 @@
             internal JobHandle systemsJobDependencies;
             internal readonly int job_worker_count;
             internal UnsafeList<int> DefaultNoneTypes;
-            internal volatile int entitiesAmount;
+            internal int entitiesAmount;
+            internal int lastEntityIndex;
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
                 var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
@@ -178,6 +179,7 @@
 
                 Entity e;
                 entitiesAmount++;
+                
                 var last = lastEntityIndex;
                 if (reservedEntities.m_length > 0) {
                     last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
@@ -296,7 +298,6 @@
                 ECB.Remove<T>(entity.id);
                 ECB.Remove<Dispose<T>>(entity.id);
             }
-            
         }
 
         public void Dispose() {

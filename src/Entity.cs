@@ -115,10 +115,18 @@ namespace Wargon.Nukecs {
         //     ecb.Add(entity.id, ptr);
         // }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Remove<T>(this in Entity entity) where T : unmanaged, IComponent  {
-            entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Remove<T>(entity.id);
+        public static void Remove<T>(this ref Entity entity) where T : unmanaged, IComponent
+        {
+            if (ComponentType<T>.Data.isDisposable)
+            {
+                entity.Add(new Dispose<T>());
+            }
+            else
+            {
+                entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
+                ref var ecb = ref entity.worldPointer->ECB;
+                ecb.Remove<T>(entity.id);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

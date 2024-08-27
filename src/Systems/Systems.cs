@@ -26,6 +26,7 @@ namespace Wargon.Nukecs
             //_ecbSystem.OnCreate(ref world);
             this.Add<EntityDestroySystem>();
             this.Add<OnPrefabSpawnSystem>();
+            this.InitDisposeSystems();
         }
 
         public Systems Add<T>() where T : struct, IJobSystem {
@@ -114,7 +115,7 @@ namespace Wargon.Nukecs
             runners.Add(runner);
             return this;
         }
-        private Systems AddSysyem<T>(T system) where T : class, ISystem, new() {
+        private Systems AddSystem<T>(T system) where T : class, ISystem, new() {
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
                 system = (T) s;
@@ -129,7 +130,17 @@ namespace Wargon.Nukecs
         }
         private void AddDisposeSystem<T>() where T: unmanaged, IComponent, IDisposable
         {
-            AddSysyem(new DisposeSystem<T>());
+            var system = new DisposeSystem<T>();
+            if (system is IOnCreate s) {
+                s.OnCreate(ref world);
+                system = (DisposeSystem<T>) s;
+            }
+            
+            var runner = new SystemMainThreadRunnerClass<DisposeSystem<T>> {
+                System = system,
+                EcbJob = default
+            };
+            disposeSystems.Add(runner);
         }
         private void InitDisposeSystems()
         {

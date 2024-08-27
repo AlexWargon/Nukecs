@@ -83,7 +83,7 @@ namespace Wargon.Nukecs {
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
             this.destroyEdge = default;
-            PopulateQueries(world);
+            this.PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
         }
 
@@ -105,7 +105,7 @@ namespace Wargon.Nukecs {
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
             this.destroyEdge = default;
             
-            PopulateQueries(world);
+            this.PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
         }
 

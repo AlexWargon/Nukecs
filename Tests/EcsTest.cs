@@ -22,7 +22,7 @@ namespace Wargon.Nukecs.Tests
         void Awake() {
             Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default1024);
+            world = World.Create(WorldConfig.Default_1_000_000);
             const int cellSize = 2;
             var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
             systems = new Systems(ref world)
@@ -86,12 +86,12 @@ namespace Wargon.Nukecs.Tests
             bulletPrefab.Add(new Body2D());
             bulletPrefab.Add(new Transform(RandomEx.Float3(-5,5)));
             bulletPrefab.Add(new Speed{value = 42f});
-            bulletPrefab.Add(new Lifetime{value = 1f});
+            bulletPrefab.Add(new Lifetime{value = 0.5f});
             bulletPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in bulletPrefab);
             bulletPrefab.Add(new Circle2D
             {
                 radius = .2f,
-                layer = CollisionLayer.PlayerProjectle,
+                layer = CollisionLayer.PlayerProjectile,
                 collideWith = CollisionLayer.Enemy,
             });
         }
@@ -100,7 +100,7 @@ namespace Wargon.Nukecs.Tests
         {
             gunPrefab = world.Entity();
             gunSprite.AddToEntity(ref world, ref gunPrefab);
-            gunPrefab.Add(new Gun{BulletsAmount = 33, Cooldown = 0.1f, Spread = 16f});
+            gunPrefab.Add(new Gun{BulletsAmount = 1, Cooldown = 0.01f, Spread = 2});
             gunPrefab.Add(new BulletPrefab{Value = bulletPrefab});
             gunPrefab.Add(new IsPrefab());
             gunPrefab.Add(new Transform(pos));
@@ -114,7 +114,7 @@ namespace Wargon.Nukecs.Tests
             }
             
             if (UnityEngine.Input.GetKey(KeyCode.Space)) {
-                for (int i = 0; i < 1; i++) {
+                for (int i = 0; i < 10; i++) {
                     SpawnPlayer();
                 }
             }
@@ -143,7 +143,6 @@ namespace Wargon.Nukecs.Tests
             World.DisposeStatic();
             SpriteAnimationsStorage.Instance.Dispose();
             SpriteArchetypesStorage.Singleton.Dispose();
-            
         }
 
         private Entity CreatePlayer() {
@@ -484,14 +483,6 @@ namespace Wargon.Nukecs.Tests
                     gun.CooldownCounter = gun.Cooldown; 
                 }
             }
-        }
-    }
-
-    public class GenTestSystem : System<DynamicBuffer<Child>>
-    {
-        public override void OnUpdate(ref Entity entity, ref DynamicBuffer<Child> component, float deltaTime)
-        {
-            
         }
     }
 }
