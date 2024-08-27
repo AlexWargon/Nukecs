@@ -152,6 +152,18 @@
                 count++;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void Remove(int entity, int component, int thread)
+            {
+                var cmd = new ECBCommand {
+                    Entity = entity, 
+                    EcbCommandType = ECBCommand.Type.RemoveComponent, 
+                    ComponentType = component
+                };
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+                count++;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Destroy(int entity, int thread) {
                 var cmd = new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.DestroyEntity};
                 var buffer = perThreadBuffer->ElementAt(thread);
@@ -287,7 +299,11 @@
         public void Remove<T>(int entity) where T : unmanaged {
             ecb->Remove<T>(entity, JobsUtility.ThreadIndex);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Remove(int entity, int component)
+        {
+            ecb->Remove(entity, component, ThreadIndex);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnableGameObject(int entity, bool value) {
             ecb->EnableGameObject(entity, value, ThreadIndex);

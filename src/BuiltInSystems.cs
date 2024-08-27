@@ -22,14 +22,17 @@ namespace Wargon.Nukecs{
             world.Dependencies = new OnPrefabSpawnJob{world = world.Unsafe}.Schedule(world.Dependencies);
         }
         [BurstCompile]
-        internal unsafe struct OnPrefabSpawnJob : IJob {
+        private struct OnPrefabSpawnJob : IJob {
             [NativeDisableUnsafePtrRestriction]
             public World.WorldUnsafe* world;
-            public void Execute(){
-                foreach (var e in world->prefabesToSpawn)
+            public void Execute()
+            {
+                for (var index = 0; index < world->prefabesToSpawn.Length; index++)
                 {
+                    ref var e = ref world->prefabesToSpawn.ElementAtNoCheck(index);
                     e.Remove<IsPrefab>();
                 }
+
                 if(world->prefabesToSpawn.m_length > 0){
                     world->prefabesToSpawn.Clear();
                 }

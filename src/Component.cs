@@ -93,7 +93,6 @@ namespace Wargon.Nukecs {
         /// Components count that are using right now
         /// </summary>
         public static readonly SharedStatic<int> Count = SharedStatic<int>.GetOrCreate<Component>();
-
         private static bool _initialized;
         static Component() {
             Count.Data = 0;
@@ -127,22 +126,29 @@ namespace Wargon.Nukecs {
         public bool isDisposable;
     }
     public struct ComponentType<T> where T : unmanaged {
-        internal static readonly SharedStatic<int> ID = SharedStatic<int>.GetOrCreate<ComponentType<T>>();
+        private static readonly SharedStatic<ComponentType> ID = SharedStatic<ComponentType>.GetOrCreate<ComponentType<T>>();
 
         public static unsafe int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => *(int*) ID.UnsafeDataPointer;
+            get => (*(ComponentType*) ID.UnsafeDataPointer).index;
         }
+
+        internal static unsafe ref ComponentType Data
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref UnsafeUtility.AsRef<ComponentType>(ID.UnsafeDataPointer);
+        }
+        
         static ComponentType() {
             Init();
         }
         [BurstDiscard]
         private static void Init() {
-            ID.Data = Component.Count.Data++;
+            var id = Component.Count.Data++;
             ComponentsMap.Init();
-            ComponentsMap.Add(typeof(T), ID.Data);
-            ComponentsMap.AddComponentType<T>(UnsafeUtility.AlignOf<T>(), Index, UnsafeUtility.SizeOf<T>());
-            BoxedWriters.CreateWriter<T>(Index);
+            ComponentsMap.Add(typeof(T), id);
+            ID.Data =  ComponentsMap.AddComponentType<T>(id);
+            BoxedWriters.CreateWriter<T>(id);
         }
     }
 
@@ -158,19 +164,24 @@ namespace Wargon.Nukecs {
         public static void Init() {
             if(_initialized) return;
             cache = new ComponentsMapCache();
-            ComponentTypes.Data =
-                new NativeHashMap<int, ComponentType>(ComponentAmount.Value.Data + 1, Allocator.Persistent);
+            ComponentTypes.Data = new NativeHashMap<int, ComponentType>(ComponentAmount.Value.Data + 1, Allocator.Persistent);
             _initialized = true;
         }
 
-        public static void AddComponentType<T>(int align, int index, int size) {
-            ComponentTypes.Data.TryAdd(index, new ComponentType {
-                align = align,
+        public static ComponentType AddComponentType<T>(int index) where T : struct
+        {
+            var size = UnsafeUtility.SizeOf<T>();
+            var data = new ComponentType
+            {
+                align = UnsafeUtility.AlignOf<T>(),
                 size = size,
                 index = index,
                 isTag = size == 1,
                 isDisposable = typeof(IDisposable).IsAssignableFrom(typeof(T))
-            });
+            };
+            ComponentTypes.Data.TryAdd(index, data);
+
+            return data;
         }
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
         public static void Add(Type type, int index) {
@@ -188,7 +199,11 @@ namespace Wargon.Nukecs {
         public static void Save() {
             //ComponentsMapCache.Save(cache);
         }
-        
+
+        public static void Dispose()
+        {
+            ComponentTypes.Data.Dispose();
+        }
     }
 
     [Serializable]
