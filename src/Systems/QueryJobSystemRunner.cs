@@ -8,17 +8,18 @@ namespace Wargon.Nukecs
         public SystemMode Mode;
         public ECBJob EcbJob;
 
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
-
+        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle, UpdateContext updateContext) {
+            
             if (Mode == SystemMode.Main) {
+                world.CurrentContext = updateContext;
                 System.OnUpdate(ref Query, dt);
-                EcbJob.ECB = world.ECB;
+                EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.Run();
             }
             else {
                 jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
-                EcbJob.ECB = world.ECB;
+                EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 jobHandle = EcbJob.Schedule(jobHandle);
             }

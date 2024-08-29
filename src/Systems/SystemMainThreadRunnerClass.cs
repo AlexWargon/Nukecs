@@ -6,9 +6,10 @@ namespace Wargon.Nukecs
         internal TSystem System;
         internal ECBJob EcbJob;
 
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle) {
+        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle, UpdateContext updateContext) {
+            world.CurrentContext = updateContext;
             System.OnUpdate(ref world, dt);
-            EcbJob.ECB = world.ECB;
+            EcbJob.ECB = world.GetEcbVieContext(updateContext);
             EcbJob.world = world;
             return EcbJob.Schedule(jobHandle);
         }

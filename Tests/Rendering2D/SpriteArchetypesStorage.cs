@@ -42,7 +42,7 @@ namespace Wargon.Nukecs.Tests {
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.Unsafe->config.StartEntitiesAmount),
+                Chunk = SpriteChunk.Create(world.UnsafeWorld->config.StartEntitiesAmount),
                 camera = Camera.main
             };
             archetypes[count] = arch;
@@ -66,7 +66,7 @@ namespace Wargon.Nukecs.Tests {
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.Unsafe->config.StartEntitiesAmount),
+                Chunk = SpriteChunk.Create(world.UnsafeWorld->config.StartEntitiesAmount),
                 camera = Camera.main
             };
             archetypes[count] = arch;
@@ -399,22 +399,22 @@ namespace Wargon.Nukecs.Tests {
         public void OnUpdate(ref World world, float deltaTime) {
             var data = CullingData.instance;
             var transforms = world.GetPool<Transform>().AsComponentPool<Transform>();
-            world.Dependencies = new CullJob {
+            world.DependenciesUpdate = new CullJob {
                 xMax = data.xMax,
                 xMin = data.xMin,
                 yMax = data.yMax,
                 yMin = data.yMin,
                 transforms = transforms,
                 query = unculled,
-            }.Schedule(unculled.Count, 1, world.Dependencies);
-            world.Dependencies = new UnCullJob {
+            }.Schedule(unculled.Count, 1, world.DependenciesUpdate);
+            world.DependenciesUpdate = new UnCullJob {
                 xMax = data.xMax,
                 xMin = data.xMin,
                 yMax = data.yMax,
                 yMin = data.yMin,
                 transforms = transforms,
                 query = culled,
-            }.Schedule(culled.Count, 1, world.Dependencies);
+            }.Schedule(culled.Count, 1, world.DependenciesUpdate);
         }
         [BurstCompile]
         private struct CullJob : IJobParallelFor {
