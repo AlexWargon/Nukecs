@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
@@ -17,6 +19,7 @@ namespace Wargon.Nukecs.Collision2D
         public void OnUpdate(ref World world, float deltaTime) {
             var grind2D = Grid2D.Instance;
             grind2D.Hits.Clear();
+            
             var collisionJob1 = new Collision2DHitsParallelJob {
                 colliders = colliders.AsComponentPool<Circle2D>(),
                 transforms = transforms.AsComponentPool<Transform>(),
@@ -32,7 +35,7 @@ namespace Wargon.Nukecs.Collision2D
                 iterations = 1,
                 world = world
             };
-            world.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.Dependencies);
+            world.DependenciesUpdate = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.DependenciesUpdate);
         }
     }
 }  

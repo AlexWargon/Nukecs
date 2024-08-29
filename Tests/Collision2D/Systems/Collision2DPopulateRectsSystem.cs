@@ -29,7 +29,7 @@ namespace Wargon.Nukecs.Collision2D {
                 W = grid2D.W,
                 H = grid2D.H
             };
-            world.Dependencies = populateJob.Schedule(query.Count, 1, world.Dependencies);
+            world.DependenciesUpdate = populateJob.Schedule(query.Count, 1, world.DependenciesUpdate);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]

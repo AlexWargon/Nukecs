@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.Tests
     public class EcsTest : MonoBehaviour {
         [SerializeField] private int fps = 144;
         private World world;
-        private Systems systems;
+        private Systems updateSystems;
         private Systems fixedSystems;
         public SpriteAnimationList animationData;
         public SpriteData bulletSprite;
@@ -25,12 +25,11 @@ namespace Wargon.Nukecs.Tests
             world = World.Create(WorldConfig.Default_1_000_000);
             const int cellSize = 2;
             var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
-            systems = new Systems(ref world)
+            updateSystems = new Systems(ref world)
 
                 .Add<SpriteRenderSystem>()
                 .Add<UpdateCameraCullingSystem>()
-                .Add<UpdateTransformOnAddChildSystem>()
-                .Add<TransformChildSystem>()
+
                 //.Add<CullingSystem>()
                 .Add<LifetimeSystem>()
                 .Add<ClearRenderOnEntityDestroySystem>()
@@ -45,11 +44,14 @@ namespace Wargon.Nukecs.Tests
                 //.Add<RotateSpriteSystem>()
                 .Add<GunRotationSystem>()
                 .Add<ShootSystem>()
-                .Add(new Collision2DGroup(ref world))
                 
                 //.Add<ViewSystem>()
                 ;
-
+            fixedSystems = new Systems(ref world)
+                    .Add<UpdateTransformOnAddChildSystem>()
+                    .Add<TransformChildSystem>()
+                    .Add(new Collision2DGroup(ref world))
+                ;
             CreateBulletPrefab();
             CreateGunPrefab(float3.zero);
             CreatePlayerPrefab();
@@ -109,8 +111,8 @@ namespace Wargon.Nukecs.Tests
 
         private void Update() {
             unsafe {
-                reserved = world.Unsafe->reservedEntities.Length;
-                entities = world.Unsafe->entitiesAmount;
+                reserved = world.UnsafeWorld->reservedEntities.Length;
+                entities = world.UnsafeWorld->entitiesAmount;
             }
             
             if (UnityEngine.Input.GetKey(KeyCode.Space)) {
@@ -120,7 +122,11 @@ namespace Wargon.Nukecs.Tests
             }
 
             InputService.Singleton.Update();
-            systems.OnUpdate(Time.deltaTime);
+            updateSystems.OnUpdate(Time.deltaTime);
+        }
+
+        private void FixedUpdate() {
+            fixedSystems.OnFixedUpdate(Time.fixedDeltaTime);
         }
 
         private void AddChild(Entity parent, Entity prefab, int depth) {
@@ -137,7 +143,7 @@ namespace Wargon.Nukecs.Tests
         }
 
         private void OnDestroy() {
-            world.Dependencies.Complete();
+            world.DependenciesUpdate.Complete();
             Grid2D.Instance.Clear();
             world.Dispose();
             World.DisposeStatic();

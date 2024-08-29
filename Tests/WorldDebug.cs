@@ -22,12 +22,12 @@ namespace Wargon.Nukecs.Editor {
             //Label label = new Label("Hello World!");
             ref var w = ref World.Get(0);
             if(w.IsAlive == false) return;
-            for (var index = 0; index < w.Unsafe->queries.Length; index++) {
-                QueryUnsafe* ptr = w.Unsafe->queries[index];
+            for (var index = 0; index < w.UnsafeWorld->queries.Length; index++) {
+                QueryUnsafe* ptr = w.UnsafeWorld->queries[index];
                 var queryLabel = QueryInfo(ptr, index);
                 root.Add(queryLabel);
             }
-            foreach (var kvPair in w.Unsafe->archetypesMap) {
+            foreach (var kvPair in w.UnsafeWorld->archetypesMap) {
                 var label = ArchetypeInfo(kvPair.Value, kvPair.Key);
                 root.Add(label);
             }

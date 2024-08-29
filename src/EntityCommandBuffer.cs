@@ -343,7 +343,7 @@
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             ref var e = ref world.GetEntity(cmd.Entity);
-                            ref var pool = ref world.Unsafe->GetUntypedPool(cmd.ComponentType);
+                            ref var pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
                             // pool.SetPtr(e.id, cmd.Component);
                             UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                             
@@ -387,11 +387,11 @@
 
                 for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-                    ref var archetype = ref *world.Unsafe->entitiesArchetypes.ElementAt(cmd.Entity).impl;
+                    ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             if(archetype.Has(cmd.ComponentType)) break;
-                            ref var pool = ref world.Unsafe->GetUntypedPool(cmd.ComponentType);
+                            ref var pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
                             pool.SetPtr(cmd.Entity, cmd.Component);
                             UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                             archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);

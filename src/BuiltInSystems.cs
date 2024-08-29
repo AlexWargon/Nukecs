@@ -19,7 +19,7 @@ namespace Wargon.Nukecs{
     {
         public void OnUpdate(ref World world, float deltaTime)
         {
-            world.Dependencies = new OnPrefabSpawnJob{world = world.Unsafe}.Schedule(world.Dependencies);
+            world.DependenciesUpdate = new OnPrefabSpawnJob{world = world.UnsafeWorld}.Schedule(world.DependenciesUpdate);
         }
         [BurstCompile]
         private struct OnPrefabSpawnJob : IJob {

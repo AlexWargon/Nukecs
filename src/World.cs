@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using System.Threading;
+
+namespace Wargon.Nukecs {
 
     using System;
     using System.Runtime.CompilerServices;
@@ -20,7 +22,7 @@
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.Unsafe = WorldUnsafe.Create(id, WorldConfig.Default_1_000_000);
+            world.UnsafeWorld = WorldUnsafe.Create(id, WorldConfig.Default_1_000_000);
             worlds[id] = world;
             return world;
         }
@@ -29,7 +31,7 @@
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.Unsafe = WorldUnsafe.Create(id, config);
+            world.UnsafeWorld = WorldUnsafe.Create(id, config);
             worlds[id] = world;
             return world;
         }
@@ -37,12 +39,20 @@
             ComponentsMap.Dispose();
             ComponentsMap.Save();
         }
-        public bool IsAlive => Unsafe != null;
+        public bool IsAlive => UnsafeWorld != null;
         [NativeDisableUnsafePtrRestriction] 
-        internal WorldUnsafe* Unsafe;
-        internal ref EntityCommandBuffer ECB => ref Unsafe->ECB;
-
-        public ref JobHandle Dependencies => ref Unsafe->systemsJobDependencies;
+        internal WorldUnsafe* UnsafeWorld;
+        internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ref EntityCommandBuffer GetEcbVieContext(UpdateContext context) {
+            return ref context == UpdateContext.Update ? ref UnsafeWorld->ECBUpdate : ref UnsafeWorld->ECBFixed;
+        }
+        internal UpdateContext CurrentContext {
+            get => UnsafeWorld->CurrentContext;
+            set => UnsafeWorld->CurrentContext = value;
+        }
+        public ref JobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
+        public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
         internal struct WorldUnsafe {
             internal readonly int Id;
@@ -58,12 +68,26 @@
             internal UnsafePtrList<ArchetypeImpl> archetypesList;
             
             internal WorldConfig config;
-            internal DynamicBitmask poolsMask;
-            internal EntityCommandBuffer ECB;
+
+            internal ref EntityCommandBuffer ECB {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref currentContext == UpdateContext.Update ? ref self->ECBUpdate : ref self->ECBFixed;
+            }
+            internal EntityCommandBuffer ECBUpdate;
+            internal EntityCommandBuffer ECBFixed;
+            
+            private UpdateContext currentContext;
+
+            internal UpdateContext CurrentContext {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)] get => currentContext;
+                [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
+            }
+            
             [NativeDisableUnsafePtrRestriction] 
             internal WorldUnsafe* self;
 
-            internal JobHandle systemsJobDependencies;
+            internal JobHandle systemsUpdateJobDependencies;
+            internal JobHandle systemsFixedUpdateJobDependencies;
             internal readonly int job_worker_count;
             internal UnsafeList<int> DefaultNoneTypes;
             internal int entitiesAmount;
@@ -98,15 +122,18 @@
                 this.lastEntityIndex = 1;
                 this.poolsCount = 0;
                 this.config = config;
-                this.poolsMask = DynamicBitmask.CreateForComponents();
-                this.ECB = new EntityCommandBuffer(256);
-                this.systemsJobDependencies = default;
+                this.systemsUpdateJobDependencies = default;
+                this.systemsFixedUpdateJobDependencies = default;
                 this.DefaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
-                this.self = self;
+                
                 job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 entitiesAmount = 0;
+                this.ECBUpdate = new EntityCommandBuffer(256);
+                this.ECBFixed = new EntityCommandBuffer(256);
+                this.currentContext = UpdateContext.Update;
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<IsPrefab>.Index;
+                this.self = self;
                 SetDefaultNone();
             }
 
@@ -140,8 +167,8 @@
                 archetypesList.Dispose();
                 archetypesMap.Dispose();
                 poolsCount = 0;
-                poolsMask.Dispose();
-                ECB.Dispose();
+                ECBUpdate.Dispose();
+                ECBFixed.Dispose();
                 DefaultNoneTypes.Dispose();
                 reservedEntities.Dispose();
                 prefabesToSpawn.Dispose();
@@ -301,32 +328,32 @@
         }
 
         public void Dispose() {
-            if (Unsafe == null) return;
-            var id = Unsafe->Id;
+            if (UnsafeWorld == null) return;
+            var id = UnsafeWorld->Id;
             lastFreeSlot = id;
-            Unsafe->Free();
-            var allocator = Unsafe->allocator;
-            UnsafeUtility.Free(Unsafe, allocator);
-            Unsafe = null;
+            UnsafeWorld->Free();
+            var allocator = UnsafeWorld->allocator;
+            UnsafeUtility.Free(UnsafeWorld, allocator);
+            UnsafeWorld = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref GenericPool GetPool<T>() where T : unmanaged {
-            return ref Unsafe->GetPool<T>();
+            return ref UnsafeWorld->GetPool<T>();
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity Entity() {
-            return Unsafe->CreateEntity();
+            return UnsafeWorld->CreateEntity();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity SpawnPrefab(in Entity prefab) {
-            return Unsafe->SpawnPrefab(in prefab);
+            return UnsafeWorld->SpawnPrefab(in prefab);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity Entity<T1>(in T1 c1) where T1 : unmanaged, IComponent {
-            return Unsafe->CreateEntity(in c1);
+            return UnsafeWorld->CreateEntity(in c1);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -334,26 +361,26 @@
             where T1 : unmanaged, IComponent 
             where T2 : unmanaged, IComponent
         {
-            return Unsafe->CreateEntity(in c1, in c2);
+            return UnsafeWorld->CreateEntity(in c1, in c2);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int id) {
-            return ref Unsafe->GetEntity(id);
+            return ref UnsafeWorld->GetEntity(id);
         }
 
         public Query Query() {
-            return new Query(Unsafe->Query());
+            return new Query(UnsafeWorld->Query());
         }
 
         public Query Query<T>() where T: struct, ITuple {
-            return new Query(Unsafe->Query());
+            return new Query(UnsafeWorld->Query());
         }
         public Query Query<T>(byte dymmy = 1) where T: struct, IFilter {
-            return new Query(Unsafe->Query());
+            return new Query(UnsafeWorld->Query());
         }
         public void Update() {
-            Unsafe->ECB.Playback(ref this);
+            UnsafeWorld->ECB.Playback(ref this);
         }
     }
 

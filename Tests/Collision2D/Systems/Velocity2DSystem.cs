@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Burst;
@@ -14,6 +16,7 @@ namespace Wargon.Nukecs.Collision2D
         public void OnUpdate(ref Entity entity, float deltaTime)
         {
             ref var body = ref entity.Get<Body2D>();
+            
             ref var transform = ref entity.Get<Transform>();
             transform.Position = new float3(transform.Position.x + body.velocity.x, transform.Position.y + body.velocity.y, transform.Position.z);
 

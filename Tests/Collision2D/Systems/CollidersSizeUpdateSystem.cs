@@ -16,11 +16,11 @@ namespace Wargon.Nukecs.Collision2D
         }
         public void OnUpdate(ref World world, float deltaTime)
         {
-            world.Dependencies = new Job {
+            world.DependenciesUpdate = new Job {
                     transforms = transforms.AsComponentPool<Transform>(),
                     circles = circles.AsComponentPool<Circle2D>(),
                     query = query
-            }.Schedule(query.Count, 1, world.Dependencies);
+            }.Schedule(query.Count, 1, world.DependenciesUpdate);
         }
 
 
