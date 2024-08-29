@@ -1,6 +1,4 @@
-﻿using System.Collections;
-
-namespace Wargon.Nukecs {
+﻿namespace Wargon.Nukecs {
     
     using System;
     using System.Collections.Generic;
@@ -148,7 +146,7 @@ namespace Wargon.Nukecs {
             ComponentsMap.Init();
             ComponentsMap.Add(typeof(T), id);
             ID.Data =  ComponentsMap.AddComponentType<T>(id);
-            BoxedWriters.CreateWriter<T>(id);
+            ComponentHelpers.CreateWriter<T>(id);
         }
     }
 
@@ -278,18 +276,28 @@ namespace Wargon.Nukecs {
         }
     }
 
-    internal static class BoxedWriters
+    internal static class ComponentHelpers
     {
         private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[8];
-
+        private static IComponentDisposer[] disposers = new IComponentDisposer[8];
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
             if (typeIndex >= writers.Length) {
                 Array.Resize(ref writers, typeIndex + 16);
             }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
         }
+        
+        internal static void CreateDisposer<T>(int typeIndex)  where T : unmanaged, IComponent, IDisposable {
+            if (typeIndex >= disposers.Length) {
+                Array.Resize(ref disposers, typeIndex + 16);
+            }
+            disposers[typeIndex] = new ComponentDisposer<T>();
+        }
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
+        }
+        internal static unsafe void Dispose(void* buffer, int index,int typeIndex){
+            disposers[typeIndex].Dispose(buffer, index);
         }
     }
     public unsafe interface IUnsafeBufferWriter {
@@ -301,7 +309,17 @@ namespace Wargon.Nukecs {
             UnsafeUtility.WriteArrayElement(buffer, index, (T)component);
         }
     }
+    
+    public unsafe interface IComponentDisposer {
+        void Dispose(void* buffer, int index);
+    }
 
+    public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged, IComponent, IDisposable {
+        public unsafe void Dispose(void* buffer, int index) {
+            ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, index);
+            component.Dispose();
+        }
+    }
     public interface IPool {
         
     }

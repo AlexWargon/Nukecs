@@ -115,6 +115,7 @@ namespace Wargon.Nukecs {
                 CheckResize(index);
                 UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, impl->elementSize);
             }
+            impl->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value) {
@@ -127,6 +128,7 @@ namespace Wargon.Nukecs {
                     UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
                 }
             }
+            impl->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
@@ -137,6 +139,7 @@ namespace Wargon.Nukecs {
                 CheckResize(index);
                 UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, sizeInBytes);
             }
+            impl->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
@@ -145,8 +148,9 @@ namespace Wargon.Nukecs {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
                 }
                 CheckResize(index);
-                BoxedWriters.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
+                ComponentHelpers.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
             }
+            impl->count++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

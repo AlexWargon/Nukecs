@@ -22,7 +22,7 @@ namespace Wargon.Nukecs.Tests
         void Awake() {
             Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
-            world = World.Create(WorldConfig.Default_1_000_000);
+            world = World.Create(WorldConfig.Default16384);
             const int cellSize = 2;
             var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
             updateSystems = new Systems(ref world)
@@ -75,7 +75,7 @@ namespace Wargon.Nukecs.Tests
             playerPrefab.Add(new GunReference());
             playerPrefab.Add(new Body2D());
             //playerPrefab.AddBuffer<Collision2DData>();
-            
+
             playerPrefab.Get<SpriteChunkReference>().ChunkRef.Remove(in playerPrefab);
         }
 
