@@ -1,14 +1,16 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Text;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
-using UnityEngine;
+﻿
 
 namespace Wargon.Nukecs {
+    
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
+    using System.Text;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Unity.Mathematics;
+    
     public readonly unsafe struct Query : IDisposable {
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
         public int Count {

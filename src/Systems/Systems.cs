@@ -6,6 +6,7 @@ using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+using UnityEngine;
 using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs
@@ -506,19 +507,22 @@ namespace Wargon.Nukecs
     {
         private Query query;
         private GenericPool pool;
+        public void OnCreate(ref World world)
+        {
+            query = world.Query().With<T>().With<Dispose<T>>();
+            pool = world.GetPool<T>();
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void OnUpdate(ref World world, float deltaTime)
         {
             if(query.Count == 0) return;
             foreach (ref var entity in query)
             {
                 world.UnsafeWorld->Dispose<T>(ref pool, ref entity);
+                Debug.Log($"{entity.id} {typeof(T).Name} Disposed");
             }
         }
-        public void OnCreate(ref World world)
-        {
-            query = world.Query().With<T>().With<Dispose<T>>();
-            pool = world.GetPool<T>();
-        }
+
     }
     
     [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]

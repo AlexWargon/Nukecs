@@ -66,7 +66,7 @@ namespace Wargon.Nukecs {
         {
             if (component == null)
             {
-                return new byte[0];
+                return Array.Empty<byte>();
             }
 
             using (MemoryStream ms = new MemoryStream())
