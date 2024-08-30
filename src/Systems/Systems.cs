@@ -173,10 +173,10 @@ namespace Wargon.Nukecs
             for (var i = 0; i < runners.Count; i++) {
                 world.DependenciesUpdate = runners[i].Schedule(ref world, dt, ref world.DependenciesUpdate, UpdateContext.Update);
             }
-            for (var i = 0; i < disposeSystems.Count; i++)
-            {
-                world.DependenciesUpdate = disposeSystems[i].Schedule(ref world, dt, ref world.DependenciesUpdate, UpdateContext.Update);
-            }
+            //for (var i = 0; i < disposeSystems.Count; i++)
+            //{
+            //    world.DependenciesUpdate = disposeSystems[i].Schedule(ref world, dt, ref world.DependenciesUpdate, UpdateContext.Update);
+            //}
         }
         public void OnFixedUpdate(float dt) {
             world.DependenciesFixedUpdate.Complete();

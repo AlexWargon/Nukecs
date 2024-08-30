@@ -1,11 +1,8 @@
 ﻿namespace Wargon.Nukecs {
     
     using System;
-    using System.Collections.Generic;
-    using System.IO;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
-    using System.Runtime.Serialization.Formatters.Binary;
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
@@ -13,6 +10,14 @@
     using UnityEngine;
 
     public interface IComponent { }
+
+    public interface IDisposable<T> {
+        void Dispose(ref T value);
+    }
+
+    public interface ICopyable<T> {
+        T Copy(ref T toCopy);
+    }
     public struct IsAlive : IComponent { }
     public struct DestroyEntity : IComponent { }
     public struct IsPrefab : IComponent { }
@@ -26,63 +31,7 @@
             return Value == other.Value;
         }
     }
-    public unsafe struct DynamicBuffer<T> : IComponent, IDisposable where T : unmanaged {
-        internal UnsafeList<T> list;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public DynamicBuffer(int capacity) {
-            list = new UnsafeList<T>(capacity, Allocator.Persistent);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref T ElementAt(int index) => ref list.Ptr[index];
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(in T item) {
-            list.Add(in item);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void RemoveAt(int index) {
-            list.RemoveAt(index);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Clear() {
-            list.Clear();
-        }
-        public void Dispose() {
-            list.Dispose();
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Enumerator GetEnumerator() {
-            fixed (UnsafeList<T>* ptr = &list) {
-                return new Enumerator(ptr);
-            }
-        }
-        public struct Enumerator {
-            public UnsafeList<T>* listPtr;
-            private int index;
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public Enumerator(UnsafeList<T>* list) {
-                listPtr = list;
-                index = -1;
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext() {
-                index++;
-                return index < listPtr->m_length;
-            }
-            public void Reset() {
-                index = -1;
-            }
 
-            public ref T Current {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref listPtr->Ptr[index];
-            }
-
-            public void Dispose() {
-                
-            }
-        }
-    }
-    
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -114,147 +63,8 @@
             _initialized = true;
         }
     }
+
     
-    [Serializable]
-    public struct ComponentType {
-        public int size;
-        public int index;
-        public int align;
-        public bool isTag;
-        public bool isDisposable;
-    }
-    public struct ComponentType<T> where T : unmanaged {
-        private static readonly SharedStatic<ComponentType> ID = SharedStatic<ComponentType>.GetOrCreate<ComponentType<T>>();
-
-        public static unsafe int Index {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (*(ComponentType*) ID.UnsafeDataPointer).index;
-        }
-
-        internal static unsafe ref ComponentType Data
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref UnsafeUtility.AsRef<ComponentType>(ID.UnsafeDataPointer);
-        }
-        
-        static ComponentType() {
-            Init();
-        }
-        [BurstDiscard]
-        private static void Init() {
-            var id = Component.Count.Data++;
-            ComponentsMap.Init();
-            ComponentsMap.Add(typeof(T), id);
-            ID.Data =  ComponentsMap.AddComponentType<T>(id);
-            ComponentHelpers.CreateWriter<T>(id);
-        }
-    }
-
-    internal struct ComponentsMap {
-        private static ComponentsMapCache cache;
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
-        private static bool _initialized = false;
-        public static List<int> TypesIndexes => cache.TypesIndexes;
-        static ComponentsMap() {
-            ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentsMap>();
-        }
-        [BurstDiscard]
-        public static void Init() {
-            if(_initialized) return;
-            cache = new ComponentsMapCache();
-            ComponentTypes.Data = new NativeHashMap<int, ComponentType>(ComponentAmount.Value.Data + 1, Allocator.Persistent);
-            _initialized = true;
-        }
-
-        public static ComponentType AddComponentType<T>(int index) where T : struct
-        {
-            var size = UnsafeUtility.SizeOf<T>();
-            var data = new ComponentType
-            {
-                align = UnsafeUtility.AlignOf<T>(),
-                size = size,
-                index = index,
-                isTag = size == 1,
-                isDisposable = typeof(IDisposable).IsAssignableFrom(typeof(T))
-            };
-            ComponentTypes.Data.TryAdd(index, data);
-
-            return data;
-        }
-        public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
-        public static void Add(Type type, int index) {
-            cache.Add(type, index);
-        }
-        public static Type GetType(int index) => cache.GetType(index);
-        public static int Index(Type type) => cache.Index(type);
-        public static int Index(string name) {
-            return cache.Index(name);
-        }
-        static void StaticClass_Dtor(object sender, EventArgs e) {
-            ComponentsMapCache.Save(cache);
-        }
-
-        public static void Save() {
-            //ComponentsMapCache.Save(cache);
-        }
-
-        public static void Dispose()
-        {
-            ComponentTypes.Data.Dispose();
-        }
-    }
-
-    [Serializable]
-    public class ComponentsMapCache {
-        private readonly Dictionary<int, Type> _typeByIndex = new();
-        private readonly Dictionary<Type, int> _indexByType = new();
-        private readonly Dictionary<string, Type> _nameToType = new();
-        public readonly List<int> TypesIndexes = new();
-
-        public void Add(Type type, int index) {
-            _typeByIndex[index] = type;
-            _indexByType[type] = index;
-            if (TypesIndexes.Contains(index) == false)
-                TypesIndexes.Add(index);
-            _nameToType[type.FullName] = type;
-        }
-
-        public Type GetType(int index) => _typeByIndex[index];
-        public int Index(Type type) => _indexByType[type];
-
-        public int Index(string name) {
-            return _indexByType[_nameToType[name]];
-        }
-
-        public static void Save(ComponentsMapCache mapCache) {
-            var dataStream =
-                new FileStream(Application.dataPath + "/Resources/ComponentsMap.nuke", FileMode.OpenOrCreate);
-            var converter = new BinaryFormatter();
-            converter.Serialize(dataStream, mapCache);
-            dataStream.Close();
-            //Debug.Log("SAVED");
-        }
-
-        public static ComponentsMapCache Load() {
-            var filePath = Application.dataPath + "/Resources/ComponentsMap.nuke";
-            ComponentsMapCache saveData;
-            if (File.Exists(filePath)) {
-                // File exists 
-                var dataStream = new FileStream(filePath, FileMode.Open);
-                var converter = new BinaryFormatter();
-                saveData = converter.Deserialize(dataStream) as ComponentsMapCache;
-                dataStream.Close();
-                return saveData;
-            }
-            else {
-                // File does not exist
-                Debug.LogError("Save file not found in " + filePath);
-                saveData = new ComponentsMapCache();
-                Save(saveData);
-                return saveData;
-            }
-        }
-    }
 
     public static class MemoryDebug
     {
@@ -278,19 +88,16 @@
 
     internal static class ComponentHelpers
     {
-        private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[8];
-        private static IComponentDisposer[] disposers = new IComponentDisposer[8];
+        static ComponentHelpers() {
+            writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
+            disposers = new IComponentDisposer[ComponentAmount.Value.Data];
+        }
+        private static readonly IUnsafeBufferWriter[] writers;
+        private static readonly IComponentDisposer[] disposers;
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
-            if (typeIndex >= writers.Length) {
-                Array.Resize(ref writers, typeIndex + 16);
-            }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
         }
-        
-        internal static void CreateDisposer<T>(int typeIndex)  where T : unmanaged, IComponent, IDisposable {
-            if (typeIndex >= disposers.Length) {
-                Array.Resize(ref disposers, typeIndex + 16);
-            }
+        internal static void CreateDisposer<T>(int typeIndex)  where T : unmanaged{
             disposers[typeIndex] = new ComponentDisposer<T>();
         }
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
@@ -314,10 +121,44 @@
         void Dispose(void* buffer, int index);
     }
 
-    public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged, IComponent, IDisposable {
+    public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged {
+        private delegate void DisposeDelegate(ref T value);
+
+        private readonly DisposeDelegate disposeFunc;
+#if ENABLE_IL2CPP && !UNITY_EDITOR
+        T _fakeInstance;
+#endif
+        public ComponentDisposer() {
+            var dispose = typeof(T).GetMethod(nameof(IDisposable<T>.Dispose));
+            if (dispose == null) {
+                throw new Exception (
+                    $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
+            }
+            disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(
+                typeof(DisposeDelegate),
+#if ENABLE_IL2CPP && !UNITY_EDITOR
+                    _fakeInstance,
+#else
+                null,
+#endif
+                dispose);
+        }
         public unsafe void Dispose(void* buffer, int index) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, index);
-            component.Dispose();
+            disposeFunc.Invoke(ref component);
+        }
+    }
+
+    public unsafe interface IComponentCopper {
+        void Copy(void* buffer, int from, int to);
+    }
+
+    public class ComponentCopper<T> : IComponentCopper where T : unmanaged {
+        private delegate ref T CopyDelegate(ref T value);
+        private readonly CopyDelegate copyFunc;
+        public unsafe void Copy(void* buffer, int from, int to) {
+            ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
+            UnsafeUtility.WriteArrayElement(buffer, to, copyFunc.Invoke(ref component));
         }
     }
     public interface IPool {
@@ -364,7 +205,7 @@
     [BurstCompile(CompileSynchronously = true)]
     public static class DynamicBufferExtensions {
         [BurstCompile(CompileSynchronously = true)]
-        public static int RemoveAtSwapBack<T>(this ref DynamicBuffer<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+        public static int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             int index = 0;
             for (int i = 0; i < buffer.list.Length; i++) {
                 if (item.Equals(buffer.list.ElementAt(i))) {

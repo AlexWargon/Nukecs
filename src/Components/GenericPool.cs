@@ -46,8 +46,9 @@ namespace Wargon.Nukecs {
             internal int capacity;
             internal int componentTypeIndex;
             internal int align;
+            internal ComponentType ComponentType;
             internal Allocator allocator;
-
+            
             internal static Impl* CreateImpl<T>(int size, Allocator allocator) where T : unmanaged {
                 var ptr = (Impl*) UnsafeUtility.Malloc(sizeof(Impl), UnsafeUtility.AlignOf<Impl>(), allocator);
                 *ptr = new Impl {
@@ -57,8 +58,10 @@ namespace Wargon.Nukecs {
                     allocator = allocator,
                     buffer = (byte*) UnsafeUtility.Malloc(sizeof(T) * size, UnsafeUtility.AlignOf<T>(), allocator),
                     componentTypeIndex = ComponentType<T>.Index,
-                    align = UnsafeUtility.AlignOf<T>()
+                    align = UnsafeUtility.AlignOf<T>(),
+                    ComponentType = ComponentType<T>.Data
                 };
+
                 UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
                 return ptr;
             }
@@ -73,7 +76,8 @@ namespace Wargon.Nukecs {
                     allocator = allocator,
                     buffer = (byte*) UnsafeUtility.Malloc(type.size * size, type.align, allocator),
                     componentTypeIndex = type.index,
-                    align = type.align
+                    align = type.align,
+                    ComponentType = type
                 };
                 UnsafeUtility.MemClear(ptr->buffer, type.size * size);
                 return ptr;
@@ -152,7 +156,18 @@ namespace Wargon.Nukecs {
             }
             impl->count++;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Remove(int index) {
+            if (impl->ComponentType.isDisposable) {
+                DisposeComponent(index);
+            }
+            SetPtr(index, impl->ComponentType.defaultValue);
+            impl->count--;
+        }
+        [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void DisposeComponent(int index) {
+            ComponentHelpers.Dispose(impl->buffer, index, impl->componentTypeIndex);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
             if (impl->elementSize != 1) {
@@ -253,6 +268,20 @@ namespace Wargon.Nukecs {
         }
         public ref T Get(int index) {
             return ref _buffer[index];
+        }
+    }
+
+    public struct bbool {
+        internal byte value;
+
+        public static implicit operator bool(bbool v) {
+            return v.value == 1;
+        }
+
+        public static explicit operator bbool(bool value) {
+            return new bbool {
+                value = value ? (byte)1 : (byte)0
+            };
         }
     }
 }

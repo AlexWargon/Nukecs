@@ -120,7 +120,9 @@ namespace Wargon.Nukecs.Tests
                     SpawnPlayer();
                 }
             }
-
+            if (UnityEngine.Input.GetKey(KeyCode.R)) {
+                lastPlayer.Destroy();
+            }
             InputService.Singleton.Update();
             updateSystems.OnUpdate(Time.deltaTime);
         }
@@ -157,9 +159,11 @@ namespace Wargon.Nukecs.Tests
             e.AddBuffer<InventoryItem>();
             return e;
         }
+
+        private Entity lastPlayer;
         private void SpawnPlayer(){
             var e = world.SpawnPrefab(in playerPrefab);
-
+            lastPlayer = e;
             ref var t = ref e.Get<Transform>();
             t.Position = RandomEx.Float3(-5, 5);
             e.Get<SpriteChunkReference>().ChunkRef.Add(in e, t, in e.Get<SpriteRenderData>());
@@ -178,6 +182,9 @@ namespace Wargon.Nukecs.Tests
                 collideWith = CollisionLayer.Player,
                 index = e.id
             });
+
+            var buffer = e.AddBuffer<InventoryItem>();
+            buffer.Add(new InventoryItem());
         }
     }
 
@@ -307,7 +314,7 @@ namespace Wargon.Nukecs.Tests
         public SystemMode Mode => SystemMode.Parallel;
         private Query _playerQuery;
         public Query GetQuery(ref World world) {
-            return world.Query().With<AddItemEvent>().With<DynamicBuffer<InventoryItem>>();
+            return world.Query().With<AddItemEvent>().With<ComponentArray<InventoryItem>>();
         }
         public void OnCreate(ref World world) {
             _playerQuery = world.Query().With<Player>();

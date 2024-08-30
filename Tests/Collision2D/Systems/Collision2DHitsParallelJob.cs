@@ -170,7 +170,7 @@ namespace Wargon.Nukecs.Collision2D {
         {
             public World World;
             public NativeArray<HitInfo> hits;
-            public ComponentPool<DynamicBuffer<Collision2DData>> collisionsData;
+            public ComponentPool<ComponentArray<Collision2DData>> collisionsData;
             public void Execute(int index)
             {
                 var hit = hits[index];
@@ -193,7 +193,7 @@ namespace Wargon.Nukecs.Collision2D {
     public struct CollisionsClear : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world) {
-            return world.Query().With<DynamicBuffer<Collision2DData>>().With<CollidedFlag>();
+            return world.Query().With<ComponentArray<Collision2DData>>().With<CollidedFlag>();
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
