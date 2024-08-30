@@ -180,9 +180,14 @@ namespace Wargon.Nukecs {
             world->entitiesArchetypes.ElementAt(entity) = edge.toMove;
             edge.Execute(entity);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy(int entity) {
             destroyEdge.Execute(entity);
+            for (var index = 0; index < types.m_length; index++)
+            {
+                ref var pool = ref world->GetUntypedPool(types[index]);
+                pool.Remove(entity);
+            }
             world->OnDestroyEntity(entity);
         }
 

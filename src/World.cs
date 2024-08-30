@@ -146,6 +146,9 @@ namespace Wargon.Nukecs {
             }
 
             public void Free() {
+                for (int i = 0; i < entitiesAmount; i++) {
+                    
+                }
                 entities.Dispose();
                 entitiesArchetypes.Dispose();
                 for (var index = 0; index < poolsCount; index++) {
@@ -203,7 +206,6 @@ namespace Wargon.Nukecs {
                     UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
                     UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
-
                 Entity e;
                 entitiesAmount++;
                 

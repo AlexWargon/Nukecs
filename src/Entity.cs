@@ -59,26 +59,26 @@ namespace Wargon.Nukecs {
     public static unsafe class EntityExtensions {
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref DynamicBuffer<T> GetBuffer<T>(this ref Entity entity) where T : unmanaged {
-            ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
-            return ref pool.GetRef<DynamicBuffer<T>>(entity.id);
+        public static ref ComponentArray<T> GetBuffer<T>(this ref Entity entity) where T : unmanaged {
+            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref DynamicBuffer<T> AddBuffer<T>(this ref Entity entity) where T : unmanaged {
-            ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
-            pool.Set(entity.id, new DynamicBuffer<T>(6));
+        public static ref ComponentArray<T> AddBuffer<T>(this ref Entity entity) where T : unmanaged {
+            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            pool.Set(entity.id, new ComponentArray<T>(6));
             ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add<DynamicBuffer<T>>(entity.id);
-            return ref pool.GetRef<DynamicBuffer<T>>(entity.id);
+            ecb.Add<ComponentArray<T>>(entity.id);
+            return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void RemoveBuffer<T>(this ref Entity entity) where T : unmanaged , IComponent {
-            ref var pool = ref entity.worldPointer->GetPool<DynamicBuffer<T>>();
-            ref var buffer = ref pool.GetRef<DynamicBuffer<T>>(entity.id);
-            buffer.Dispose();
+            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            ref var buffer = ref pool.GetRef<ComponentArray<T>>(entity.id);
+            buffer.Dispose(ref buffer);
             ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Remove<DynamicBuffer<T>>(entity.id);
+            ecb.Remove<ComponentArray<T>>(entity.id);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent  {
@@ -114,16 +114,8 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Remove<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
-            if (ComponentType<T>.Data.isDisposable)
-            {
-                entity.Add(new Dispose<T>());
-            }
-            else
-            {
-                entity.worldPointer->GetPool<T>().Set(entity.id, default(T));
-                ref var ecb = ref entity.worldPointer->ECB;
-                ecb.Remove<T>(entity.id);
-            }
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Remove<T>(entity.id);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

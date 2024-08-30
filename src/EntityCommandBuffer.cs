@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using UnityEngine;
+
+namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
@@ -57,10 +59,11 @@
                 PlayParticleReference = 8,
                 ReuseView = 9,
                 SetActiveEntity = 10,
-                Cull,
-                UnCull,
-                Copy,
-                CreateCopy
+                Cull = 11,
+                UnCull = 12,
+                Copy = 13,
+                CreateCopy = 14,
+                RemoveAndDispose = 15
             }
         }
 
@@ -158,6 +161,17 @@
                     Entity = entity, 
                     EcbCommandType = ECBCommand.Type.RemoveComponent, 
                     ComponentType = component
+                };
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+                count++;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void RemoveAndDispose<T>(int entity, int thread) where T : unmanaged {
+                var cmd = new ECBCommand {
+                    Entity = entity, 
+                    EcbCommandType = ECBCommand.Type.RemoveAndDispose, 
+                    ComponentType = ComponentType<T>.Index
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -302,7 +316,11 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int entity, int component)
         {
-            ecb->Remove(entity, component, ThreadIndex);
+            ecb->Remove(entity, component, JobsUtility.ThreadIndex);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void RemoveAndDispose<T>(int entity) where T : unmanaged {
+            ecb->RemoveAndDispose<T>(entity, JobsUtility.ThreadIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnableGameObject(int entity, bool value) {
@@ -369,6 +387,7 @@
                         case ECBCommand.Type.UnCull:
                             
                             break;
+   
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
@@ -402,6 +421,7 @@
                             break;
                         case ECBCommand.Type.RemoveComponent:
                             if(archetype.Has(cmd.ComponentType) == false) break;
+                            world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             break;
                         case ECBCommand.Type.CreateEntity:
@@ -428,6 +448,11 @@
                             break;
                         case ECBCommand.Type.Copy:
                             archetype.Copy(cmd.Entity, cmd.AdditionalData);
+                            break;
+                        case ECBCommand.Type.RemoveAndDispose:
+                            if(archetype.Has(cmd.ComponentType) == false) break;
+                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
+                            world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                             break;
                     }
                     ecb->count--;
