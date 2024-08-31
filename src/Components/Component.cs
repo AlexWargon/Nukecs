@@ -203,7 +203,7 @@
 
 
     [BurstCompile(CompileSynchronously = true)]
-    public static class DynamicBufferExtensions {
+    public static class ComponentsArrayExtensions {
         [BurstCompile(CompileSynchronously = true)]
         public static int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             int index = 0;

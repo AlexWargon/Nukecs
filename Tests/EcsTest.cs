@@ -1,6 +1,8 @@
 using System;
 using System.Runtime.InteropServices;
 using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using Wargon.Nukecs.Collision2D;
@@ -19,6 +21,7 @@ namespace Wargon.Nukecs.Tests
         public SpriteData gunSprite;
         public int reserved;
         public int entities;
+        private Entity _lastPlayer;
         void Awake() {
             Application.targetFrameRate = fps;
             SpriteAnimationsStorage.Instance.Initialize(4);
@@ -121,7 +124,7 @@ namespace Wargon.Nukecs.Tests
                 }
             }
             if (UnityEngine.Input.GetKey(KeyCode.R)) {
-                lastPlayer.Destroy();
+                _lastPlayer.Destroy();
             }
             InputService.Singleton.Update();
             updateSystems.OnUpdate(Time.deltaTime);
@@ -156,14 +159,14 @@ namespace Wargon.Nukecs.Tests
         private Entity CreatePlayer() {
             var e = world.Entity();
             e.Add(new Player());
-            e.AddBuffer<InventoryItem>();
+            e.AddArray<InventoryItem>();
             return e;
         }
 
-        private Entity lastPlayer;
+        
         private void SpawnPlayer(){
             var e = world.SpawnPrefab(in playerPrefab);
-            lastPlayer = e;
+            _lastPlayer = e;
             ref var t = ref e.Get<Transform>();
             t.Position = RandomEx.Float3(-5, 5);
             e.Get<SpriteChunkReference>().ChunkRef.Add(in e, t, in e.Get<SpriteRenderData>());
@@ -182,9 +185,6 @@ namespace Wargon.Nukecs.Tests
                 collideWith = CollisionLayer.Player,
                 index = e.id
             });
-
-            var buffer = e.AddBuffer<InventoryItem>();
-            buffer.Add(new InventoryItem());
         }
     }
 
@@ -323,7 +323,7 @@ namespace Wargon.Nukecs.Tests
             ref var addItemEvent = ref entity.Get<AddItemEvent>();
             ref var playerE = ref _playerQuery.GetEntity(0);
             ref var inventory = ref playerE.Get<Inventory>();
-            ref var inventorySlots = ref playerE.GetBuffer<InventoryItem>();
+            ref var inventorySlots = ref playerE.GetArray<InventoryItem>();
             
             inventorySlots.Add(new InventoryItem {
                 entity = addItemEvent.entity,
@@ -348,7 +348,7 @@ namespace Wargon.Nukecs.Tests
         public float GlowIntensity;
         public Color32 GlowColor;
     }
-    public struct InputService
+    public struct InputService : IInit
     {
         public static ref InputService Singleton => ref Singleton<InputService>.Instance;
         private float Vertical;
@@ -372,6 +372,10 @@ namespace Wargon.Nukecs.Tests
                 InputAxis.Vertical => Vertical,
                 _ => Horizontal
             };
+        }
+
+        public void Init() {
+            
         }
     }
 
@@ -498,4 +502,82 @@ namespace Wargon.Nukecs.Tests
             }
         }
     }
+
+    public struct AbilitiesService : IInit {
+        private NativeHashMap<int, UnsafeList<Entity>> triggerAbilities;
+        private NativeHashMap<int, UnsafeList<Entity>> passiveAbilitites;
+        private NativeHashMap<int, UnsafeList<Entity>> activeAbilitites;
+        
+        public void Init() {
+            triggerAbilities = new NativeHashMap<int, UnsafeList<Entity>>(12, Allocator.Persistent);
+            passiveAbilitites = new NativeHashMap<int, UnsafeList<Entity>>(12, Allocator.Persistent);
+            activeAbilitites = new NativeHashMap<int, UnsafeList<Entity>>(12, Allocator.Persistent);
+        }
+        
+        public void TriggerAbilities<T>() where T : unmanaged, IComponent {
+            var list = triggerAbilities[ComponentType<T>.Index];
+            for (int i = 0; i < list.m_length; i++) {
+                ref var e = ref list.ElementAt(i);
+                e.Add(new Triggered());
+            }
+        }
+
+        public void AddAbility(Entity entity) {
+            if (entity.Has<Trigger>()) {
+                Add<Trigger>(entity);
+            }
+            if (entity.Has<Passive>()) {
+                Add<Passive>(entity);
+                entity.Add(new OnAddPassiveAbility());
+            }
+            if (entity.Has<Active>()) {
+                Add<Active>(entity);
+            }
+        }
+
+        private NativeHashMap<int, UnsafeList<Entity>> GetMap<T>() where T : unmanaged, IComponent {
+            if (ComponentType<T>.Index == ComponentType<Triggered>.Index) {
+                
+            }
+            if (ComponentType<T>.Index == ComponentType<Triggered>.Index) {
+                
+            }
+
+            return activeAbilitites;
+        }
+        private void Add<T>(Entity entity) where T : unmanaged, IComponent {
+            var list = triggerAbilities[ComponentType<T>.Index];
+            if (!list.IsCreated) {
+                list = new UnsafeList<Entity>(12, Allocator.Persistent);
+            }
+            list.Add(entity);
+        }
+        
+        private void Remove<T>(Entity entity) where T : unmanaged, IComponent {
+            var list = triggerAbilities[ComponentType<T>.Index];
+            if (!list.IsCreated) {
+                list = new UnsafeList<Entity>(12, Allocator.Persistent);
+            }
+            list.Add(entity);
+
+        }
+        public void RemoveAbility(Entity entity) {
+            if (entity.Has<Trigger>()) {
+                triggerAbilities[ComponentType<Trigger>.Index].Add(entity);
+            }
+            if (entity.Has<Passive>()) {
+                triggerAbilities[ComponentType<Passive>.Index].Add(entity);
+                entity.Add(new OnRemovePassiveAbility());
+            }
+            if (entity.Has<Active>()) {
+                triggerAbilities[ComponentType<Active>.Index].Add(entity);
+            }
+        }
+    }
+    public struct OnRemovePassiveAbility : IComponent {}
+    public struct OnAddPassiveAbility : IComponent {}
+    public struct Trigger : IComponent {}
+    public struct Active : IComponent {}
+    public struct Passive : IComponent {}
+    public struct Triggered : IComponent {}
 }

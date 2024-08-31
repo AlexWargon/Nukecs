@@ -2,7 +2,7 @@
 using Unity.Burst;
 
 namespace Wargon.Nukecs.Tests {
-    public struct Singleton<T> where T: unmanaged
+    public struct Singleton<T> where T: unmanaged, IInit 
     {
         private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();
         public static ref T Instance
@@ -13,6 +13,7 @@ namespace Wargon.Nukecs.Tests {
                 if (instance.Data.IsCreated == false)
                 {
                     instance.Data.Value = new T();
+                    instance.Data.Value.Init();
                     instance.Data.IsCreated = true;
                 }
                 return ref instance.Data.Value;
@@ -28,5 +29,9 @@ namespace Wargon.Nukecs.Tests {
             internal T Value;
             internal bool IsCreated;
         }
+    }
+
+    public interface IInit {
+        void Init();
     }
 }

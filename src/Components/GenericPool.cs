@@ -95,6 +95,10 @@ namespace Wargon.Nukecs {
             impl->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Set(int index) {
+            impl->count++;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef<T>(int index) where T : unmanaged {
             if (index < 0 || index >= impl->capacity) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] with capacity {impl->capacity}.");
@@ -161,7 +165,10 @@ namespace Wargon.Nukecs {
             if (impl->ComponentType.isDisposable) {
                 DisposeComponent(index);
             }
-            SetPtr(index, impl->ComponentType.defaultValue);
+
+            if (!impl->ComponentType.isTag) {
+                SetPtr(index, impl->ComponentType.defaultValue);
+            }
             impl->count--;
         }
         [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
