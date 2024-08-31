@@ -196,7 +196,7 @@ namespace Wargon.Nukecs
         FixedUpdate
     }
 
-    public unsafe struct ECBSystem : ISystem, IOnCreate {
+    public unsafe struct ECBSystem : ISystem, IOnCreate, IInit {
         public static ref ECBSystem Singleton => ref Singleton<ECBSystem>.Instance;
         public void OnCreate(ref World world) {
             ecbList = new UnsafeList<EntityCommandBuffer>(3, world.UnsafeWorld->allocator);
@@ -212,6 +212,11 @@ namespace Wargon.Nukecs
             var index = count;
             count++;
             return ref ecbList.ElementAt(index);
+        }
+
+        public void Init()
+        {
+            
         }
         public void OnUpdate(ref World world, float deltaTime) {
             for (int i = 0; i < count; i++) {
