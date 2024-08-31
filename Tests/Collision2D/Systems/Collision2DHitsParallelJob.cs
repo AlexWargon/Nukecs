@@ -197,7 +197,7 @@ namespace Wargon.Nukecs.Collision2D {
         }
 
         public void OnUpdate(ref Entity entity, float deltaTime) {
-            ref var buffer = ref entity.GetBuffer<Collision2DData>();
+            ref var buffer = ref entity.GetArray<Collision2DData>();
             buffer.Clear();
             entity.Remove<CollidedFlag>();
         }

@@ -143,11 +143,12 @@ namespace Wargon.Nukecs {
 
                 var entitiesToClear = entitiesAmount;
                 for (var i = 0; i < entitiesToClear; i++) {
-                    ref var e = ref entities.ElementAt(i);
-                    if (e.worldPointer != null) {
-                        e.Free();
+                    ref var entity = ref entities.ElementAt(i);
+                    if (entity.worldPointer != null) {
+                        entity.Free();
                     }
                 }
+                
                 systemsUpdateJobDependencies.Complete();
                 systemsFixedUpdateJobDependencies.Complete();
 
