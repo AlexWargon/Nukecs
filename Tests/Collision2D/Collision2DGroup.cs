@@ -6,7 +6,7 @@
             this.name = "Collision2D";
                 //.Add(new Collision2DOnRectangleOnConvertEntitySystem())
              Add<CollisionClearGridCellsSystem>()
-             .Add<Velocity2DSystem>()
+             
             //.Add<CollidersSizeUpdateSystem>()
             .Add<Collision2DPopulateRectsSystem>()
             .Add<Collision2DPopulateCirclesSystem>()
