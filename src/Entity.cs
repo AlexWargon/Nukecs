@@ -16,29 +16,28 @@ namespace Wargon.Nukecs {
         internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
             this.worldPointer = worldPointer;
-            worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
+            this.worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
                 this.worldPointer->GetArchetype(0);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype) {
             this.id = id;
             this.worldPointer = worldPointer;
-            worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
+            this.worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
                 this.worldPointer->GetArchetype(archetype);
         }
         internal ref ArchetypeImpl archetypeRef {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id).impl;
         }
-
         public override string ToString() {
             return $"e:{id}, {archetypeRef.ToString()}";
         }
 
-        public static Entity Null = default;
+        public static readonly Entity Null = default;
 
         public bool Equals(Entity other) {
-            return id == other.id && worldPointer == other.worldPointer;
+            return id == other.id;
         }
         public override bool Equals(object obj) {
             return obj is Entity other && Equals(other);
@@ -48,16 +47,15 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator == (in Entity one, in Entity two) {
-            return one.id == two.id && one.worldPointer->Id == two.worldPointer->Id;
+            return one.id == two.id;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator != (in Entity one, in Entity two) {
-            return one.id != two.id || one.worldPointer->Id != two.worldPointer->Id;
+            return one.id != two.id;
         }
     }
 
     public static unsafe class EntityExtensions {
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetBuffer<T>(this ref Entity entity) where T : unmanaged {
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
@@ -211,6 +209,9 @@ namespace Wargon.Nukecs {
             ecb.Destroy(entity.id);
         }
 
+        internal static void Free(this in Entity entity) {
+            entity.archetypeRef.Destroy(entity.id);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent  {
             return entity.archetypeRef.Has<T>();

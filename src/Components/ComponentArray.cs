@@ -24,10 +24,8 @@ namespace Wargon.Nukecs {
         public void Clear() {
             list.Clear();
         }
-        
         public void Dispose(ref ComponentArray<T> value) {
             value.list.Dispose();
-            Debug.Log("buffer disposed");
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator() {
@@ -56,7 +54,6 @@ namespace Wargon.Nukecs {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref listPtr->Ptr[index];
             }
-
             public void Dispose() {
                 
             }

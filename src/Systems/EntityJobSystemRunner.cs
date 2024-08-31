@@ -77,7 +77,9 @@ namespace Wargon.Nukecs
                     fullData.world.CurrentContext = fullData.updateContext;
                     for (var i = begin; i < end; i++) {
                         unsafe {
-                            fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), fullData.deltaTime);
+                            ref var e = ref fullData.query.impl->GetEntity(i);
+                            if(e != Entity.Null)
+                                fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), fullData.deltaTime);
                         }
                     }
                 }

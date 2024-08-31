@@ -66,32 +66,26 @@ namespace Wargon.Nukecs {
             internal UnsafePtrList<QueryUnsafe> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
             internal UnsafePtrList<ArchetypeImpl> archetypesList;
-            
             internal WorldConfig config;
-
-            internal ref EntityCommandBuffer ECB {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref currentContext == UpdateContext.Update ? ref self->ECBUpdate : ref self->ECBFixed;
-            }
             internal EntityCommandBuffer ECBUpdate;
             internal EntityCommandBuffer ECBFixed;
-            
             private UpdateContext currentContext;
-
-            internal UpdateContext CurrentContext {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)] get => currentContext;
-                [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
-            }
             
-            [NativeDisableUnsafePtrRestriction] 
-            internal WorldUnsafe* self;
-
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
             internal readonly int job_worker_count;
             internal UnsafeList<int> DefaultNoneTypes;
             internal int entitiesAmount;
             internal int lastEntityIndex;
+            [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* self;
+            internal ref EntityCommandBuffer ECB {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref currentContext == UpdateContext.Update ? ref self->ECBUpdate : ref self->ECBFixed;
+            }
+            internal UpdateContext CurrentContext {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)] get => currentContext;
+                [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
+            }
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
                 var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
@@ -119,21 +113,22 @@ namespace Wargon.Nukecs {
                 this.queries = new UnsafePtrList<QueryUnsafe>(32, allocator);
                 this.archetypesList = new UnsafePtrList<ArchetypeImpl>(32, allocator);
                 this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, allocator);
-                this.lastEntityIndex = 1;
-                this.poolsCount = 0;
+
                 this.config = config;
                 this.systemsUpdateJobDependencies = default;
                 this.systemsFixedUpdateJobDependencies = default;
                 this.DefaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
                 
-                job_worker_count = JobsUtility.JobWorkerMaximumCount;
-                entitiesAmount = 0;
+                this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
+                this.entitiesAmount = 0;
+                this.lastEntityIndex = 1;
+                this.poolsCount = 0;
                 this.ECBUpdate = new EntityCommandBuffer(256);
                 this.ECBFixed = new EntityCommandBuffer(256);
                 this.currentContext = UpdateContext.Update;
+                this.self = self;
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<IsPrefab>.Index;
-                this.self = self;
                 SetDefaultNone();
             }
 
@@ -144,11 +139,18 @@ namespace Wargon.Nukecs {
                 this.self = self;
                 CreateArchetype();
             }
-
             public void Free() {
-                for (int i = 0; i < entitiesAmount; i++) {
-                    
+
+                var entitiesToClear = entitiesAmount;
+                for (var i = 0; i < entitiesToClear; i++) {
+                    ref var e = ref entities.ElementAt(i);
+                    if (e.worldPointer != null) {
+                        e.Free();
+                    }
                 }
+                systemsUpdateJobDependencies.Complete();
+                systemsFixedUpdateJobDependencies.Complete();
+
                 entities.Dispose();
                 entitiesArchetypes.Dispose();
                 for (var index = 0; index < poolsCount; index++) {
@@ -208,7 +210,6 @@ namespace Wargon.Nukecs {
                 }
                 Entity e;
                 entitiesAmount++;
-                
                 var last = lastEntityIndex;
                 if (reservedEntities.m_length > 0) {
                     last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
@@ -243,6 +244,7 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
+                entities.ElementAtNoCheck(entity) = Nukecs.Entity.Null;
                 reservedEntities.Add(entity);
                 entitiesAmount--;
             }

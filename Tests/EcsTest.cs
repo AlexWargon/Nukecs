@@ -26,7 +26,7 @@ namespace Wargon.Nukecs.Tests
             const int cellSize = 2;
             var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
             updateSystems = new Systems(ref world)
-
+                    .Add<Velocity2DSystem>()
                 .Add<SpriteRenderSystem>()
                 .Add<UpdateCameraCullingSystem>()
 
@@ -145,7 +145,7 @@ namespace Wargon.Nukecs.Tests
         }
 
         private void OnDestroy() {
-            world.DependenciesUpdate.Complete();
+            //world.DependenciesUpdate.Complete();
             Grid2D.Instance.Clear();
             world.Dispose();
             World.DisposeStatic();
