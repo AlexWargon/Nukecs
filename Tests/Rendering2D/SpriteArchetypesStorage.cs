@@ -474,7 +474,7 @@ namespace Wargon.Nukecs.Tests {
     public struct OnAdd<T> : IComponent where T : unmanaged, IComponent {
         
     }
-    public struct CullingData {
+    public struct CullingData : IInit {
         public static ref CullingData instance => ref Singleton<CullingData>.Instance;
         public float Width;
         public float Height;
@@ -483,6 +483,7 @@ namespace Wargon.Nukecs.Tests {
         public float yMax;
         public float xMin;
         public float yMin;
+        public void Init(){}
         public void Update(Camera camera) {
             Height = camera.orthographicSize * 2f + 1f;
             Width = Height * camera.aspect;

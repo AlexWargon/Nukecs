@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
@@ -24,7 +25,6 @@ namespace Wargon.Nukecs.Tests
         private Entity _lastPlayer;
         void Awake() {
             Application.targetFrameRate = fps;
-            SpriteAnimationsStorage.Instance.Initialize(4);
             world = World.Create(WorldConfig.Default16384);
             const int cellSize = 2;
             var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
@@ -576,8 +576,37 @@ namespace Wargon.Nukecs.Tests
     }
     public struct OnRemovePassiveAbility : IComponent {}
     public struct OnAddPassiveAbility : IComponent {}
-    public struct Trigger : IComponent {}
-    public struct Active : IComponent {}
-    public struct Passive : IComponent {}
-    public struct Triggered : IComponent {}
+    public struct Trigger : IComponent { }
+    public struct Active : IComponent { }
+    public struct Passive : IComponent { }
+    public struct Triggered : IComponent { }
+    
+    public struct OnShot : IComponent { }
+
+    public struct TriggerChance : IComponent
+    {
+        public float value;
+    }
+
+    public struct Heal : IComponent
+    {
+        public float amount;
+    }
+    public struct OnGetDamage { }
+
+    
+    public class EntityBase : ScriptableObject
+    {
+        [SerializeReference] protected List<IComponent> components = new ();
+        public Entity Convert(ref World world)
+        {
+            var e = world.Entity();
+            foreach (var component in components)
+            {
+                e.AddObject(component);
+            }
+            return e;
+        }
+    }
+
 }
