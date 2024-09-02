@@ -11,6 +11,12 @@
 
     public interface IComponent { }
 
+    public interface ICustomConvertor {
+        void Convert(ref World world, ref Entity entity);
+    }
+    public abstract class Convertor : ScriptableObject, ICustomConvertor {
+        public abstract void Convert(ref World world, ref Entity entity);
+    }
     public interface IDisposable<T> {
         void Dispose(ref T value);
     }

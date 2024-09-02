@@ -120,22 +120,4 @@ namespace Wargon.Nukecs.Tests
             return entity;
         }
     }
-
-    public static class RandomIndex {
-        private static int current;
-        private static int[] array5 = new[] {
-            1,
-            3,
-            2,
-            0,
-            5,
-            4,
-            3
-        };
-
-        public static int Next() {
-            if (current == array5.Length - 1) current = 0;
-            return array5[current++];
-        }
-    }
 }

@@ -1,9 +1,10 @@
-﻿using Unity.Mathematics;
+﻿using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
     [CreateAssetMenu(fileName = "New Sprite", menuName = "ECS/Sprite")]
-    public class SpriteData : ScriptableObject {
+    public class SpriteData : Convertor{
         public UnityEngine.Sprite sprite;
         public Color color = Color.white;
         public int layer = 0;
@@ -11,6 +12,7 @@ namespace Wargon.Nukecs.Tests {
         public float4 uv;
         [SerializeField]
         private Shader shader;
+
         private void OnValidate() {
             uv = SpriteUtility.CalculateSpriteTiling(sprite);
         }
@@ -47,6 +49,10 @@ namespace Wargon.Nukecs.Tests {
             ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
             archetype.AddInitial(ref entity);
             return renderData;
+        }
+
+        public override void Convert(ref World world, ref Entity entity) {
+            AddToEntity(ref world, ref entity);
         }
     }
 }

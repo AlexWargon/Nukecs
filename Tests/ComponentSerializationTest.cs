@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Wargon.PixelHorde;
 
 namespace Wargon.Nukecs.Tests {
     public class ComponentSerializationTest : MonoBehaviour {
