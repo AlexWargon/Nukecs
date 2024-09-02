@@ -1,14 +1,13 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
+using Wargon.Nukecs;
 using Wargon.Nukecs.Collision2D;
 using Wargon.Nukecs.Transforms;
 using Transform = Wargon.Nukecs.Transforms.Transform;
+using Wargon.PixelHorde;
 
 namespace Wargon.Nukecs.Tests
 {
@@ -187,7 +186,7 @@ namespace Wargon.Nukecs.Tests
             });
         }
     }
-
+    
     [BurstCompile]
     public struct MoveBulletSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -249,48 +248,6 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    [Serializable]
-    public struct HP : IComponent {
-        public int value;
-    }
-    public struct Player : IComponent { }
-    [Serializable]
-    public struct Money : IComponent {
-        public int amount;
-        public override string ToString() {
-            return $"Money.amount ={amount.ToString()}";
-        }
-    }
-
-    [Serializable]
-    public struct ViewPosition : IComponent {
-        public Vector3 Value;
-    }
-    [Serializable]
-    public struct View : IComponent {
-        public UnityObjectRef<GameObject> value;
-    }
-    [Serializable]
-    public struct Speed : IComponent {
-        public float value;
-    }
-
-    public struct InventoryItem {
-        public int slot;
-        public Entity entity;
-    }
-
-    public struct Inventory : IComponent {
-        public int totalSlots;
-        public int lastEmptySlot;
-    }
-
-    public struct Input : IComponent {
-        public float h;
-        public float v;
-        public bool fire;
-        public bool use;
-    }
     
     [BurstCompile]
     public struct UserInputSystem : IEntityJobSystem {
@@ -307,7 +264,7 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    public struct AddItemEvent : IComponent { public Entity entity; }
+
     
     [BurstCompile]
     public struct AddItemSystem : IEntityJobSystem, IOnCreate {
@@ -385,25 +342,14 @@ namespace Wargon.Nukecs.Tests
         Horizontal
     }
     
+    public struct Input : IComponent {
+        public float h;
+        public float v;
+        public bool fire;
+        public bool use;
+    }
     public struct Bullet : IComponent {}
 
-    public struct BulletPrefab : IComponent {
-        public Entity Value;
-    }
-    
-    public struct Lifetime : IComponent {
-        public float value;
-    }
-
-    public struct Gun : IComponent {
-        public int BulletsAmount;
-        public float Spread;
-        public float Cooldown;
-        public float CooldownCounter;
-    }
-    public struct GunReference : IComponent {
-        public Entity Value;
-    }
     [BurstCompile]
     public struct LifetimeSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -503,77 +449,11 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    public struct AbilitiesService : IInit {
-        private NativeHashMap<int, UnsafeList<Entity>> triggerAbilities;
-        private NativeHashMap<int, UnsafeList<Entity>> passiveAbilitites;
-        private NativeHashMap<int, UnsafeList<Entity>> activeAbilitites;
-        
-        public void Init() {
-            triggerAbilities = new NativeHashMap<int, UnsafeList<Entity>>(12, Allocator.Persistent);
-            passiveAbilitites = new NativeHashMap<int, UnsafeList<Entity>>(12, Allocator.Persistent);
-            activeAbilitites = new NativeHashMap<int, UnsafeList<Entity>>(12, Allocator.Persistent);
-        }
-        
-        public void TriggerAbilities<T>() where T : unmanaged, IComponent {
-            var list = triggerAbilities[ComponentType<T>.Index];
-            for (int i = 0; i < list.m_length; i++) {
-                ref var e = ref list.ElementAt(i);
-                e.Add(new Triggered());
-            }
-        }
 
-        public void AddAbility(Entity entity) {
-            if (entity.Has<Trigger>()) {
-                Add<Trigger>(entity);
-            }
-            if (entity.Has<Passive>()) {
-                Add<Passive>(entity);
-                entity.Add(new OnAddPassiveAbility());
-            }
-            if (entity.Has<Active>()) {
-                Add<Active>(entity);
-            }
-        }
+    
+}
 
-        private NativeHashMap<int, UnsafeList<Entity>> GetMap<T>() where T : unmanaged, IComponent {
-            if (ComponentType<T>.Index == ComponentType<Triggered>.Index) {
-                
-            }
-            if (ComponentType<T>.Index == ComponentType<Triggered>.Index) {
-                
-            }
-
-            return activeAbilitites;
-        }
-        private void Add<T>(Entity entity) where T : unmanaged, IComponent {
-            var list = triggerAbilities[ComponentType<T>.Index];
-            if (!list.IsCreated) {
-                list = new UnsafeList<Entity>(12, Allocator.Persistent);
-            }
-            list.Add(entity);
-        }
-        
-        private void Remove<T>(Entity entity) where T : unmanaged, IComponent {
-            var list = triggerAbilities[ComponentType<T>.Index];
-            if (!list.IsCreated) {
-                list = new UnsafeList<Entity>(12, Allocator.Persistent);
-            }
-            list.Add(entity);
-
-        }
-        public void RemoveAbility(Entity entity) {
-            if (entity.Has<Trigger>()) {
-                triggerAbilities[ComponentType<Trigger>.Index].Add(entity);
-            }
-            if (entity.Has<Passive>()) {
-                triggerAbilities[ComponentType<Passive>.Index].Add(entity);
-                entity.Add(new OnRemovePassiveAbility());
-            }
-            if (entity.Has<Active>()) {
-                triggerAbilities[ComponentType<Active>.Index].Add(entity);
-            }
-        }
-    }
+namespace Wargon.PixelHorde {
     public struct OnRemovePassiveAbility : IComponent {}
     public struct OnAddPassiveAbility : IComponent {}
     public struct Trigger : IComponent { }
@@ -593,20 +473,54 @@ namespace Wargon.Nukecs.Tests
         public float amount;
     }
     public struct OnGetDamage { }
-
     
-    public class EntityBase : ScriptableObject
-    {
-        [SerializeReference] protected List<IComponent> components = new ();
-        public Entity Convert(ref World world)
-        {
-            var e = world.Entity();
-            foreach (var component in components)
-            {
-                e.AddObject(component);
-            }
-            return e;
+    [Serializable]
+    public struct HP : IComponent {
+        public int value;
+    }
+    public struct Player : IComponent { }
+    [Serializable]
+    public struct Money : IComponent {
+        public int amount;
+        public override string ToString() {
+            return $"Money.amount ={amount.ToString()}";
         }
     }
+    [Serializable]
+    public struct View : IComponent {
+        public UnityObjectRef<GameObject> value;
+    }
+    [Serializable]
+    public struct Speed : IComponent {
+        public float value;
+    }
 
+    public struct InventoryItem {
+        public int slot;
+        public Entity entity;
+    }
+
+    public struct Inventory : IComponent {
+        public int totalSlots;
+        public int lastEmptySlot;
+    }
+
+    public struct BulletPrefab : IComponent {
+        public Entity Value;
+    }
+    
+    public struct Lifetime : IComponent {
+        public float value;
+    }
+
+    public struct Gun : IComponent {
+        public int BulletsAmount;
+        public float Spread;
+        public float Cooldown;
+        public float CooldownCounter;
+    }
+    public struct GunReference : IComponent {
+        public Entity Value;
+    }
+    public struct AddItemEvent : IComponent { public Entity entity; }
 }
