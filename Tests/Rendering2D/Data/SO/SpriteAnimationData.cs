@@ -33,7 +33,7 @@ namespace Wargon.Nukecs.Tests
 #endif
 
     [CreateAssetMenu(fileName = "New Sprite Animation", menuName = "ECS/Sprite Animation")]
-    public class SpriteAnimationData : ScriptableObject {
+    public class SpriteAnimationData : Convertor {
         public string AnimationName;
         public UnityEngine.Sprite[] sprites;
         //[HideInInspector]
@@ -118,6 +118,51 @@ namespace Wargon.Nukecs.Tests
             ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
             archetype.AddInitial(ref entity);
             return entity;
+        }
+
+        public override void Convert(ref World world, ref Entity entity) {
+            if (sprites == null || sprites.Length == 0)
+            {
+                Debug.LogError("No sprites defined for animation!");
+                return;
+            }
+
+            var d = color;
+            var sprite = sprites[0];
+            
+            var renderData = new SpriteRenderData
+            {
+                Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
+                FlipX = 0f,
+                FlipY = 0f,
+                SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprite),
+                ShadowAngle = 135f,
+                ShadowLength = 0.5f,
+                ShadowDistortion = 0.5f,
+                Layer = layer,
+                PixelsPerUnit = sprite.pixelsPerUnit,
+                SpriteSize = new float2(sprite.rect.width, sprite.rect.height),
+                Pivot = new float2(
+                    sprite.pivot.x / sprite.rect.width,
+                    sprite.pivot.y / sprite.rect.height
+                )
+            };
+            entity.Add(renderData);
+
+
+            var animationID = Animator.StringToHash(AnimationName);
+            
+            var animationComponent = new SpriteAnimation
+            {
+                FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
+                FrameRate = frameRate,
+                CurrentTime = Random.value,
+                AnimationID = animationID
+            };
+            entity.Add(animationComponent);
+
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
+            archetype.AddInitial(ref entity);
         }
     }
 }
