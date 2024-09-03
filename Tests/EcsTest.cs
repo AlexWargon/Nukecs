@@ -263,8 +263,6 @@ namespace Wargon.Nukecs.Tests
             input.fire = InputService.Singleton.Fire;
         }
     }
-
-
     
     [BurstCompile]
     public struct AddItemSystem : IEntityJobSystem, IOnCreate {
@@ -299,12 +297,6 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct ShaderProperties
-    {
-        public float GlowIntensity;
-        public Color32 GlowColor;
-    }
     public struct InputService : IInit
     {
         public static ref InputService Singleton => ref Singleton<InputService>.Instance;
@@ -348,7 +340,7 @@ namespace Wargon.Nukecs.Tests
         public bool fire;
         public bool use;
     }
-    public struct Bullet : IComponent {}
+
 
     [BurstCompile]
     public struct LifetimeSystem : IEntityJobSystem {
@@ -448,12 +440,10 @@ namespace Wargon.Nukecs.Tests
             }
         }
     }
-
-
-    
 }
 
 namespace Wargon.PixelHorde {
+    public struct Bullet : IComponent {}
     public struct OnRemovePassiveAbility : IComponent {}
     public struct OnAddPassiveAbility : IComponent {}
     public struct Trigger : IComponent { }

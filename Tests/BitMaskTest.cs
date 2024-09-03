@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
+using Wargon.PixelHorde;
 
 namespace Wargon.Nukecs.Tests {
     public unsafe class BitMaskTest : MonoBehaviour {
