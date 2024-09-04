@@ -40,3 +40,4 @@ MonoBehaviour:
     z: 0.1875
     w: 0.1875
   shader: {fileID: 4800000, guid: 0abd44d4b43937a46a401673135d5499, type: 3}
+  material: {fileID: 2100000, guid: 13c5239a8f799db42b5fd32bfe32b7e1, type: 2}

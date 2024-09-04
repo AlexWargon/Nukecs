@@ -46,6 +46,7 @@ namespace Wargon.Nukecs.Tests
         private float4[] framesUV;
 
         [SerializeField] private Shader shader;
+        [SerializeField] private Material material;
         private void OnValidate() {
             framesUV = new float4[sprites.Length];
             for (var index = 0; index < sprites.Length; index++) {
@@ -115,11 +116,11 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(animationComponent);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, material != null ? material.shader : shader, ref world);
             archetype.AddInitial(ref entity);
             return entity;
         }
-
+        
         public override void Convert(ref World world, ref Entity entity) {
             if (sprites == null || sprites.Length == 0)
             {
@@ -129,26 +130,26 @@ namespace Wargon.Nukecs.Tests
 
             var d = color;
             var sprite = sprites[0];
-            
-            var renderData = new SpriteRenderData
-            {
-                Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
-                FlipX = 0f,
-                FlipY = 0f,
-                SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprite),
-                ShadowAngle = 135f,
-                ShadowLength = 0.5f,
-                ShadowDistortion = 0.5f,
-                Layer = layer,
-                PixelsPerUnit = sprite.pixelsPerUnit,
-                SpriteSize = new float2(sprite.rect.width, sprite.rect.height),
-                Pivot = new float2(
-                    sprite.pivot.x / sprite.rect.width,
-                    sprite.pivot.y / sprite.rect.height
-                )
-            };
-            entity.Add(renderData);
-
+            if (!entity.Has<SpriteRenderData>()) {
+                var renderData = new SpriteRenderData
+                {
+                    Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
+                    FlipX = 0f,
+                    FlipY = 0f,
+                    SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprite),
+                    ShadowAngle = 135f,
+                    ShadowLength = 0.5f,
+                    ShadowDistortion = 0.5f,
+                    Layer = layer,
+                    PixelsPerUnit = sprite.pixelsPerUnit,
+                    SpriteSize = new float2(sprite.rect.width, sprite.rect.height),
+                    Pivot = new float2(
+                        sprite.pivot.x / sprite.rect.width,
+                        sprite.pivot.y / sprite.rect.height
+                    )
+                };
+                entity.Add(renderData);
+            }
 
             var animationID = Animator.StringToHash(AnimationName);
             
@@ -161,7 +162,7 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(animationComponent);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, material != null ? material.shader : shader, ref world);
             archetype.AddInitial(ref entity);
         }
     }

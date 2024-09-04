@@ -23,5 +23,20 @@ namespace Wargon.Nukecs.Transforms {
         }
     }
 
-    public struct OnAddChildWithTransformEvent : IComponent{}
+    public struct OnAddChildWithTransformEvent : IComponent { }
+
+    public static class TransformsUtility {
+        public static void Convert(UnityEngine.Transform transform, ref World world, ref Entity entity) {
+            entity.Add(new Transform {
+                Position = transform.position,
+                Rotation = transform.rotation,
+                Scale = transform.lossyScale
+            });
+            entity.Add(new LocalTransform {
+                Position = transform.localPosition,
+                Rotation = transform.localRotation,
+                Scale = transform.localScale
+            });
+        }
+    }
 }

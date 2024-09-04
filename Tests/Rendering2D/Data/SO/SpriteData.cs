@@ -54,5 +54,31 @@ namespace Wargon.Nukecs.Tests {
         public override void Convert(ref World world, ref Entity entity) {
             AddToEntity(ref world, ref entity);
         }
+
+        public static void Convert(SpriteRenderer spriteRenderer, ref World world, ref Entity entity) {
+            var sprite = spriteRenderer.sprite;
+            var d = spriteRenderer.color;
+            var uv = SpriteUtility.CalculateSpriteTiling(sprite);
+            var renderData = new SpriteRenderData
+            {
+                Color = new float4(d.r, d.g, d.b, d.a),
+                FlipX = 0f,
+                FlipY = 0f,
+                SpriteTiling = uv,
+                ShadowAngle = 135f,
+                ShadowLength = 1f,
+                ShadowDistortion = 0.5f,
+                Layer = spriteRenderer.sortingLayerID,
+                PixelsPerUnit = sprite.pixelsPerUnit,
+                SpriteSize = new float2(sprite.rect.width, sprite.rect.height),
+                Pivot = new float2(
+                    sprite.pivot.x / sprite.rect.width,
+                    sprite.pivot.y / sprite.rect.height
+                ),
+            };
+            entity.Add(in renderData);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, spriteRenderer.material.shader, ref world);
+            archetype.AddInitial(ref entity);
+        }
     }
 }
