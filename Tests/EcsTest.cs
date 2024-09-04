@@ -28,7 +28,7 @@ namespace Wargon.Nukecs.Tests
             const int cellSize = 2;
             var grid2D = new Grid2D(20, 13,cellSize , world, new Vector2(-20f*cellSize/2, -13f*cellSize/2));
             updateSystems = new Systems(ref world)
-                    .Add<Velocity2DSystem>()
+                .Add<Velocity2DSystem>()
                 .Add<SpriteRenderSystem>()
                 .Add<UpdateCameraCullingSystem>()
 
@@ -176,7 +176,6 @@ namespace Wargon.Nukecs.Tests
             gun.Get<SpriteChunkReference>().ChunkRef.Add(in gun, gunTransform, in gun.Get<SpriteRenderData>());
             e.AddChild(gun);
             e.Get<GunReference>().Value = gun;
-
             e.Add(new Circle2D
             {
                 radius = .2f,
