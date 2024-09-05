@@ -262,8 +262,7 @@ namespace Wargon.Nukecs {
                         children.RemoveAtSwapBack(in child1);
                         break;
                     }
-                    
-                }    
+                }
                 child.Get<ChildOf>().Value = entity;
             }
             else {

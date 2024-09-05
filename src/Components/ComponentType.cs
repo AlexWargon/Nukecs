@@ -18,6 +18,7 @@ namespace Wargon.Nukecs {
         public int align;
         public bool isTag;
         public bool isDisposable;
+        public bool isCopyable;
         public unsafe void* defaultValue;
     }
     
@@ -48,6 +49,9 @@ namespace Wargon.Nukecs {
             if (ID.Data.isDisposable) {
                 ComponentHelpers.CreateDisposer<T>(id);
             }
+            if (ID.Data.isCopyable) {
+                ComponentHelpers.CreateCopper<T>(id);
+            }
         }
     }
 
@@ -77,12 +81,14 @@ namespace Wargon.Nukecs {
                 index = index,
                 isTag = size == 1,
                 isDisposable = typeof(T).GetInterfaces()
-                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDisposable<>))
+                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDisposable<>)),
+                isCopyable = typeof(T).GetInterfaces()
+                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>))
             };
             data.defaultValue = UnsafeUtility.Malloc(data.size, data.align, Allocator.Persistent);
             *(T*) data.defaultValue = default(T);
             ComponentTypes.Data.TryAdd(index, data);
-
+            
             return data;
         }
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];

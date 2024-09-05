@@ -4,7 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
-    public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>> where T : unmanaged {
+    public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
         internal UnsafeList<T> list;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(int capacity) {
@@ -58,6 +58,14 @@ namespace Wargon.Nukecs {
                 
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ComponentArray(ref ComponentArray<T> other) {
+            list = new UnsafeList<T>(other.list.m_capacity, other.list.Allocator);
+            list.CopyFrom(in other.list);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ComponentArray<T> Copy(ref ComponentArray<T> toCopy) {
+            return new ComponentArray<T>(ref toCopy);
+        }
     }
 }

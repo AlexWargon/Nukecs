@@ -179,9 +179,18 @@ namespace Wargon.Nukecs {
         public void Copy(int source, int destination) {
             if (impl->elementSize != 1) {
                 CheckResize(math.max(destination, source));
-                UnsafeUtility.MemCpy(impl->buffer + destination * impl->elementSize, impl->buffer + source * impl->elementSize, impl->elementSize);
+                if (impl->ComponentType.isCopyable) {
+                    CopyComponent(source, destination);
+                }
+                else {
+                    UnsafeUtility.MemCpy(impl->buffer + destination * impl->elementSize, impl->buffer + source * impl->elementSize, impl->elementSize);
+                }
             }
             impl->count++;
+        }
+        [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CopyComponent(int from, int to) {
+            ComponentHelpers.Copy(impl->buffer, from, to, impl->componentTypeIndex);
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
