@@ -42,6 +42,8 @@ namespace Wargon.Nukecs {
         public bool IsAlive => UnsafeWorld != null;
         [NativeDisableUnsafePtrRestriction] 
         internal WorldUnsafe* UnsafeWorld;
+
+        public int EntitiesAmount => UnsafeWorld->entitiesAmount;
         internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref EntityCommandBuffer GetEcbVieContext(UpdateContext context) {

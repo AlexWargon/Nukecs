@@ -159,13 +159,26 @@ namespace Wargon.Nukecs {
                 var q = queries.ElementAtNoCheck(i);
                 q->Add(newEntity.id);
             }
-
+            
             for (var index = 0; index < types.m_length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Copy(entity.id, newEntity.id);
             }
 
+            if (mask.Has(ComponentType<ComponentArray<Child>>.Index)) {
+                ref var pool = ref world->GetPool<ComponentArray<Child>>();
+                ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity.id);
+                ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
+
+                for (int i = 0; i < fromC.list.m_length; i++) {
+                    ref var child = ref fromC.list.ElementAtNoCheck(i);
+                    ref var childNew = ref to.list.ElementAtNoCheck(i);
+                    childNew.Value = child.Value.Copy();
+                    childNew.Value.Get<ChildOf>().Value = newEntity;
+                }
+            }
+            
             return newEntity;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

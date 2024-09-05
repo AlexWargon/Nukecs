@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c2f87c3baec474d9ea5752e559b2e4f, type: 3}
   m_Name: GunSprite
   m_EditorClassIdentifier: 
-  sprite: {fileID: -1228123552, guid: b93fc77cb265bc746a259d82f8f7e351, type: 3}
+  sprite: {fileID: -417857750, guid: b93fc77cb265bc746a259d82f8f7e351, type: 3}
   color: {r: 1, g: 1, b: 1, a: 1}
   layer: 14
   uv:
     x: 0.75390625
-    y: 0.6785714
-    z: 0.05078125
-    w: 0.06632653
+    y: 0.59183675
+    z: 0.109375
+    w: 0.08163265
   shader: {fileID: 4800000, guid: e7fff00a97e7ff044bab2e5d730ddeca, type: 3}

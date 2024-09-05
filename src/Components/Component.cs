@@ -37,7 +37,12 @@
             return Value == other.Value;
         }
     }
-
+    public struct Input : IComponent {
+        public float h;
+        public float v;
+        public bool fire;
+        public bool use;
+    }
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -97,20 +102,28 @@
         static ComponentHelpers() {
             writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
             disposers = new IComponentDisposer[ComponentAmount.Value.Data];
+            coppers = new IComponentCopper[ComponentAmount.Value.Data];
         }
         private static readonly IUnsafeBufferWriter[] writers;
         private static readonly IComponentDisposer[] disposers;
+        private static readonly IComponentCopper[] coppers;
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
             writers[typeIndex] = new UnsafeBufferWriter<T>();
         }
         internal static void CreateDisposer<T>(int typeIndex)  where T : unmanaged{
             disposers[typeIndex] = new ComponentDisposer<T>();
         }
+        internal static void CreateCopper<T>(int typeIndex)  where T : unmanaged{
+            coppers[typeIndex] = new ComponentCopper<T>();
+        }
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
         internal static unsafe void Dispose(void* buffer, int index,int typeIndex){
             disposers[typeIndex].Dispose(buffer, index);
+        }
+        internal static unsafe void Copy(void* buffer, int from, int to,int typeIndex){
+            coppers[typeIndex].Copy(buffer, from, to);
         }
     }
     public unsafe interface IUnsafeBufferWriter {
@@ -160,8 +173,26 @@
     }
 
     public class ComponentCopper<T> : IComponentCopper where T : unmanaged {
-        private delegate ref T CopyDelegate(ref T value);
+        private delegate T CopyDelegate(ref T value);
         private readonly CopyDelegate copyFunc;
+#if ENABLE_IL2CPP && !UNITY_EDITOR
+        T _fakeInstance;
+#endif
+        public ComponentCopper() {
+            var copy = typeof(T).GetMethod(nameof(ICopyable<T>.Copy));
+            if (copy == null) {
+                throw new Exception (
+                    $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
+            }
+            copyFunc = (CopyDelegate)Delegate.CreateDelegate(
+                typeof(CopyDelegate),
+#if ENABLE_IL2CPP && !UNITY_EDITOR
+                    _fakeInstance,
+#else
+                null,
+#endif
+                copy);
+        }
         public unsafe void Copy(void* buffer, int from, int to) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
             UnsafeUtility.WriteArrayElement(buffer, to, copyFunc.Invoke(ref component));

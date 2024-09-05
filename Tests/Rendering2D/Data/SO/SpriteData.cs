@@ -77,7 +77,7 @@ namespace Wargon.Nukecs.Tests {
                 ),
             };
             entity.Add(in renderData);
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, spriteRenderer.material.shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, spriteRenderer.sharedMaterial.shader, ref world);
             archetype.AddInitial(ref entity);
         }
     }
