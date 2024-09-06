@@ -1,35 +1,36 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
-        internal UnsafeList<T> list;
+        internal UnsafeList<T>* list;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(int capacity) {
-            list = new UnsafeList<T>(capacity, Allocator.Persistent);
+            list = UnsafeList<T>.Create(capacity, Allocator.Persistent);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ref T ElementAt(int index) => ref list.Ptr[index];
+        public ref T ElementAt(int index) => ref list->Ptr[index];
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item) {
-            list.Add(in item);
+            list->Add(in item);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index) {
-            list.RemoveAt(index);
+            list->RemoveAt(index);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear() {
-            list.Clear();
+            list->Clear();
         }
         public void Dispose(ref ComponentArray<T> value) {
-            value.list.Dispose();
+            UnsafeList<T>.Destroy(value.list);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(ref ComponentArray<T> other) {
-            list = new UnsafeList<T>(other.list.m_capacity, other.list.Allocator);
-            list.CopyFrom(in other.list);
+            list = UnsafeList<T>.Create(other.list->m_capacity, other.list->Allocator);
+            UnsafeUtility.MemCpy(list->Ptr, other.list->Ptr, UnsafeUtility.SizeOf<T>() * other.list->m_length);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray<T> Copy(ref ComponentArray<T> toCopy) {
@@ -38,12 +39,12 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator) {
             var array = new ComponentArray<T>(size);
-            array.list.AddReplicate(in data, size);
+            array.list->AddReplicate(in data, size);
             return array;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator() {
-            return new Enumerator(list.Ptr, list.m_length);
+            return new Enumerator(list->Ptr, list->m_length);
         }
         public struct Enumerator {
             private readonly T* _listPtr;

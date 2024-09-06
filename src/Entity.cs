@@ -13,7 +13,7 @@ namespace Wargon.Nukecs {
         public readonly int id;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* worldPointer;
         public ref World world => ref World.Get(worldPointer->Id);
-
+        public static readonly Entity Null = new Entity();
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
@@ -39,7 +39,7 @@ namespace Wargon.Nukecs {
             return $"e:{id}, {archetypeRef.ToString()}";
         }
 
-        public static readonly Entity Null = default;
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(Entity other) {
             return id == other.id;
@@ -301,6 +301,22 @@ namespace Wargon.Nukecs {
     public static unsafe class Unsafe {
         public static T* Malloc<T>(Allocator allocator) where T : unmanaged {
             return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
+        }
+
+        public static T* Allocate<T>(AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
+            return AllocatorManager.Allocate<T>(allocator);
+        }
+        public static T* Allocate<T>(int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
+            return AllocatorManager.Allocate<T>(allocator, items);
+        }
+        public static void Free(void* ptr, AllocatorManager.AllocatorHandle allocator) {
+            AllocatorManager.Free(allocator, ptr);
+        }
+        public static void Free<T>(T* ptr, int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
+            AllocatorManager.Free(allocator, ptr, items);
+        }
+        public static void Free<T>(T* ptr, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
+            AllocatorManager.Free(allocator, ptr);
         }
     }
 }

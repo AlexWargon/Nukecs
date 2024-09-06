@@ -29,7 +29,7 @@ namespace Wargon.Nukecs.Collision2D {
                 W = grid2D.W,
                 H = grid2D.H
             };
-            world.DependenciesUpdate = populateJob.Schedule(query.Count, 1, world.DependenciesUpdate);
+            world.DependenciesFixedUpdate = populateJob.Schedule(query.Count, 1, world.DependenciesFixedUpdate);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
@@ -43,17 +43,17 @@ namespace Wargon.Nukecs.Collision2D {
             public Vector2 GridPosition;
 
             public void Execute(int index) {
-                var e = query.GetEntity(index);
-                ref var rect = ref rectangles.Get(e.id);
+                var e = query.GetEntityIndex(index);
+                ref var rect = ref rectangles.Get(e);
 
-                ref var transform = ref transforms.Get(e.id);
+                ref var transform = ref transforms.Get(e);
 
                 var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
                 var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
                 var cellIndex = py * W + px;
                 if (cellIndex > -1 && cellIndex < cells.Length) {
                     var cell = cells[cellIndex];
-                    cell.RectanglesBuffer.Add(rect.index);
+                    cell.RectanglesBuffer.Add(e);
                     cells[cellIndex] = cell;
                 }
             }

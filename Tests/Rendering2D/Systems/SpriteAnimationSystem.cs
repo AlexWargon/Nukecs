@@ -26,8 +26,9 @@ namespace Wargon.Nukecs.Tests {
             
             animation.CurrentTime += deltaTime;
             var frameDuration = 1f / animation.FrameRate;
-            var frames = SpriteAnimationsStorage.Instance.GetFrames(animation.AnimationID).List;
-            var frameIndex = (int)(animation.CurrentTime / frameDuration) % frames.Length;
+            var frames = SpriteAnimationsStorage.Singleton.GetFrames(animation.Group, animation.AnimationID).List;
+            if(frames.m_length == 0) return;
+            var frameIndex = (int)(animation.CurrentTime / frameDuration) % frames.m_length;
 
             if(input.h is > 0 or < 0)
             {

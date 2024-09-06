@@ -3,29 +3,36 @@ using Unity.Collections;
 
 namespace Wargon.Nukecs.Tests {
     public struct SpriteAnimationsStorage : IDisposable, IInit {
-        public static ref SpriteAnimationsStorage Instance => ref Singleton<SpriteAnimationsStorage>.Instance;
-        private NativeHashMap<int, SpriteAnimationFrames> _frames;
+        public static ref SpriteAnimationsStorage Singleton => ref Singleton<SpriteAnimationsStorage>.Instance;
+        private NativeHashMap<int, SpriteAnimationGroup> groups;
         private bool _isInitialized;
 
-        public bool Has(int id) => _frames.ContainsKey(id);
-        public void Add(int id, SpriteAnimationFrames animationFrames) {
-            _frames[id] = animationFrames;
+        public bool Has(int id, int group) {
+            if (groups.ContainsKey(group))
+                return groups[group].Has(id);
+            return false;
         }
-        public SpriteAnimationFrames GetFrames(int id) {
-            return _frames[id];
+        public void Add(int id, int group, ref SpriteAnimationFrames animationFrames) {
+            if (!groups.ContainsKey(group)) {
+                groups[group] = new SpriteAnimationGroup(6);
+            }
+            groups[group].Add(id, ref animationFrames);
+        }
+        public SpriteAnimationFrames GetFrames(int group ,int id) {
+            return groups[group].GetFrames(id);
         }
 
         public void Dispose() {
-            foreach (var kvPair in _frames) {
+            foreach (var kvPair in groups) {
                 kvPair.Value.Dispose();
             }
-            _frames.Dispose();
+            groups.Dispose();
         }
 
         public void Init()
         {
             if(_isInitialized) return;
-            _frames = new NativeHashMap<int, SpriteAnimationFrames>(6, Allocator.Persistent);
+            groups = new NativeHashMap<int, SpriteAnimationGroup>(6, Allocator.Persistent);
             _isInitialized = true;
         }
     }

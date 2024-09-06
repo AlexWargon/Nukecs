@@ -283,11 +283,10 @@ namespace Wargon.Nukecs.Tests {
         internal int lastRemoved;
 
         public static unsafe SpriteChunk* Create(int size) {
-            var ptr = (SpriteChunk*)UnsafeUtility.Malloc(sizeof(SpriteChunk), UnsafeUtility.AlignOf<SpriteChunk>(),
-                Allocator.Persistent);
+            var ptr = Unsafe.Allocate<SpriteChunk>(Allocator.Persistent);
             *ptr = new SpriteChunk {
-                renderDataChunk = UnsafeHelp.Malloc<SpriteRenderData>(size, Allocator.Persistent),
-                transforms = UnsafeHelp.Malloc<Transform>(size, Allocator.Persistent),
+                renderDataChunk = Unsafe.Allocate<SpriteRenderData>(size, Allocator.Persistent),
+                transforms = Unsafe.Allocate<Transform>(size, Allocator.Persistent),
                 entityToIndex = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
                 indexToEntity = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
                 count = 0,
@@ -400,8 +399,10 @@ namespace Wargon.Nukecs.Tests {
             count = 0;
         }
         public static unsafe void Destroy(SpriteChunk* chunk) {
-            UnsafeUtility.Free(chunk->renderDataChunk, Allocator.Persistent);
-            UnsafeUtility.Free(chunk->transforms, Allocator.Persistent);
+            Unsafe.Free(chunk->transforms, chunk->capacity, Allocator.Persistent);
+            Unsafe.Free(chunk->renderDataChunk, chunk->capacity, Allocator.Persistent);
+            // UnsafeUtility.Free(chunk->renderDataChunk, Allocator.Persistent);
+            // UnsafeUtility.Free(chunk->transforms, Allocator.Persistent);
             chunk->indexToEntity.Dispose();
             chunk->entityToIndex.Dispose();
             UnsafeUtility.Free(chunk, Allocator.Persistent);

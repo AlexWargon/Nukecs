@@ -35,7 +35,7 @@ namespace Wargon.Nukecs.Collision2D
                 iterations = 1,
                 world = world
             };
-            world.DependenciesUpdate = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.DependenciesUpdate);
+            world.DependenciesFixedUpdate = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, world.DependenciesFixedUpdate);
         }
     }
 }  

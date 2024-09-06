@@ -46,9 +46,12 @@
     }
 
     public struct ComponentAmount {
+        /// <summary>
+        /// Component types amount total
+        /// </summary>
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
-    public struct Component {
+    internal struct Component {
         /// <summary>
         /// Components count that are using right now
         /// </summary>
@@ -150,7 +153,7 @@
     public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged {
         private delegate void DisposeDelegate(ref T value);
 
-        private readonly DisposeDelegate disposeFunc;
+        private readonly DisposeDelegate _disposeFunc;
 #if ENABLE_IL2CPP && !UNITY_EDITOR
         T _fakeInstance;
 #endif
@@ -160,7 +163,7 @@
                 throw new Exception (
                     $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
             }
-            disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(typeof(DisposeDelegate),
+            _disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(typeof(DisposeDelegate),
 #if ENABLE_IL2CPP && !UNITY_EDITOR
                     _fakeInstance,
 #else
@@ -171,7 +174,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Dispose(void* buffer, int index) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, index);
-            disposeFunc.Invoke(ref component);
+            _disposeFunc(ref component);
         }
     }
 
@@ -181,7 +184,7 @@
 
     public class ComponentCopper<T> : IComponentCopper where T : unmanaged {
         private delegate T CopyDelegate(ref T value);
-        private readonly CopyDelegate copyFunc;
+        private readonly CopyDelegate _copyFunc;
 #if ENABLE_IL2CPP && !UNITY_EDITOR
         T _fakeInstance;
 #endif
@@ -191,7 +194,7 @@
                 throw new Exception (
                     $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
             }
-            copyFunc = (CopyDelegate)Delegate.CreateDelegate(typeof(CopyDelegate),
+            _copyFunc = (CopyDelegate)Delegate.CreateDelegate(typeof(CopyDelegate),
 #if ENABLE_IL2CPP && !UNITY_EDITOR
                     _fakeInstance,
 #else
@@ -202,7 +205,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Copy(void* buffer, int from, int to) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
-            UnsafeUtility.WriteArrayElement(buffer, to, copyFunc.Invoke(ref component));
+            UnsafeUtility.WriteArrayElement(buffer, to, _copyFunc.Invoke(ref component));
         }
     }
     public interface IPool {
@@ -250,16 +253,16 @@
     [BurstCompile(CompileSynchronously = true)]
     public static class ComponentsArrayExtensions {
         [BurstCompile(CompileSynchronously = true)]
-        public static int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             int index = 0;
-            for (int i = 0; i < buffer.list.Length; i++) {
-                if (item.Equals(buffer.list.ElementAt(i))) {
+            for (int i = 0; i < buffer.list->Length; i++) {
+                if (item.Equals(buffer.list->ElementAt(i))) {
                     index = i;
                     break;
                 }
             }
-            buffer.list.RemoveAtSwapBack(index);
-            return buffer.list.Length - 1;
+            buffer.list->RemoveAtSwapBack(index);
+            return buffer.list->Length - 1;
         }
     }
 

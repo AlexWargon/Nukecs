@@ -35,6 +35,7 @@ namespace Wargon.Nukecs.Tests
     [CreateAssetMenu(fileName = "New Sprite Animation", menuName = "ECS/Sprite Animation")]
     public class SpriteAnimationData : Convertor {
         public string AnimationName;
+        public string AnimationGroup;
         public UnityEngine.Sprite[] sprites;
         //[HideInInspector]
         public Color color = Color.white;
@@ -60,13 +61,14 @@ namespace Wargon.Nukecs.Tests
 
         public void AddToStorage() {
             var animationID = Animator.StringToHash(AnimationName);
-
-            if (!SpriteAnimationsStorage.Instance.Has(animationID)) {
+            var group = Animator.StringToHash(AnimationGroup);
+            
+            if (!SpriteAnimationsStorage.Singleton.Has(animationID ,group)) {
                 var frames = new SpriteAnimationFrames(sprites.Length, animationID);
                 foreach (var float4 in framesUV) {
                     frames.List.Add(float4);
                 }
-                SpriteAnimationsStorage.Instance.Add(animationID, frames);
+                SpriteAnimationsStorage.Singleton.Add(animationID, group, ref frames);
             }
         }
         public Entity CreateAnimatedSpriteEntity(ref World world, float3 position)
@@ -104,15 +106,14 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(renderData);
 
-
-            var animationID = Animator.StringToHash(AnimationName);
             
             var animationComponent = new SpriteAnimation
             {
                 FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
                 FrameRate = frameRate,
                 CurrentTime = Random.value,
-                AnimationID = animationID
+                AnimationID = Animator.StringToHash(AnimationName),
+                Group = Animator.StringToHash(AnimationGroup)
             };
             entity.Add(animationComponent);
 
@@ -150,15 +151,14 @@ namespace Wargon.Nukecs.Tests
                 };
                 entity.Add(renderData);
             }
-
-            var animationID = Animator.StringToHash(AnimationName);
             
             var animationComponent = new SpriteAnimation
             {
-                FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
+                FrameCount = sprites.Length,
                 FrameRate = frameRate,
                 CurrentTime = Random.value,
-                AnimationID = animationID
+                AnimationID = Animator.StringToHash(AnimationName),
+                Group = Animator.StringToHash(AnimationGroup)
             };
             entity.Add(animationComponent);
 
