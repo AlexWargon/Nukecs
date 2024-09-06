@@ -434,16 +434,16 @@ namespace Wargon.Nukecs {
                             if(archetype.Has(ComponentType<Culled>.Index)) break;
                             ref var e = ref world.GetEntity(cmd.Entity);
                             archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            e.Get<SpriteChunkReference>().chunk->Remove(in e);
+                            //e.Get<SpriteChunkReference>().chunk->Remove(in e);
                             break;
                         case ECBCommand.Type.UnCull:
                             if(archetype.Has(ComponentType<Culled>.Index) == false) break;
                             e = ref world.GetEntity(cmd.Entity);
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            var (chunk, transform, renderData) =
-                                e.Read<SpriteChunkReference, Transform, SpriteRenderData>();
+                            //var (chunk, transform, renderData) =
+                                //e.Read<SpriteChunkReference, Transform, SpriteRenderData>();
 
-                            chunk.ChunkRef.Add(in e, in transform, in renderData);
+                            //chunk.ChunkRef.Add(in e, in transform, in renderData);
                             //e.Get<SpriteChunkReference>().chunk->Add(in e);
                             break;
                         case ECBCommand.Type.Copy:

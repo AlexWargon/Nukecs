@@ -27,9 +27,14 @@ namespace Wargon.Nukecs
             //_ecbSystem.OnCreate(ref world);
             this.Add<EntityDestroySystem>();
             this.Add<OnPrefabSpawnSystem>();
+            this.Add<ClearEntityCreatedEventSystem>();
             this.InitDisposeSystems();
         }
 
+        public Systems AddEndSystems() {
+            Add<ClearEntityCreatedEventSystem>();
+            return this;
+        }
         public Systems Add<T>() where T : struct, IJobSystem {
             T system = default;
             if (system is IOnCreate s) {
@@ -42,6 +47,7 @@ namespace Wargon.Nukecs
             });
             return this;
         }
+        
         // public Systems Add<T, T2>() where T : struct, IQueryJobSystem<T2> where T2 : struct, ITuple{
         //     T system = default;
         //     if (system is IOnCreate s) {
@@ -614,6 +620,16 @@ namespace Wargon.Nukecs
             //var workers = JobsUtility.JobWorkerCount;
             //var batchCount = query.Count > workers ? query.Count / workers : 1;
             return dependsOn;
+        }
+    }
+    [BurstCompile]
+    public struct ClearEntityCreatedEventSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.Query().With<EntityCreated>();
+        }
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            entity.Remove<EntityCreated>();
         }
     }
 }

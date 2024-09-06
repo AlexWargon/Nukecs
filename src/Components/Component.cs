@@ -26,6 +26,7 @@
     }
     public struct IsAlive : IComponent { }
     public struct DestroyEntity : IComponent { }
+    public struct EntityCreated : IComponent { }
     public struct IsPrefab : IComponent { }
     public struct Dispose<T> : IComponent where T : struct, IComponent{ }
     public struct ChildOf : IComponent {
@@ -43,6 +44,7 @@
         public bool fire;
         public bool use;
     }
+
     public struct ComponentAmount {
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
@@ -113,15 +115,19 @@
         internal static void CreateDisposer<T>(int typeIndex)  where T : unmanaged{
             disposers[typeIndex] = new ComponentDisposer<T>();
         }
+        
         internal static void CreateCopper<T>(int typeIndex)  where T : unmanaged{
             coppers[typeIndex] = new ComponentCopper<T>();
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Dispose(void* buffer, int index,int typeIndex){
             disposers[typeIndex].Dispose(buffer, index);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Copy(void* buffer, int from, int to,int typeIndex){
             coppers[typeIndex].Copy(buffer, from, to);
         }
@@ -130,6 +136,7 @@
         void Write(void* buffer, int index, int sizeInBytes, IComponent component);
     }
     public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
             //*(T*) (buffer + index * sizeInBytes) = (T)component;
             UnsafeUtility.WriteArrayElement(buffer, index, (T)component);
@@ -153,8 +160,7 @@
                 throw new Exception (
                     $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
             }
-            disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(
-                typeof(DisposeDelegate),
+            disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(typeof(DisposeDelegate),
 #if ENABLE_IL2CPP && !UNITY_EDITOR
                     _fakeInstance,
 #else
@@ -162,6 +168,7 @@
 #endif
                 dispose);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Dispose(void* buffer, int index) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, index);
             disposeFunc.Invoke(ref component);
@@ -184,8 +191,7 @@
                 throw new Exception (
                     $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
             }
-            copyFunc = (CopyDelegate)Delegate.CreateDelegate(
-                typeof(CopyDelegate),
+            copyFunc = (CopyDelegate)Delegate.CreateDelegate(typeof(CopyDelegate),
 #if ENABLE_IL2CPP && !UNITY_EDITOR
                     _fakeInstance,
 #else
@@ -193,6 +199,7 @@
 #endif
                 copy);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Copy(void* buffer, int from, int to) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
             UnsafeUtility.WriteArrayElement(buffer, to, copyFunc.Invoke(ref component));
@@ -221,15 +228,16 @@
             fixed (T* p = array) {
                 _ptr = p;
             }
-            _handle.Free();
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef(int index) {
             return ref *(_ptr + index);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set(int index, in T value) {
             *(_ptr + index) = value;
         }
+        
         public void Dispose() {
             _handle.Free();
         }
