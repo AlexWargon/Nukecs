@@ -7,9 +7,9 @@ namespace Wargon.Nukecs.Collision2D
     public struct CollisionClearGridCellsSystem : ISystem {
         public void OnUpdate(ref World world, float dt){
             var grind2d = Grid2D.Instance;
-            world.DependenciesUpdate = new ClearJob {
+            world.DependenciesFixedUpdate = new ClearJob {
                 cells = grind2d.cells
-            }.Schedule(grind2d.cells.Length, 1, world.DependenciesUpdate);
+            }.Schedule(grind2d.cells.Length, 1, world.DependenciesFixedUpdate);
         }
 
         [BurstCompile]

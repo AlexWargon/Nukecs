@@ -22,4 +22,15 @@ namespace Wargon.Nukecs.Collision2D
             body.velocity = float2.zero;
         }
     }
+    [BurstCompile]
+    public struct OnColliderSpawnSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Single;
+        public Query GetQuery(ref World world) {
+            return world.Query().With<Circle2D>().With<EntityCreated>();
+        }
+
+        public void OnUpdate(ref Entity entity, float deltaTime) {
+            entity.Get<Circle2D>().index = entity.id;
+        }
+    }
 }  

@@ -13,16 +13,17 @@ namespace Wargon.Nukecs.Tests {
         [SerializeField] private int worldId;
         [Title("Components")][HideLabel][GUIColor(0.6f, 0.9f, 1.0f)][SerializeReference] public List<IComponent> components;
         [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected List<Convertor> convertors = new ();
-        private void Start() {
-            if (!EntityPrefabMap.TryGet(GetInstanceID(), out Entity entity)) {
-                ref var w = ref World.Get(worldId);
-                var e = w.Entity();
-                Convert(ref w, ref e);
-            }
-        }
+        private bool converted;
+        // private void Start() {
+        //     if (!EntityPrefabMap.TryGet(GetInstanceID(), out Entity entity)) {
+        //         ref var w = ref World.Get(worldId);
+        //         var e = w.Entity();
+        //         Convert(ref w, ref e);
+        //     }
+        // }
 
         public void Convert(ref World world, ref Entity entity) {
-            
+            if(converted) return;
             foreach (var component in components)
             {
                 entity.AddObject(component);
@@ -41,13 +42,14 @@ namespace Wargon.Nukecs.Tests {
                         entity.AddChild(childE);
                         Debug.Log(childT.name);
                     }
+                    converted = true;
+                    EntityPrefabMap.GetOrCreatePrefab(this, ref world);
                     Destroy(gameObject);
                     break;
                 case EntityLinkOption.Hybrid:
                     break;
             }
-            entity.Add(new IsPrefab());
-            EntityPrefabMap.Add(GetInstanceID(), entity);
+            
             world.SpawnPrefab(in entity);
         }
 
@@ -66,43 +68,6 @@ namespace Wargon.Nukecs.Tests {
     public enum EntityLinkOption {
         Pure,
         Hybrid,
-    }
-
-    public static class EntityPrefabMap {
-        private static Dictionary<int, Entity> Map = new Dictionary<int, Entity>();
-        public static void Add(int id, Entity entity) {
-            if (Map.ContainsKey(id)) return;
-            Map[id] = entity;
-        }
-
-        public static Entity Get(int id) {
-            var prefab = Map[id];
-            return Map[id].world.SpawnPrefab(in prefab);
-        }
-        public static Entity GetPrefab(int id) {
-            return Map[id];
-        }
-        public static Entity GetOrCreatePrefab<T>(T obj, ref World world) where T : UnityEngine.Object, ICustomConvertor {
-            var id = obj.GetInstanceID();
-            if (!Map.ContainsKey(id)) {
-                var e = world.Entity();
-                obj.Convert(ref world, ref e);
-                e.Add(new IsPrefab());
-                Map[id] = e;
-                return e;
-            }
-
-            return Map[id];
-        }
-        public static bool TryGet(int id, out Entity entity) {
-            if (Map.ContainsKey(id)) {
-                var prefab = Map[id];
-                entity = Map[id].world.SpawnPrefab(in prefab);
-                return true;
-            }
-            entity = Entity.Null;
-            return false;
-        }
     }
 }
 

@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
             this.Add<EntityDestroySystem>();
             this.Add<OnPrefabSpawnSystem>();
             this.Add<ClearEntityCreatedEventSystem>();
-            this.InitDisposeSystems();
+            //this.InitDisposeSystems();
         }
 
         public Systems AddEndSystems() {
@@ -624,7 +624,7 @@ namespace Wargon.Nukecs
     }
     [BurstCompile]
     public struct ClearEntityCreatedEventSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
+        public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world) {
             return world.Query().With<EntityCreated>();
         }

@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Wargon.Nukecs.Collision2D {
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
@@ -31,7 +33,7 @@ namespace Wargon.Nukecs.Collision2D {
                 W = grid2D.W,
                 H = grid2D.H
             };
-            world.DependenciesUpdate = populateJob.Schedule(query.Count, 1, world.DependenciesUpdate);
+            world.DependenciesFixedUpdate = populateJob.Schedule(query.Count, 1, world.DependenciesFixedUpdate);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
@@ -57,13 +59,13 @@ namespace Wargon.Nukecs.Collision2D {
                     var cellIndex = py * W + px;
                     if (cellIndex > -1 && cellIndex < cells.Length) {
                         var cell = cells[cellIndex];
-                        cell.CollidersBuffer.Add(circle.index);
+                        cell.CollidersBuffer.Add(e);
                         circle.cellIndex = cellIndex;
                         cells[cellIndex] = cell;
                     }
                 }
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private int floor(float x) {
                 var xi = (int) x;
                 return x < xi ? xi - 1 : xi;

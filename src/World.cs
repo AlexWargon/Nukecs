@@ -16,7 +16,8 @@ namespace Wargon.Nukecs {
         private static int lastFreeSlot;
         private static int lastWorldID;
         public static ref World Get(int index) => ref worlds[index];
-        
+        // ReSharper disable once InconsistentNaming
+        public static ref World Default => ref Get(0);
         public static World Create() {
             Component.Initialization();
             World world;
@@ -110,7 +111,7 @@ namespace Wargon.Nukecs {
                 this.reservedEntities = new UnsafeList<int>(128, allocator, NativeArrayOptions.ClearMemory);
                 this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(config.StartEntitiesAmount,
                     allocator, NativeArrayOptions.ClearMemory);
-                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(config.StartComponentsAmount, allocator,
+                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, allocator,
                     NativeArrayOptions.ClearMemory);
                 this.queries = new UnsafePtrList<QueryUnsafe>(32, allocator);
                 this.archetypesList = new UnsafePtrList<ArchetypeImpl>(32, allocator);
@@ -437,18 +438,23 @@ namespace Wargon.Nukecs {
             StartComponentsAmount = 32
         };
         public static WorldConfig Default1024 => new WorldConfig() {
-            StartPoolSize = 1024,
-            StartEntitiesAmount = 1024,
+            StartPoolSize = 1025,
+            StartEntitiesAmount = 1025,
             StartComponentsAmount = 32
         };
         public static WorldConfig Default16384 => new WorldConfig() {
-            StartPoolSize = 16384,
-            StartEntitiesAmount = 16384,
+            StartPoolSize = 16385,
+            StartEntitiesAmount = 16385,
             StartComponentsAmount = 32
         };
         public static WorldConfig Default163840 => new WorldConfig() {
-            StartPoolSize = 163840,
-            StartEntitiesAmount = 163840,
+            StartPoolSize = 163841,
+            StartEntitiesAmount = 163841,
+            StartComponentsAmount = 32
+        };
+        public static WorldConfig Default256000 => new WorldConfig() {
+            StartPoolSize = 256001,
+            StartEntitiesAmount = 256001,
             StartComponentsAmount = 32
         };
         public static WorldConfig Default_1_000_000 => new WorldConfig() {
@@ -457,7 +463,4 @@ namespace Wargon.Nukecs {
             StartComponentsAmount = 32
         };
     }
-
-
-
 }
