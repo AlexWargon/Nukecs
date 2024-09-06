@@ -22,8 +22,15 @@ namespace Wargon.Nukecs.Tests {
         internal int count;
         
         public void OnUpdate() {
-            for (int i = 0; i < count; i++) {
+            for (var i = 0; i < count; i++) {
                 archetypes[i].OnUpdate();
+                archetypes[i].Clear();
+            }
+        }
+
+        public void Clear() {
+            for (var i = 0; i < count; i++) {
+                archetypes[i].Clear();
             }
         }
         public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world) {
@@ -174,6 +181,9 @@ namespace Wargon.Nukecs.Tests {
             Chunk->Remove(in entity);
         }
         
+        public void Clear() {
+            Chunk->Clear();
+        }
         public void OnUpdate() {
             var count = Chunk->count;
 
@@ -228,7 +238,7 @@ namespace Wargon.Nukecs.Tests {
         private NativeArray<Transform> MatrixArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Transform>(
-                Chunk->matrixChunk, 
+                Chunk->transforms, 
                 count, 
                 Allocator.None
             );
@@ -265,10 +275,9 @@ namespace Wargon.Nukecs.Tests {
         [NativeDisableUnsafePtrRestriction] 
         internal unsafe SpriteRenderData* renderDataChunk;
         [NativeDisableUnsafePtrRestriction] 
-        internal unsafe Transform* matrixChunk;
+        internal unsafe Transform* transforms;
         internal UnsafeList<int> entityToIndex;
         internal UnsafeList<int> indexToEntity;
-        internal UnsafeParallelHashSet<int> entitiesSet;
         internal volatile int count;
         internal int capacity;
         internal int lastRemoved;
@@ -278,10 +287,9 @@ namespace Wargon.Nukecs.Tests {
                 Allocator.Persistent);
             *ptr = new SpriteChunk {
                 renderDataChunk = UnsafeHelp.Malloc<SpriteRenderData>(size, Allocator.Persistent),
-                matrixChunk = UnsafeHelp.Malloc<Transform>(size, Allocator.Persistent),
+                transforms = UnsafeHelp.Malloc<Transform>(size, Allocator.Persistent),
                 entityToIndex = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
                 indexToEntity = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
-                entitiesSet = new UnsafeParallelHashSet<int>(size, Allocator.Persistent),
                 count = 0,
                 capacity = size,
                 lastRemoved = 0
@@ -298,7 +306,7 @@ namespace Wargon.Nukecs.Tests {
                 indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
                 unsafe {
-                    UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                    UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
                     UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
                 }
                 capacity = newCapacity;
@@ -318,7 +326,7 @@ namespace Wargon.Nukecs.Tests {
                 indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
                 unsafe {
-                    UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                    UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
                     UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
                 }
                 capacity = newCapacity;
@@ -331,22 +339,35 @@ namespace Wargon.Nukecs.Tests {
 
         public unsafe int Add(in Entity entity, in Transform transform, in SpriteRenderData data) {
             var index = count;
+            Interlocked.Increment(ref count);
             if (entity.id >= entityToIndex.m_length) {
                 var newCapacity = entity.id * 2;
                 entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 entityToIndex.m_length = entityToIndex.m_capacity;
                 indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
                 indexToEntity.m_length = indexToEntity.m_capacity;
-                UnsafeHelp.Resize(capacity, newCapacity, ref matrixChunk, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
                 UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
                 capacity = newCapacity;
             }
-            indexToEntity[count] = entity.id;
-            entityToIndex[entity.id] = count;
-            matrixChunk[count] = transform;
-            renderDataChunk[count] = data;
-            Interlocked.Increment(ref count);
+            indexToEntity[index] = entity.id;
+            entityToIndex[entity.id] = index;
+            transforms[index] = transform;
+            renderDataChunk[index] = data;
             return index;
+        }
+
+        public unsafe void AddToFill(in Entity entity, in Transform transform, in SpriteRenderData data) {
+            var index = count;
+            Interlocked.Increment(ref count);
+            if (index >= capacity) {
+                var newCapacity = capacity * 2;
+                UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
+                UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
+                capacity = newCapacity;
+            }
+            transforms[index] = transform;
+            renderDataChunk[index] = data;
         }
         public unsafe void Remove(in Entity entity) {
             if(count <= 0) return;
@@ -358,25 +379,31 @@ namespace Wargon.Nukecs.Tests {
                 entityToIndex[lastEntityID] = entityIndex;
                 indexToEntity[entityIndex] = lastEntityID;
                 renderDataChunk[lastIndex] = renderDataChunk[entityIndex];
-                matrixChunk[lastIndex] = matrixChunk[entityIndex];
+                transforms[lastIndex] = transforms[entityIndex];
             }
 
             Interlocked.Decrement(ref count);
             //count--;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void UpdateData(int entity, in SpriteRenderData data, in Transform matrix) {
+        public unsafe void UpdateData(int entity, in SpriteRenderData data, in Transform transform) {
             var index = entityToIndex[entity];
             renderDataChunk[index] = data;
-            matrixChunk[index] = matrix;
+            transforms[index] = transform;
         }
 
+        public unsafe void Clear() {
+            indexToEntity.Clear();
+            indexToEntity.m_length = indexToEntity.m_capacity;
+            entityToIndex.Clear();
+            entityToIndex.m_length = entityToIndex.m_capacity;
+            count = 0;
+        }
         public static unsafe void Destroy(SpriteChunk* chunk) {
             UnsafeUtility.Free(chunk->renderDataChunk, Allocator.Persistent);
-            UnsafeUtility.Free(chunk->matrixChunk, Allocator.Persistent);
+            UnsafeUtility.Free(chunk->transforms, Allocator.Persistent);
             chunk->indexToEntity.Dispose();
             chunk->entityToIndex.Dispose();
-            chunk->entitiesSet.Dispose();
             UnsafeUtility.Free(chunk, Allocator.Persistent);
         }
     }

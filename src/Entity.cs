@@ -1,3 +1,5 @@
+using Unity.Burst;
+
 namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
@@ -65,7 +67,7 @@ namespace Wargon.Nukecs {
             return worldPointer != null;
         }
     }
-
+    [BurstCompile]
     public static unsafe class EntityExtensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetArray<T>(this ref Entity entity) where T : unmanaged {
@@ -268,20 +270,30 @@ namespace Wargon.Nukecs {
             else {
                 child.Add(new ChildOf {Value = entity});
             }
-
+            if (entity.Has<ComponentArray<Child>>()) {
+                ref var childrenNew = ref entity.GetArray<Child>();
+                childrenNew.Add(new Child{Value = child});
+            }
+            else {
+                ref var childrenNew = ref entity.AddArray<Child>();
+                childrenNew.Add(new Child{Value = child});
+            }
             //entity.GetBuffer<Child>().Add(new Child(){Value = child});
             child.Add(new OnAddChildWithTransformEvent());
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ref Entity GetChild(this ref Entity entity, int index) {
+            return ref entity.GetArray<Child>().ElementAt(index).Value;
+        }
         public static void RemoveChild(this ref Entity entity, Entity child) {
-            // ref var children = ref entity.GetBuffer<Child>();
-            // foreach (ref var child1 in children) {
-            //     if (child1.Value == child) {
-            //         children.RemoveAtSwapBack(in child1);
-            //         
-            //         break;
-            //     }
-            // }
+            if(!entity.Has<ComponentArray<Child>>()) return;
+            ref var children = ref entity.GetArray<Child>();
+            foreach (ref var child1 in children) {
+                if (child1.Value == child) {
+                    children.RemoveAtSwapBack(in child1);
+                    break;
+                }
+            }
             child.Remove<ChildOf>();
         }
     }

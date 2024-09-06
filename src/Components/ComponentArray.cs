@@ -1,7 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
@@ -28,37 +27,6 @@ namespace Wargon.Nukecs {
             value.list.Dispose();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Enumerator GetEnumerator() {
-            fixed (UnsafeList<T>* ptr = &list) {
-                return new Enumerator(ptr);
-            }
-        }
-        public struct Enumerator {
-            public UnsafeList<T>* listPtr;
-            private int index;
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public Enumerator(UnsafeList<T>* list) {
-                listPtr = list;
-                index = -1;
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext() {
-                index++;
-                return index < listPtr->m_length;
-            }
-            public void Reset() {
-                index = -1;
-            }
-
-            public ref T Current {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref listPtr->Ptr[index];
-            }
-            public void Dispose() {
-                
-            }
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(ref ComponentArray<T> other) {
             list = new UnsafeList<T>(other.list.m_capacity, other.list.Allocator);
             list.CopyFrom(in other.list);
@@ -67,5 +35,43 @@ namespace Wargon.Nukecs {
         public ComponentArray<T> Copy(ref ComponentArray<T> toCopy) {
             return new ComponentArray<T>(ref toCopy);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator) {
+            var array = new ComponentArray<T>(size);
+            array.list.AddReplicate(in data, size);
+            return array;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Enumerator GetEnumerator() {
+            return new Enumerator(list.Ptr, list.m_length);
+        }
+        public struct Enumerator {
+            private readonly T* _listPtr;
+            private readonly int _len;
+            private int _index;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public Enumerator(T* list, int lenght) {
+                _listPtr = list;
+                _len = lenght;
+                _index = -1;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext() {
+                _index++;
+                return _index < _len;
+            }
+            public void Reset() {
+                _index = -1;
+            }
+
+            public ref T Current {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref _listPtr[_index];
+            }
+            public void Dispose() {
+                
+            }
+        }
+
     }
 }

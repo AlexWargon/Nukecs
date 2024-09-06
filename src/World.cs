@@ -130,6 +130,7 @@ namespace Wargon.Nukecs {
                 this.currentContext = UpdateContext.Update;
                 this.self = self;
                 _ = ComponentType<DestroyEntity>.Index;
+                _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
             }
@@ -228,6 +229,25 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity(int archetype) {
+                if (lastEntityIndex >= entities.m_capacity) {
+                    var newCapacity = lastEntityIndex * 2;
+                    UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
+                    UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
+                }
+                Entity e;
+                entitiesAmount++;
+                var last = lastEntityIndex;
+                if (reservedEntities.m_length > 0) {
+                    last = reservedEntities.ElementAtNoCheck(reservedEntities.m_length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.m_length - 1);
+                }
+                e = new Entity(last, self, archetype);
+                entities.ElementAtNoCheck(last) = e;
+                lastEntityIndex++;
+                return e;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Entity CreateEntityWithEvent(int archetype) {
                 if (lastEntityIndex >= entities.m_capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
@@ -362,7 +382,10 @@ namespace Wargon.Nukecs {
         public Entity Entity<T1>(in T1 c1) where T1 : unmanaged, IComponent {
             return UnsafeWorld->CreateEntity(in c1);
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Entity Entity<T1>() where T1 : unmanaged, IComponent {
+            return UnsafeWorld->CreateEntity(default(T1));
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity Entity<T1,T2>(in T1 c1, in T2 c2) 
             where T1 : unmanaged, IComponent 

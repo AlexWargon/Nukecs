@@ -57,6 +57,7 @@ namespace Wargon.Nukecs.Tests {
 
         public static void Convert(SpriteRenderer spriteRenderer, ref World world, ref Entity entity) {
             var sprite = spriteRenderer.sprite;
+            var shader = spriteRenderer.sharedMaterial.shader;
             var d = spriteRenderer.color;
             var uv = SpriteUtility.CalculateSpriteTiling(sprite);
             var renderData = new SpriteRenderData

@@ -155,7 +155,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity Copy(in Entity entity) {
             var newEntity = world->CreateEntity(id);
-            for (int i = 0; i < queries.Length; i++) {
+            for (var i = 0; i < queries.Length; i++) {
                 var q = queries.ElementAtNoCheck(i);
                 q->Add(newEntity.id);
             }
@@ -171,14 +171,14 @@ namespace Wargon.Nukecs {
                 ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity.id);
                 ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
 
-                for (int i = 0; i < fromC.list.m_length; i++) {
+                for (var i = 0; i < fromC.list.m_length; i++) {
                     ref var child = ref fromC.list.ElementAtNoCheck(i);
                     ref var childNew = ref to.list.ElementAtNoCheck(i);
                     childNew.Value = child.Value.Copy();
                     childNew.Value.Get<ChildOf>().Value = newEntity;
                 }
             }
-            
+            //newEntity.Add<EntityCreated>();
             return newEntity;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
