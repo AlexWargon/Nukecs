@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.Tests {
                 .None<Culled>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             ref readonly var data = ref entity.Read<SpriteRenderData>();
             ref var chunkIndex = ref entity.Get<SpriteChunkReference>();
             ref readonly var transform = ref entity.Read<Transform>();

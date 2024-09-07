@@ -18,13 +18,13 @@ namespace Wargon.Nukecs.Tests {
                 .None<Culled>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             ref var animation = ref entity.Get<SpriteAnimation>();
             ref var renderData = ref entity.Get<SpriteRenderData>();
             ref var transform = ref entity.Get<Transform>();
             ref readonly var input = ref entity.Read<Input>();
             
-            animation.CurrentTime += deltaTime;
+            animation.CurrentTime += state.DeltaTime;
             var frameDuration = 1f / animation.FrameRate;
             var frames = SpriteAnimationsStorage.Singleton.GetFrames(animation.Group, animation.AnimationID).List;
             if(frames.m_length == 0) return;

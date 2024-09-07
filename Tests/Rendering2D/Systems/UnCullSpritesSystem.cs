@@ -14,7 +14,7 @@ namespace Wargon.Nukecs.Tests {
                 .None<DestroyEntity>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             var data = CullingData.instance;
             var xMax = data.xMax;
             var yMax = data.yMax;

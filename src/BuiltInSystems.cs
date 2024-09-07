@@ -10,16 +10,16 @@ namespace Wargon.Nukecs{
         public Query GetQuery(ref World world) {
             return world.Query().With<DestroyEntity>();
         }
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             entity.DestroyNow();
         }
     }
 
     public unsafe struct OnPrefabSpawnSystem : ISystem
     {
-        public void OnUpdate(ref World world, float deltaTime)
+        public void OnUpdate(ref State state)
         {
-            world.DependenciesUpdate = new OnPrefabSpawnJob{world = world.UnsafeWorld}.Schedule(world.DependenciesUpdate);
+            state.Dependencies = new OnPrefabSpawnJob{world = state.World.UnsafeWorld}.Schedule(state.Dependencies);
         }
         [BurstCompile]
         private struct OnPrefabSpawnJob : IJob {

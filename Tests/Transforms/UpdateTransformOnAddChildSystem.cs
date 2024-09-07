@@ -11,7 +11,7 @@
             return world.Query().With<ChildOf>().With<Transform>().With<OnAddChildWithTransformEvent>();
         }
 
-        public void OnUpdate(ref Entity child, float deltaTime)
+        public void OnUpdate(ref Entity child, ref State state)
         {
             var (cref, tref) = child.Get<ChildOf, Transform>();
             ref var childTransform = ref tref.Value;

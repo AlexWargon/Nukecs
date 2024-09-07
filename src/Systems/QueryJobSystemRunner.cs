@@ -8,29 +8,30 @@ namespace Wargon.Nukecs
         public SystemMode Mode;
         public ECBJob EcbJob;
 
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle, UpdateContext updateContext) {
-            
+        public JobHandle Schedule(UpdateContext updateContext, ref State state)
+        {
+            ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
                 world.CurrentContext = updateContext;
-                System.OnUpdate(ref Query, dt);
+                System.OnUpdate(ref Query, state.DeltaTime);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.Run();
             }
             else {
-                jobHandle = System.Schedule(ref Query, dt, Mode, jobHandle);
+                state.Dependencies = System.Schedule(ref Query, state.DeltaTime, Mode, state.Dependencies);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
-                jobHandle = EcbJob.Schedule(jobHandle);
+                state.Dependencies = EcbJob.Schedule(state.Dependencies);
             }
-            return jobHandle;
+            return state.Dependencies;
         }
 
-        public void Run(ref World world, float dt) {
+        public void Run(ref State state) {
             for (int i = 0; i < Query.Count; i++) {
-                System.OnUpdate(ref Query, dt);
+                System.OnUpdate(ref Query, state.DeltaTime);
             }
-            world.ECB.Playback(ref world);
+            state.World.ECB.Playback(ref state.World);
         }
     }
 }

@@ -13,46 +13,45 @@ namespace Wargon.Nukecs
         public SystemMode Mode;
         public ECBJob EcbJob;
 
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle, UpdateContext updateContext) {
+        public JobHandle Schedule(UpdateContext updateContext, ref State state)
+        {
+            ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
                 world.CurrentContext = updateContext;
                 for (var i = 0; i < Query.Count; i++) {
-                    System.OnUpdate(ref Query.GetEntity(i), dt);    
+                    System.OnUpdate(ref Query.GetEntity(i), ref state);    
                 }
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.Run();
+                return state.Dependencies;
             }
-            else {
-                jobHandle = System.Schedule(ref Query, dt, Mode, updateContext, ref world, jobHandle);
-                EcbJob.ECB = world.GetEcbVieContext(updateContext);
-                EcbJob.world = world;
-                jobHandle = EcbJob.Schedule(jobHandle);
-            }
-            return EcbJob.Schedule(jobHandle);
+            state.Dependencies = System.Schedule(ref Query, Mode, updateContext, ref state);
+            EcbJob.ECB = world.GetEcbVieContext(updateContext);
+            EcbJob.world = world;
+            return EcbJob.Schedule(state.Dependencies);
         }
 
-        public void Run(ref World world, float dt) {
+        public void Run(ref State state) {
             for (int i = 0; i < Query.Count; i++) {
-                System.OnUpdate(ref this.Query.GetEntity(i), dt);
+                System.OnUpdate(ref this.Query.GetEntity(i), ref state);
             }
-            world.ECB.Playback(ref world);
+            state.World.ECB.Playback(ref state.World);
         }
     }
     [JobProducerType(typeof(EntityJobSystemExtensions.EntityJobWrapper<>))]
     public interface IEntityJobSystem {
         SystemMode Mode { get; }
         Query GetQuery(ref World world);
-        void OnUpdate(ref Entity entity, float deltaTime);
+        void OnUpdate(ref Entity entity, ref State state);
     }
     public static class EntityJobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntityJobWrapper<TJob> where TJob : struct, IEntityJobSystem {
             public TJob JobData;
             public Query query;
-            public float deltaTime;
             public UpdateContext updateContext;
-            public World world;
+            public State State;
             internal static readonly SharedStatic<IntPtr> JobReflectionData =
                 SharedStatic<IntPtr>.GetOrCreate<EntityJobWrapper<TJob>>();
 
@@ -76,12 +75,12 @@ namespace Wargon.Nukecs
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
-                            fullData.world.CurrentContext = fullData.updateContext;
+                            fullData.State.World.CurrentContext = fullData.updateContext;
                             for (var i = begin; i < end; i++) {
                                 unsafe {
                                     ref var e = ref fullData.query.impl->GetEntity(i);
                                     if (e != Entity.Null) {
-                                        fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), fullData.deltaTime);
+                                        fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), ref fullData.State);
                                     }
                                 }
                             }
@@ -92,7 +91,7 @@ namespace Wargon.Nukecs
                             unsafe {
                                 ref var e = ref fullData.query.impl->GetEntity(i);
                                 if (e != Entity.Null) {
-                                    fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), fullData.deltaTime);
+                                    fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), ref fullData.State);
                                 }
                             }
                         }
@@ -111,19 +110,18 @@ namespace Wargon.Nukecs
             return EntityJobWrapper<T>.JobReflectionData.Data;
         }
 
-        public static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref Query query, float deltaTime,
-            SystemMode mode, UpdateContext updateContext, ref World world, JobHandle dependsOn = default)
+        public static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref Query query,
+            SystemMode mode, UpdateContext updateContext, ref State state)
             where TJob : struct, IEntityJobSystem {
             var fullData = new EntityJobWrapper<TJob> {
                 JobData = jobData,
                 query = query,
-                deltaTime = deltaTime,
                 updateContext = updateContext,
-                world = world
+                State = state
             };
             
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
-                GetReflectionData<TJob>(), dependsOn,
+                GetReflectionData<TJob>(), state.Dependencies,
                 mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
                 case SystemMode.Single:
@@ -133,7 +131,7 @@ namespace Wargon.Nukecs
             }
             //var workers = JobsUtility.JobWorkerCount;
             //var batchCount = query.Count > workers ? query.Count / workers : 1;
-            return dependsOn;
+            return state.Dependencies;
         }
         
         public static unsafe void Run<TJob>(this TJob jobData, ref Query query, float deltaTime) where TJob : struct, IEntityJobSystem
@@ -141,7 +139,7 @@ namespace Wargon.Nukecs
             var fullData = new EntityJobWrapper<TJob> {
                 JobData = jobData,
                 query = query,
-                deltaTime = deltaTime
+                //deltaTime = deltaTime
             };
             JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(
                 UnsafeUtility.AddressOf(ref fullData),

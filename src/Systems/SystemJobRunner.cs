@@ -6,16 +6,16 @@ namespace Wargon.Nukecs
         public TSystem System;
         public ECBJob EcbJob;
 
-        public JobHandle Schedule(ref World world, float dt, ref JobHandle jobHandle, UpdateContext updateContext) {
-            System.Schedule(ref world, dt, jobHandle);
-            EcbJob.ECB = world.GetEcbVieContext(updateContext);
-            EcbJob.world = world;
-            return EcbJob.Schedule(jobHandle);
+        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
+            System.Schedule(ref state.World, state.DeltaTime, state.Dependencies);
+            EcbJob.ECB = state.World.GetEcbVieContext(updateContext);
+            EcbJob.world = state.World;
+            return EcbJob.Schedule(state.Dependencies);
         }
 
-        public void Run(ref World world, float dt) {
-            System.OnUpdate(ref world, dt);
-            world.ECB.Playback(ref world);
+        public void Run(ref State state) {
+            System.OnUpdate(ref state.World, state.DeltaTime);
+            state.World.ECB.Playback(ref state.World);
         }
     }
 }
