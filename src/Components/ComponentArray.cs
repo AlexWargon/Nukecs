@@ -1,11 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
-        internal UnsafeList<T>* list;
+        [NativeDisableUnsafePtrRestriction] internal UnsafeList<T>* list;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(int capacity) {
             list = UnsafeList<T>.Create(capacity, Allocator.Persistent);
@@ -15,6 +16,19 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item) {
             list->Add(in item);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddParallel(in T item) {
+            var idx = list->m_length;
+            if (idx < list->m_capacity)
+            {
+                list->Ptr[idx] = item;
+                Interlocked.Increment(ref list->m_length);
+                return;
+            }
+            
+            list->Resize(idx * 2);
+            list->Ptr[idx] = item;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index) {
