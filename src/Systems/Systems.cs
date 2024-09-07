@@ -11,6 +11,26 @@ using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs
 {
+    internal static class WorldSystems
+    {
+        private static Dictionary<int, List<Systems>> systemsMap = new Dictionary<int, List<Systems>>();
+
+        internal static void Add(int id, Systems systems)
+        {
+            if (!systemsMap.ContainsKey(id))
+                systemsMap[id] = new List<Systems>();
+            systemsMap[id].Add(systems);
+        }
+
+        internal static void CompleteAll(int id)
+        {
+            var list = systemsMap[id];
+            foreach (var systems in list)
+            {
+                systems.Complete();
+            }
+        }
+    }
     public unsafe class Systems {
         internal JobHandle dependencies;
         private List<ISystemRunner> runners;
@@ -25,12 +45,18 @@ namespace Wargon.Nukecs
             this.world = world;
             //_ecbSystem = default;
             //_ecbSystem.OnCreate(ref world);
+
+            //this.InitDisposeSystems();
+            WorldSystems.Add(world.UnsafeWorld->Id, this);
+        }
+        
+        public Systems AddDefaults()
+        {
             this.Add<EntityDestroySystem>();
             this.Add<OnPrefabSpawnSystem>();
             this.Add<ClearEntityCreatedEventSystem>();
-            //this.InitDisposeSystems();
+            return this;
         }
-
         public Systems AddEndSystems() {
             Add<ClearEntityCreatedEventSystem>();
             return this;
@@ -177,12 +203,10 @@ namespace Wargon.Nukecs
         private State state;
         private State stateFixed;
         public void OnUpdate(float dt) {
-            world.DependenciesUpdate = state.Dependencies;
-            world.DependenciesUpdate.Complete();
+            state.Dependencies.Complete();
             state.World = world;
             state.DeltaTime = dt;
             for (var i = 0; i < runners.Count; i++) {
-                world.DependenciesUpdate = state.Dependencies;
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
             //for (var i = 0; i < disposeSystems.Count; i++)
@@ -192,14 +216,18 @@ namespace Wargon.Nukecs
         }
         public void OnFixedUpdate(float dt)
         {
-            world.DependenciesFixedUpdate = stateFixed.Dependencies;
-            world.DependenciesFixedUpdate.Complete();
+            stateFixed.Dependencies.Complete();
             stateFixed.World = world;
             stateFixed.DeltaTime = dt;
             for (var i = 0; i < runners.Count; i++) {
-                world.DependenciesFixedUpdate = stateFixed.Dependencies;
                 stateFixed.Dependencies = runners[i].Schedule(UpdateContext.FixedUpdate, ref stateFixed);
             }
+        }
+
+        internal void Complete()
+        {
+            state.Dependencies.Complete();
+            stateFixed.Dependencies.Complete();
         }
         // public void Run(float dt) {
         //     for (var i = 0; i < runners.Count; i++) {

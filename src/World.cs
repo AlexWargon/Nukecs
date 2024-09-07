@@ -148,13 +148,11 @@ namespace Wargon.Nukecs {
                 for (var i = 0; i < entitiesToClear; i++) {
                     ref var entity = ref entities.ElementAt(i);
                     if (entity.worldPointer != null) {
-                        
                         entity.Free();
                     }
                 }
                 
-                systemsUpdateJobDependencies.Complete();
-                systemsFixedUpdateJobDependencies.Complete();
+                WorldSystems.CompleteAll(Id);
 
                 entities.Dispose();
                 entitiesArchetypes.Dispose();
