@@ -52,8 +52,10 @@ namespace Wargon.Nukecs.Collision2D {
                 ref var transform = ref transforms.Get(e);
                 circle.collided = false;
                 circle.position = new float2(transform.Position.x, transform.Position.y);
-                var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
-                var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
+                var x = (transform.Position.x - Offset.x - GridPosition.x) / cellSizeX;
+                var y = (transform.Position.y - Offset.y - GridPosition.y) / cellSizeY;
+                var px = floor(ref x);
+                var py = floor(ref y);
 
                 if (px >= 0 && px < W && py >= 0 && py < H) {
                     var cellIndex = py * W + px;
@@ -65,8 +67,9 @@ namespace Wargon.Nukecs.Collision2D {
                     }
                 }
             }
+            [BurstCompile]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private int floor(float x) {
+            private static int floor(ref float x) {
                 var xi = (int) x;
                 return x < xi ? xi - 1 : xi;
             }
