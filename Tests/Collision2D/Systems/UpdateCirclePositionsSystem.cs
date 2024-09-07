@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.Collision2D
             return world.Query().With<Transform>().With<Body2D>().With<Circle2D>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime)
+        public void OnUpdate(ref Entity entity, ref State state)
         {
             ref readonly var body = ref entity.Read<Body2D>();
             ref var collider = ref entity.Get<Circle2D>();

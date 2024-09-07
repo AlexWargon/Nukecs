@@ -52,10 +52,10 @@ namespace Wargon.Nukecs.Collision2D {
                                 ref var b2 = ref bodies.Get(e2);
 
                                 if (c1.layer == CollisionLayer.Enemy && c2.layer == CollisionLayer.Enemy)
-                                    _ = ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2);
+                                    _ = ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref transforms.Get(e1), ref transforms.Get(e2));
                                 else {
                                     var hitInfo =
-                                        ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2);
+                                        ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref transforms.Get(e1), ref transforms.Get(e2));
                                     collisionEnterHits.Enqueue(hitInfo);
                                 }
                             }
@@ -120,31 +120,48 @@ namespace Wargon.Nukecs.Collision2D {
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private HitInfo ResolveCollisionInternal(ref Circle2D circle1, ref Circle2D circle2, float distance,
-            ref Body2D b1, ref Body2D b2) {
-            var direction = circle2.position - circle1.position;
-            var normal = math.normalize(direction);
+            ref Body2D b1, ref Body2D b2, ref Transform t1, ref Transform t2) {
+            var delta = t2.Position - t1.Position;
+            var normal = math.normalize(delta);
             var depth = circle1.radius + circle2.radius - distance;
-            if (!(circle1.trigger || circle2.trigger)) {
-                if (depth < 0.2F) {
-                    circle1.position -= normal * depth * 0.7F;
-                    circle2.position += normal * depth * 0.7F;
-                    b1.velocity -= normal * depth * 0.7F;
-                    b2.velocity += normal * depth * 0.7F;
-                }
-                else {
-                    b1.velocity -= normal * depth * 0.15F;
-                    b2.velocity += normal * depth * 0.15F;
-                }
+            var normal2d = new float2(normal.x, normal.y);
+            // if (!(circle1.trigger || circle2.trigger)) {
+            //     
+            //     // var correction = normal * depth / 2;
+            //     // t1.Position -= correction;
+            //     // t2.Position += correction;
+            if (depth < 0.2F) {
+                t1.Position -= normal * depth * 0.5F;
+                t2.Position += normal * depth * 0.5f;
+                // b1.velocity -= normal * depth * 0.5F;
+                // b2.velocity += normal * depth * 0.5F;
+            }
+            else {
+                t1.Position -= normal * depth * 0.15F;
+                t2.Position += normal * depth * 0.15f;
+                // b1.velocity -= normal * depth * 0.15F;
+                // b2.velocity += normal * depth * 0.15F;
+            }
+
+                // float velocityAlongNormal1 = math.dot(b1.velocity, normal2d);
+                // float velocityAlongNormal2 = math.dot(b2.velocity, normal2d);
+                //
+                // float j = (velocityAlongNormal1 + velocityAlongNormal2) * (1 + 0.5f); // adjust the restitution coefficient as needed
+                // var impulse = normal2d * j;
+                //
+                // b1.velocity -= impulse;
+                // b2.velocity += impulse; 
 
                 //t1.position.x = circle1.position.x;
                 //t1.position.y = circle1.position.y;
                 //t2.position.x = circle2.position.x;
                 //t2.position.y = circle2.position.y;
-            }
+            //}
 
+            
             return new HitInfo {
-                Pos = circle1.position + normal * circle1.radius,
-                Normal = normal,
+                Pos = circle1.position + normal2d * circle1.radius,
+                Normal = normal2d,
                 From = circle1.index,
                 To = circle2.index
             };
@@ -152,20 +169,21 @@ namespace Wargon.Nukecs.Collision2D {
     }
 
     public struct Collision2DData {
-        public int Other;
+        public Entity Other;
         public float2 Position;
         public float2 Normal;
     }
 
     public struct SetCollisionsSystem : ISystem
     {
-        public void OnUpdate(ref World world, float deltaTime)
+        public void OnUpdate(ref State state)
         {
-            var hits = Grid2D.Instance.Hits;
-            var hitsArray = hits.ToArray(Allocator.TempJob);
-
-            hitsArray.Dispose();
+            ref var hits = ref Grid2D.Instance.Hits;
+            var hitsArray = hits.ToArray(AllocatorManager.TempJob);
+            state.Dependencies = new Fill().Schedule(hitsArray.Length, 1, state.Dependencies);
+            state.Dependencies = hitsArray.Dispose(state.Dependencies);
         }
+        [BurstCompile]
         public struct Fill : IJobParallelFor
         {
             public World World;
@@ -174,16 +192,19 @@ namespace Wargon.Nukecs.Collision2D {
             public void Execute(int index)
             {
                 var hit = hits[index];
-                ref var buffer1 = ref collisionsData.Get(hit.From);
-                ref var buffer2 = ref collisionsData.Get(hit.To);
-                
-                buffer1.Add(new Collision2DData
+                ref var from = ref World.GetEntity(hit.From);
+                ref var to = ref World.GetEntity(hit.To);
+
+                AddToArray(ref from, ref to);
+                AddToArray(ref to, ref from);
+            }
+
+            private void AddToArray(ref Entity e, ref Entity other)
+            {
+                ref ComponentArray<Collision2DData> buffer = ref e.GetArray<Collision2DData>();
+                buffer.Add(new Collision2DData
                 {
-                    Other = hit.To
-                });
-                buffer2.Add(new Collision2DData
-                {
-                    Other = hit.From
+                    Other = other
                 });
             }
         }
@@ -196,7 +217,7 @@ namespace Wargon.Nukecs.Collision2D {
             return world.Query().With<ComponentArray<Collision2DData>>().With<CollidedFlag>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             ref var buffer = ref entity.GetArray<Collision2DData>();
             buffer.Clear();
             entity.Remove<CollidedFlag>();

@@ -15,7 +15,7 @@ namespace Wargon.Nukecs.Collision2D {
             colliders = world.GetPool<Rectangle2D>();
             transforms = world.GetPool<Transform>();
         }
-        public void OnUpdate(ref World world, float deltaTime) {
+        public void OnUpdate(ref State state) {
             var grid2D = Grid2D.Instance;
             var populateJob = new PopulateCellsJob {
                 query = query,
@@ -29,7 +29,7 @@ namespace Wargon.Nukecs.Collision2D {
                 W = grid2D.W,
                 H = grid2D.H
             };
-            world.DependenciesFixedUpdate = populateJob.Schedule(query.Count, 1, world.DependenciesFixedUpdate);
+            state.Dependencies = populateJob.Schedule(query.Count, 1, state.Dependencies);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]

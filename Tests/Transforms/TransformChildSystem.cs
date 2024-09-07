@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.Transforms
             return world.Query().With<ChildOf>().With<Transform>().With<LocalTransform>().None<OnAddChildWithTransformEvent>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime)
+        public void OnUpdate(ref Entity entity, ref State state)
         {
             var (cref, tref, ltref) = entity.Get<ChildOf, Transform, LocalTransform>();
             ref var transform = ref tref.Value;

@@ -409,81 +409,81 @@ namespace Wargon.Nukecs.Tests {
         }
     }
 
-    public struct CullingSystem : ISystem, IOnCreate {
-        public void OnCreate(ref World world) {
-            culled = world.Query()
-                .With<SpriteRenderData>()
-                .With<SpriteChunkReference>()
-                .With<Culled>();
-                
-            unculled = world.Query()
-                .With<SpriteRenderData>()
-                .With<SpriteChunkReference>()
-                .None<Culled>();
-        }
-
-        private Query unculled;
-        private Query culled;
-        public void OnUpdate(ref World world, float deltaTime) {
-            var data = CullingData.instance;
-            var transforms = world.GetPool<Transform>().AsComponentPool<Transform>();
-            world.DependenciesUpdate = new CullJob {
-                xMax = data.xMax,
-                xMin = data.xMin,
-                yMax = data.yMax,
-                yMin = data.yMin,
-                transforms = transforms,
-                query = unculled,
-            }.Schedule(unculled.Count, 1, world.DependenciesUpdate);
-            world.DependenciesUpdate = new UnCullJob {
-                xMax = data.xMax,
-                xMin = data.xMin,
-                yMax = data.yMax,
-                yMin = data.yMin,
-                transforms = transforms,
-                query = culled,
-            }.Schedule(culled.Count, 1, world.DependenciesUpdate);
-        }
-        [BurstCompile]
-        private struct CullJob : IJobParallelFor {
-            public ComponentPool<Transform> transforms;
-            public Query query;
-
-            public float xMax;
-            public float yMax;
-            public float xMin;
-            public float yMin;
-            public void Execute(int index) {
-                ref var entity = ref query.GetEntity(index);
-                ref var transform = ref transforms.Get(entity.id);
-                if (!(transform.Position.x < xMax && 
-                      transform.Position.x > xMin &&
-                      transform.Position.y < yMax && 
-                      transform.Position.y > yMin)) {
-                    entity.Cull();
-                }
-            }
-        }
-        
-        [BurstCompile]
-        private struct UnCullJob : IJobParallelFor {
-            public ComponentPool<Transform> transforms;
-            public Query query;
-
-            public float xMax;
-            public float yMax;
-            public float xMin;
-            public float yMin;
-            public void Execute(int index) {
-                ref var entity = ref query.GetEntity(index);
-                ref var transform = ref transforms.Get(entity.id);
-                if (transform.Position.x < xMax && transform.Position.x > xMin && transform.Position.y < yMax &&
-                    transform.Position.y > yMin) {
-                    entity.UnCull();
-                }
-            }
-        }
-    }
+    // public struct CullingSystem : ISystem, IOnCreate {
+    //     public void OnCreate(ref World world) {
+    //         culled = world.Query()
+    //             .With<SpriteRenderData>()
+    //             .With<SpriteChunkReference>()
+    //             .With<Culled>();
+    //             
+    //         unculled = world.Query()
+    //             .With<SpriteRenderData>()
+    //             .With<SpriteChunkReference>()
+    //             .None<Culled>();
+    //     }
+    //
+    //     private Query unculled;
+    //     private Query culled;
+    //     public void OnUpdate(ref World world, float deltaTime) {
+    //         var data = CullingData.instance;
+    //         var transforms = world.GetPool<Transform>().AsComponentPool<Transform>();
+    //         world.DependenciesUpdate = new CullJob {
+    //             xMax = data.xMax,
+    //             xMin = data.xMin,
+    //             yMax = data.yMax,
+    //             yMin = data.yMin,
+    //             transforms = transforms,
+    //             query = unculled,
+    //         }.Schedule(unculled.Count, 1, world.DependenciesUpdate);
+    //         world.DependenciesUpdate = new UnCullJob {
+    //             xMax = data.xMax,
+    //             xMin = data.xMin,
+    //             yMax = data.yMax,
+    //             yMin = data.yMin,
+    //             transforms = transforms,
+    //             query = culled,
+    //         }.Schedule(culled.Count, 1, world.DependenciesUpdate);
+    //     }
+    //     [BurstCompile]
+    //     private struct CullJob : IJobParallelFor {
+    //         public ComponentPool<Transform> transforms;
+    //         public Query query;
+    //
+    //         public float xMax;
+    //         public float yMax;
+    //         public float xMin;
+    //         public float yMin;
+    //         public void Execute(int index) {
+    //             ref var entity = ref query.GetEntity(index);
+    //             ref var transform = ref transforms.Get(entity.id);
+    //             if (!(transform.Position.x < xMax && 
+    //                   transform.Position.x > xMin &&
+    //                   transform.Position.y < yMax && 
+    //                   transform.Position.y > yMin)) {
+    //                 entity.Cull();
+    //             }
+    //         }
+    //     }
+    //     
+    //     [BurstCompile]
+    //     private struct UnCullJob : IJobParallelFor {
+    //         public ComponentPool<Transform> transforms;
+    //         public Query query;
+    //
+    //         public float xMax;
+    //         public float yMax;
+    //         public float xMin;
+    //         public float yMin;
+    //         public void Execute(int index) {
+    //             ref var entity = ref query.GetEntity(index);
+    //             ref var transform = ref transforms.Get(entity.id);
+    //             if (transform.Position.x < xMax && transform.Position.x > xMin && transform.Position.y < yMax &&
+    //                 transform.Position.y > yMin) {
+    //                 entity.UnCull();
+    //             }
+    //         }
+    //     }
+    // }
     public static class EntityRenderExtensions {
         public static unsafe void Cull(ref this Entity entity) {
             ref var ecb = ref entity.worldPointer->ECB;
@@ -529,7 +529,7 @@ namespace Wargon.Nukecs.Tests {
             return world.Query().With<DestroyEntity>().With<SpriteChunkReference>().None<Culled>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             entity.Get<SpriteChunkReference>().ChunkRef.Remove(in entity);
         }
     }

@@ -73,7 +73,6 @@ namespace Wargon.Nukecs {
             internal EntityCommandBuffer ECBUpdate;
             internal EntityCommandBuffer ECBFixed;
             private UpdateContext currentContext;
-            
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
             internal readonly int job_worker_count;
@@ -145,10 +144,11 @@ namespace Wargon.Nukecs {
             }
             public void Free() {
 
-                var entitiesToClear = entitiesAmount;
+                var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
                 for (var i = 0; i < entitiesToClear; i++) {
                     ref var entity = ref entities.ElementAt(i);
                     if (entity.worldPointer != null) {
+                        
                         entity.Free();
                     }
                 }

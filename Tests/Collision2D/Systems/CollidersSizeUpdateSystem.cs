@@ -14,13 +14,13 @@ namespace Wargon.Nukecs.Collision2D
             circles = world.GetPool<Circle2D>();
             transforms = world.GetPool<Transform>();
         }
-        public void OnUpdate(ref World world, float deltaTime)
+        public void OnUpdate(ref State state)
         {
-            world.DependenciesUpdate = new Job {
+            state.Dependencies = new Job {
                     transforms = transforms.AsComponentPool<Transform>(),
                     circles = circles.AsComponentPool<Circle2D>(),
                     query = query
-            }.Schedule(query.Count, 1, world.DependenciesUpdate);
+            }.Schedule(query.Count, 1, state.Dependencies);
         }
 
 

@@ -5,11 +5,11 @@ namespace Wargon.Nukecs.Collision2D
     using Unity.Jobs;
 
     public struct CollisionClearGridCellsSystem : ISystem {
-        public void OnUpdate(ref World world, float dt){
+        public void OnUpdate(ref State state){
             var grind2d = Grid2D.Instance;
-            world.DependenciesFixedUpdate = new ClearJob {
+            state.Dependencies = new ClearJob {
                 cells = grind2d.cells
-            }.Schedule(grind2d.cells.Length, 1, world.DependenciesFixedUpdate);
+            }.Schedule(grind2d.cells.Length, 1, state.Dependencies);
         }
 
         [BurstCompile]

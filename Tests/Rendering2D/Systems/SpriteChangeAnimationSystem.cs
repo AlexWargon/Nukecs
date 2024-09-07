@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.Tests {
                 .None<Culled>();
         }
         
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             ref readonly var input = ref entity.Read<Input>();
             ref var anim = ref entity.Get<SpriteAnimation>();
             anim.AnimationID = input.h is > 0f or < 0f || input.v is > 0f or < 0f ? Run : Idle;

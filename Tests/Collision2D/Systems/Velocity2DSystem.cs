@@ -12,14 +12,13 @@ namespace Wargon.Nukecs.Collision2D
         {
             return world.Query().With<Body2D>().With<Transform>();
         }
-        public void OnUpdate(ref Entity entity, float deltaTime)
+        public void OnUpdate(ref Entity entity, ref State state)
         {
             ref var body = ref entity.Get<Body2D>();
-            
+            var deltaTime = state.DeltaTime;
             ref var transform = ref entity.Get<Transform>();
-            transform.Position = new float3(transform.Position.x + body.velocity.x, transform.Position.y + body.velocity.y, transform.Position.z);
-
-            body.velocity = float2.zero;
+            transform.Position = new float3(transform.Position.x + body.velocity.x * deltaTime, transform.Position.y + body.velocity.y * deltaTime, transform.Position.z);
+            //body.velocity = float2.zero;
         }
     }
     [BurstCompile]
@@ -29,7 +28,7 @@ namespace Wargon.Nukecs.Collision2D
             return world.Query().With<Circle2D>().With<EntityCreated>();
         }
 
-        public void OnUpdate(ref Entity entity, float deltaTime) {
+        public void OnUpdate(ref Entity entity, ref State state) {
             entity.Get<Circle2D>().index = entity.id;
         }
     }
