@@ -21,7 +21,7 @@ namespace Wargon.Nukecs.Collision2D {
 
         public void OnUpdate(ref State state) {
             var grid2D = Grid2D.Instance;
-            var populateJob = new PopulateCellsJob {
+            var populateJob = new PopulateCellsJobSingle {
                 query = query,
                 colliders = colliders.AsComponentPool<Circle2D>(),
                 transforms = transforms.AsComponentPool<Transform>(),
@@ -33,10 +33,10 @@ namespace Wargon.Nukecs.Collision2D {
                 W = grid2D.W,
                 H = grid2D.H
             };
-            state.Dependencies = populateJob.Schedule(query.Count, 1, state.Dependencies);
+            state.Dependencies = populateJob.Schedule(query.Count, state.Dependencies);
         }
 
-        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
         public struct PopulateCellsJob : IJobParallelFor {
             public Query query;
             public UnsafeList<Grid2DCell> cells;
@@ -52,24 +52,56 @@ namespace Wargon.Nukecs.Collision2D {
                 ref var transform = ref transforms.Get(e);
                 circle.collided = false;
                 circle.position = new float2(transform.Position.x, transform.Position.y);
-                var x = (transform.Position.x - Offset.x - GridPosition.x) / cellSizeX;
-                var y = (transform.Position.y - Offset.y - GridPosition.y) / cellSizeY;
-                var px = floor(ref x);
-                var py = floor(ref y);
-
+                var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
+                var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
+                
                 if (px >= 0 && px < W && py >= 0 && py < H) {
                     var cellIndex = py * W + px;
-                    if (cellIndex > -1 && cellIndex < cells.Length) {
-                        var cell = cells[cellIndex];
+                    if (cellIndex > -1 && cellIndex < cells.m_length) {
+                        ref var cell = ref cells.ElementAt(cellIndex);
                         cell.CollidersBuffer.Add(e);
                         circle.cellIndex = cellIndex;
-                        cells[cellIndex] = cell;
                     }
                 }
             }
             [BurstCompile]
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private static int floor(ref float x) {
+            private int floor(float x) {
+                var xi = (int) x;
+                return x < xi ? xi - 1 : xi;
+            }
+        }
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
+        public struct PopulateCellsJobSingle : IJobFor {
+            public Query query;
+            public UnsafeList<Grid2DCell> cells;
+            public ComponentPool<Circle2D> colliders;
+            public ComponentPool<Transform> transforms;
+            public int cellSizeX, cellSizeY, W, H;
+            public Vector2 Offset;
+            public Vector2 GridPosition;
+
+            public void Execute(int index) {
+                var e = query.GetEntityIndex(index);
+                ref var circle = ref colliders.Get(e);
+                ref var transform = ref transforms.Get(e);
+                circle.collided = false;
+                circle.position = new float2(transform.Position.x, transform.Position.y);
+                var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
+                var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
+                
+                if (px >= 0 && px < W && py >= 0 && py < H) {
+                    var cellIndex = py * W + px;
+                    if (cellIndex > -1 && cellIndex < cells.m_length) {
+                        ref var cell = ref cells.ElementAt(cellIndex);
+                        cell.CollidersBuffer.Add(e);
+                        circle.cellIndex = cellIndex;
+                    }
+                }
+            }
+            [BurstCompile]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private int floor(float x) {
                 var xi = (int) x;
                 return x < xi ? xi - 1 : xi;
             }

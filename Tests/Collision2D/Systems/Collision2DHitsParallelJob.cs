@@ -23,36 +23,38 @@ namespace Wargon.Nukecs.Collision2D {
             var x = idx % W;
             var y = idx / W;
 
-            var cell1 = cells[idx];
-            cell1.Pos = new float2(x * cellSize, y * cellSize) + Offset + GridPosition;
-            cells[idx] = cell1;
+            ref var cell1 = ref cells.ElementAt(idx);
+            //cell1.Pos = new float2(x * cellSize, y * cellSize) + Offset + GridPosition;
 
             for (var dx = -1; dx <= 1; ++dx)
             for (var dy = -1; dy <= 1; ++dy) {
                 var di = W * (y + dy) + x + dx;
                 if (di < 0 || di >= cells.m_length) continue;
+                
                 var cell2 = cells[di];
 
                 for (var i = 0; i < cell1.CollidersBuffer.Count; i++) {
                     var e1 = cell1.CollidersBuffer[i];
                     ref var c1 = ref colliders.Get(e1);
-                    //ref var t1 = ref transforms.Get(e1);
+                    ref var t1 = ref transforms.Get(e1);
                     ref var b1 = ref bodies.Get(e1);
 
-                    for (var iteration = 0; iteration < iterations; iteration++)
+                    //for (var iteration = 0; iteration < iterations; iteration++)
                     for (var j = 0; j < cell2.CollidersBuffer.Count; j++) {
                         var e2 = cell2.CollidersBuffer[j];
                         if (e1 == e2) continue;
                         ref var c2 = ref colliders.Get(e2);
-                        //ref var t2 = ref transforms.Get(e2);
-                        if ((c1.collideWith & c2.layer) == c2.layer) {
-                            if (Grid2D.IsOverlap(in c1, in c2, out var distance)) {
+                        ref var t2 = ref transforms.Get(e2);
+                        if ((c1.collideWith & c2.layer) == c2.layer)
+                        {
+                            var distance = math.distance(t1.Position, t2.Position);
+                            if (c1.radius + c2.radius >= distance) {
                                 c1.collided = true;
                                 c2.collided = true;
                                 ref var b2 = ref bodies.Get(e2);
 
                                 if (c1.layer == CollisionLayer.Enemy && c2.layer == CollisionLayer.Enemy)
-                                    _ = ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref transforms.Get(e1), ref transforms.Get(e2));
+                                    _ = ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref t1, ref t2);
                                 else {
                                     var hitInfo =
                                         ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref transforms.Get(e1), ref transforms.Get(e2));
@@ -125,25 +127,29 @@ namespace Wargon.Nukecs.Collision2D {
             var normal = math.normalize(delta);
             var depth = circle1.radius + circle2.radius - distance;
             var normal2d = new float2(normal.x, normal.y);
-            // if (!(circle1.trigger || circle2.trigger)) {
-            //     
-            //     // var correction = normal * depth / 2;
-            //     // t1.Position -= correction;
-            //     // t2.Position += correction;
-            if (depth < 0.2F) {
-                t1.Position -= normal * depth * 0.5F;
-                t2.Position += normal * depth * 0.5f;
-                // b1.velocity -= normal * depth * 0.5F;
-                // b2.velocity += normal * depth * 0.5F;
-            }
-            else {
-                t1.Position -= normal * depth * 0.15F;
-                t2.Position += normal * depth * 0.15f;
-                // b1.velocity -= normal * depth * 0.15F;
-                // b2.velocity += normal * depth * 0.15F;
+            if (!(circle1.trigger || circle2.trigger))
+            {
+                //     
+                //     // var correction = normal * depth / 2;
+                //     // t1.Position -= correction;
+                //     // t2.Position += correction;
+                if (depth < 0.2F)
+                {
+                    t1.Position -= normal * depth * 0.5F;
+                    t2.Position += normal * depth * 0.5f;
+                    // b1.velocity -= normal * depth * 0.5F;
+                    // b2.velocity += normal * depth * 0.5F;
+                }
+                else
+                {
+                    t1.Position -= normal * depth * 0.15F;
+                    t2.Position += normal * depth * 0.15f;
+                    // b1.velocity -= normal * depth * 0.15F;
+                    // b2.velocity += normal * depth * 0.15F;
+                }
             }
 
-                // float velocityAlongNormal1 = math.dot(b1.velocity, normal2d);
+            // float velocityAlongNormal1 = math.dot(b1.velocity, normal2d);
                 // float velocityAlongNormal2 = math.dot(b2.velocity, normal2d);
                 //
                 // float j = (velocityAlongNormal1 + velocityAlongNormal2) * (1 + 0.5f); // adjust the restitution coefficient as needed

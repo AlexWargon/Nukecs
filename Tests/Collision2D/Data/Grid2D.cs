@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Wargon.Nukecs.Collision2D
 {
     using System.Runtime.CompilerServices;
@@ -89,7 +92,7 @@ namespace Wargon.Nukecs.Collision2D
             for (var i = 0; i < cells.Length; i++) {
                 var cell = cells[i];
                 cell.Draw(Color.yellow);
-                //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.index}", style);
+                //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.Index}", style);
                 //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one * 2, $"{cell.CollidersBuffer.Count}", style);
             }
 #endif
@@ -112,6 +115,35 @@ namespace Wargon.Nukecs.Collision2D
         public void Clear() {
             cells.Dispose();
             Hits.Dispose();
+        }
+    }
+    public static class Debug2D {
+        public static readonly Queue<(Action,Color)> Buffer = new Queue<(Action, Color)>();
+        public static void DrawRect(Vector2 pos, Vector2 size, Color color, Color colorOutline) {
+#if UNITY_EDITOR
+            ;
+            Buffer.Enqueue((() => {
+                    UnityEditor.Handles.DrawSolidRectangleWithOutline(new Rect(pos, size), color, colorOutline);}
+                ,color));
+#endif
+        }
+
+        public static void DrawCircle(Vector2 pos, float radius, Color color, float thick) {
+#if UNITY_EDITOR
+            Buffer.Enqueue((() => {
+                    UnityEditor.Handles.DrawWireDisc(pos, Vector3.forward, radius, thick);}
+                ,color));
+#endif
+        }
+        
+        public static void DrawLabel(string text, Vector3 pos, Color color, GUIStyle style = null) {
+#if UNITY_EDITOR
+            if (style == null) style = GUIStyle.none;
+            style.normal.textColor = color;
+            Buffer.Enqueue((
+                ()=>{UnityEditor.Handles.Label(pos, text, style);}
+                , color));
+#endif
         }
     }
 }  

@@ -16,10 +16,9 @@ namespace Wargon.Nukecs.Collision2D
         private struct ClearJob : IJobParallelFor {
             public UnsafeList<Grid2DCell> cells;
             public void Execute(int i) {
-                var cell = cells.ElementAt(i);
+                ref var cell = ref cells.ElementAt(i);
                 cell.CollidersBuffer.Clear();
                 cell.RectanglesBuffer.Clear();
-                cells[i] = cell;
             }
         }
     }
