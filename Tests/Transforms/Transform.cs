@@ -24,7 +24,7 @@ namespace Wargon.Nukecs.Transforms {
     }
 
     public struct OnAddChildWithTransformEvent : IComponent { }
-
+    public struct StaticTag : IComponent { }
     public static class TransformsUtility {
         public static void Convert(UnityEngine.Transform transform, ref World world, ref Entity entity) {
             entity.Add(new Transform {

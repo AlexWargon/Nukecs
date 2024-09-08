@@ -17,6 +17,12 @@ namespace Wargon.Nukecs {
             list->Add(in item);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddNoResize(in T item) {
+            if(list->m_capacity == list->m_length - 1) return;            
+            UnsafeUtility.WriteArrayElement(list->Ptr, list->m_length, item);
+            list->m_length += 1;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddParallel(in T item) {
             var idx = list->m_length;
             if (idx < list->m_capacity)
@@ -25,9 +31,9 @@ namespace Wargon.Nukecs {
                 Interlocked.Increment(ref list->m_length);
                 return;
             }
-            
-            list->Resize(idx * 2);
-            list->Ptr[idx] = item;
+            //
+            // list->Resize(idx * 2);
+            // list->Ptr[idx] = item;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index) {

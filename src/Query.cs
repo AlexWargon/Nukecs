@@ -38,6 +38,10 @@ namespace Wargon.Nukecs {
             return this;
         }
 
+        public Query WithArray<T>() where T : unmanaged {
+            impl->With(ComponentType<ComponentArray<T>>.Index);
+            return this;
+        }
         public Query None<T>() where T : unmanaged, IComponent {
             impl->None(ComponentType<T>.Index);
             return this;
@@ -133,6 +137,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity) 
         {
+            if(entity < 1) return;
             EnsureCapacity(count + 1);
             if(Has(entity)) return;
             entities.ElementAtNoCheck(count++) = entity;
