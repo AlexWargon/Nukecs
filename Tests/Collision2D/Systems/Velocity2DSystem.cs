@@ -10,7 +10,7 @@ namespace Wargon.Nukecs.Collision2D
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world)
         {
-            return world.Query().With<Body2D>().With<Transform>();
+            return world.Query().With<Body2D>().With<Transform>().None<DestroyEntity>();
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {

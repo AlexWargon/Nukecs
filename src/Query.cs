@@ -1,5 +1,8 @@
 ﻿
 
+using UnityEngine;
+using Wargon.Nukecs.Collision2D;
+
 namespace Wargon.Nukecs {
     
     using System;
@@ -73,7 +76,7 @@ namespace Wargon.Nukecs {
         internal DynamicBitmask none;
         internal UnsafeList<int> entities;
         internal UnsafeParallelHashMap<int, int> entitiesMap;
-        internal volatile int count;
+        internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
         public bool IsCreated => world != null;
@@ -119,7 +122,7 @@ namespace Wargon.Nukecs {
         {
             return entities.ElementAtNoCheck(index);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal bool Has(int entity) {
             //if (entitiesMap.m_length <= entity) return false;
             return entitiesMap[entity] > 0;
@@ -134,22 +137,21 @@ namespace Wargon.Nukecs {
                 //UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newCapacity, NativeArrayOptions.ClearMemory);
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity) 
         {
-            if(entity < 1) return;
             EnsureCapacity(count + 1);
-            if(Has(entity)) return;
             entities.ElementAtNoCheck(count++) = entity;
             entitiesMap[entity] = count;
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity) {
-            if (!Has(entity)) return;
             var index = entitiesMap[entity] - 1;
             entitiesMap[entity] = 0;
             count--;
             if (count > index) {
+                // if(index < 0) return;
+                // if(count < 0) return;
                 entities[index] = entities[count];
                 entitiesMap[entities[index]] = index + 1;
             }

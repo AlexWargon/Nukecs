@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using Wargon.Nukecs.Collision2D;
+
+namespace Wargon.Nukecs {
     
     using System;
     using System.Runtime.CompilerServices;
@@ -143,6 +145,7 @@
         public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
             //*(T*) (buffer + index * sizeInBytes) = (T)component;
             UnsafeUtility.WriteArrayElement(buffer, index, (T)component);
+            
         }
     }
     
@@ -174,7 +177,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Dispose(void* buffer, int index) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, index);
-            _disposeFunc(ref component);
+            _disposeFunc.Invoke(ref component);
         }
     }
 
@@ -206,6 +209,7 @@
         public unsafe void Copy(void* buffer, int from, int to) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
             UnsafeUtility.WriteArrayElement(buffer, to, _copyFunc.Invoke(ref component));
+
         }
     }
     public interface IPool {
@@ -250,24 +254,10 @@
     }
 
 
-    [BurstCompile(CompileSynchronously = true)]
-    public static class ComponentsArrayExtensions {
-        [BurstCompile(CompileSynchronously = true)]
-        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
-            int index = 0;
-            for (int i = 0; i < buffer.list->Length; i++) {
-                if (item.Equals(buffer.list->ElementAt(i))) {
-                    index = i;
-                    break;
-                }
-            }
-            buffer.list->RemoveAtSwapBack(index);
-            return buffer.list->Length - 1;
-        }
-    }
+
 
     public static class UnsafeListExtensions {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe ref T ElementAtNoCheck<T>(this UnsafeList<T> list, int index) where T : unmanaged {
             return ref list.Ptr[index];
         }
@@ -351,7 +341,7 @@
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void CheckResize<T>(int index, ref int capacity, T* buffer, Allocator allocator) where T : unmanaged
+        public static unsafe void CheckResize<T>(int index, ref int capacity, ref T* buffer, Allocator allocator) where T : unmanaged
         {
             if (index >= capacity)
             {
@@ -384,7 +374,7 @@
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void CheckResize<T>(int index, ref int capacity, void* buffer, Allocator allocator, int typeSize, int align) where T : unmanaged
+        public static unsafe void CheckResize<T>(int index, ref int capacity, ref void* buffer, Allocator allocator, int typeSize, int align) where T : unmanaged
         {
             if (index >= capacity)
             {
@@ -414,5 +404,14 @@
                 capacity = newCapacity;
             }
         }
+    }
+    
+    public interface IAspect
+    {
+    }
+
+    public struct Aspect<T1, T2> : IAspect
+    {
+        
     }
 }

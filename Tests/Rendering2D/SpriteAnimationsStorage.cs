@@ -19,7 +19,20 @@ namespace Wargon.Nukecs.Tests {
             groups[group].Add(id, ref animationFrames);
         }
         public SpriteAnimationFrames GetFrames(int group ,int id) {
+            
             return groups[group].GetFrames(id);
+        }
+
+        public bool TryGetFrames(int group, int id, out SpriteAnimationFrames frames)
+        {
+            if (groups.ContainsKey(group))
+            {
+                frames = groups[group].GetFrames(id);
+                return true;
+            }
+
+            frames = default;
+            return false;
         }
 
         public void Dispose() {

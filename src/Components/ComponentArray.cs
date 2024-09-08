@@ -1,96 +1,207 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using System.Threading;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
-        [NativeDisableUnsafePtrRestriction] internal UnsafeList<T>* list;
+        internal T* _buffer;
+        internal int _length;
+        internal int _capacity;
+        public int Length => _length;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComponentArray(int capacity) {
-            list = UnsafeList<T>.Create(capacity, Allocator.Persistent);
+        public ComponentArray(int capacity)
+        {
+            _buffer = (T*)UnsafeUtility.Malloc(capacity * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+            _capacity = capacity;
+            _length = 0;
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T ElementAt(int index) => ref list->Ptr[index];
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(in T item) {
-            list->Add(in item);
+        private ComponentArray(ref ComponentArray<T> other)
+        {
+            _buffer = (T*)UnsafeUtility.Malloc(other._capacity * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+            _capacity = other._capacity;
+            _length = other._length;
+            UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AddNoResize(in T item) {
-            if(list->m_capacity == list->m_length - 1) return;            
-            UnsafeUtility.WriteArrayElement(list->Ptr, list->m_length, item);
-            list->m_length += 1;
+        public ref T ElementAt(int index)
+        {
+            if (index < 0 || index >= _length)
+                throw new IndexOutOfRangeException();
+            return ref _buffer[index];
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AddParallel(in T item) {
-            var idx = list->m_length;
-            if (idx < list->m_capacity)
+        public void Add(in T item)
+        {
+            if (_length == _capacity)
             {
-                list->Ptr[idx] = item;
-                Interlocked.Increment(ref list->m_length);
-                return;
+                Resize(_capacity == 0 ? 4 : _capacity * 2);
             }
-            //
-            // list->Resize(idx * 2);
-            // list->Ptr[idx] = item;
+            _buffer[_length++] = item;
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void RemoveAt(int index) {
-            list->RemoveAt(index);
+        public void AddNoResize(in T item)
+        {
+            if (_length < _capacity)
+            {
+                _buffer[_length++] = item;
+            }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Clear() {
-            list->Clear();
+        public void AddParallel(in T item)
+        {
+            int idx = _length;
+            if (idx < _capacity)
+            {
+                _buffer[idx] = item;
+                Interlocked.Increment(ref _length);
+            }
+            // Примечание: расширение в параллельном контексте требует дополнительной синхронизации
         }
-        public void Dispose(ref ComponentArray<T> value) {
-            UnsafeList<T>.Destroy(value.list);
-        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComponentArray(ref ComponentArray<T> other) {
-            list = UnsafeList<T>.Create(other.list->m_capacity, other.list->Allocator);
-            UnsafeUtility.MemCpy(list->Ptr, other.list->Ptr, UnsafeUtility.SizeOf<T>() * other.list->m_length);
+        public void RemoveAt(int index)
+        {
+            if (index < 0 || index >= _length)
+                throw new IndexOutOfRangeException();
+
+            _length--;
+            if (index < _length)
+            {
+                UnsafeUtility.MemCpy(_buffer + index, _buffer + index + 1, (_length - index) * sizeof(T));
+            }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComponentArray<T> Copy(ref ComponentArray<T> toCopy) {
+        public void Clear()
+        {
+            _length = 0;
+        }
+        public void Dispose(ref ComponentArray<T> value)
+        {
+            if (value._buffer != null)
+            {
+                UnsafeUtility.Free(value._buffer, Allocator.Persistent);
+                value._buffer = null;
+            }
+            value._length = 0;
+            value._capacity = 0;
+        }
+
+        public ComponentArray<T> Copy(ref ComponentArray<T> toCopy)
+        {
             return new ComponentArray<T>(ref toCopy);
         }
+
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator) {
+        public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator)
+        {
             var array = new ComponentArray<T>(size);
-            array.list->AddReplicate(in data, size);
+            for (int i = 0; i < size; i++)
+            {
+                array.Add(in data);
+            }
             return array;
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Enumerator GetEnumerator() {
-            return new Enumerator(list->Ptr, list->m_length);
+        public Enumerator GetEnumerator()
+        {
+            return new Enumerator(_buffer, _length);
         }
-        public struct Enumerator {
+
+        private void Resize(int newCapacity)
+        {
+            T* newBuffer = (T*)UnsafeUtility.Malloc(newCapacity * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+            if (_buffer != null)
+            {
+                UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
+                UnsafeUtility.Free(_buffer, Allocator.Persistent);
+            }
+            _buffer = newBuffer;
+            _capacity = newCapacity;
+        }
+
+        public struct Enumerator
+        {
             private readonly T* _listPtr;
             private readonly int _len;
             private int _index;
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public Enumerator(T* list, int lenght) {
+            public Enumerator(T* list, int length)
+            {
                 _listPtr = list;
-                _len = lenght;
-                _index = -1;
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext() {
-                _index++;
-                return _index < _len;
-            }
-            public void Reset() {
+                _len = length;
                 _index = -1;
             }
 
-            public ref T Current {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext()
+            {
+                _index++;
+                return _index < _len;
+            }
+
+            public void Reset()
+            {
+                _index = -1;
+            }
+
+            public ref T Current
+            {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref _listPtr[_index];
             }
-            public void Dispose() {
-                
+
+            public void Dispose() { }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool RemoveSwapBack(T item)
+        {
+            for (int i = 0; i < _length; i++)
+            {
+                if (_buffer[i].Equals(item))
+                {
+                    if (i != _length - 1)
+                    {
+                        // Если удаляемый элемент не последний, 
+                        // заменяем его последним элементом
+                        _buffer[i] = _buffer[_length - 1];
+                    }
+                    _length--;
+                    return true;
+                }
             }
+            return false;
+        }
+
+    }
+    [BurstCompile(CompileSynchronously = true)]
+    public static class ComponentsArrayExtensions {
+        [BurstCompile(CompileSynchronously = true)]
+        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+            for (int i = 0; i < buffer.Length; i++) {
+                if (item.Equals(buffer.ElementAt(i))) {
+                    if (i != buffer.Length - 1)
+                    {
+                        buffer._buffer[i] = buffer._buffer[buffer._length - 1];
+                    }
+                    buffer._length--;
+                    break;
+                }
+            }
+            return buffer.Length- 1;
         }
     }
 }

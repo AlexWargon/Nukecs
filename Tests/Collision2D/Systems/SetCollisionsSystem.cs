@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.Collision2D {
             if(hits.Count == 0) return;
             var hitsArray = hits.ToArray(Allocator.TempJob);
             state.Dependencies = new Fill
-                    {World = state.World, hits = hitsArray}
+                    {World = state.World, Hits = hitsArray.AsReadOnly()}
                 .Schedule(hitsArray.Length, state.Dependencies);
             state.Dependencies = hitsArray.Dispose(state.Dependencies);
         }
@@ -25,30 +25,31 @@ namespace Wargon.Nukecs.Collision2D {
             }
         }
         [BurstCompile]
-        public struct Fill : IJobFor
+        private struct Fill : IJobFor
         {
             public World World;
-            public NativeArray<HitInfo> hits;
+            [ReadOnly]
+            public NativeArray<HitInfo>.ReadOnly Hits;
             //public ComponentPool<ComponentArray<Collision2DData>> collisionsData;
             public void Execute(int index)
             {
-                var hit = hits[index];
+                var hit = Hits[index];
                 ref var from = ref World.GetEntity(hit.From);
                 ref var to = ref World.GetEntity(hit.To);
                 AddToArray(ref from, ref to);
                 AddToArray(ref to, ref from);
             }
-            [BurstCompile]
-            private static void AddToArray(ref Entity e, ref Entity other)
+            private void AddToArray(ref Entity e, ref Entity other)
             {
                 if(!e.IsValid()) return;
                 if(!other.IsValid()) return;
-                e.Add<CollidedFlag>();
+                
                 ref var buffer = ref e.GetArray<Collision2DData>(256);
-                buffer.AddParallel(new Collision2DData
+                buffer.Add(new Collision2DData
                 {
                     Other = other
                 });
+                e.Add(new CollidedFlag());
             }
         }
 
@@ -69,7 +70,7 @@ namespace Wargon.Nukecs.Collision2D {
     public struct CollisionsClear : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world) {
-            return world.Query().With<ComponentArray<Collision2DData>>().With<CollidedFlag>();
+            return world.Query().WithArray<Collision2DData>().With<CollidedFlag>().None<DestroyEntity>();
         }
 
         public void OnUpdate(ref Entity entity, ref State state) {

@@ -89,7 +89,7 @@ namespace Wargon.Nukecs {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
             }
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
-                var ptr = Wargon.Nukecs.Unsafe.Malloc<WorldUnsafe>(Allocator.Persistent);
+                var ptr = Unsafe.Allocate<WorldUnsafe>(AllocatorManager.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
                 ptr->Init(ptr);
                 return ptr;
@@ -182,7 +182,7 @@ namespace Wargon.Nukecs {
                 prefabesToSpawn.Dispose();
                 self = null;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.ElementAtNoCheck(poolIndex);
@@ -359,7 +359,7 @@ namespace Wargon.Nukecs {
             lastFreeSlot = id;
             UnsafeWorld->Free();
             var allocator = UnsafeWorld->allocator;
-            UnsafeUtility.Free(UnsafeWorld, allocator);
+            Unsafe.Free(UnsafeWorld, allocator);
             UnsafeWorld = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }

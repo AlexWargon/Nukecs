@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Wargon.Nukecs.Collision2D;
 
 namespace Wargon.Nukecs {
     using System;
@@ -57,10 +58,6 @@ namespace Wargon.Nukecs {
                 ChangeTransformRefPosition = 6,
                 SetActiveGameObject = 7,
                 PlayParticleReference = 8,
-                ReuseView = 9,
-                SetActiveEntity = 10,
-                Cull = 11,
-                UnCull = 12,
                 Copy = 13,
                 CreateCopy = 14,
                 RemoveAndDispose = 15
@@ -229,26 +226,6 @@ namespace Wargon.Nukecs {
                 count++;
             }
 
-            public void Cull(int entity, int thread) {
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(new ECBCommand() {
-                    Entity = entity,
-                    EcbCommandType = ECBCommand.Type.Cull,
-                    ComponentType = ComponentType<Culled>.Index
-                });
-                count++;
-            }
-
-            public void UnCull(int entity, int thread) {
-                var buffer = perThreadBuffer->ElementAt(thread);
-                buffer->Add(new ECBCommand() {
-                    Entity = entity,
-                    EcbCommandType = ECBCommand.Type.UnCull,
-                    ComponentType = ComponentType<Culled>.Index
-                });
-                count++;
-            }
-
             public void Copy(int entity, int thread) {
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(new ECBCommand {
@@ -331,14 +308,7 @@ namespace Wargon.Nukecs {
         public void Destroy(int entity) {
             ecb->Destroy(entity, ThreadIndex);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Cull(int entity) {
-            ecb->Cull(entity, ThreadIndex);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void UnCull(int entity) {
-            ecb->UnCull(entity, ThreadIndex);
-        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int entity) {
             ecb->Copy(entity, ThreadIndex);
@@ -351,52 +321,7 @@ namespace Wargon.Nukecs {
         public void PlayParticleReference(int entity, bool value) {
             ecb->PlayParticleReference(entity, value, ThreadIndex);
         }
-        
-        public void PlaybackParallel(ref World world, int threadIndex) {
-            var buffer = ecb->perThreadBuffer->ElementAt(threadIndex);
-                if (buffer->IsEmpty) return;
 
-                for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
-                    ref var cmd = ref buffer->ElementAt(cmdIndex);
-                    switch (cmd.EcbCommandType) {
-                        case ECBCommand.Type.AddComponent:
-                            ref var e = ref world.GetEntity(cmd.Entity);
-                            ref var pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
-                            // pool.SetPtr(e.id, cmd.Component);
-                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            
-                            e.archetypeRef.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.AddComponentNoData:
-                            e = ref world.GetEntity(cmd.Entity);
-                            if(e.archetypeRef.Has(cmd.ComponentType)) break;
-                            e.archetypeRef.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.RemoveComponent:
-                            e = ref world.GetEntity(cmd.Entity);
-                            if(e.archetypeRef.Has(cmd.ComponentType) == false) break;
-                            e.archetypeRef.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.CreateEntity:
-                            world.Entity();
-                            break;
-                        
-                        case ECBCommand.Type.Cull:
-                            
-                            break;
-                        case ECBCommand.Type.UnCull:
-                            
-                            break;
-   
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
-                    ecb->count--;
-                }
-
-                buffer->Clear();
-        }
         public void Playback(ref World world) {
             //ecb->Playback(ref world);
 
@@ -404,8 +329,12 @@ namespace Wargon.Nukecs {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
                 if (buffer->IsEmpty) continue;
 
-                for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
+                for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
+                    if (cmd.Entity == -1)
+                    {
+                        Debug.Log($"WTF {cmd.Entity}");
+                    }
                     ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
@@ -429,22 +358,6 @@ namespace Wargon.Nukecs {
                             break;
                         case ECBCommand.Type.DestroyEntity:
                             archetype.Destroy(cmd.Entity);
-                            break;
-                        case ECBCommand.Type.Cull:
-                            if(archetype.Has(ComponentType<Culled>.Index)) break;
-                            ref var e = ref world.GetEntity(cmd.Entity);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            //e.Get<SpriteChunkReference>().chunk->Remove(in e);
-                            break;
-                        case ECBCommand.Type.UnCull:
-                            if(archetype.Has(ComponentType<Culled>.Index) == false) break;
-                            e = ref world.GetEntity(cmd.Entity);
-                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            //var (chunk, transform, renderData) =
-                                //e.Read<SpriteChunkReference, Transform, SpriteRenderData>();
-
-                            //chunk.ChunkRef.Add(in e, in transform, in renderData);
-                            //e.Get<SpriteChunkReference>().chunk->Add(in e);
                             break;
                         case ECBCommand.Type.Copy:
                             archetype.Copy(cmd.Entity, cmd.AdditionalData);
