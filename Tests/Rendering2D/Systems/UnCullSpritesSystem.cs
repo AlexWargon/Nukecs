@@ -23,7 +23,7 @@ namespace Wargon.Nukecs.Tests {
             ref readonly var transform = ref entity.Read<Transform>();
             if (transform.Position.x < xMax && transform.Position.x > xMin && transform.Position.y < yMax &&
                 transform.Position.y > yMin) {
-                entity.UnCull();
+                entity.Remove<Culled>();
             }
         }
     }

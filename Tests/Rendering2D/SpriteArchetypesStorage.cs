@@ -482,24 +482,7 @@
     //         }
     //     }
     // }
-    public static class EntityRenderExtensions {
-        public static unsafe void Cull(ref this Entity entity) {
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Cull(entity.id);
-        }
 
-        public static unsafe void UnCull(ref this Entity entity) {
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.UnCull(entity.id);
-        }
-    }
-    public struct OnRemove<T> : IComponent where T : unmanaged, IComponent {
-        
-    }
-
-    public struct OnAdd<T> : IComponent where T : unmanaged, IComponent {
-        
-    }
     public struct CullingData : IInit {
         public static ref CullingData instance => ref Singleton<CullingData>.Instance;
         public float Width;

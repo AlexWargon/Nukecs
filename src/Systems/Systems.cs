@@ -190,7 +190,7 @@ namespace Wargon.Nukecs
                 }
             }
         }
-        public Systems Add<T>(T group) where T : SystemsGroup{
+        public Systems Add<T>(T group) where T : SystemsGroup {
             group.world = world;
             for (int i = 0; i < group.runners.Count; i++)
             {
@@ -364,8 +364,6 @@ namespace Wargon.Nukecs
         Parallel,
         Single
     }
-
-    
 
     [JobProducerType(typeof(JobSystemExtensions.JobSystemWrapper<>))]
     public interface IJobSystem {
@@ -664,6 +662,13 @@ namespace Wargon.Nukecs
         }
         public void OnUpdate(ref Entity entity, ref State state) {
             entity.Remove<EntityCreated>();
+        }
+    }
+
+    public interface IComponentSystem<TAspect>  where TAspect : unmanaged, IAspect
+    {
+        public void OnUpdate(ref TAspect aspect)
+        {
         }
     }
 }

@@ -25,7 +25,7 @@ namespace Wargon.Nukecs.Tests {
                   transform.Position.x > xMin &&
                   transform.Position.y < yMax && 
                   transform.Position.y > yMin)) {
-                entity.Cull();
+                entity.Add<Culled>();
             }
         }
     }

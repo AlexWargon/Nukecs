@@ -40,4 +40,4 @@ namespace Wargon.Nukecs.Collision2D
             }
         }
     }
-}  
+}
