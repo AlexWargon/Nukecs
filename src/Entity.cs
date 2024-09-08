@@ -70,17 +70,17 @@ namespace Wargon.Nukecs {
     [BurstCompile]
     public static unsafe class EntityExtensions {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref ComponentArray<T> GetArray<T>(this ref Entity entity) where T : unmanaged
+        public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6) where T : unmanaged
         {
-            if (!entity.archetypeRef.Has<ComponentArray<T>>()) return ref entity.AddArray<T>();
+            if (!entity.archetypeRef.Has<ComponentArray<T>>()) return ref entity.AddArray<T>(sizeToCreate);
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref ComponentArray<T> AddArray<T>(this ref Entity entity) where T : unmanaged {
+        public static ref ComponentArray<T> AddArray<T>(this ref Entity entity, int size = 6) where T : unmanaged {
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
-            var array = new ComponentArray<T>(6);
+            var array = new ComponentArray<T>(size);
             pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<ComponentArray<T>>(entity.id);
