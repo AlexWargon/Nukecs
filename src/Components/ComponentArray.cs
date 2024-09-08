@@ -2,7 +2,6 @@
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
@@ -87,6 +86,5 @@ namespace Wargon.Nukecs {
                 
             }
         }
-
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Threading;
+﻿using UnityEngine;
 
 namespace Wargon.Nukecs {
 
@@ -9,7 +9,7 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs;
     using Unity.Jobs.LowLevel.Unsafe;
-    using UnityEngine;
+
 
     public unsafe struct World : IDisposable {
         private static readonly World[] worlds = new World[4];
@@ -147,7 +147,7 @@ namespace Wargon.Nukecs {
                 var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
                 for (var i = 0; i < entitiesToClear; i++) {
                     ref var entity = ref entities.ElementAt(i);
-                    if (entity.worldPointer != null) {
+                    if (entity != Nukecs.Entity.Null) {
                         entity.Free();
                     }
                 }
