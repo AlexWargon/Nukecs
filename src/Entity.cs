@@ -13,7 +13,7 @@ namespace Wargon.Nukecs {
         public readonly int id;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* worldPointer;
         public ref World world => ref World.Get(worldPointer->Id);
-        public static readonly Entity Null = new Entity();
+        public static readonly Entity Null = default;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer) {
             this.id = id;
@@ -80,7 +80,8 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> AddArray<T>(this ref Entity entity) where T : unmanaged {
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
-            pool.Set(entity.id, new ComponentArray<T>(6));
+            var array = new ComponentArray<T>(6);
+            pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<ComponentArray<T>>(entity.id);
             return ref pool.GetRef<ComponentArray<T>>(entity.id);

@@ -1,13 +1,9 @@
-﻿
-
-namespace Wargon.Nukecs.Tests {
+﻿namespace Wargon.Nukecs.Tests {
     using System;
     using System.Runtime.CompilerServices;
     using System.Threading;
-    using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Jobs;
     using Unity.Mathematics;
     using UnityEngine;
     
@@ -18,7 +14,7 @@ namespace Wargon.Nukecs.Tests {
         public const string SpritesWithShadow = "Custom/SpriteShaderInstancedWithShadow";
     }
     public class SpriteArchetypesStorage : SingletonBase<SpriteArchetypesStorage> {
-        internal SpriteArchetype[] archetypes = new SpriteArchetype[3];
+        internal SpriteArchetype[] archetypes = new SpriteArchetype[6];
         internal int count;
         
         public void OnUpdate() {
@@ -56,6 +52,7 @@ namespace Wargon.Nukecs.Tests {
             count++;
             return ref archetypes[count-1];
         }
+        
         public unsafe ref SpriteArchetype Add(Texture2D atlas, ref World world) {
             Resize();
             var shader = Shader.Find(ShaderNames.SpritesWithShadow);
@@ -87,19 +84,21 @@ namespace Wargon.Nukecs.Tests {
                 ref readonly var  arch = ref archetypes[i];
                 if (arch.instanceID == id && arch.shaderID == shader) return (i, true);
             }
-
             return (0, false);
         }
+        
         private void Resize() {
             if (count >= archetypes.Length) {
                 Array.Resize(ref archetypes, archetypes.Length*2);
             }
         }
+        
         public void Dispose() {
             for (var i = 0; i < count; i++) {
                 archetypes[i].Dispose();
             }
         }
+        
         private static Mesh CreateQuadMesh()
         {
             var mesh = new Mesh {
@@ -119,6 +118,7 @@ namespace Wargon.Nukecs.Tests {
             };
             return mesh;
         }
+        
         private static Mesh CreateQuad() {
             Mesh mesh = new Mesh();
             Vector3[] vertices = new Vector3[4];
@@ -265,7 +265,7 @@ namespace Wargon.Nukecs.Tests {
 
             matrixArray.Dispose();
 #endif
-            SpriteChunk.Destroy(Chunk);
+            SpriteChunk.Destroy(ref Chunk);
             transformsBuffer?.Release();
             propertiesBuffer?.Release();
         }
@@ -398,14 +398,12 @@ namespace Wargon.Nukecs.Tests {
             entityToIndex.m_length = entityToIndex.m_capacity;
             count = 0;
         }
-        public static unsafe void Destroy(SpriteChunk* chunk) {
+        public static unsafe void Destroy(ref SpriteChunk* chunk) {
             Unsafe.Free(chunk->transforms, chunk->capacity, Allocator.Persistent);
             Unsafe.Free(chunk->renderDataChunk, chunk->capacity, Allocator.Persistent);
-            // UnsafeUtility.Free(chunk->renderDataChunk, Allocator.Persistent);
-            // UnsafeUtility.Free(chunk->transforms, Allocator.Persistent);
             chunk->indexToEntity.Dispose();
             chunk->entityToIndex.Dispose();
-            UnsafeUtility.Free(chunk, Allocator.Persistent);
+            Unsafe.Free(chunk, AllocatorManager.Persistent);
         }
     }
 
