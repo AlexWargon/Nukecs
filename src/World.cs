@@ -44,6 +44,7 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction] 
         internal WorldUnsafe* UnsafeWorld;
 
+        public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
         internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -79,6 +80,7 @@ namespace Wargon.Nukecs {
             internal UnsafeList<int> DefaultNoneTypes;
             internal int entitiesAmount;
             internal int lastEntityIndex;
+            internal int lastDestroyedEntity;
             [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* self;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -125,6 +127,7 @@ namespace Wargon.Nukecs {
                 this.entitiesAmount = 0;
                 this.lastEntityIndex = 1;
                 this.poolsCount = 0;
+                this.lastDestroyedEntity = 0;
                 this.ECBUpdate = new EntityCommandBuffer(256);
                 this.ECBFixed = new EntityCommandBuffer(256);
                 this.currentContext = UpdateContext.Update;
@@ -240,10 +243,21 @@ namespace Wargon.Nukecs {
                     last = reservedEntities.ElementAtNoCheck(reservedEntities.m_length - 1);
                     reservedEntities.RemoveAt(reservedEntities.m_length - 1);
                 }
+                else
+                {
+                    lastEntityIndex++;
+                }
                 e = new Entity(last, self, archetype);
                 entities.ElementAtNoCheck(last) = e;
-                lastEntityIndex++;
+                
                 return e;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal void OnDestroyEntity(int entity) {
+                entities.ElementAtNoCheck(entity) = Nukecs.Entity.Null;
+                reservedEntities.Add(entity);
+                entitiesAmount--;
+                lastDestroyedEntity = entity;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntityWithEvent(int archetype) {
@@ -264,12 +278,7 @@ namespace Wargon.Nukecs {
                 lastEntityIndex++;
                 return e;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal void OnDestroyEntity(int entity) {
-                entities.ElementAtNoCheck(entity) = Nukecs.Entity.Null;
-                reservedEntities.Add(entity);
-                entitiesAmount--;
-            }
+
             internal Entity CreateEntity<T1>(in T1 c1) 
                 where T1 : unmanaged, IComponent 
             {   

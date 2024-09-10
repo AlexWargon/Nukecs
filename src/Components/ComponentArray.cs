@@ -187,9 +187,9 @@ namespace Wargon.Nukecs {
         }
 
     }
-    [BurstCompile(CompileSynchronously = true)]
+    [BurstCompile]
     public static class ComponentsArrayExtensions {
-        [BurstCompile(CompileSynchronously = true)]
+        [BurstCompile]
         public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
             for (int i = 0; i < buffer.Length; i++) {
                 if (item.Equals(buffer.ElementAt(i))) {

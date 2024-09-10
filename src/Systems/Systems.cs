@@ -203,12 +203,14 @@ namespace Wargon.Nukecs
         private State state;
         private State stateFixed;
         public void OnUpdate(float dt) {
-            state.Dependencies.Complete();
+            stateFixed.Dependencies.Complete();
+           
             state.World = world;
             state.DeltaTime = dt;
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
+            state.Dependencies.Complete();
             //for (var i = 0; i < disposeSystems.Count; i++)
             //{
             //    world.DependenciesUpdate = disposeSystems[i].Schedule(ref world, dt, ref world.DependenciesUpdate, UpdateContext.Update);
@@ -216,12 +218,14 @@ namespace Wargon.Nukecs
         }
         public void OnFixedUpdate(float dt)
         {
-            stateFixed.Dependencies.Complete();
+            state.Dependencies.Complete();
+            
             stateFixed.World = world;
             stateFixed.DeltaTime = dt;
             for (var i = 0; i < runners.Count; i++) {
                 stateFixed.Dependencies = runners[i].Schedule(UpdateContext.FixedUpdate, ref stateFixed);
             }
+            stateFixed.Dependencies.Complete();
         }
 
         internal void Complete()
