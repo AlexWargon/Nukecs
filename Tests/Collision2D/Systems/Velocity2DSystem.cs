@@ -1,4 +1,3 @@
-
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Burst;
@@ -14,22 +13,22 @@ namespace Wargon.Nukecs.Collision2D
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            ref var body = ref entity.Get<Body2D>();
             var deltaTime = state.DeltaTime;
+            ref var body = ref entity.Get<Body2D>();
+            
             ref var transform = ref entity.Get<Transform>();
             transform.Position = new float3(transform.Position.x + body.velocity.x * deltaTime, transform.Position.y + body.velocity.y * deltaTime, transform.Position.z);
             //body.velocity = float2.zero;
         }
     }
-    [BurstCompile]
-    public struct OnColliderSpawnSystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Single;
-        public Query GetQuery(ref World world) {
-            return world.Query().With<Circle2D>().With<EntityCreated>();
-        }
 
-        public void OnUpdate(ref Entity entity, ref State state) {
-            entity.Get<Circle2D>().index = entity.id;
-        }
+    public interface IOnTriggerEnter
+    {
+        void Execute(ref Entity entity, ref Collision2DData other);
+    }
+
+    public interface IOnCollisionEnter
+    {
+        void Execute(ref Entity entity, ref Collision2DData other);
     }
 }  

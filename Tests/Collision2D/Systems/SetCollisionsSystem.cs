@@ -58,7 +58,7 @@ namespace Wargon.Nukecs.Collision2D {
         }
     }
     
-    public struct Collision2DData {
+    public struct Collision2DData : IArrayComponent {
         public Entity Other;
         public float2 Position;
         public float2 Normal;

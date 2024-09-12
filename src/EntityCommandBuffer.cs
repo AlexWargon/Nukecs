@@ -130,11 +130,11 @@ namespace Wargon.Nukecs {
                 count++;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Add(int entity, int thread, int component) {
+            public void Add(int entity, int thread, int componentType) {
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = component
+                    ComponentType = componentType
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);

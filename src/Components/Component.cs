@@ -1,6 +1,4 @@
-﻿using Wargon.Nukecs.Collision2D;
-
-namespace Wargon.Nukecs {
+﻿namespace Wargon.Nukecs {
     
     using System;
     using System.Runtime.CompilerServices;
@@ -12,7 +10,7 @@ namespace Wargon.Nukecs {
     using UnityEngine;
 
     public interface IComponent { }
-
+    public interface IArrayComponent { }
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }
@@ -34,7 +32,7 @@ namespace Wargon.Nukecs {
     public struct ChildOf : IComponent {
         public Entity Value;
     }
-    public struct Child : IEquatable<Child> {
+    public struct Child : IEquatable<Child>, IArrayComponent {
         public Entity Value;
         public bool Equals(Child other) {
             return Value == other.Value;
@@ -75,14 +73,15 @@ namespace Wargon.Nukecs {
                     if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
                         count++;
                     }
+                    if (typeof(IArrayComponent).IsAssignableFrom(type) && type != typeof(IArrayComponent)) {
+                        count++;
+                    }
                 }
             }
             ComponentAmount.Value.Data = count;
             _initialized = true;
         }
     }
-
-    
 
     public static class MemoryDebug
     {
@@ -391,7 +390,6 @@ namespace Wargon.Nukecs {
                 {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
-
                 //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
                 // Copy old data to new buffer
                 UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
@@ -406,12 +404,70 @@ namespace Wargon.Nukecs {
         }
     }
     
-    public interface IAspect
+    public unsafe struct GetRef<TComponent> where TComponent : unmanaged, IComponent
     {
+        internal int index;
+        [NativeDisableUnsafePtrRestriction]
+        private readonly GenericPool.GenericPoolUnsafe* buffer;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal GetRef(ref GenericPool pool)
+        {
+            index = 0;
+            buffer = pool.UnsafeBuffer;
+        }
+        public readonly ref TComponent Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref buffer->GetRef<TComponent>(index);
+        }
+        public static implicit operator TComponent(in GetRef<TComponent> getRef)
+        {
+            return getRef.Value;
+        }
     }
 
-    public struct Aspect<T1, T2> : IAspect
+    public interface IAspect
     {
-        
+        Entity Entity { get;}
     }
+    public interface IAspect<TComponent> : IAspect 
+        where TComponent : unmanaged, IComponent 
+    { }
+    public interface IAspect<TComponent1, TComponent2> : IAspect 
+        where TComponent1 : unmanaged, IComponent 
+        where TComponent2 : unmanaged, IComponent
+    { }
+    public interface IAspect<TComponent1, TComponent2, TComponent3> : IAspect 
+        where TComponent1 : unmanaged, IComponent 
+        where TComponent2 : unmanaged, IComponent
+        where TComponent3 : unmanaged, IComponent
+    { }
+    public interface IAspect<TComponent1, TComponent2, TComponent3, TComponent4> : IAspect 
+        where TComponent1 : unmanaged, IComponent 
+        where TComponent2 : unmanaged, IComponent
+        where TComponent3 : unmanaged, IComponent
+        where TComponent4 : unmanaged, IComponent
+    { }
+    public interface IAspect<TComponent1, TComponent2, TComponent3, TComponent4, TComponent5> : IAspect 
+        where TComponent1 : unmanaged, IComponent 
+        where TComponent2 : unmanaged, IComponent
+        where TComponent3 : unmanaged, IComponent
+        where TComponent4 : unmanaged, IComponent
+        where TComponent5 : unmanaged, IComponent
+    { }
+    public interface IAspect<TComponent1, TComponent2, TComponent3, TComponent4, TComponent5, TComponent6> : IAspect 
+        where TComponent1 : unmanaged, IComponent 
+        where TComponent2 : unmanaged, IComponent
+        where TComponent3 : unmanaged, IComponent
+        where TComponent4 : unmanaged, IComponent
+        where TComponent5 : unmanaged, IComponent
+        where TComponent6 : unmanaged, IComponent
+    { }
+    public struct PlayerAspect : IAspect
+    {
+        public Entity Entity { get; }
+        public GetRef<Input> Input;
+        public GetRef<Transforms.Transform> Transform;
+    }
+    
 }

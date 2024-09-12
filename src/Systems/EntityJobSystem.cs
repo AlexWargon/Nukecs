@@ -39,13 +39,13 @@ namespace Wargon.Nukecs
             state.World.ECB.Playback(ref state.World);
         }
     }
-    [JobProducerType(typeof(EntityJobSystemExtensions.EntityJobWrapper<>))]
+    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]
     public interface IEntityJobSystem {
         SystemMode Mode { get; }
         Query GetQuery(ref World world);
         void OnUpdate(ref Entity entity, ref State state);
     }
-    public static class EntityJobSystemExtensions {
+    public static class IEntityJobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntityJobWrapper<TJob> where TJob : struct, IEntityJobSystem {
             public TJob JobData;
@@ -59,7 +59,7 @@ namespace Wargon.Nukecs
             internal static void Initialize() {
                 if (JobReflectionData.Data == IntPtr.Zero) {
                     JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(EntityJobWrapper<TJob>),
-                        typeof(TJob), (object) new EntityJobSystemExtensions.EntityJobWrapper<TJob>.ExecuteJobFunction(EntityJobSystemExtensions.EntityJobWrapper<TJob>.Execute));
+                        typeof(TJob), (ExecuteJobFunction)Execute);
                 }
             }
 

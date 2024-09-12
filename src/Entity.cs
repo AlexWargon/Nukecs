@@ -70,17 +70,17 @@ namespace Wargon.Nukecs {
     [BurstCompile]
     public static unsafe class EntityExtensions {
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6) where T : unmanaged
+        public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6, Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
         {
-            if (!entity.archetypeRef.Has<ComponentArray<T>>()) return ref entity.AddArray<T>(sizeToCreate);
+            if (!entity.archetypeRef.Has<ComponentArray<T>>()) return ref entity.AddArray<T>(sizeToCreate, allocator);
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref ComponentArray<T> AddArray<T>(this ref Entity entity, int size = 6) where T : unmanaged {
+        public static ref ComponentArray<T> AddArray<T>(this ref Entity entity, int size = 6, Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent {
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
-            var array = new ComponentArray<T>(size);
+            var array = new ComponentArray<T>(size, allocator);
             pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<ComponentArray<T>>(entity.id);
@@ -88,7 +88,7 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void RemoveBuffer<T>(this ref Entity entity) where T : unmanaged, IComponent {
+        public static void RemoveArray<T>(this ref Entity entity) where T : unmanaged, IArrayComponent {
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             ref var buffer = ref pool.GetRef<ComponentArray<T>>(entity.id);
             buffer.Dispose(ref buffer);
@@ -98,16 +98,19 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent {
+            var componentType = ComponentType<T>.Index;
+            if(entity.archetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add<T>(entity.id);
+            entity.worldPointer->ECB.Add(entity.id, componentType);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Add<T>(this ref Entity entity) where T : unmanaged, IComponent {
+        public static void Add<T>(this ref Entity entity) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if(entity.archetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id);
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add<T>(entity.id);
+            entity.worldPointer->ECB.Add(entity.id, componentType);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -140,7 +143,16 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent {
+        public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent {
+            var componentType = ComponentType<T>.Index;
+            if (!entity.archetypeRef.Has(componentType))
+            {
+                ref var pool = ref entity.worldPointer->GetPool<T>();
+                pool.Set(entity.id);
+                entity.worldPointer->ECB.Add(entity.id, componentType);
+                return ref pool.GetRef<T>(entity.id);
+            }
+            //todo switch to untyped pool
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
@@ -218,7 +230,8 @@ namespace Wargon.Nukecs {
             where T2 : unmanaged, IComponent
             where T3 : unmanaged, IComponent
             where T4 : unmanaged, IComponent {
-            return (entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+            return (
+                entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
                 entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
                 entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id),
                 entity.worldPointer->GetPool<T4>().GetRef<T4>(entity.id));
