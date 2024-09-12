@@ -5,6 +5,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe struct GenericPool : IDisposable {
@@ -29,7 +30,7 @@ namespace Wargon.Nukecs {
         }
 
         public static GenericPool* CreatePtr<T>(int size, Allocator allocator) where T : unmanaged {
-            var ptr = (GenericPool*) UnsafeUtility.Malloc(sizeof(GenericPool), UnsafeUtility.AlignOf<GenericPool>(),
+            var ptr = Unsafe.MallocTracked<GenericPool>(
                 allocator);
             *ptr = new GenericPool {
                 UnsafeBuffer = GenericPoolUnsafe.CreateImpl<T>(size, allocator),
@@ -49,13 +50,13 @@ namespace Wargon.Nukecs {
             internal Allocator allocator;
             
             internal static GenericPoolUnsafe* CreateImpl<T>(int size, Allocator allocator) where T : unmanaged {
-                var ptr = (GenericPoolUnsafe*) UnsafeUtility.Malloc(sizeof(GenericPoolUnsafe), UnsafeUtility.AlignOf<GenericPoolUnsafe>(), allocator);
+                var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
                 *ptr = new GenericPoolUnsafe {
                     elementSize = sizeof(T),
                     capacity = size,
                     count = 0,
                     allocator = allocator,
-                    buffer = (byte*) UnsafeUtility.Malloc(sizeof(T) * size, UnsafeUtility.AlignOf<T>(), allocator),
+                    buffer = (byte*)Unsafe.MallocTracked<T>(size, allocator),
                     componentTypeIndex = ComponentType<T>.Index,
                     align = UnsafeUtility.AlignOf<T>(),
                     ComponentType = ComponentType<T>.Data
@@ -66,14 +67,14 @@ namespace Wargon.Nukecs {
             }
 
             internal static GenericPoolUnsafe* CreateImpl(ComponentType type, int size, Allocator allocator) {
-                var ptr = (GenericPoolUnsafe*) UnsafeUtility.Malloc(sizeof(GenericPoolUnsafe), UnsafeUtility.AlignOf<GenericPoolUnsafe>(), allocator);
+                var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
 
                 *ptr = new GenericPoolUnsafe {
                     elementSize = type.size,
                     capacity = size,
                     count = 0,
                     allocator = allocator,
-                    buffer = (byte*) UnsafeUtility.Malloc(type.size * size, type.align, allocator),
+                    buffer = (byte*)UnsafeUtility.MallocTracked(type.size * size, type.align, allocator, 0),
                     componentTypeIndex = type.index,
                     align = type.align,
                     ComponentType = type
@@ -88,27 +89,28 @@ namespace Wargon.Nukecs {
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Set<T>(int index, in T value) where T : unmanaged {
-            if (UnsafeBuffer->elementSize != 1) {
-                if (index < 0) {
-                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
-                }
-                CheckResize<T>(index);
-                *(T*) (UnsafeBuffer->buffer + index * UnsafeBuffer->elementSize) = value;
-            }
-            UnsafeBuffer->count++;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Set(int index) {
-            UnsafeBuffer->count++;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly ref T GetRef<T>(int index) where T : unmanaged {
             if (index < 0 || index >= UnsafeBuffer->capacity) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentsMap.GetType(UnsafeBuffer->componentTypeIndex).Name}] with capacity {UnsafeBuffer->capacity}.");
             }
             return ref ((T*)UnsafeBuffer->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Set<T>(int index, in T value) where T : unmanaged {
+            if (UnsafeBuffer->elementSize != 1) {
+                if (index < 0) {
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
+                }
+                CheckResize<T>(index);
+                ((T*) UnsafeBuffer->buffer)[index] = value;
+                //*(T*) (UnsafeBuffer->buffer + index * UnsafeBuffer->elementSize) = value;
+            }
+            UnsafeBuffer->count++;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Set(int index) {
+            UnsafeBuffer->count++;
         }
 
         public ref T GetShared<T>() where T : unmanaged{
@@ -177,7 +179,7 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DisposeComponent(int index) {
-            ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->componentTypeIndex);
+            ComponentHelpers.Dispose(ref UnsafeBuffer->buffer, index, UnsafeBuffer->componentTypeIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
@@ -206,10 +208,10 @@ namespace Wargon.Nukecs {
                 int newCapacity = math.max(UnsafeBuffer->capacity * 2, index + 1);
 
                 // Allocate new buffer
-                byte* newBuffer = (byte*)UnsafeUtility.Malloc(
+                byte* newBuffer = (byte*)UnsafeUtility.MallocTracked(
                     newCapacity * UnsafeBuffer->elementSize,
                     UnsafeUtility.AlignOf<T>(),
-                    UnsafeBuffer->allocator
+                    UnsafeBuffer->allocator, 0
                 );
 
                 if (newBuffer == null)
@@ -222,7 +224,7 @@ namespace Wargon.Nukecs {
                 UnsafeUtility.MemCpy(newBuffer, UnsafeBuffer->buffer, UnsafeBuffer->capacity * UnsafeBuffer->elementSize);
 
                 // Free old buffer
-                UnsafeUtility.Free(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
+                UnsafeUtility.FreeTracked(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
 
                 // Update impl
                 UnsafeBuffer->buffer = newBuffer;
@@ -240,10 +242,11 @@ namespace Wargon.Nukecs {
                 int newCapacity = math.max(UnsafeBuffer->capacity * 2, index + 1);
 
                 // Allocate new buffer
-                byte* newBuffer = (byte*)UnsafeUtility.Malloc(
+                byte* newBuffer = (byte*)UnsafeUtility.MallocTracked(
                     newCapacity * UnsafeBuffer->elementSize,
                     UnsafeBuffer->align,
-                    UnsafeBuffer->allocator
+                    UnsafeBuffer->allocator,
+                    0
                 );
 
                 if (newBuffer == null)
@@ -256,7 +259,7 @@ namespace Wargon.Nukecs {
                 UnsafeUtility.MemCpy(newBuffer, UnsafeBuffer->buffer, UnsafeBuffer->capacity * UnsafeBuffer->elementSize);
 
                 // Free old buffer
-                UnsafeUtility.Free(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
+                UnsafeUtility.FreeTracked(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
 
                 // Update impl
                 UnsafeBuffer->buffer = newBuffer;
@@ -265,13 +268,17 @@ namespace Wargon.Nukecs {
             }
         }
         public void Dispose() {
-            if (UnsafeBuffer == null) return;
+            //if (UnsafeBuffer == null) return;
+            if(!IsCreated) return;
+            //var type = ComponentsMap.GetType(UnsafeBuffer->ComponentType.index).Name;
+            //var cType = UnsafeBuffer->ComponentType;
             var allocator = UnsafeBuffer->allocator;
-            UnsafeUtility.Free(UnsafeBuffer->buffer, allocator);
+            Unsafe.FreeTracked(UnsafeBuffer->buffer, allocator);
             UnsafeBuffer->buffer = null;
             UnsafeBuffer->count = 0;
-            UnsafeUtility.Free(UnsafeBuffer, allocator);
+            Unsafe.FreeTracked(UnsafeBuffer, allocator);
             IsCreated = false;
+            //Debug.Log($"Pool {type} disposed. {cType.ToString()} ");
         }
 
         public ComponentPool<T> AsComponentPool<T>() where T : unmanaged {

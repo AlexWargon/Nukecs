@@ -35,6 +35,7 @@ namespace Wargon.Nukecs {
         internal UnsafeHashMap<int, Edge> transactions;
         internal Edge destroyEdge;
         internal readonly int id;
+        internal readonly bool hasChildArrayComponnet;
         internal bool IsCreated => world != null;
 
         internal static void Destroy(ArchetypeImpl* archetype) {
@@ -80,6 +81,7 @@ namespace Wargon.Nukecs {
                 this.types = new UnsafeList<int>(1, world->allocator);
             }
 
+            this.hasChildArrayComponnet = mask.Has(ComponentType<ComponentArray<Child>>.Index);
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
             this.destroyEdge = default;
@@ -99,7 +101,7 @@ namespace Wargon.Nukecs {
             else {
                 this.types = new UnsafeList<int>(1, world->allocator);
             }
-
+            this.hasChildArrayComponnet = mask.Has(ComponentType<ComponentArray<Child>>.Index);
             this.id = GetHashCode(ref typesSpan);
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
@@ -166,7 +168,7 @@ namespace Wargon.Nukecs {
                 pool.Copy(entity.id, newEntity.id);
             }
 
-            if (mask.Has(ComponentType<ComponentArray<Child>>.Index)) {
+            if (hasChildArrayComponnet) {
                 ref var pool = ref world->GetPool<ComponentArray<Child>>();
                 ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity.id);
                 ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
@@ -204,6 +206,14 @@ namespace Wargon.Nukecs {
             world->OnDestroyEntity(entity);
         }
 
+        internal void OnEntityFree(int entity) {
+            //destroyEdge.Execute(entity);
+            for (var index = 0; index < types.m_length; index++)
+            {
+                ref var pool = ref world->GetUntypedPool(types[index]);
+                pool.Remove(entity);
+            }
+        }
         private void CreateTransaction(int component) {
             var remove = component < 0;
             var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->allocator,

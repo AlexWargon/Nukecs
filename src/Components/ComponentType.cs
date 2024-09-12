@@ -20,6 +20,10 @@ namespace Wargon.Nukecs {
         public bool isDisposable;
         public bool isCopyable;
         public unsafe void* defaultValue;
+        public override string ToString() {
+            return
+                $"ComponentType: Index = {index}, size = {size}, Tag?[{isTag}], Disposable?[{isDisposable}], Copyable?[{isCopyable}]";
+        }
     }
     
     public struct ComponentType<T> where T : unmanaged {
@@ -52,6 +56,7 @@ namespace Wargon.Nukecs {
             if (ID.Data.isCopyable) {
                 ComponentHelpers.CreateCopper<T>(id);
             }
+            //Debug.Log($"Component {typeof(T)} inited with index {id}");
         }
     }
 

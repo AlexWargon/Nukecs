@@ -12,23 +12,22 @@ namespace Wargon.Nukecs {
         internal int _capacity;
         public int Length => _length;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComponentArray(int capacity)
-        {
-            _buffer = (T*)UnsafeUtility.Malloc(capacity * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+        public ComponentArray(int capacity) {
+            _buffer = Unsafe.MallocTracked<T>(capacity, Allocator.Persistent);
             _capacity = capacity;
             _length = 0;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(int capacity, Allocator allocator)
         {
-            _buffer = (T*)UnsafeUtility.Malloc(capacity * sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
+            _buffer = Unsafe.MallocTracked<T>(capacity, allocator);
             _capacity = capacity;
             _length = 0;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(ref ComponentArray<T> other)
         {
-            _buffer = (T*)UnsafeUtility.Malloc(other._capacity * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+            _buffer = Unsafe.MallocTracked<T>(other._capacity, Allocator.Persistent);
             _capacity = other._capacity;
             _length = other._length;
             UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
@@ -95,7 +94,8 @@ namespace Wargon.Nukecs {
         {
             if (value._buffer != null)
             {
-                UnsafeUtility.Free(value._buffer, Allocator.Persistent);
+                Unsafe.FreeTracked(value._buffer, Allocator.Persistent);
+                //UnsafeUtility.Free(value._buffer, Allocator.Persistent);
                 value._buffer = null;
             }
             value._length = 0;
@@ -126,11 +126,11 @@ namespace Wargon.Nukecs {
 
         private void Resize(int newCapacity)
         {
-            T* newBuffer = (T*)UnsafeUtility.Malloc(newCapacity * sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+            T* newBuffer = Unsafe.MallocTracked<T>(newCapacity, Allocator.Persistent);
             if (_buffer != null)
             {
                 UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
-                UnsafeUtility.Free(_buffer, Allocator.Persistent);
+                Unsafe.FreeTracked(_buffer, Allocator.Persistent);
             }
             _buffer = newBuffer;
             _capacity = newCapacity;

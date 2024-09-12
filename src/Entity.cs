@@ -249,7 +249,7 @@ namespace Wargon.Nukecs {
         }
 
         internal static void Free(this in Entity entity) {
-            entity.archetypeRef.Destroy(entity.id);
+            entity.archetypeRef.OnEntityFree(entity.id);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -311,28 +311,6 @@ namespace Wargon.Nukecs {
                 }
             }
             child.Remove<ChildOf>();
-        }
-    }
-
-    public static unsafe class Unsafe {
-        public static T* Malloc<T>(Allocator allocator) where T : unmanaged {
-            return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
-        }
-
-        public static T* Allocate<T>(AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            return AllocatorManager.Allocate<T>(allocator);
-        }
-        public static T* Allocate<T>(int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            return AllocatorManager.Allocate<T>(allocator, items);
-        }
-        public static void Free(void* ptr, AllocatorManager.AllocatorHandle allocator) {
-            AllocatorManager.Free(allocator, ptr);
-        }
-        public static void Free<T>(T* ptr, int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            AllocatorManager.Free(allocator, ptr, items);
-        }
-        public static void Free<T>(T* ptr, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            AllocatorManager.Free(allocator, ptr);
         }
     }
 }
