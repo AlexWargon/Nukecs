@@ -21,7 +21,7 @@ namespace Wargon.Nukecs
                 s.OnCreate(ref world);
                 system = (T) s;
             }
-            runners.Add(new SystemJobRunner<T> {
+            runners.Add(new JobSystemRunner<T> {
                 System = system,
                 EcbJob = default
             });

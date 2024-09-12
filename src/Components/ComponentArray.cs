@@ -4,10 +4,9 @@ using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 
 namespace Wargon.Nukecs {
-    public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged {
+    public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged, IArrayComponent {
         internal T* _buffer;
         internal int _length;
         internal int _capacity;
@@ -19,7 +18,13 @@ namespace Wargon.Nukecs {
             _capacity = capacity;
             _length = 0;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ComponentArray(int capacity, Allocator allocator)
+        {
+            _buffer = (T*)UnsafeUtility.Malloc(capacity * sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
+            _capacity = capacity;
+            _length = 0;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(ref ComponentArray<T> other)
         {
@@ -65,7 +70,7 @@ namespace Wargon.Nukecs {
                 _buffer[idx] = item;
                 Interlocked.Increment(ref _length);
             }
-            // Примечание: расширение в параллельном контексте требует дополнительной синхронизации
+            // Note: parallel expansion requires additional synchronization
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -102,7 +107,6 @@ namespace Wargon.Nukecs {
             return new ComponentArray<T>(ref toCopy);
         }
 
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator)
         {
@@ -132,7 +136,7 @@ namespace Wargon.Nukecs {
             _capacity = newCapacity;
         }
 
-        public struct Enumerator
+        public ref struct Enumerator
         {
             private readonly T* _listPtr;
             private readonly int _len;
@@ -190,7 +194,7 @@ namespace Wargon.Nukecs {
     [BurstCompile]
     public static class ComponentsArrayExtensions {
         [BurstCompile]
-        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IEquatable<T> {
+        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IArrayComponent, IEquatable<T> {
             for (int i = 0; i < buffer.Length; i++) {
                 if (item.Equals(buffer.ElementAt(i))) {
                     if (i != buffer.Length - 1)

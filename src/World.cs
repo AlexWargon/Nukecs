@@ -10,7 +10,10 @@ namespace Wargon.Nukecs {
     using Unity.Jobs;
     using Unity.Jobs.LowLevel.Unsafe;
 
-
+    public static class Lockers
+    {
+        public static object pools = new ();
+    }
     public unsafe struct World : IDisposable {
         private static readonly World[] worlds = new World[4];
         private static int lastFreeSlot;
@@ -160,11 +163,15 @@ namespace Wargon.Nukecs {
                 entities.Dispose();
                 entitiesArchetypes.Dispose();
                 for (var index = 0; index < poolsCount; index++) {
+                    
                     var pool = pools[index];
-                    pool.Dispose();
+                    if (pool.IsCreated)
+                    {
+                        pool.Dispose();
+                    }
                 }
-
                 pools.Dispose();
+                
                 for (var index = 0; index < queries.Length; index++) {
                     QueryUnsafe* ptr = queries[index];
                     QueryUnsafe.Free(ptr);
@@ -189,13 +196,30 @@ namespace Wargon.Nukecs {
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.ElementAtNoCheck(poolIndex);
-                if (!pool.IsCreated) {
-                    pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
-                    poolsCount++;
+                if (!pool.IsCreated)
+                {
+                    AddPool<T>(ref pool, poolIndex);
                 }
                 return ref pool;
             }
-
+            [BurstDiscard]
+            private void AddPool<T>(ref GenericPool pool, int index) where T : unmanaged
+            {
+                lock (Lockers.pools)
+                {
+                    if (pool.IsCreated == false)
+                    {
+                        pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
+                        DebugPoolLog<T>(index, poolsCount);
+                        poolsCount++;
+                    }
+                }
+            }
+            [BurstDiscard]
+            private void DebugPoolLog<T>(int poolIndex, int count)
+            {
+                Debug.Log($"pool {typeof(T)} created with index {poolIndex} and count {count}");
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.ElementAtNoCheck(poolIndex);
@@ -366,7 +390,8 @@ namespace Wargon.Nukecs {
             if (UnsafeWorld == null) return;
             var id = UnsafeWorld->Id;
             lastFreeSlot = id;
-            UnsafeWorld->Free();
+            ref var w = ref *UnsafeWorld;
+            w.Free();
             var allocator = UnsafeWorld->allocator;
             Unsafe.Free(UnsafeWorld, allocator);
             UnsafeWorld = null;

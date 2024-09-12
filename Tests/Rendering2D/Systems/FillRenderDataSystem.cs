@@ -23,7 +23,6 @@ namespace Wargon.Nukecs.Tests {
                 .Add<UpdateCameraCullingSystem>()
                 .Add<CullSpritesSystem>()
                 .Add<UnCullSpritesSystem>()
-                
                 .Add<SpriteAnimationSystem>()
                 .Add<FillRenderDataSystem>()
                 .Add<SpriteRenderSystem>()

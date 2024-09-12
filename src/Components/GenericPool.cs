@@ -1,20 +1,19 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
-using UnityEngine;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
     public unsafe struct GenericPool : IDisposable {
-        public int Count => impl->count;
-        [NativeDisableUnsafePtrRestriction] internal Impl* impl;
+        public int Count => UnsafeBuffer->count;
+        [NativeDisableUnsafePtrRestriction] internal GenericPoolUnsafe* UnsafeBuffer;
         public bool IsCreated;
         public static GenericPool Create<T>(int size, Allocator allocator) where T : unmanaged {
             return new GenericPool {
-                impl = Impl.CreateImpl<T>(size, allocator),
+                UnsafeBuffer = GenericPoolUnsafe.CreateImpl<T>(size, allocator),
                 IsCreated = true
             };
         }
@@ -24,7 +23,7 @@ namespace Wargon.Nukecs {
         }
         public static GenericPool Create(ComponentType type, int size, Allocator allocator) {
             return new GenericPool {
-                impl = Impl.CreateImpl(type, size, allocator),
+                UnsafeBuffer = GenericPoolUnsafe.CreateImpl(type, size, allocator),
                 IsCreated = true
             };
         }
@@ -33,13 +32,13 @@ namespace Wargon.Nukecs {
             var ptr = (GenericPool*) UnsafeUtility.Malloc(sizeof(GenericPool), UnsafeUtility.AlignOf<GenericPool>(),
                 allocator);
             *ptr = new GenericPool {
-                impl = Impl.CreateImpl<T>(size, allocator),
+                UnsafeBuffer = GenericPoolUnsafe.CreateImpl<T>(size, allocator),
                 IsCreated = true
             };
             return ptr;
         }
         [StructLayout(LayoutKind.Sequential)]
-        internal struct Impl {
+        internal struct GenericPoolUnsafe {
             [NativeDisableUnsafePtrRestriction] internal byte* buffer;
             internal int elementSize;
             internal int count;
@@ -49,9 +48,9 @@ namespace Wargon.Nukecs {
             internal ComponentType ComponentType;
             internal Allocator allocator;
             
-            internal static Impl* CreateImpl<T>(int size, Allocator allocator) where T : unmanaged {
-                var ptr = (Impl*) UnsafeUtility.Malloc(sizeof(Impl), UnsafeUtility.AlignOf<Impl>(), allocator);
-                *ptr = new Impl {
+            internal static GenericPoolUnsafe* CreateImpl<T>(int size, Allocator allocator) where T : unmanaged {
+                var ptr = (GenericPoolUnsafe*) UnsafeUtility.Malloc(sizeof(GenericPoolUnsafe), UnsafeUtility.AlignOf<GenericPoolUnsafe>(), allocator);
+                *ptr = new GenericPoolUnsafe {
                     elementSize = sizeof(T),
                     capacity = size,
                     count = 0,
@@ -66,10 +65,10 @@ namespace Wargon.Nukecs {
                 return ptr;
             }
 
-            internal static Impl* CreateImpl(ComponentType type, int size, Allocator allocator) {
-                var ptr = (Impl*) UnsafeUtility.Malloc(sizeof(Impl), UnsafeUtility.AlignOf<Impl>(), allocator);
+            internal static GenericPoolUnsafe* CreateImpl(ComponentType type, int size, Allocator allocator) {
+                var ptr = (GenericPoolUnsafe*) UnsafeUtility.Malloc(sizeof(GenericPoolUnsafe), UnsafeUtility.AlignOf<GenericPoolUnsafe>(), allocator);
 
-                *ptr = new Impl {
+                *ptr = new GenericPoolUnsafe {
                     elementSize = type.size,
                     capacity = size,
                     count = 0,
@@ -82,130 +81,135 @@ namespace Wargon.Nukecs {
                 UnsafeUtility.MemClear(ptr->buffer, type.size * size);
                 return ptr;
             }
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly ref T GetRef<T>(int index) where T : unmanaged {
+                return ref ((T*)buffer)[index];
+            }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged {
-            if (impl->elementSize != 1) {
+            if (UnsafeBuffer->elementSize != 1) {
                 if (index < 0) {
-                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize<T>(index);
-                *(T*) (impl->buffer + index * impl->elementSize) = value;
+                *(T*) (UnsafeBuffer->buffer + index * UnsafeBuffer->elementSize) = value;
             }
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set(int index) {
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T GetRef<T>(int index) where T : unmanaged {
-            if (index < 0 || index >= impl->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] with capacity {impl->capacity}.");
+        public readonly ref T GetRef<T>(int index) where T : unmanaged {
+            if (index < 0 || index >= UnsafeBuffer->capacity) {
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentsMap.GetType(UnsafeBuffer->componentTypeIndex).Name}] with capacity {UnsafeBuffer->capacity}.");
             }
-            return ref ((T*)impl->buffer)[index];
+            return ref ((T*)UnsafeBuffer->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
 
         public ref T GetShared<T>() where T : unmanaged{
-            return ref ((T*)impl->buffer)[0];
+            return ref ((T*)UnsafeBuffer->buffer)[0];
         }
         
         public void SetShared<T>(in T value) where T : unmanaged{
-            ((T*)impl->buffer)[0] = value;
+            ((T*)UnsafeBuffer->buffer)[0] = value;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, void* value) {
-            if (impl->elementSize != 1) {
+            if (UnsafeBuffer->elementSize != 1) {
                 if (index < 0) {
-                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
-                UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, impl->elementSize);
+                UnsafeUtility.MemCpy(UnsafeBuffer->buffer + index * UnsafeBuffer->elementSize, value, UnsafeBuffer->elementSize);
             }
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value) {
-            if (impl->elementSize != 1) {
+            if (UnsafeBuffer->elementSize != 1) {
                 if (index < 0) {
-                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
                 fixed (byte* ptr = value) {
-                    UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, ptr, impl->elementSize);
+                    UnsafeUtility.MemCpy(UnsafeBuffer->buffer + index * UnsafeBuffer->elementSize, ptr, UnsafeBuffer->elementSize);
                 }
             }
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
-            if (impl->elementSize != 1) {
+            if (UnsafeBuffer->elementSize != 1) {
                 if (index < 0) {
-                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
-                UnsafeUtility.MemCpy(impl->buffer + index * impl->elementSize, value, sizeInBytes);
+                UnsafeUtility.MemCpy(UnsafeBuffer->buffer + index * UnsafeBuffer->elementSize, value, sizeInBytes);
             }
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
-            if (impl->elementSize != 1) {
+            if (UnsafeBuffer->elementSize != 1) {
                 if (index < 0) {
-                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {impl->capacity}.");
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
-                ComponentHelpers.Write(impl->buffer, index, impl->elementSize, impl->componentTypeIndex, component);
+                ComponentHelpers.Write(UnsafeBuffer->buffer, index, UnsafeBuffer->elementSize, UnsafeBuffer->componentTypeIndex, component);
             }
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index) {
-            if (impl->ComponentType.isDisposable) {
+            if (UnsafeBuffer->ComponentType.isDisposable) {
                 DisposeComponent(index);
             }
 
-            if (!impl->ComponentType.isTag) {
-                SetPtr(index, impl->ComponentType.defaultValue);
+            if (!UnsafeBuffer->ComponentType.isTag) {
+                SetPtr(index, UnsafeBuffer->ComponentType.defaultValue);
             }
-            impl->count--;
+            UnsafeBuffer->count--;
         }
         [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DisposeComponent(int index) {
-            ComponentHelpers.Dispose(impl->buffer, index, impl->componentTypeIndex);
+            ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->componentTypeIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
-            if (impl->elementSize != 1) {
+            if (UnsafeBuffer->elementSize != 1) {
                 CheckResize(math.max(destination, source));
-                if (impl->ComponentType.isCopyable) {
+                if (UnsafeBuffer->ComponentType.isCopyable) {
                     CopyComponent(source, destination);
                 }
                 else {
-                    UnsafeUtility.MemCpy(impl->buffer + destination * impl->elementSize, impl->buffer + source * impl->elementSize, impl->elementSize);
+                    UnsafeUtility.MemCpy(UnsafeBuffer->buffer + destination * UnsafeBuffer->elementSize, UnsafeBuffer->buffer + source * UnsafeBuffer->elementSize, UnsafeBuffer->elementSize);
                 }
             }
-            impl->count++;
+            UnsafeBuffer->count++;
         }
         [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CopyComponent(int from, int to) {
-            ComponentHelpers.Copy(impl->buffer, from, to, impl->componentTypeIndex);
+            ComponentHelpers.Copy(UnsafeBuffer->buffer, from, to, UnsafeBuffer->componentTypeIndex);
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize<T>(int index) where T : unmanaged
         {
-            if (index >= impl->capacity)
+            if (index >= UnsafeBuffer->capacity)
             {
                 // Calculate new capacity
-                int newCapacity = math.max(impl->capacity * 2, index + 1);
+                int newCapacity = math.max(UnsafeBuffer->capacity * 2, index + 1);
 
                 // Allocate new buffer
                 byte* newBuffer = (byte*)UnsafeUtility.Malloc(
-                    newCapacity * impl->elementSize,
+                    newCapacity * UnsafeBuffer->elementSize,
                     UnsafeUtility.AlignOf<T>(),
-                    impl->allocator
+                    UnsafeBuffer->allocator
                 );
 
                 if (newBuffer == null)
@@ -213,16 +217,16 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                UnsafeUtility.MemClear(newBuffer, newCapacity * UnsafeBuffer->elementSize);
                 // Copy old data to new buffer
-                UnsafeUtility.MemCpy(newBuffer, impl->buffer, impl->capacity * impl->elementSize);
+                UnsafeUtility.MemCpy(newBuffer, UnsafeBuffer->buffer, UnsafeBuffer->capacity * UnsafeBuffer->elementSize);
 
                 // Free old buffer
-                UnsafeUtility.Free(impl->buffer, impl->allocator);
+                UnsafeUtility.Free(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
 
                 // Update impl
-                impl->buffer = newBuffer;
-                impl->capacity = newCapacity;
+                UnsafeBuffer->buffer = newBuffer;
+                UnsafeBuffer->capacity = newCapacity;
                 //Debug.Log($"GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] resized on set");
             }
         }
@@ -230,16 +234,16 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize(int index)
         {
-            if (index >= impl->capacity)
+            if (index >= UnsafeBuffer->capacity)
             {
                 // Calculate new capacity
-                int newCapacity = math.max(impl->capacity * 2, index + 1);
+                int newCapacity = math.max(UnsafeBuffer->capacity * 2, index + 1);
 
                 // Allocate new buffer
                 byte* newBuffer = (byte*)UnsafeUtility.Malloc(
-                    newCapacity * impl->elementSize,
-                    impl->align,
-                    impl->allocator
+                    newCapacity * UnsafeBuffer->elementSize,
+                    UnsafeBuffer->align,
+                    UnsafeBuffer->allocator
                 );
 
                 if (newBuffer == null)
@@ -247,31 +251,31 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
+                UnsafeUtility.MemClear(newBuffer, newCapacity * UnsafeBuffer->elementSize);
                 // Copy old data to new buffer
-                UnsafeUtility.MemCpy(newBuffer, impl->buffer, impl->capacity * impl->elementSize);
+                UnsafeUtility.MemCpy(newBuffer, UnsafeBuffer->buffer, UnsafeBuffer->capacity * UnsafeBuffer->elementSize);
 
                 // Free old buffer
-                UnsafeUtility.Free(impl->buffer, impl->allocator);
+                UnsafeUtility.Free(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
 
                 // Update impl
-                impl->buffer = newBuffer;
-                impl->capacity = newCapacity;
+                UnsafeBuffer->buffer = newBuffer;
+                UnsafeBuffer->capacity = newCapacity;
                 //Debug.Log($"GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] resized on copy");
             }
         }
         public void Dispose() {
-            if (impl == null) return;
-            var allocator = impl->allocator;
-            UnsafeUtility.Free(impl->buffer, allocator);
-            impl->buffer = null;
-            impl->count = 0;
-            UnsafeUtility.Free(impl, allocator);
+            if (UnsafeBuffer == null) return;
+            var allocator = UnsafeBuffer->allocator;
+            UnsafeUtility.Free(UnsafeBuffer->buffer, allocator);
+            UnsafeBuffer->buffer = null;
+            UnsafeBuffer->count = 0;
+            UnsafeUtility.Free(UnsafeBuffer, allocator);
             IsCreated = false;
         }
 
         public ComponentPool<T> AsComponentPool<T>() where T : unmanaged {
-            return new ComponentPool<T>(impl->buffer);
+            return new ComponentPool<T>(UnsafeBuffer->buffer);
         }
     }
     

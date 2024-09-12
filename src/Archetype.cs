@@ -306,10 +306,12 @@ namespace Wargon.Nukecs {
     [BurstCompile]
     public static class ArchetypePointerExtensions {
         [BurstCompile]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool Has<T>(this ref ArchetypeImpl archetype) where T : unmanaged {
             return archetype.mask.Has(ComponentType<T>.Index);
         }
-        [BurstCompile]       
+        [BurstCompile]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool Has(this ref ArchetypeImpl archetype, int type) {
             return archetype.mask.Has(type);
         }

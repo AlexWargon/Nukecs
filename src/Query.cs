@@ -20,28 +20,22 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl->count;
         }
-        
         internal int CountMulti => impl->count / impl->world->job_worker_count;
-
         public bool IsValid {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl !=null && impl->IsCreated;
         }
-
         internal Query(World.WorldUnsafe* world) {
             impl = QueryUnsafe.Create(world);
         }
-
         internal Query(QueryUnsafe* impl) {
             this.impl = impl;
         }
-
         public Query With<T>() where T :  unmanaged, IComponent {
             impl->With(ComponentType<T>.Index);
             return this;
         }
-
-        public Query WithArray<T>() where T : unmanaged {
+        public Query WithArray<T>() where T : unmanaged, IArrayComponent {
             impl->With(ComponentType<ComponentArray<T>>.Index);
             return this;
         }
@@ -54,8 +48,7 @@ namespace Wargon.Nukecs {
             return ref impl->world->entities.ElementAtNoCheck(impl->entities.ElementAtNoCheck(index));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetEntityIndex(int index)
-        {
+        public int GetEntityIndex(int index) {
             return impl->entities.ElementAtNoCheck(index);
         }
         public void Dispose() {
@@ -68,7 +61,7 @@ namespace Wargon.Nukecs {
         }
 
         public QueryEnumerator GetEnumerator() {
-            return new QueryEnumerator(this.impl);
+            return new QueryEnumerator(impl);
         }
     }
     internal unsafe struct QueryUnsafe {
@@ -412,10 +405,6 @@ namespace Wargon.Nukecs {
         }
     }
 
-    public struct RO<TComponent> where TComponent : unmanaged, IComponent {
-        internal int index;
-        internal readonly GenericPool pool;
-    }
     public struct Ref<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
         internal GenericPool pool;
@@ -441,7 +430,7 @@ namespace Wargon.Nukecs {
         }
         public unsafe ref readonly TComponent Value {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref ((TComponent*) pool.impl->buffer)[index];
+            get => ref ((TComponent*) pool.UnsafeBuffer->buffer)[index];
         }
     }
     
