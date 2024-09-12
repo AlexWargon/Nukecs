@@ -25,8 +25,8 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl !=null && impl->IsCreated;
         }
-        internal Query(World.WorldUnsafe* world) {
-            impl = QueryUnsafe.Create(world);
+        internal Query(World.WorldUnsafe* world, bool withDefaultNoneTypes = true) {
+            impl = QueryUnsafe.Create(world, withDefaultNoneTypes);
         }
         internal Query(QueryUnsafe* impl) {
             this.impl = impl;
@@ -86,13 +86,13 @@ namespace Wargon.Nukecs {
             entitiesMap.Dispose();
         }
 
-        internal static QueryUnsafe* Create(World.WorldUnsafe* world) {
+        internal static QueryUnsafe* Create(World.WorldUnsafe* world, bool withDefaultNoneTypes = true) {
             var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
-            *ptr = new QueryUnsafe(world, ptr);
+            *ptr = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
 
-        internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self) {
+        internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
             this.world = world;
             this.with = DynamicBitmask.CreateForComponents();
             this.none = DynamicBitmask.CreateForComponents();
@@ -101,10 +101,12 @@ namespace Wargon.Nukecs {
                 world->allocator, NativeArrayOptions.ClearMemory);
             this.entitiesMap = new UnsafeParallelHashMap<int,int>(world->config.StartEntitiesAmount, world->allocator);
             this.self = self;
-            
-            foreach (var type in world->DefaultNoneTypes) {
-                none.Add(type);
+            if (withDefaultNoneTypes) {
+                foreach (var type in world->DefaultNoneTypes) {
+                    none.Add(type);
+                }    
             }
+            
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
@@ -481,7 +483,7 @@ namespace Wargon.Nukecs {
             where TC2 : unmanaged, IComponent
         {
             if (_queryTuplePtr == null) {
-                var ptr = UnsafeHelp.Malloc<QueryTuple<TC1, TC2>>(Allocator.Persistent);
+                var ptr = Unsafe.MallocTracked<QueryTuple<TC1, TC2>>(Allocator.Persistent);
                 *ptr = new QueryTuple<TC1, TC2> {
                     pool1 = _unsafe->world->GetPool<TC1>(),
                     pool2 = _unsafe->world->GetPool<TC2>()

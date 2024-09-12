@@ -94,14 +94,14 @@ namespace Wargon.Nukecs {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
             }
             internal static WorldUnsafe* Create(int id, WorldConfig config) {
-                var ptr = Unsafe.Allocate<WorldUnsafe>(AllocatorManager.Persistent);
+                var ptr = Unsafe.AllocateWithManager<WorldUnsafe>(AllocatorManager.Persistent);
                 *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
                 ptr->Init(ptr);
                 return ptr;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal QueryUnsafe* Query() {
-                var ptr = QueryUnsafe.Create(self);
+            internal QueryUnsafe* Query(bool withDefaultNoneTypes = true) {
+                var ptr = QueryUnsafe.Create(self, withDefaultNoneTypes);
                 queries.Add(ptr);
                 return ptr;
             }
@@ -143,32 +143,36 @@ namespace Wargon.Nukecs {
 
             private void SetDefaultNone() {
                 DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index);
+                DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index);
             }
             internal void Init(WorldUnsafe* self) {
                 this.self = self;
                 CreateArchetype();
             }
             public void Free() {
-
-                var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
-                for (var i = 0; i < entitiesToClear; i++) {
-                    ref var entity = ref entities.ElementAt(i);
+                foreach (var entity in entities) {
                     if (entity != Nukecs.Entity.Null) {
                         entity.Free();
                     }
                 }
+                //var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
+                // for (var i = 0; i < entitiesAmount; i++) {
+                //     ref var entity = ref entities.ElementAt(i);
+                //     if (entity != Nukecs.Entity.Null) {
+                //         entity.Free();
+                //     }
+                // }
                 
                 WorldSystems.CompleteAll(Id);
 
                 entities.Dispose();
                 entitiesArchetypes.Dispose();
-                for (var index = 0; index < poolsCount; index++) {
+                // pools list count == total components registered including arrays
+                var poolsToDispose = ComponentAmount.Value.Data;
+                for (var index = 0; index < poolsToDispose; index++) {
                     
-                    var pool = pools[index];
-                    if (pool.IsCreated)
-                    {
-                        pool.Dispose();
-                    }
+                    ref var pool = ref pools.Ptr[index];
+                    pool.Dispose();
                 }
                 pools.Dispose();
                 
@@ -195,10 +199,19 @@ namespace Wargon.Nukecs {
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
-                ref var pool = ref pools.ElementAtNoCheck(poolIndex);
+                ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
                     AddPool<T>(ref pool, poolIndex);
+                }
+                return ref pool;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal ref GenericPool GetUntypedPool(int poolIndex) {
+                ref var pool = ref pools.Ptr[poolIndex];
+                if (!pool.IsCreated) 
+                {
+                    AddPool(ref pool, poolIndex);
                 }
                 return ref pool;
             }
@@ -207,10 +220,23 @@ namespace Wargon.Nukecs {
             {
                 lock (Lockers.pools)
                 {
-                    if (pool.IsCreated == false)
+                    if (!pool.IsCreated)
                     {
                         pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
-                        DebugPoolLog<T>(index, poolsCount);
+                        //DebugPoolLog<T>(index, poolsCount);
+                        poolsCount++;
+                    }
+                }
+            }
+            [BurstDiscard]
+            private void AddPool(ref GenericPool pool, int index)
+            {
+                lock (Lockers.pools)
+                {
+                    if (!pool.IsCreated)
+                    {
+                        pool = GenericPool.Create(ComponentsMap.GetComponentType(index), config.StartPoolSize, allocator);
+                        //DebugPoolLog(index, poolsCount);
                         poolsCount++;
                     }
                 }
@@ -220,15 +246,12 @@ namespace Wargon.Nukecs {
             {
                 Debug.Log($"pool {typeof(T)} created with index {poolIndex} and count {count}");
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal ref GenericPool GetUntypedPool(int poolIndex) {
-                ref var pool = ref pools.ElementAtNoCheck(poolIndex);
-                if (!pool.IsCreated) {
-                    pool = GenericPool.Create(ComponentsMap.GetComponentType(poolIndex), config.StartPoolSize, allocator);
-                    poolsCount++;
-                }
-                return ref pool;
+            [BurstDiscard]
+            private void DebugPoolLog(int poolIndex, int count)
+            {
+                Debug.Log($"untyped pool {ComponentsMap.GetType(poolIndex)} created with index {poolIndex} and count {count}");
             }
+
 
             internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -260,7 +283,7 @@ namespace Wargon.Nukecs {
                     UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
                     UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
-                Entity e;
+
                 entitiesAmount++;
                 var last = lastEntityIndex;
                 if (reservedEntities.m_length > 0) {
@@ -271,7 +294,7 @@ namespace Wargon.Nukecs {
                 {
                     lastEntityIndex++;
                 }
-                e = new Entity(last, self, archetype);
+                var e = new Entity(last, self, archetype);
                 entities.ElementAtNoCheck(last) = e;
                 
                 return e;
@@ -387,13 +410,12 @@ namespace Wargon.Nukecs {
         }
 
         public void Dispose() {
-            if (UnsafeWorld == null) return;
+            //if (UnsafeWorld == null) return;
             var id = UnsafeWorld->Id;
             lastFreeSlot = id;
-            ref var w = ref *UnsafeWorld;
-            w.Free();
+            UnsafeWorld-> Free();
             var allocator = UnsafeWorld->allocator;
-            Unsafe.Free(UnsafeWorld, allocator);
+            Unsafe.FreeWithManager(UnsafeWorld, allocator);
             UnsafeWorld = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
@@ -432,10 +454,10 @@ namespace Wargon.Nukecs {
             return ref UnsafeWorld->GetEntity(id);
         }
 
-        public Query Query() {
-            return new Query(UnsafeWorld->Query());
+        public Query Query(bool withDefaultNoneTypes = true) {
+            return new Query(UnsafeWorld->Query(withDefaultNoneTypes));
         }
-
+        
         public Query Query<T>() where T: struct, ITuple {
             return new Query(UnsafeWorld->Query());
         }

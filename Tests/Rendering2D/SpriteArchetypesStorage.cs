@@ -283,7 +283,7 @@
         internal int lastRemoved;
 
         public static unsafe SpriteChunk* Create(int size) {
-            var ptr = Unsafe.Allocate<SpriteChunk>(Allocator.Persistent);
+            var ptr = Unsafe.AllocateWithManager<SpriteChunk>(Allocator.Persistent);
             *ptr = new SpriteChunk {
                 renderDataChunk = Unsafe.Allocate<SpriteRenderData>(size, Allocator.Persistent),
                 transforms = Unsafe.Allocate<Transform>(size, Allocator.Persistent),
@@ -399,11 +399,11 @@
             count = 0;
         }
         public static unsafe void Destroy(ref SpriteChunk* chunk) {
-            Unsafe.Free(chunk->transforms, chunk->capacity, Allocator.Persistent);
-            Unsafe.Free(chunk->renderDataChunk, chunk->capacity, Allocator.Persistent);
+            Unsafe.FreeWithManager(chunk->transforms, chunk->capacity, Allocator.Persistent);
+            Unsafe.FreeWithManager(chunk->renderDataChunk, chunk->capacity, Allocator.Persistent);
             chunk->indexToEntity.Dispose();
             chunk->entityToIndex.Dispose();
-            Unsafe.Free(chunk, AllocatorManager.Persistent);
+            Unsafe.FreeWithManager(chunk, AllocatorManager.Persistent);
         }
     }
 

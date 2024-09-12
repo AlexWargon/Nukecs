@@ -4,9 +4,7 @@
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using Unity.Burst;
-    using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Mathematics;
     using UnityEngine;
 
     public interface IComponent { }
@@ -128,8 +126,8 @@
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void Dispose(void* buffer, int index,int typeIndex){
-            disposers[typeIndex].Dispose(buffer, index);
+        internal static unsafe void Dispose(ref byte* buffer, int index,int typeIndex){
+            disposers[typeIndex].Dispose(ref buffer, index);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Copy(void* buffer, int from, int to,int typeIndex){
@@ -143,13 +141,13 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
             //*(T*) (buffer + index * sizeInBytes) = (T)component;
-            UnsafeUtility.WriteArrayElement(buffer, index, (T)component);
-            
+            //UnsafeUtility.WriteArrayElement(buffer, index, (T)component);
+            ((T*) buffer)[index] = (T)component;
         }
     }
     
     public unsafe interface IComponentDisposer {
-        void Dispose(void* buffer, int index);
+        void Dispose(ref byte* buffer, int index);
     }
 
     public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged {
@@ -163,7 +161,7 @@
             var dispose = typeof(T).GetMethod(nameof(IDisposable<T>.Dispose));
             if (dispose == null) {
                 throw new Exception (
-                    $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
+                    $"IDispose<{typeof (T)}> explicit implementation not supported, use implicit instead.");
             }
             _disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(typeof(DisposeDelegate),
 #if ENABLE_IL2CPP && !UNITY_EDITOR
@@ -174,8 +172,8 @@
                 dispose);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Dispose(void* buffer, int index) {
-            ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, index);
+        public unsafe void Dispose(ref byte* buffer, int index) {
+            ref var component  = ref ((T*)buffer)[index];
             _disposeFunc.Invoke(ref component);
         }
     }
@@ -248,161 +246,8 @@
             _handle.Free();
         }
     }
-    public struct TransformIndex : IComponent {
-        public int value;
-    }
 
-
-
-
-    public static class UnsafeListExtensions {
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ref T ElementAtNoCheck<T>(this UnsafeList<T> list, int index) where T : unmanaged {
-            return ref list.Ptr[index];
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ref T* ElementAtNoCheck<T>(this UnsafePtrList<T> list, int index) where T: unmanaged{
-            return ref list.Ptr[index];
-        }
-    }
-    public static class UnsafeHelp {
-        public static UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
-            NativeArrayOptions options) where T : unmanaged {
-            return new UnsafeList<T>(size, allocator, options) {
-                m_length = size
-            };
-        }
-
-        public static unsafe UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
-            NativeArrayOptions options) where T : unmanaged {
-            var ptr = UnsafeList<T>.Create(size, allocator, options);
-            ptr->m_length = size;
-            return ptr;
-        }
-
-        public static ref UnsafeList<T> ResizeUnsafeList<T>(ref UnsafeList<T> list, int size,
-            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
-        {
-            list.Resize(size, options);
-            list.m_length = size;
-            return ref list;
-        }
-
-        public static unsafe void ResizeUnsafeList<T>(ref UnsafeList<T>* list, int size,
-            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
-        {
-            list->Resize(size, options);
-            list->m_length = size;
-        }
-
-        public static int AlignOf(ComponentType type) {
-            return type.size + sizeof(byte) * 2 - type.size;
-        }
-        public static int AlignOf(Type type) {
-            return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
-        }
-
-        public static unsafe T* Malloc<T>(Allocator allocator) where T : unmanaged {
-            return (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
-        }
-        public static unsafe T* Malloc<T>(int elements, Allocator allocator) where T : unmanaged {
-            return (T*)UnsafeUtility.Malloc(sizeof(T) * elements, UnsafeUtility.AlignOf<T>(), allocator);
-        }
-        [BurstDiscard]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, ref T* buffer, Allocator allocator) where T : unmanaged
-        {
-            // Calculate new capacity
-
-            var typeSize = sizeof(T);
-            // Allocate new buffer
-            var newBuffer = (T*)UnsafeUtility.Malloc(
-                newCapacity * typeSize,
-                UnsafeUtility.AlignOf<T>(),
-                allocator
-            );
-
-            if (newBuffer == null)  
-            {
-                throw new OutOfMemoryException("Failed to allocate memory for resizing.");
-            }
-
-            //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
-            // Copy old data to new buffer
-            UnsafeUtility.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
-
-            // Free old buffer
-            UnsafeUtility.Free(buffer, allocator);
-
-            // Update impl
-            buffer = newBuffer;
-            //Debug.Log($"Resized ptr from {oldCapacity} to {newCapacity}");
-        }
-        [BurstDiscard]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void CheckResize<T>(int index, ref int capacity, ref T* buffer, Allocator allocator) where T : unmanaged
-        {
-            if (index >= capacity)
-            {
-                // Calculate new capacity
-                var newCapacity = math.max(capacity * 2, index + 1);
-                var typeSize = sizeof(T);
-                // Allocate new buffer
-                var newBuffer = (T*)UnsafeUtility.Malloc(
-                    newCapacity * sizeof(T),
-                    UnsafeUtility.AlignOf<T>(),
-                    allocator
-                );
-
-                if (newBuffer == null)
-                {
-                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
-                }
-
-                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
-                // Copy old data to new buffer
-                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
-
-                // Free old buffer
-                UnsafeUtility.Free(buffer, allocator);
-
-                // Update impl
-                buffer = newBuffer;
-                capacity = newCapacity;
-            }
-        }
-        [BurstDiscard]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void CheckResize<T>(int index, ref int capacity, ref void* buffer, Allocator allocator, int typeSize, int align) where T : unmanaged
-        {
-            if (index >= capacity)
-            {
-                // Calculate new capacity
-                int newCapacity = math.max(capacity * 2, index + 1);
-                // Allocate new buffer
-                void* newBuffer = UnsafeUtility.Malloc(
-                    newCapacity * sizeof(T),
-                    align,
-                    allocator
-                );
-
-                if (newBuffer == null)
-                {
-                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
-                }
-                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
-                // Copy old data to new buffer
-                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
-
-                // Free old buffer
-                UnsafeUtility.Free(buffer, allocator);
-
-                // Update impl
-                buffer = newBuffer;
-                capacity = newCapacity;
-            }
-        }
-    }
+    
     
     public unsafe struct GetRef<TComponent> where TComponent : unmanaged, IComponent
     {

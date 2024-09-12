@@ -1,5 +1,7 @@
 ﻿using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
     [StructLayout(LayoutKind.Sequential)]
@@ -31,5 +33,11 @@ namespace Wargon.Nukecs.Tests {
         public float ShadowAngle;
         public float ShadowLenght;
         public float ShadowDistortion;
+    }
+    [BurstCompile]
+    public static class GraphicsHelp {
+        public static float4 ColorToFloat4(Color c) {
+            return new float4(c.a, c.g, c.b, c.a);
+        }
     }
 }

@@ -4,17 +4,6 @@ namespace Wargon.Nukecs{
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs;
 
-    [BurstCompile]
-    public struct EntityDestroySystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
-            return world.Query().With<DestroyEntity>();
-        }
-        public void OnUpdate(ref Entity entity, ref State state) {
-            entity.DestroyNow();
-        }
-    }
-
     public unsafe struct OnPrefabSpawnSystem : ISystem
     {
         public void OnUpdate(ref State state)
