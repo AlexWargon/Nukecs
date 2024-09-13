@@ -12,7 +12,7 @@ namespace Wargon.Nukecs {
         internal int _capacity;
         public int Length => _length;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComponentArray(int capacity) {
+        private ComponentArray(int capacity) {
             _buffer = Unsafe.MallocTracked<T>(capacity, Allocator.Persistent);
             _capacity = capacity;
             _length = 0;

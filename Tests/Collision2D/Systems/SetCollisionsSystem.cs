@@ -2,9 +2,10 @@
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Wargon.Nukecs.Collision2D {
-    public struct SetCollisionsSystem : ISystem
+    public struct SetCollisionsSystem : ISystem, IOnCreate
     {
         public void OnUpdate(ref State state)
         {
@@ -55,6 +56,21 @@ namespace Wargon.Nukecs.Collision2D {
 
         private void Log(int number) {
             
+        }
+
+        public unsafe void OnCreate(ref World world)
+        {
+
+        }
+
+        private unsafe void PrintSize<T>() where T : unmanaged
+        {
+            Debug.Log($"size of {typeof(T)} =  {sizeof(T).ToString()}");
+        }
+
+        private unsafe void PrintSizeInMB<T>(int elements) where T : unmanaged
+        {
+            Debug.Log($"size of {typeof(T)}[{elements}] =  {(sizeof(T) * elements / 1024/1024).ToString()} mb");
         }
     }
     

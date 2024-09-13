@@ -94,7 +94,7 @@ namespace Wargon.Nukecs {
         internal static void InitializeComponentTypeReflection(Type type, int index)
         {
             if(typeof(ComponentArray<>) == type) return;
-            Debug.Log(type);
+            //Debug.Log(type);
             var method = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
             var genericMethod = method.MakeGenericMethod(type);
             genericMethod.Invoke(null, new object[] { index });
