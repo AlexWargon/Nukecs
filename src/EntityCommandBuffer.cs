@@ -331,10 +331,7 @@ namespace Wargon.Nukecs {
 
                 for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-                    if (cmd.Entity == -1)
-                    {
-                        Debug.Log($"WTF {cmd.Entity}");
-                    }
+
                     ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:

@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using System.Collections.Generic;
+
+namespace Wargon.Nukecs {
     
     using System;
     using System.Runtime.CompilerServices;
@@ -26,7 +28,7 @@
     public struct DestroyEntity : IComponent { }
     public struct EntityCreated : IComponent { }
     public struct IsPrefab : IComponent { }
-    public struct Dispose<T> : IComponent where T : struct, IComponent{ }
+    //public struct Dispose<T> : IComponent where T : struct, IComponent{ }
     public struct ChildOf : IComponent {
         public Entity Value;
     }
@@ -62,21 +64,35 @@
         [BurstDiscard]
         public static void Initialization() {
             if(_initialized) return;
-            ComponentsMap.Init();
+            ComponentTypeMap.Init();
             var count = 0;
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var componentTypes = new List<(Type, int)>();
+            var arrayElementTypes = new List<(Type,int)>();
             foreach (var assembly in assemblies) {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
                     if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
+                        componentTypes.Add((type, count));
                         count++;
                     }
                     if (typeof(IArrayComponent).IsAssignableFrom(type) && type != typeof(IArrayComponent)) {
+                        arrayElementTypes.Add((type, count));
                         count++;
                     }
                 }
             }
             ComponentAmount.Value.Data = count;
+            foreach (var (type, index) in componentTypes)
+            {
+                ComponentTypeMap.InitializeComponentTypeReflection(type, index);
+            }
+            foreach (var (type, index) in arrayElementTypes)
+            {
+                ComponentTypeMap.InitializeComponentArrayTypeReflection(type, index);
+            }
+            componentTypes.Clear();
+            arrayElementTypes.Clear();
             _initialized = true;
         }
     }

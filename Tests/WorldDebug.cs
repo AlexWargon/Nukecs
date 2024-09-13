@@ -44,13 +44,13 @@ namespace Wargon.Nukecs.Editor {
         private Label QueryInfo(QueryUnsafe* queryImpl, int index) {
             StringBuilder builder = new StringBuilder();
             builder.Append("Query");
-            foreach (var typesIndex in ComponentsMap.TypesIndexes) {
+            foreach (var typesIndex in ComponentTypeMap.TypesIndexes) {
                 if (queryImpl->HasWith(typesIndex)) {
-                    builder.Append($".With<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    builder.Append($".With<{ComponentTypeMap.GetType(typesIndex).Name}>()");
                 }
 
                 if (queryImpl->HasNone(typesIndex)) {
-                    builder.Append($".None<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    builder.Append($".None<{ComponentTypeMap.GetType(typesIndex).Name}>()");
                 }
             }
 

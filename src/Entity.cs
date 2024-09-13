@@ -130,7 +130,7 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void AddObject(this in Entity entity, IComponent component) {
-            var componentIndex = ComponentsMap.Index(component.GetType());
+            var componentIndex = ComponentTypeMap.Index(component.GetType());
             entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add(entity.id, componentIndex);

@@ -40,8 +40,8 @@ namespace Wargon.Nukecs {
             return world;
         }
         public static void DisposeStatic() {
-            ComponentsMap.Dispose();
-            ComponentsMap.Save();
+            ComponentTypeMap.Dispose();
+            ComponentTypeMap.Save();
         }
         public bool IsAlive => UnsafeWorld != null;
         [NativeDisableUnsafePtrRestriction] 
@@ -139,6 +139,7 @@ namespace Wargon.Nukecs {
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
+                CreatePools();
             }
 
             private void SetDefaultNone() {
@@ -200,19 +201,19 @@ namespace Wargon.Nukecs {
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.Ptr[poolIndex];
-                if (!pool.IsCreated)
-                {
-                    AddPool<T>(ref pool, poolIndex);
-                }
+                // if (!pool.IsCreated)
+                // {
+                //     AddPool<T>(ref pool, poolIndex);
+                // }
                 return ref pool;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
-                if (!pool.IsCreated) 
-                {
-                    AddPool(ref pool, poolIndex);
-                }
+                // if (!pool.IsCreated) 
+                // {
+                //     AddPool(ref pool, poolIndex);
+                // }
                 return ref pool;
             }
             [BurstDiscard]
@@ -223,7 +224,7 @@ namespace Wargon.Nukecs {
                     if (!pool.IsCreated)
                     {
                         pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
-                        //DebugPoolLog<T>(index, poolsCount);
+                        DebugPoolLog<T>(index, poolsCount);
                         poolsCount++;
                     }
                 }
@@ -235,11 +236,16 @@ namespace Wargon.Nukecs {
                 {
                     if (!pool.IsCreated)
                     {
-                        pool = GenericPool.Create(ComponentsMap.GetComponentType(index), config.StartPoolSize, allocator);
-                        //DebugPoolLog(index, poolsCount);
+                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize, allocator);
+                        DebugPoolLog(index, poolsCount);
                         poolsCount++;
                     }
                 }
+            }
+
+            internal void CreatePools()
+            {
+                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, allocator);
             }
             [BurstDiscard]
             private void DebugPoolLog<T>(int poolIndex, int count)
@@ -249,9 +255,8 @@ namespace Wargon.Nukecs {
             [BurstDiscard]
             private void DebugPoolLog(int poolIndex, int count)
             {
-                Debug.Log($"untyped pool {ComponentsMap.GetType(poolIndex)} created with index {poolIndex} and count {count}");
+                Debug.Log($"untyped pool {ComponentTypeMap.GetType(poolIndex)} created with index {poolIndex} and count {count}");
             }
-
 
             internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -370,6 +375,15 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
+            internal void CreateArchetype(ref UnsafeList<int> types, out Archetype archetype) {
+                var ptr = ArchetypeImpl.Create(self, ref types);
+                archetype = new Archetype();
+                archetype.impl = ptr;
+                archetypesList.Add(ptr);
+                archetypesMap[ptr->id] = archetype;
+                //return archetype;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private Archetype CreateArchetype() {
                 var ptr = ArchetypeImpl.Create(self);
@@ -399,14 +413,14 @@ namespace Wargon.Nukecs {
                 return archetypesMap[hash];
             }
 
-            internal void Dispose<T>(ref GenericPool pool, ref Entity entity) where T : unmanaged, IComponent, IDisposable
-            {
-                ref var component = ref pool.GetRef<T>(entity.id);
-                component.Dispose();
-                pool.Set(entity.id, default(T));
-                ECB.Remove<T>(entity.id);
-                ECB.Remove<Dispose<T>>(entity.id);
-            }
+            // internal void Dispose<T>(ref GenericPool pool, ref Entity entity) where T : unmanaged, IComponent, IDisposable
+            // {
+            //     ref var component = ref pool.GetRef<T>(entity.id);
+            //     component.Dispose();
+            //     pool.Set(entity.id, default(T));
+            //     ECB.Remove<T>(entity.id);
+            //     ECB.Remove<Dispose<T>>(entity.id);
+            // }
         }
 
         public void Dispose() {

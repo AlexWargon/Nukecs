@@ -122,7 +122,7 @@ namespace Wargon.Nukecs {
             //if (entitiesMap.m_length <= entity) return false;
             return entitiesMap[entity] > 0;
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureCapacity(int requiredCapacity)
         {
             if (requiredCapacity > entities.m_capacity)
@@ -135,7 +135,7 @@ namespace Wargon.Nukecs {
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity) 
         {
-            EnsureCapacity(count + 1);
+            //EnsureCapacity(count + 1);
             entities.ElementAtNoCheck(count++) = entity;
             entitiesMap[entity] = count;
         }
@@ -173,13 +173,13 @@ namespace Wargon.Nukecs {
         public override string ToString() {
             var sb = new StringBuilder();
             sb.Append($"Query");
-            foreach (var typesIndex in ComponentsMap.TypesIndexes) {
+            foreach (var typesIndex in ComponentTypeMap.TypesIndexes) {
                 if (HasWith(typesIndex)) {
-                    sb.Append($".With<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    sb.Append($".With<{ComponentTypeMap.GetType(typesIndex).Name}>()");
                 }
 
                 if (HasNone(typesIndex)) {
-                    sb.Append($".None<{ComponentsMap.GetType(typesIndex).Name}>()");
+                    sb.Append($".None<{ComponentTypeMap.GetType(typesIndex).Name}>()");
                 }
             }
 
@@ -472,7 +472,7 @@ namespace Wargon.Nukecs {
             
             for (int i = 0; i < tuple.Length; i++) {
                 var t = tuple[i];
-                _unsafe->With(ComponentsMap.Index(t.GetType()));
+                _unsafe->With(ComponentTypeMap.Index(t.GetType()));
             }
 
             _queryTuplePtr = null;
