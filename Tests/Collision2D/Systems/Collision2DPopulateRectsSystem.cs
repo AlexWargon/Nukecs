@@ -11,7 +11,9 @@ namespace Wargon.Nukecs.Collision2D {
         private Query query;
 
         public void OnCreate(ref World world) {
-            query = world.Query().With<Rectangle2D>().With<Transform>().None<DestroyEntity>();
+            query = world.Query().With<Rectangle2D>().With<Transform>()
+                //.WithArray<Collision2DData>()
+                ;
             colliders = world.GetPool<Rectangle2D>();
             transforms = world.GetPool<Transform>();
         }

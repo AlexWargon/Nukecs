@@ -35,7 +35,6 @@ namespace Wargon.Nukecs {
         internal UnsafeHashMap<int, Edge> transactions;
         internal Edge destroyEdge;
         internal readonly int id;
-        internal readonly bool hasChildArrayComponnet;
         internal bool IsCreated => world != null;
 
         internal static void Destroy(ArchetypeImpl* archetype) {
@@ -80,8 +79,6 @@ namespace Wargon.Nukecs {
             else {
                 this.types = new UnsafeList<int>(1, world->allocator);
             }
-
-            this.hasChildArrayComponnet = mask.Has(ComponentType<ComponentArray<Child>>.Index);
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
             this.destroyEdge = default;
@@ -101,7 +98,6 @@ namespace Wargon.Nukecs {
             else {
                 this.types = new UnsafeList<int>(1, world->allocator);
             }
-            this.hasChildArrayComponnet = mask.Has(ComponentType<ComponentArray<Child>>.Index);
             this.id = GetHashCode(ref typesSpan);
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
             this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
@@ -168,7 +164,7 @@ namespace Wargon.Nukecs {
                 pool.Copy(entity.id, newEntity.id);
             }
 
-            if (hasChildArrayComponnet) {
+            if (mask.Has(ComponentType<ComponentArray<Child>>.Index)) {
                 ref var pool = ref world->GetPool<ComponentArray<Child>>();
                 ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity.id);
                 ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
@@ -260,7 +256,7 @@ namespace Wargon.Nukecs {
             }
 
             for (int i = 0; i < types.Length; i++) {
-                sb.Append($"[{ComponentsMap.GetType(types[i]).Name}]");
+                sb.Append($"[{ComponentTypeMap.GetType(types[i]).Name}]");
             }
 
             sb.Append(Environment.NewLine);

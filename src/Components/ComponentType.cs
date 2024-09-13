@@ -45,39 +45,75 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         private static void Init() {
-            var id = Component.Count.Data++;
-            ComponentsMap.Init();
-            ComponentsMap.Add(typeof(T), id);
-            ID.Data =  ComponentsMap.AddComponentType<T>(id);
+            //var id = Component.Count.Data++;
+            //ComponentTypeMap.Init();
+            ID.Data = ComponentTypeMap.GetComponentType(typeof(T));
+            /*
+            ComponentTypeMap.Add(typeof(T), id);
+            ID.Data =  ComponentTypeMap.AddComponentType<T>(id);
             ComponentHelpers.CreateWriter<T>(id);
             if (ID.Data.isDisposable) {
+                Debug.Log($"<color=green>{typeof(T)} is disposable </color>");
                 ComponentHelpers.CreateDisposer<T>(id);
             }
             if (ID.Data.isCopyable) {
+                Debug.Log($"<color=blue>{typeof(T)} is copyable </color>");
                 ComponentHelpers.CreateCopper<T>(id);
             }
+            */
             //Debug.Log($"Component {typeof(T)} inited with index {id}");
         }
     }
 
-    internal struct ComponentsMap {
+    internal struct ComponentTypeMap {
         private static ComponentsMapCache cache;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
+        private static readonly Dictionary<Type, ComponentType> ComponentTypesByTypes;
         private static bool _initialized = false;
         public static List<int> TypesIndexes => cache.TypesIndexes;
-        static ComponentsMap() {
-            ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentsMap>();
+        static ComponentTypeMap() {
+            ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentTypeMap>();
+            ComponentTypesByTypes = new Dictionary<Type, ComponentType>();
         }
         [BurstDiscard]
-        public static void Init() {
+        internal static void Init() {
             if(_initialized) return;
             cache = new ComponentsMapCache();
             ComponentTypes.Data = new NativeHashMap<int, ComponentType>(ComponentAmount.Value.Data + 1, Allocator.Persistent);
+            
             _initialized = true;
         }
-
-        public static unsafe ComponentType AddComponentType<T>(int index) where T : unmanaged
+        [BurstDiscard]
+        internal static void InitializeComponentArrayTypeReflection(Type typeElement, int index)
         {
+            var arrayType = typeof(ComponentArray<>);
+            var type = arrayType.MakeGenericType(typeElement);
+            InitializeComponentTypeReflection(type, index);
+        }
+        [BurstDiscard]
+        internal static void InitializeComponentTypeReflection(Type type, int index)
+        {
+            if(typeof(ComponentArray<>) == type) return;
+            Debug.Log(type);
+            var method = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
+            var genericMethod = method.MakeGenericMethod(type);
+            genericMethod.Invoke(null, new object[] { index });
+        }
+        public static void InitializeComponentType<T>(int index) where T : unmanaged
+        {
+            ComponentTypeMap.Add(typeof(T), index);
+            var componentType =  ComponentTypeMap.AddComponentType<T>(index);
+            ComponentHelpers.CreateWriter<T>(index);
+            if (componentType.isDisposable) {
+                ComponentHelpers.CreateDisposer<T>(index);
+            }
+            if (componentType.isCopyable) {
+                ComponentHelpers.CreateCopper<T>(index);
+            }
+        }
+        internal static unsafe ComponentType AddComponentType<T>(int index) where T : unmanaged
+        {
+            if (ComponentTypes.Data.ContainsKey(index)) return ComponentTypes.Data[index];
             var size = UnsafeUtility.SizeOf<T>();
             var data = new ComponentType
             {
@@ -93,11 +129,12 @@ namespace Wargon.Nukecs {
             data.defaultValue = UnsafeUtility.Malloc(data.size, data.align, Allocator.Persistent);
             *(T*) data.defaultValue = default(T);
             ComponentTypes.Data.TryAdd(index, data);
-            
+            ComponentTypesByTypes.TryAdd(typeof(T), data);
             return data;
         }
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
-        public static void Add(Type type, int index) {
+        public static ComponentType GetComponentType(Type type) => ComponentTypesByTypes[type];
+        internal static void Add(Type type, int index) {
             cache.Add(type, index);
         }
         public static Type GetType(int index) => cache.GetType(index);
@@ -105,19 +142,26 @@ namespace Wargon.Nukecs {
         public static int Index(string name) {
             return cache.Index(name);
         }
-        static void StaticClass_Dtor(object sender, EventArgs e) {
-            ComponentsMapCache.Save(cache);
-        }
 
         public static void Save() {
             //ComponentsMapCache.Save(cache);
         }
 
-        public static unsafe void Dispose() {
+        internal static unsafe void CreatePools(ref UnsafeList<GenericPool> pools, int size, Allocator allocator)
+        {
+            foreach (var kvPair in ComponentTypes.Data)
+            {
+                var type = kvPair.Value;
+                ref var pool = ref pools.Ptr[type.index];
+                pool = GenericPool.Create(type, size, allocator);
+            }
+        }
+        internal static unsafe void Dispose() {
             foreach (var kvPair in ComponentTypes.Data) {
                 UnsafeUtility.Free(kvPair.Value.defaultValue, Allocator.Persistent);
             }
             ComponentTypes.Data.Dispose();
+            ComponentTypesByTypes.Clear();
         }
     }
 

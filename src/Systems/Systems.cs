@@ -144,35 +144,35 @@ namespace Wargon.Nukecs
             runners.Add(runner);
             return this;
         }
-        private void AddDisposeSystem<T>() where T: unmanaged, IComponent, IDisposable
-        {
-            var system = new DisposeSystem<T>();
-            if (system is IOnCreate s) {
-                s.OnCreate(ref world);
-                system = (DisposeSystem<T>) s;
-            }
-            
-            var runner = new SystemMainThreadRunnerClass<DisposeSystem<T>> {
-                System = system,
-                EcbJob = default
-            };
-            disposeSystems.Add(runner);
-        }
-        private void InitDisposeSystems()
-        {
-            var addMethod = typeof(Systems).GetMethod(nameof(AddDisposeSystem));
-
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies) {
-                var types = assembly.GetTypes();
-                foreach (var type in types) {
-                    if (typeof(IComponent).IsAssignableFrom(type) && typeof(IDisposable).IsAssignableFrom(type))
-                    {
-                        addMethod?.MakeGenericMethod(type).Invoke(this, null);
-                    }
-                }
-            }
-        }
+        // private void AddDisposeSystem<T>() where T: unmanaged, IComponent, IDisposable
+        // {
+        //     var system = new DisposeSystem<T>();
+        //     if (system is IOnCreate s) {
+        //         s.OnCreate(ref world);
+        //         system = (DisposeSystem<T>) s;
+        //     }
+        //     
+        //     var runner = new SystemMainThreadRunnerClass<DisposeSystem<T>> {
+        //         System = system,
+        //         EcbJob = default
+        //     };
+        //     disposeSystems.Add(runner);
+        // }
+        // private void InitDisposeSystems()
+        // {
+        //     var addMethod = typeof(Systems).GetMethod(nameof(AddDisposeSystem));
+        //
+        //     var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        //     foreach (var assembly in assemblies) {
+        //         var types = assembly.GetTypes();
+        //         foreach (var type in types) {
+        //             if (typeof(IComponent).IsAssignableFrom(type) && typeof(IDisposable).IsAssignableFrom(type))
+        //             {
+        //                 addMethod?.MakeGenericMethod(type).Invoke(this, null);
+        //             }
+        //         }
+        //     }
+        // }
         public Systems Add<T>(T group) where T : SystemsGroup {
             group.world = world;
             for (int i = 0; i < group.runners.Count; i++)
@@ -187,15 +187,16 @@ namespace Wargon.Nukecs
         private State stateFixed;
         public void OnUpdate(float dt, float time)
         {
-            stateFixed.Dependencies.Complete();
-           
+            state.Dependencies.Complete();
+            //stateFixed.Dependencies.Complete();
+            state.Dependencies = world.DependenciesUpdate;
             state.World = world;
             state.DeltaTime = dt;
             state.Time = time;
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
-            state.Dependencies.Complete();
+            
             //for (var i = 0; i < disposeSystems.Count; i++)
             //{
             //    world.DependenciesUpdate = disposeSystems[i].Schedule(ref world, dt, ref world.DependenciesUpdate, UpdateContext.Update);
@@ -203,14 +204,14 @@ namespace Wargon.Nukecs
         }
         public void OnFixedUpdate(float dt, float time)
         {
-            state.Dependencies.Complete();
-            
+            //state.Dependencies.Complete();
+            stateFixed.Dependencies.Complete();
             stateFixed.World = world;
             stateFixed.DeltaTime = dt;
             for (var i = 0; i < runners.Count; i++) {
                 stateFixed.Dependencies = runners[i].Schedule(UpdateContext.FixedUpdate, ref stateFixed);
             }
-            stateFixed.Dependencies.Complete();
+            
         }
 
         internal void Complete()
@@ -467,27 +468,27 @@ namespace Wargon.Nukecs
         }
     }
 
-    public unsafe class DisposeSystem<T> : ISystem, IOnCreate where T : unmanaged, IComponent, IDisposable
-    {
-        private Query query;
-        private GenericPool pool;
-        public void OnCreate(ref World world)
-        {
-            query = world.Query().With<T>().With<Dispose<T>>();
-            pool = world.GetPool<T>();
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void OnUpdate(ref State state)
-        {
-            if(query.Count == 0) return;
-            foreach (ref var entity in query)
-            {
-                state.World.UnsafeWorld->Dispose<T>(ref pool, ref entity);
-                Debug.Log($"{entity.id} {typeof(T).Name} Disposed");
-            }
-        }
-
-    }
+    // public unsafe class DisposeSystem<T> : ISystem, IOnCreate where T : unmanaged, IComponent, IDisposable
+    // {
+    //     private Query query;
+    //     private GenericPool pool;
+    //     public void OnCreate(ref World world)
+    //     {
+    //         query = world.Query().With<T>().With<Dispose<T>>();
+    //         pool = world.GetPool<T>();
+    //     }
+    //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //     public void OnUpdate(ref State state)
+    //     {
+    //         if(query.Count == 0) return;
+    //         foreach (ref var entity in query)
+    //         {
+    //             state.World.UnsafeWorld->Dispose<T>(ref pool, ref entity);
+    //             Debug.Log($"{entity.id} {typeof(T).Name} Disposed");
+    //         }
+    //     }
+    //
+    // }
     
     [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]
     public interface IEntityIndexJobSystem
