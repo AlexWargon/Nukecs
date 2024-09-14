@@ -48,7 +48,7 @@ namespace Wargon.Nukecs.Collision2D {
                 ref var buffer = ref e.GetArray<Collision2DData>();
                 buffer.AddNoResize(new Collision2DData
                 {
-                    Other = other
+                    Other = other,
                 });
                 e.Add(new CollidedFlag());
             }
@@ -61,6 +61,7 @@ namespace Wargon.Nukecs.Collision2D {
         public unsafe void OnCreate(ref World world)
         {
             PrintSizeInMB<Collision2DData>(64 * WorldConfig.Default163840.StartPoolSize);
+            PrintSizeInMB<int>(ComponentAmount.Value.Data * WorldConfig.Default163840.StartPoolSize);
         }
 
         private unsafe void PrintSize<T>() where T : unmanaged
