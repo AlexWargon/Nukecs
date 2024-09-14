@@ -19,13 +19,26 @@ namespace Wargon.Nukecs {
         public bool isTag;
         public bool isDisposable;
         public bool isCopyable;
+        public bool isArray;
+        internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> elementTypes;
+
+        public static ref NativeHashMap<int, ComponentType> ElementTypes => ref elementTypes.Data;
         public unsafe void* defaultValue;
+        static ComponentType() {
+            elementTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentType>();
+            elementTypes.Data = new NativeHashMap<int, ComponentType>(32, Allocator.Persistent);
+        }
+
+        internal static void AddElementType(ComponentType componentType, int index)
+        {
+            ElementTypes[index] = componentType;
+        }
         public override string ToString() {
             return
                 $"ComponentType: Index = {index}, size = {size}, Tag?[{isTag}], Disposable?[{isDisposable}], Copyable?[{isCopyable}]";
         }
     }
-    
+
     public struct ComponentType<T> where T : unmanaged {
         private static readonly SharedStatic<ComponentType> ID = SharedStatic<ComponentType>.GetOrCreate<ComponentType<T>>();
 
@@ -45,23 +58,7 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         private static void Init() {
-            //var id = Component.Count.Data++;
-            //ComponentTypeMap.Init();
             ID.Data = ComponentTypeMap.GetComponentType(typeof(T));
-            /*
-            ComponentTypeMap.Add(typeof(T), id);
-            ID.Data =  ComponentTypeMap.AddComponentType<T>(id);
-            ComponentHelpers.CreateWriter<T>(id);
-            if (ID.Data.isDisposable) {
-                Debug.Log($"<color=green>{typeof(T)} is disposable </color>");
-                ComponentHelpers.CreateDisposer<T>(id);
-            }
-            if (ID.Data.isCopyable) {
-                Debug.Log($"<color=blue>{typeof(T)} is copyable </color>");
-                ComponentHelpers.CreateCopper<T>(id);
-            }
-            */
-            //Debug.Log($"Component {typeof(T)} inited with index {id}");
         }
     }
 
@@ -86,9 +83,15 @@ namespace Wargon.Nukecs {
         [BurstDiscard]
         internal static void InitializeComponentArrayTypeReflection(Type typeElement, int index)
         {
+            var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
+            var addElementMethod = addElement.MakeGenericMethod(typeElement);
+            addElementMethod.Invoke(null, new object[] { index });
+            
             var arrayType = typeof(ComponentArray<>);
             var type = arrayType.MakeGenericType(typeElement);
-            InitializeComponentTypeReflection(type, index);
+            var addComponent = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
+            var genericMethod = addComponent.MakeGenericMethod(type);
+            genericMethod.Invoke(null, new object[] { index });
         }
         [BurstDiscard]
         internal static void InitializeComponentTypeReflection(Type type, int index)
@@ -101,8 +104,8 @@ namespace Wargon.Nukecs {
         }
         public static void InitializeComponentType<T>(int index) where T : unmanaged
         {
-            ComponentTypeMap.Add(typeof(T), index);
-            var componentType =  ComponentTypeMap.AddComponentType<T>(index);
+            Add(typeof(T), index);
+            var componentType =  AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
             if (componentType.isDisposable) {
                 ComponentHelpers.CreateDisposer<T>(index);
@@ -110,6 +113,22 @@ namespace Wargon.Nukecs {
             if (componentType.isCopyable) {
                 ComponentHelpers.CreateCopper<T>(index);
             }
+        }
+
+        public static unsafe void InitializeElementType<T>(int index) where T : unmanaged, IArrayComponent
+        {
+            var size = sizeof(T);
+            var data = new ComponentType
+            {
+                align = UnsafeUtility.AlignOf<T>(),
+                size = size,
+                index = index,
+                isTag = false,
+                isDisposable = false,
+                isCopyable = false,
+                isArray = false
+            };
+            ComponentType.AddElementType(data, index);
         }
         internal static unsafe ComponentType AddComponentType<T>(int index) where T : unmanaged
         {
@@ -124,8 +143,10 @@ namespace Wargon.Nukecs {
                 isDisposable = typeof(T).GetInterfaces()
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDisposable<>)),
                 isCopyable = typeof(T).GetInterfaces()
-                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>))
+                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>)),
+                isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>)
             };
+            
             data.defaultValue = UnsafeUtility.Malloc(data.size, data.align, Allocator.Persistent);
             *(T*) data.defaultValue = default(T);
             ComponentTypes.Data.TryAdd(index, data);
@@ -147,13 +168,30 @@ namespace Wargon.Nukecs {
             //ComponentsMapCache.Save(cache);
         }
 
-        internal static unsafe void CreatePools(ref UnsafeList<GenericPool> pools, int size, Allocator allocator)
+        internal static unsafe void CreatePools(ref UnsafeList<GenericPool> pools, int size, Allocator allocator, ref int poolsCount)
         {
             foreach (var kvPair in ComponentTypes.Data)
             {
                 var type = kvPair.Value;
                 ref var pool = ref pools.Ptr[type.index];
-                pool = GenericPool.Create(type, size, allocator);
+                // pool = GenericPool.Create(type, size, allocator);
+                if (!type.isArray)
+                {
+                    //Debug.Log($"Pool {GetType(type.index)} created");
+                    pool = GenericPool.Create(type, size, allocator);
+                    poolsCount += 1;
+                }
+                else
+                {
+                    //var realType = GetType(type.index);
+                    //Debug.Log($"Pool {realType} created");
+                    pool = GenericPool.Create(type, size, allocator);
+                    var elementType = ComponentType.ElementTypes[type.index];
+                    ref var elementsPool = ref pools.Ptr[elementType.index + 1];
+                    //Debug.Log($"Pool for elements {realType.GetGenericArguments()[0]} created");
+                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, allocator);
+                    poolsCount += 2;
+                }
             }
         }
         internal static unsafe void Dispose() {
@@ -162,6 +200,7 @@ namespace Wargon.Nukecs {
             }
             ComponentTypes.Data.Dispose();
             ComponentTypesByTypes.Clear();
+            ComponentType.ElementTypes.Dispose();
         }
     }
 

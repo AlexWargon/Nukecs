@@ -97,6 +97,7 @@ namespace Wargon.Nukecs {
             return ref ((T*)UnsafeBuffer->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
+
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
         {

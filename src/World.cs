@@ -245,7 +245,7 @@ namespace Wargon.Nukecs {
 
             internal void CreatePools()
             {
-                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, allocator);
+                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, allocator, ref poolsCount);
             }
             [BurstDiscard]
             private void DebugPoolLog<T>(int poolIndex, int count)

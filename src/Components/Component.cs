@@ -14,15 +14,14 @@ namespace Wargon.Nukecs {
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }
-    public abstract class Convertor : ScriptableObject, ICustomConvertor {
-        public abstract void Convert(ref World world, ref Entity entity);
-    }
     public interface IDisposable<T> {
         void Dispose(ref T value);
     }
-
     public interface ICopyable<T> {
-        T Copy(ref T toCopy);
+        T Copy(ref T toCopy, int to);
+    }
+    public abstract class Convertor : ScriptableObject, ICustomConvertor {
+        public abstract void Convert(ref World world, ref Entity entity);
     }
     public struct IsAlive : IComponent { }
     public struct DestroyEntity : IComponent { }
@@ -78,6 +77,7 @@ namespace Wargon.Nukecs {
                     }
                     if (typeof(IArrayComponent).IsAssignableFrom(type) && type != typeof(IArrayComponent)) {
                         arrayElementTypes.Add((type, count));
+                        count++;
                         count++;
                     }
                 }
@@ -199,7 +199,7 @@ namespace Wargon.Nukecs {
     }
 
     public class ComponentCopper<T> : IComponentCopper where T : unmanaged {
-        private delegate T CopyDelegate(ref T value);
+        private delegate T CopyDelegate(ref T value, int to);
         private readonly CopyDelegate _copyFunc;
 #if ENABLE_IL2CPP && !UNITY_EDITOR
         T _fakeInstance;
@@ -221,7 +221,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Copy(void* buffer, int from, int to) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
-            UnsafeUtility.WriteArrayElement(buffer, to, _copyFunc.Invoke(ref component));
+            UnsafeUtility.WriteArrayElement(buffer, to, _copyFunc.Invoke(ref component, to));
 
         }
     }

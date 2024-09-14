@@ -78,9 +78,13 @@ namespace Wargon.Nukecs {
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ref ComponentArray<T> AddArray<T>(this ref Entity entity, int size = 6, Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent {
+        public static ref ComponentArray<T> AddArray<T>(this ref Entity entity, int size = 6, Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
+        {
+            var poolIndex = ComponentType<ComponentArray<T>>.Index;
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
-            var array = new ComponentArray<T>(size, allocator);
+            var elementIndex = poolIndex + 1;
+            ref var elementPool = ref entity.worldPointer->GetUntypedPool(elementIndex);
+            var array = new ComponentArray<T>(ref elementPool, entity);
             pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<ComponentArray<T>>(entity.id);
