@@ -150,7 +150,7 @@ namespace Wargon.Nukecs {
                 pool.Copy(from, to);
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity Copy(in Entity entity) {
             var newEntity = world->CreateEntity(id);
             for (var i = 0; i < queries.Length; i++) {

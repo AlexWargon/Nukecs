@@ -8,7 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Wargon.Nukecs {
     internal struct ComponentArray
     {
-        internal const int DefaultMaxCapacity = 64;
+        internal const int DefaultMaxCapacity = 16;
     }
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged, IArrayComponent
     {
@@ -37,9 +37,10 @@ namespace Wargon.Nukecs {
         private ComponentArray(ref ComponentArray<T> other, int index)
         {
             _entity = other._entity.worldPointer->GetEntity(index);
-            _buffer = (T*)other._entity.worldPointer->GetPool<T>().UnsafeBuffer->buffer + _entity.id * DefaultMaxCapacity;
-            _length = 0;
-            _capacity = DefaultMaxCapacity;
+            var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
+            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + _entity.id * DefaultMaxCapacity;
+            _length = other._length;
+            _capacity = other._capacity;
             UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
