@@ -7,6 +7,12 @@ using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
+    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]
+    public interface IEntityJobSystem {
+        SystemMode Mode { get; }
+        Query GetQuery(ref World world);
+        void OnUpdate(ref Entity entity, ref State state);
+    }
     internal class EntityJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
         public TSystem System;
         public Query Query;
@@ -39,12 +45,7 @@ namespace Wargon.Nukecs
             state.World.ECB.Playback(ref state.World);
         }
     }
-    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]
-    public interface IEntityJobSystem {
-        SystemMode Mode { get; }
-        Query GetQuery(ref World world);
-        void OnUpdate(ref Entity entity, ref State state);
-    }
+
     public static class IEntityJobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntityJobWrapper<TJob> where TJob : struct, IEntityJobSystem {
