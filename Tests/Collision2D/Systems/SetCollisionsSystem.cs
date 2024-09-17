@@ -37,10 +37,10 @@ namespace Wargon.Nukecs.Collision2D {
                 var hit = Hits[index];
                 ref var from = ref World.GetEntity(hit.From);
                 ref var to = ref World.GetEntity(hit.To);
-                AddToArray(ref from, ref to);
-                AddToArray(ref to, ref from);
+                AddToArray(ref from, ref to, in hit);
+                AddToArray(ref to, ref from, in hit);
             }
-            private void AddToArray(ref Entity e, ref Entity other)
+            private void AddToArray(ref Entity e, ref Entity other, in HitInfo hitInfo)
             {
                 if(!e.IsValid()) return;
                 if(!other.IsValid()) return;
@@ -49,6 +49,7 @@ namespace Wargon.Nukecs.Collision2D {
                 buffer.AddNoResize(new Collision2DData
                 {
                     Other = other,
+                    Type = hitInfo.Type
                 });
                 e.Add(new CollidedFlag());
             }
@@ -79,6 +80,7 @@ namespace Wargon.Nukecs.Collision2D {
         public Entity Other;
         public float2 Position;
         public float2 Normal;
+        public HitInfo.CollisionType Type;
     }
 
     public struct CollidedFlag : IComponent {}
@@ -87,7 +89,7 @@ namespace Wargon.Nukecs.Collision2D {
     public struct CollisionsClear : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world) {
-            return world.Query().WithArray<Collision2DData>().With<CollidedFlag>().None<DestroyEntity>();
+            return world.Query().WithArray<Collision2DData>().With<CollidedFlag>();
         }
 
         public void OnUpdate(ref Entity entity, ref State state) {

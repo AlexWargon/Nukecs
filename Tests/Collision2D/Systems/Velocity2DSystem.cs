@@ -9,7 +9,7 @@ namespace Wargon.Nukecs.Collision2D
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world)
         {
-            return world.Query().With<Body2D>().With<Transform>().None<DestroyEntity>();
+            return world.Query().With<Body2D>().With<Transform>();
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
@@ -17,7 +17,7 @@ namespace Wargon.Nukecs.Collision2D
             ref var body = ref entity.Get<Body2D>();
             
             ref var transform = ref entity.Get<Transform>();
-            transform.Position = new float3(transform.Position.x + body.velocity.x * deltaTime, transform.Position.y + body.velocity.y * deltaTime, transform.Position.z);
+            transform.Position = new float3(transform.Position.x + body.velocity.x, transform.Position.y + body.velocity.y, transform.Position.z);
             //body.velocity = float2.zero;
         }
     }

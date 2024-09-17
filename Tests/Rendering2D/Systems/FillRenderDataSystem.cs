@@ -6,7 +6,7 @@ namespace Wargon.Nukecs.Tests {
     public struct FillRenderDataSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world) {
-            return world.Query().With<SpriteRenderData>().With<Transform>().None<DestroyEntity>().None<Culled>();
+            return world.Query().With<SpriteRenderData>().With<Transform>().None<Culled>();
         }
         public unsafe void OnUpdate(ref Entity entity, ref State state) {
             var (chunk, transform, data) =

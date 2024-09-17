@@ -10,7 +10,7 @@ namespace Wargon.Nukecs.Collision2D
     using Unity.Mathematics;
     using UnityEngine;
 
-    public class Grid2D {
+    public unsafe class Grid2D {
         public static Grid2D Instance;
         public UnsafeList<Grid2DCell> cells;
         
@@ -19,9 +19,8 @@ namespace Wargon.Nukecs.Collision2D
         private int len;
         public Vector2 Offset;
         public Vector2 Position;
-        internal GenericPool circleColliders;
-        internal GenericPool rectColliders;
-        internal GenericPool trasforms;
+
+        public NativeParallelHashMap<ulong, bool> collisionStates;
         public int W, H, CellSize;
         private readonly World world;
 
@@ -34,12 +33,10 @@ namespace Wargon.Nukecs.Collision2D
             CellSize = cellSize;
             cells = new UnsafeList<Grid2DCell>(W * H, Allocator.Persistent);
             cells.Length = W * H;
-            circleColliders = world.GetPool<Circle2D>();
-            trasforms = world.GetPool<Wargon.Nukecs.Transforms.Transform>();
-            rectColliders = world.GetPool<Rectangle2D>();
 
             Hits = new NativeQueue<HitInfo>(Allocator.Persistent);
-
+            collisionStates = new NativeParallelHashMap<ulong, bool>(world.UnsafeWorld->config.StartEntitiesAmount,
+                Allocator.Persistent);
             for (var x = 0; x < W; x++)
             for (var y = 0; y < H; y++) {
                 var i = W * y + x;
@@ -88,12 +85,13 @@ namespace Wargon.Nukecs.Collision2D
 #if UNITY_EDITOR
             var style = new GUIStyle();
             style.normal.textColor = Color.white;
-
+            style.fontSize = 24;
+            
             for (var i = 0; i < cells.Length; i++) {
                 var cell = cells[i];
                 cell.Draw(Color.yellow);
-                //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.Index}", style);
-                //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one * 2, $"{cell.CollidersBuffer.Count}", style);
+                UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.Index}", style);
+                UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.up, $"{cell.CollidersBuffer.Count}", style);
             }
 #endif
         }
@@ -115,6 +113,7 @@ namespace Wargon.Nukecs.Collision2D
         public void Clear() {
             cells.Dispose();
             Hits.Dispose();
+            collisionStates.Dispose();
         }
     }
     public static class Debug2D {

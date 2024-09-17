@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Wargon.Nukecs.Collision2D;
 
 namespace Wargon.Nukecs {
     
@@ -94,6 +95,15 @@ namespace Wargon.Nukecs {
             componentTypes.Clear();
             arrayElementTypes.Clear();
             _initialized = true;
+            
+        }
+
+        internal static void LogComponent(ComponentType type)
+        {
+            if (NukecsDebugData.Instance.showInitedComponents)
+            {
+                Debug.Log(type.ToString());
+            }
         }
     }
 
@@ -330,5 +340,39 @@ namespace Wargon.Nukecs {
         public GetRef<Input> Input;
         public GetRef<Transforms.Transform> Transform;
     }
-    
+
+    public struct ComponentsTuple<T1, T2> : ITuple where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent
+    {
+        private int entity;
+        public GetRef<T1> Value1;
+        public GetRef<T2> Value2;
+        public object this[int index] => null;
+
+        public int Length => 2;
+        public void Deconstruct(out GetRef<T1> v1, out GetRef<T2> v2)
+        {
+            v1 = Value1;
+            v2 = Value2;
+        }
+    }
+
+    public readonly ref struct ComponentTupleRO<T1, T2, T3>
+    {
+        public readonly T1 value1;
+        public readonly T2 value2;
+        public readonly T3 value3;
+
+        public ComponentTupleRO(in T1 v1, in T2 v2, in T3 v3)
+        {
+            value1 = v1;
+            value2 = v2;
+            value3 = v3;
+        }
+        public void Deconstruct(out T1 v1, out T2 v2, out T3 v3)
+        {
+            v1 = value1;
+            v2 = value2;
+            v3 = value3;
+        }
+    }
 }

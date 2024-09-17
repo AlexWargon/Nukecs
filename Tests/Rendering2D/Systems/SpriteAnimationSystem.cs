@@ -15,7 +15,7 @@ namespace Wargon.Nukecs.Tests {
                 .With<SpriteRenderData>()
                 .With<Transform>()
                 .With<Input>()
-                .None<Culled>().None<DestroyEntity>();
+                .None<Culled>();
         }
 
         public void OnUpdate(ref Entity entity, ref State state) {

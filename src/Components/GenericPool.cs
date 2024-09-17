@@ -65,7 +65,7 @@ namespace Wargon.Nukecs {
 
             internal static GenericPoolUnsafe* CreateBuffer(ComponentType type, int size, Allocator allocator) {
                 var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
-
+                size = type.isTag ? 1 : size;
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
@@ -102,7 +102,7 @@ namespace Wargon.Nukecs {
         public void Set<T>(int index, in T value) where T : unmanaged
         {
             //CheckValid(index);
-            if (UnsafeBuffer->ComponentType.size != 1) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
@@ -126,7 +126,7 @@ namespace Wargon.Nukecs {
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, void* value) {
-            if (UnsafeBuffer->ComponentType.size != 1) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
@@ -137,7 +137,7 @@ namespace Wargon.Nukecs {
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value) {
-            if (UnsafeBuffer->ComponentType.size != 1) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
@@ -150,7 +150,7 @@ namespace Wargon.Nukecs {
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
-            if (UnsafeBuffer->ComponentType.size != 1) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
@@ -161,7 +161,7 @@ namespace Wargon.Nukecs {
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
-            if (UnsafeBuffer->ComponentType.size != 1) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
@@ -187,7 +187,7 @@ namespace Wargon.Nukecs {
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
-            if (UnsafeBuffer->ComponentType.size != 1) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
                 CheckResize(math.max(destination, source));
                 if (UnsafeBuffer->ComponentType.isCopyable) {
                     CopyComponent(source, destination);
@@ -297,6 +297,7 @@ namespace Wargon.Nukecs {
         internal ComponentPool(void* buffer) {
             _buffer = (T*) buffer;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get(int index) {
             return ref _buffer[index];
         }
