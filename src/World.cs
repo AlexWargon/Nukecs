@@ -21,27 +21,38 @@ namespace Wargon.Nukecs {
         public static ref World Get(int index) => ref worlds[index];
         // ReSharper disable once InconsistentNaming
         public static ref World Default => ref Get(0);
+        private static event Action OnWorldCreatingEvent;
+
+        public static void OnWorldCreating(Action action)
+        {
+            OnWorldCreatingEvent += action;
+        }
         public static World Create() {
+            OnWorldCreatingEvent?.Invoke();
             Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
             world.UnsafeWorld = WorldUnsafe.Create(id, WorldConfig.Default_1_000_000);
             worlds[id] = world;
+            
             return world;
         }
         public static World Create(WorldConfig config) {
+            OnWorldCreatingEvent?.Invoke();
             Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
             world.UnsafeWorld = WorldUnsafe.Create(id, config);
             worlds[id] = world;
+            
             return world;
         }
         public static void DisposeStatic() {
             ComponentTypeMap.Dispose();
             ComponentTypeMap.Save();
+            OnWorldCreatingEvent = null;
         }
         public bool IsAlive => UnsafeWorld != null;
         [NativeDisableUnsafePtrRestriction] 

@@ -17,7 +17,6 @@ namespace Wargon.Nukecs.Collision2D {
         public ComponentPool<Rectangle2D> rectangles;
         public ComponentPool<Body2D> bodies;
         [WriteOnly] public NativeQueue<HitInfo>.ParallelWriter collisionEnterHits;
-        [WriteOnly] public UnsafeList<HitInfo>.ParallelWriter collisionEnterList;
         public float2 Offset, GridPosition;
         public int W, H, cellSize, iterations;
         public World world;
@@ -60,6 +59,8 @@ namespace Wargon.Nukecs.Collision2D {
                                 ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref transforms.Get(e1), ref transforms.Get(e2), ref hitInfo);
                                 //if (c1.layer == CollisionLayer.Enemy && c2.layer == CollisionLayer.Enemy) {}
                                 //else { collisionEnterHits.Enqueue(hitInfo); }
+                                
+                                
                                 collisionEnterHits.Enqueue(hitInfo);
                             }
                         }
@@ -80,7 +81,15 @@ namespace Wargon.Nukecs.Collision2D {
                 }
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ulong GetCollisionKey(int e1, int e2)
+        {
+            if (e1 > e2)
+            {
+                (e1, e2) = (e2, e1);
+            }
+            return ((ulong)e1 << 32) | (uint)e2;
+        }
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Default)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private HitInfo ResolveCollisionCircleVsRectInternal(ref Circle2D circle, ref Body2D circleBody,

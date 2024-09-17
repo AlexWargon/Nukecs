@@ -35,7 +35,12 @@ namespace Wargon.Nukecs {
         }
         public override string ToString() {
             return
-                $"ComponentType: Index = {index}, size = {size}, Tag?[{isTag}], Disposable?[{isDisposable}], Copyable?[{isCopyable}]";
+                $"ComponentType: {ComponentTypeMap.GetType(index)}  Index = {index}, size = {size}, Tag={isTag}, Disposable={isDisposable}, Copyable={isCopyable}, IsArray={isArray}";
+        }
+
+        public string LogString()
+        {
+            return $"ComponentType: {ComponentTypeMap.GetType(index)}  Index = {index}, size = {size}, Tag?[{isTag}], Disposable?[{isDisposable}], Copyable?[{isCopyable}], IsArray?[{isArray}]";
         }
     }
 
@@ -192,6 +197,7 @@ namespace Wargon.Nukecs {
                     elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, allocator);
                     poolsCount += 2;
                 }
+                Component.LogComponent(kvPair.Value);
             }
         }
         internal static unsafe void Dispose() {

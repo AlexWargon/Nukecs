@@ -1,4 +1,7 @@
 
+using System;
+using Unity.Collections;
+
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
@@ -9,6 +12,7 @@ namespace Wargon.Nukecs.Collision2D
         private GenericPool colliders;
         private GenericPool rectangles;
         private GenericPool bodies;
+        private int collisionStatesSize;
         public void OnCreate(ref World world) {
             transforms = world.GetPool<Transform>();
             colliders = world.GetPool<Circle2D>();
@@ -18,7 +22,15 @@ namespace Wargon.Nukecs.Collision2D
         public void OnUpdate(ref State state) {
             var grind2D = Grid2D.Instance;
             grind2D.Hits.Clear();
-            
+            // ref var collisionState = ref grind2D.collisionStates;
+            // collisionStatesSize = collisionState.Capacity;
+            //
+            // if (collisionStatesSize < state.World.EntitiesAmount * 4)
+            // {
+            //     var newCapacity = collisionStatesSize * 2;
+            //     collisionState.Capacity = newCapacity;
+            //     collisionStatesSize = newCapacity;
+            // }
             var collisionJob1 = new Collision2DHitsParallelJob {
                 colliders = colliders.AsComponentPool<Circle2D>(),
                 transforms = transforms.AsComponentPool<Transform>(),
@@ -35,6 +47,17 @@ namespace Wargon.Nukecs.Collision2D
                 world = state.World
             };
             state.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, state.Dependencies);
+        }
+    }
+
+    public static class NativeParallelHashMapExtensions
+    {
+        public static unsafe void Resize<TKey, TValue>(
+            this ref NativeParallelHashMap<TKey, TValue> hashMap, int newCapacity)
+            where TKey : unmanaged, IEquatable<TKey>
+            where TValue : unmanaged
+        {
+            hashMap.Capacity = newCapacity;
         }
     }
 }  

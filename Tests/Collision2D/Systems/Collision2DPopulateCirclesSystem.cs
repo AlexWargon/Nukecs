@@ -32,8 +32,8 @@ namespace Wargon.Nukecs.Collision2D {
                 cellSizeY = grid2D.CellSize,
                 Offset = grid2D.Offset,
                 GridPosition = grid2D.Position,
-                W = grid2D.W,
-                H = grid2D.H
+                gridWidth = grid2D.W,
+                gridHight = grid2D.H
             };
             state.Dependencies = populateJob.Schedule(query.Count, state.Dependencies);
         }
@@ -44,9 +44,8 @@ namespace Wargon.Nukecs.Collision2D {
             public UnsafeList<Grid2DCell> cells;
             public ComponentPool<Circle2D> colliders;
             public ComponentPool<Transform> transforms;
-            public int cellSizeX, cellSizeY, W, H;
-            public Vector2 Offset;
-            public Vector2 GridPosition;
+            public int cellSizeX, cellSizeY, gridWidth, gridHight;
+            public Vector2 Offset, GridPosition;
 
             public void Execute(int index) {
                 var e = query.GetEntityIndex(index);
@@ -57,8 +56,8 @@ namespace Wargon.Nukecs.Collision2D {
                 var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
                 var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
                 
-                if (px >= 0 && px < W && py >= 0 && py < H) {
-                    var cellIndex = py * W + px;
+                if (px >= 0 && px < gridWidth && py >= 0 && py < gridHight) {
+                    var cellIndex = py * gridWidth + px;
                     if (cellIndex > -1 && cellIndex < cells.m_length) {
                         ref var cell = ref cells.ElementAt(cellIndex);
                         cell.CollidersBuffer.Add(e);
@@ -79,7 +78,7 @@ namespace Wargon.Nukecs.Collision2D {
             public UnsafeList<Grid2DCell> cells;
             public ComponentPool<Circle2D> colliders;
             public ComponentPool<Transform> transforms;
-            public int cellSizeX, cellSizeY, W, H;
+            public int cellSizeX, cellSizeY, gridWidth, gridHight;
             public Vector2 Offset;
             public Vector2 GridPosition;
 
@@ -92,8 +91,8 @@ namespace Wargon.Nukecs.Collision2D {
                 var px = floor((transform.Position.x - Offset.x - GridPosition.x) / cellSizeX);
                 var py = floor((transform.Position.y - Offset.y - GridPosition.y) / cellSizeY);
                 
-                if (px >= 0 && px < W && py >= 0 && py < H) {
-                    var cellIndex = py * W + px;
+                if (px >= 0 && px < gridWidth && py >= 0 && py < gridHight) {
+                    var cellIndex = py * gridWidth + px;
                     if (cellIndex > -1 && cellIndex < cells.m_length) {
                         ref var cell = ref cells.ElementAt(cellIndex);
                         cell.CollidersBuffer.Add(e);

@@ -283,10 +283,10 @@
         internal int lastRemoved;
 
         public static unsafe SpriteChunk* Create(int size) {
-            var ptr = Unsafe.AllocateWithManager<SpriteChunk>(Allocator.Persistent);
+            var ptr = Unsafe.MallocTracked<SpriteChunk>(Allocator.Persistent);
             *ptr = new SpriteChunk {
-                renderDataChunk = Unsafe.Allocate<SpriteRenderData>(size, Allocator.Persistent),
-                transforms = Unsafe.Allocate<Transform>(size, Allocator.Persistent),
+                renderDataChunk = Unsafe.MallocTracked<SpriteRenderData>(size, Allocator.Persistent),
+                transforms = Unsafe.MallocTracked<Transform>(size, Allocator.Persistent),
                 entityToIndex = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
                 indexToEntity = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
                 count = 0,
@@ -399,11 +399,11 @@
             count = 0;
         }
         public static unsafe void Destroy(ref SpriteChunk* chunk) {
-            Unsafe.FreeWithManager(chunk->transforms, chunk->capacity, Allocator.Persistent);
-            Unsafe.FreeWithManager(chunk->renderDataChunk, chunk->capacity, Allocator.Persistent);
+            Unsafe.FreeTracked(chunk->transforms, Allocator.Persistent);
+            Unsafe.FreeTracked(chunk->renderDataChunk, Allocator.Persistent);
             chunk->indexToEntity.Dispose();
             chunk->entityToIndex.Dispose();
-            Unsafe.FreeWithManager(chunk, AllocatorManager.Persistent);
+            Unsafe.FreeTracked(chunk, Allocator.Persistent);
         }
     }
 

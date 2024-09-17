@@ -407,12 +407,12 @@ namespace Wargon.Nukecs {
         }
     }
 
-    public struct Ref<TComponent> where TComponent : unmanaged, IComponent {
+    public unsafe struct Ref<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
-        internal GenericPool pool;
+        internal GenericPool.GenericPoolUnsafe* pool;
         public ref TComponent Value {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref pool.GetRef<TComponent>(index);
+            get => ref pool->GetRef<TComponent>(index);
         }
     }
     public readonly ref struct Read<TComponent> where TComponent : unmanaged, IComponent {
@@ -451,13 +451,13 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
+        public unsafe static implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
             Ref<T1> ref1 = new Ref<T1>() {
-                pool = queryTuple.pool1,
+                pool = queryTuple.pool1.UnsafeBuffer,
                 index = queryTuple.entity
             };
             Ref<T2> ref2 = new Ref<T2>() {
-                pool = queryTuple.pool2,
+                pool = queryTuple.pool2.UnsafeBuffer,
                 index = queryTuple.entity
             };
             return (ref1, ref2);

@@ -165,8 +165,8 @@ namespace Wargon.Nukecs {
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent {
             return (
-                new Ref<T1> {index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
-                new Ref<T2> {index = entity.id, pool = entity.worldPointer->GetPool<T2>()});
+                new Ref<T1> {index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer},
+                new Ref<T2> {index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer});
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -175,9 +175,9 @@ namespace Wargon.Nukecs {
             where T2 : unmanaged, IComponent
             where T3 : unmanaged, IComponent {
             return (
-                new Ref<T1> {index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
-                new Ref<T2> {index = entity.id, pool = entity.worldPointer->GetPool<T2>()},
-                new Ref<T3> {index = entity.id, pool = entity.worldPointer->GetPool<T3>()});
+                new Ref<T1> {index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer},
+                new Ref<T2> {index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer},
+                new Ref<T3> {index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer});
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -187,10 +187,10 @@ namespace Wargon.Nukecs {
             where T3 : unmanaged, IComponent
             where T4 : unmanaged, IComponent {
             return (
-                new Ref<T1> {index = entity.id, pool = entity.worldPointer->GetPool<T1>()},
-                new Ref<T2> {index = entity.id, pool = entity.worldPointer->GetPool<T2>()},
-                new Ref<T3> {index = entity.id, pool = entity.worldPointer->GetPool<T3>()},
-                new Ref<T4> {index = entity.id, pool = entity.worldPointer->GetPool<T4>()});
+                new Ref<T1> {index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer},
+                new Ref<T2> {index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer},
+                new Ref<T3> {index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer},
+                new Ref<T4> {index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBuffer});
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -219,13 +219,15 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ValueTuple<T1, T2, T3> Read<T1, T2, T3>(this in Entity entity)
+        public static ComponentTupleRO<T1, T2, T3> Read<T1, T2, T3>(this in Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
-            where T3 : unmanaged, IComponent {
-            return (entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
-                entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
-                entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id));
+            where T3 : unmanaged, IComponent
+        {
+            return new ComponentTupleRO<T1, T2, T3>(
+                in entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
+                in entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
+                in entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
