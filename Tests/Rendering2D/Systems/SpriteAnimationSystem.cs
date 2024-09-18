@@ -24,7 +24,7 @@ namespace Wargon.Nukecs.Tests {
             ref var transform = ref entity.Get<Transform>();
             ref readonly var input = ref entity.Read<Input>();
             
-            animation.CurrentTime += state.DeltaTime;
+            animation.CurrentTime += state.Time.DeltaTime;
             var frameDuration = 1f / animation.FrameRate;
             if (SpriteAnimationsStorage.Singleton.TryGetFrames(animation.Group, animation.AnimationID, out var frames))
             {

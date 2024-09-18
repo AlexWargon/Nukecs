@@ -63,7 +63,7 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         private static void Init() {
-            ID.Data = ComponentTypeMap.GetComponentType(typeof(T));
+            ID.Data = ComponentTypeMap.GetComponentType<T>();
         }
     }
 
@@ -102,6 +102,11 @@ namespace Wargon.Nukecs {
         internal static void InitializeComponentTypeReflection(Type type, int index)
         {
             if(typeof(ComponentArray<>) == type) return;
+            if (type.IsGenericType)
+            {
+                dbug.log(type.FullName);
+                return;
+            }
             //Debug.Log(type);
             var method = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
             var genericMethod = method.MakeGenericMethod(type);
@@ -158,7 +163,9 @@ namespace Wargon.Nukecs {
             ComponentTypesByTypes.TryAdd(typeof(T), data);
             return data;
         }
+        
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
+        public static ComponentType GetComponentType<T>() => ComponentTypesByTypes[typeof(T)];
         public static ComponentType GetComponentType(Type type) => ComponentTypesByTypes[type];
         internal static void Add(Type type, int index) {
             cache.Add(type, index);

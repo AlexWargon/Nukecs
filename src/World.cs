@@ -22,10 +22,15 @@ namespace Wargon.Nukecs {
         // ReSharper disable once InconsistentNaming
         public static ref World Default => ref Get(0);
         private static event Action OnWorldCreatingEvent;
-
+        private static event Action OnDisposeStaticEvent;
         public static void OnWorldCreating(Action action)
         {
             OnWorldCreatingEvent += action;
+        }
+
+        public static void OnDisposeStatic(Action action)
+        {
+            OnDisposeStaticEvent += action;
         }
         public static World Create() {
             OnWorldCreatingEvent?.Invoke();
@@ -52,9 +57,12 @@ namespace Wargon.Nukecs {
         public static void DisposeStatic() {
             ComponentTypeMap.Dispose();
             ComponentTypeMap.Save();
+            OnDisposeStaticEvent?.Invoke();
+            OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
         }
         public bool IsAlive => UnsafeWorld != null;
+        public WorldConfig Config => UnsafeWorld->config;
         [NativeDisableUnsafePtrRestriction] 
         internal WorldUnsafe* UnsafeWorld;
 
@@ -212,10 +220,10 @@ namespace Wargon.Nukecs {
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.Ptr[poolIndex];
-                // if (!pool.IsCreated)
-                // {
-                //     AddPool<T>(ref pool, poolIndex);
-                // }
+                if (!pool.IsCreated)
+                {
+                    AddPool<T>(ref pool, poolIndex);
+                }
                 return ref pool;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -526,6 +534,13 @@ namespace Wargon.Nukecs {
             StartEntitiesAmount = 16385,
             StartComponentsAmount = 32
         };
+
+        public static WorldConfig Default65536 => new WorldConfig()
+        {
+            StartPoolSize = 65536,
+            StartEntitiesAmount = 65536,
+            StartComponentsAmount = 32
+        };
         public static WorldConfig Default163840 => new WorldConfig() {
             StartPoolSize = 163841,
             StartEntitiesAmount = 163841,
@@ -541,5 +556,27 @@ namespace Wargon.Nukecs {
             StartEntitiesAmount = 1_000_001,
             StartComponentsAmount = 32
         };
+    }
+
+    public static class dbug
+    {
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void log(string massage)
+        {
+            UnityEngine.Debug.Log(massage);
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void error(string massage)
+        {
+            UnityEngine.Debug.LogError(massage);
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void warn(string massage)
+        {
+            UnityEngine.Debug.LogWarning(massage);
+        }
     }
 }

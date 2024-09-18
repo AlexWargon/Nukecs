@@ -35,7 +35,7 @@ namespace Wargon.Nukecs.Collision2D
             cells.Length = W * H;
 
             Hits = new NativeQueue<HitInfo>(Allocator.Persistent);
-            collisionStates = new NativeParallelHashMap<ulong, bool>(world.UnsafeWorld->config.StartEntitiesAmount,
+            collisionStates = new NativeParallelHashMap<ulong, bool>(world.Config.StartEntitiesAmount,
                 Allocator.Persistent);
             for (var x = 0; x < W; x++)
             for (var y = 0; y < H; y++) {

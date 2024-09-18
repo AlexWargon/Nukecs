@@ -6,7 +6,6 @@ namespace Wargon.Nukecs {
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Transforms;
 
     [StructLayout(LayoutKind.Sequential)]
     public readonly unsafe struct Entity : IEquatable<Entity> {
@@ -116,7 +115,13 @@ namespace Wargon.Nukecs {
             entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Set<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if(!entity.archetypeRef.Has(componentType)) return;
+            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void AddBytes(this in Entity entity, byte[] component, int componentIndex) {
             if (entity.archetypeRef.Has(componentIndex)) return;
@@ -159,7 +164,27 @@ namespace Wargon.Nukecs {
             //todo switch to untyped pool
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Ref<T> GetRef<T>(this ref Entity entity) where T : unmanaged, IComponent {
+            var componentType = ComponentType<T>.Index;
+            if (!entity.archetypeRef.Has(componentType))
+            {
+                ref var pool = ref entity.worldPointer->GetPool<T>();
+                pool.Set(entity.id);
+                entity.worldPointer->ECB.Add(entity.id, componentType);
+                return new Ref<T>
+                {
+                    index = entity.id,
+                    pool = pool.UnsafeBuffer
+                };
+            }
+            //todo switch to untyped pool
+            return new Ref<T>
+            {
+                index = entity.id,
+                pool = entity.worldPointer->GetPool<T>().UnsafeBuffer
+            };
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity)
             where T1 : unmanaged, IComponent
@@ -301,7 +326,7 @@ namespace Wargon.Nukecs {
                 childrenNew.Add(new Child{Value = child});
             }
             //entity.GetBuffer<Child>().Add(new Child(){Value = child});
-            child.Add(new OnAddChildWithTransformEvent());
+            child.Add(new Wargon.Nukecs.Transforms.OnAddChildWithTransformEvent());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref Entity GetChild(this ref Entity entity, int index) {

@@ -45,7 +45,7 @@
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.UnsafeWorld->config.StartEntitiesAmount),
+                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount),
                 camera = Camera.main
             };
             archetypes[count] = arch;
@@ -70,7 +70,7 @@
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.UnsafeWorld->config.StartEntitiesAmount),
+                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount),
                 camera = Camera.main
             };
             archetypes[count] = arch;
@@ -485,9 +485,9 @@
 
     public struct CullingData : IInit {
         public static ref CullingData instance => ref Singleton<CullingData>.Instance;
+        public float2 CameraPositions;
         public float Width;
         public float Height;
-        public float2 CameraPositions;
         public float xMax;
         public float yMax;
         public float xMin;

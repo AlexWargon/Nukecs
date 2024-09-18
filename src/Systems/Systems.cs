@@ -191,8 +191,8 @@ namespace Wargon.Nukecs
             //stateFixed.Dependencies.Complete();
             state.Dependencies = world.DependenciesUpdate;
             state.World = world;
-            state.DeltaTime = dt;
-            state.Time = time;
+            state.Time.DeltaTime = dt;
+            state.Time.Time = time;
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
@@ -207,7 +207,8 @@ namespace Wargon.Nukecs
             //state.Dependencies.Complete();
             stateFixed.Dependencies.Complete();
             stateFixed.World = world;
-            stateFixed.DeltaTime = dt;
+            stateFixed.Time.DeltaTime = dt;
+            stateFixed.Time.Time = time;
             for (var i = 0; i < runners.Count; i++) {
                 stateFixed.Dependencies = runners[i].Schedule(UpdateContext.FixedUpdate, ref stateFixed);
             }
@@ -236,6 +237,11 @@ namespace Wargon.Nukecs
     {
         public JobHandle Dependencies;
         public World World;
+        public TimeData Time;
+    }
+
+    public struct TimeData
+    {
         public float DeltaTime;
         public float Time;
     }
@@ -310,7 +316,7 @@ namespace Wargon.Nukecs
             else {
 
                 JobWrapper.query = Query;
-                JobWrapper.dt = state.DeltaTime;
+                JobWrapper.dt = state.Time.DeltaTime;
                 JobWrapper.system = System;
                 state.Dependencies = JobWrapper.Schedule(Query.Count, 1, state.Dependencies);
             }

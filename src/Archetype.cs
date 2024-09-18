@@ -1,12 +1,11 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
-using UnityEngine;
-
-namespace Wargon.Nukecs {
+﻿namespace Wargon.Nukecs {
+    using System;
+    using System.Runtime.CompilerServices;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Unity.Mathematics;
+    
     public unsafe struct Archetype {
         [NativeDisableUnsafePtrRestriction] internal ArchetypeImpl* impl;
 
@@ -241,10 +240,8 @@ namespace Wargon.Nukecs {
                     otherEdge.addEntity->Add(otherQuery);
                 }
             }
-            if (transactions.ContainsKey(component)) {
-                return;
-            }
-            transactions.Add(component, otherEdge);
+
+            transactions.TryAdd(component, otherEdge);
         }
 
         public override string ToString() {
@@ -332,24 +329,24 @@ namespace Wargon.Nukecs {
         public Edge(ref Archetype archetype, Allocator allocator) {
             this.toMovePtr = archetype.impl;
             this.toMove = archetype;
-            this.addEntity = UnsafePtrList<QueryUnsafe>.Create(6, allocator);
-            this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(6, allocator);
+            this.addEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
+            this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
         }
 
         public Edge(Allocator allocator) {
-            this.addEntity = UnsafePtrList<QueryUnsafe>.Create(6, allocator);
-            this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(6, allocator);
+            this.addEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
+            this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
             toMovePtr = null;
             toMove = default;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Execute(int entity) {
-            for (int i = 0; i < removeEntity->Length; i++) {
+            for (int i = 0; i < removeEntity->m_length; i++) {
                 removeEntity->ElementAt(i)->Remove(entity);
             }
 
-            for (int i = 0; i < addEntity->Length; i++) {
+            for (int i = 0; i < addEntity->m_length; i++) {
                 addEntity->ElementAt(i)->Add(entity);
             }
         }

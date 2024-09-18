@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using Wargon.Nukecs.Collision2D;
 
 namespace Wargon.Nukecs {
     using System;
