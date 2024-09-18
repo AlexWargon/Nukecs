@@ -1,7 +1,7 @@
-﻿using Unity.Burst;
-using Wargon.Nukecs.Transforms;
-
-namespace Wargon.Nukecs.Tests {
+﻿namespace Wargon.Nukecs.Tests {
+    using Unity.Burst;
+    using Transforms;
+    
     [BurstCompile]
     public struct UnCullSpritesSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Parallel;
@@ -9,9 +9,7 @@ namespace Wargon.Nukecs.Tests {
             return world.Query()
                 .With<Transform>()
                 .With<SpriteRenderData>()
-                .With<Culled>()
-                .With<SpriteChunkReference>()
-                .None<DestroyEntity>();
+                .With<Culled>();
         }
 
         public void OnUpdate(ref Entity entity, ref State state) {

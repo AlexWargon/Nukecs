@@ -13,13 +13,13 @@ namespace Wargon.Nukecs
             ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
                 world.CurrentContext = updateContext;
-                System.OnUpdate(ref Query, state.DeltaTime);
+                System.OnUpdate(ref Query, state.Time.DeltaTime);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.Run();
             }
             else {
-                state.Dependencies = System.Schedule(ref Query, state.DeltaTime, Mode, state.Dependencies);
+                state.Dependencies = System.Schedule(ref Query, state.Time.DeltaTime, Mode, state.Dependencies);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 state.Dependencies = EcbJob.Schedule(state.Dependencies);
@@ -29,7 +29,7 @@ namespace Wargon.Nukecs
 
         public void Run(ref State state) {
             for (int i = 0; i < Query.Count; i++) {
-                System.OnUpdate(ref Query, state.DeltaTime);
+                System.OnUpdate(ref Query, state.Time.DeltaTime);
             }
             state.World.ECB.Playback(ref state.World);
         }

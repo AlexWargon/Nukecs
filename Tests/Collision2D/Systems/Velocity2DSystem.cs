@@ -13,7 +13,7 @@ namespace Wargon.Nukecs.Collision2D
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            var deltaTime = state.DeltaTime;
+            var deltaTime = state.Time.DeltaTime;
             ref var body = ref entity.Get<Body2D>();
             
             ref var transform = ref entity.Get<Transform>();

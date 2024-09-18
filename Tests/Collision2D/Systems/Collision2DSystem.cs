@@ -1,7 +1,3 @@
-
-using System;
-using Unity.Collections;
-
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
@@ -43,21 +39,9 @@ namespace Wargon.Nukecs.Collision2D
                 Offset = grind2D.Offset,
                 GridPosition = grind2D.Position,
                 cellSize = grind2D.CellSize,
-                iterations = 1,
                 world = state.World
             };
             state.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, state.Dependencies);
-        }
-    }
-
-    public static class NativeParallelHashMapExtensions
-    {
-        public static unsafe void Resize<TKey, TValue>(
-            this ref NativeParallelHashMap<TKey, TValue> hashMap, int newCapacity)
-            where TKey : unmanaged, IEquatable<TKey>
-            where TValue : unmanaged
-        {
-            hashMap.Capacity = newCapacity;
         }
     }
 }  

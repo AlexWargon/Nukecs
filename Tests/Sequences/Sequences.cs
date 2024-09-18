@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 
-namespace Wargon.Nukecs.Sequences {
+namespace Wargon.Nukecs {
     namespace Sequences {
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -12,61 +12,54 @@ namespace Wargon.Nukecs.Sequences {
             public float delay;
             public Entity target;
             public Entity next;
-            public FunctionPointer<Execute> fnPtr;
-            public void Init(Execute action, float time, ref Entity target, ref Entity next) {
-                delay = time;
-                this.target = target;
-                this.next = next;
-                fnPtr = Functions<Execute>.GetFP(action);
-            }
+            public FunctionPointer<Execute> fn;
             public void Execute() {
-                fnPtr.Invoke(ref target);
+                fn.Invoke(ref target);
             }
         }
-
-        public interface IAction<out TAction, TArg> {
-            void Invoke(ref TArg arg);
-        }
-
         
         public struct SequenceBuilder {
-            internal SequenceTask rootTask;
+            internal Entity last;
             internal Entity root;
             internal World world;
             public TaskBuilder Create(ref World world) {
-
+                
                 this.world = world;
-                return new TaskBuilder(new SequenceTask {
-                    
-                }, ref this);
+                return new TaskBuilder(world.Entity<SequenceActive>(), ref this);
             }
-
         }
 
         public struct TaskBuilder {
-            private SequenceTask _task;
+            private Entity taskEntity;
             private SequenceBuilder _sequenceBuilder;
-            public TaskBuilder(SequenceTask t, ref SequenceBuilder sequenceBuilder) {
-                _task = t;
+            public TaskBuilder(Entity t, ref SequenceBuilder sequenceBuilder) {
+                taskEntity = t;
                 _sequenceBuilder = sequenceBuilder;
             }
-            public TaskBuilder WithAction(Execute action) {
-                _task.fnPtr = Functions<Execute>.GetFP(action);
+            public TaskBuilder WithTarget(Entity entity)
+            {
+                taskEntity.Get<SequenceTask>().target = entity;
+                return this;
+            }
+            public TaskBuilder WithFunction(Execute action) {
+                taskEntity.Get<SequenceTask>().fn = Functions<Execute>.GetPointer(action);
                 return this;
             }
             public TaskBuilder WithDelay(float time) {
-                _task.delay = time;
+                taskEntity.Get<SequenceTask>().delay = time;
+                //dbug.log($"task e:{taskEntity.id} with delay {time}");
                 return this;
             }
-            public SequenceBuilder Build() {
-                _task.target = _sequenceBuilder.world.Entity(in _task, new SequenceActive());
-                _sequenceBuilder.rootTask = _task;
-                return _sequenceBuilder;
+            public TaskBuilder Next() {
+                var next = _sequenceBuilder.world.Entity();
+                taskEntity.Get<SequenceTask>().next = next;
+                taskEntity = next;
+                return this;
             }
         }
 
         public struct SequenceActive : IComponent {}
-
+        
         public struct SequenceSystem : IEntityJobSystem {
             public SystemMode Mode => SystemMode.Single;
             public Query GetQuery(ref World world) {
@@ -75,15 +68,16 @@ namespace Wargon.Nukecs.Sequences {
 
             public void OnUpdate(ref Entity entity, ref State state) {
                 ref var sequence = ref entity.Get<SequenceTask>();
-                sequence.delay -= state.DeltaTime;
+                sequence.delay -= state.Time.DeltaTime;
                 if (sequence.delay <= 0) {
                     sequence.Execute();
-                    entity.Remove<SequenceActive>();
-                    sequence.next.Add<SequenceActive>();
+                    if (sequence.next != Entity.Null)
+                    {
+                        sequence.next.Add<SequenceActive>();
+                        //dbug.log("start next");
+                    }
+                    entity.Destroy();
                 }
-
-                var sb = new SequenceBuilder();
-                sb.Create(ref state.World).WithAction(BaseMethods.DestroyEntity).WithDelay(2).Build();
             }
         }
         public static class BaseMethods {
@@ -93,20 +87,21 @@ namespace Wargon.Nukecs.Sequences {
             }
         }
 
-        public static class TST {
-            public static void Create(ref Entity target, ref Entity next) {
-
-            }
-
-            public static void T<T>(T method) where T : class {
-                
-            }
-        }
-
-        public struct Functions<T> where T: class{
+        public struct Functions<T> where T: class {
             private static readonly SharedStatic<NativeParallelHashMap<int, FunctionPointer<T>>> map = 
                 SharedStatic<NativeParallelHashMap<int, FunctionPointer<T>>>.GetOrCreate<Functions<T>>();
-            public static FunctionPointer<T> GetFP(T method) {
+
+            static Functions()
+            {
+                map.Data = new NativeParallelHashMap<int, FunctionPointer<T>>(12, Allocator.Persistent);
+                World.OnDisposeStatic(Dispose);
+            }
+
+            private static void Dispose()
+            {
+                map.Data.Dispose();
+            }
+            public static FunctionPointer<T> GetPointer(T method) {
                 if (method is Delegate d) {
                     var id = d.Method.MetadataToken;
                     if (!map.Data.ContainsKey(id)) {
@@ -114,7 +109,8 @@ namespace Wargon.Nukecs.Sequences {
                     }
                     return map.Data[id];
                 }
-                return default;
+
+                throw new Exception($"Type {method} is not delegate");
             }
         }
     }

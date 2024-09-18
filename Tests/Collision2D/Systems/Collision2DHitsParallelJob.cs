@@ -1,5 +1,3 @@
-using UnityEngine;
-
 namespace Wargon.Nukecs.Collision2D {
     using System.Runtime.CompilerServices;
     using Unity.Burst;
@@ -18,14 +16,14 @@ namespace Wargon.Nukecs.Collision2D {
         public ComponentPool<Body2D> bodies;
         [WriteOnly] public NativeQueue<HitInfo>.ParallelWriter collisionEnterHits;
         public float2 Offset, GridPosition;
-        public int W, H, cellSize, iterations;
+        public int W, H, cellSize;
         public World world;
         public void Execute(int idx) {
             var x = idx % W;
             var y = idx / W;
 
             ref var cell1 = ref cells.ElementAt(idx);
-            //cell1.Pos = new float2(x * cellSize, y * cellSize) + Offset + GridPosition;
+            cell1.Pos = new float2(x * cellSize, y * cellSize) + Offset + GridPosition;
 
             for (var dx = -1; dx <= 1; ++dx)
             for (var dy = -1; dy <= 1; ++dy) {
@@ -40,7 +38,6 @@ namespace Wargon.Nukecs.Collision2D {
                     ref var t1 = ref transforms.Get(e1);
                     ref var b1 = ref bodies.Get(e1);
 
-                    //for (var iteration = 0; iteration < iterations; iteration++)
                     for (var j = 0; j < cell2.CollidersBuffer.Count; j++) {
                         var e2 = cell2.CollidersBuffer[j];
                         if (e1 == e2) continue;

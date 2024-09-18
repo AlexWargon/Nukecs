@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
-using Wargon.Nukecs.Collision2D;
+﻿using System.CodeDom.Compiler;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace Wargon.Nukecs {
-    
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
@@ -63,6 +64,7 @@ namespace Wargon.Nukecs {
         
         [BurstDiscard]
         public static void Initialization() {
+
             if(_initialized) return;
             ComponentTypeMap.Init();
             var count = 0;
@@ -73,6 +75,16 @@ namespace Wargon.Nukecs {
                 var types = assembly.GetTypes();
                 foreach (var type in types) {
                     if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
+                        if (type.IsGenericType)
+                        {
+                            var args = FindGenericUsages(type, assembly);
+                            foreach (var type1 in args)
+                            {
+                                //componentTypes.Add((type1, count));
+                                dbug.log(type1.Name);
+                            }
+                            continue;
+                        }
                         componentTypes.Add((type, count));
                         count++;
                     }
@@ -104,6 +116,41 @@ namespace Wargon.Nukecs {
             {
                 Debug.Log(type.ToString());
             }
+        }
+        public static IEnumerable<Type> FindGenericUsages(Type genericTypeDefinition, Assembly assembly)
+        {
+            if (!genericTypeDefinition.IsGenericTypeDefinition)
+            {
+                throw new ArgumentException("Переданный тип должен быть определением дженерик-типа", nameof(genericTypeDefinition));
+            }
+
+            //var assembly = Assembly.GetExecutingAssembly(); // Или укажите нужную сборку
+        
+            return assembly.GetTypes()
+                .SelectMany(t => t.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                    .Concat<MemberInfo>(t.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+                    .Concat(t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)))
+                .SelectMany(member => GetGenericArguments(member, genericTypeDefinition))
+                .Distinct();
+        }
+
+        private static IEnumerable<Type> GetGenericArguments(MemberInfo member, Type genericTypeDefinition)
+        {
+            Type memberType = null;
+
+            if (member is FieldInfo fieldInfo)
+                memberType = fieldInfo.FieldType;
+            else if (member is PropertyInfo propertyInfo)
+                memberType = propertyInfo.PropertyType;
+            else if (member is MethodInfo methodInfo)
+                memberType = methodInfo.ReturnType;
+
+            if (memberType != null && memberType.IsGenericType && memberType.GetGenericTypeDefinition() == genericTypeDefinition)
+            {
+                return memberType.GetGenericArguments();
+            }
+
+            return Enumerable.Empty<Type>();
         }
     }
 
