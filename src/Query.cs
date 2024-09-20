@@ -308,12 +308,12 @@ namespace Wargon.Nukecs {
 
         public DynamicBitmask(int maxBits) {
             if (maxBits <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxBits), "maxBits in DynamicBitmask must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(maxBits), $"maxBits in {nameof(DynamicBitmask)} must be greater than zero.");
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
-            bitmaskArray = (ulong*) UnsafeUtility.Malloc(arraySize * sizeof(ulong), UnsafeUtility.AlignOf<ulong>(),
-                Allocator.Persistent);
+            bitmaskArray = (ulong*) UnsafeUtility.MallocTracked(arraySize * sizeof(ulong), UnsafeUtility.AlignOf<ulong>(),
+                Allocator.Persistent, 0);
             count = 0;
 
             // Clear the allocated memory
@@ -349,7 +349,7 @@ namespace Wargon.Nukecs {
         public bool Has(int position) {
             if (position < 0 || position >= maxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}. Position = {position}");
+                    $"{nameof(DynamicBitmask)}: {nameof(position)} must be between 0 and {maxBits - 1}. Position = {position}");
             }
 
             int index = position / BitsPerUlong;
@@ -362,7 +362,7 @@ namespace Wargon.Nukecs {
         public void Remove(int position) {
             if (position < 0 || position >= maxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}.");
+                    $"{nameof(DynamicBitmask)}: {nameof(position)} must be between 0 and {maxBits - 1}. ");
             }
             int index = position / BitsPerUlong;
             int bitPosition = position % BitsPerUlong;
@@ -402,7 +402,7 @@ namespace Wargon.Nukecs {
 
         // Dispose method to release allocated memory
         public void Dispose() {
-            UnsafeUtility.Free(bitmaskArray, Allocator.Persistent);
+            UnsafeUtility.FreeTracked(bitmaskArray, Allocator.Persistent);
             bitmaskArray = null;
         }
     }

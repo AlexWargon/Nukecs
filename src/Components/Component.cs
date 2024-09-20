@@ -3,16 +3,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Wargon.Nukecs {
+namespace Wargon.Nukecs
+{
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
+    using System.Text;
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
 
     public interface IComponent { }
     public interface IArrayComponent { }
+    public interface IReactive { }
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }
@@ -25,7 +28,12 @@ namespace Wargon.Nukecs {
     public abstract class Convertor : ScriptableObject, ICustomConvertor {
         public abstract void Convert(ref World world, ref Entity entity);
     }
-    public struct IsAlive : IComponent { }
+    public struct Changed<T> : IComponent where T : unmanaged, IComponent {}
+
+    public struct Reactive<T> : IComponent where T : unmanaged, IComponent
+    {
+        public T oldValue;
+    }
     public struct DestroyEntity : IComponent { }
     public struct EntityCreated : IComponent { }
     public struct IsPrefab : IComponent { }
@@ -33,6 +41,16 @@ namespace Wargon.Nukecs {
     public struct ChildOf : IComponent {
         public Entity Value;
     }
+
+    public sealed class UseWith : Attribute
+    {
+        public Type[] types;
+        public UseWith(params Type[] componets)
+        {
+            types = componets;
+        }
+    }
+
     public struct Child : IEquatable<Child>, IArrayComponent {
         public Entity Value;
         public bool Equals(Child other) {
@@ -45,7 +63,20 @@ namespace Wargon.Nukecs {
         public bool fire;
         public bool use;
     }
+    internal static class ComponentList
+    {
+        public readonly static IReadOnlyList<Type> DefaultComponents = new List<Type>()
+        {
+            typeof(global::Wargon.Nukecs.ChildOf),
+            typeof(global::Wargon.Nukecs.ChildOf),
+            typeof(global::Wargon.Nukecs.ChildOf),
+            typeof(global::Wargon.Nukecs.ChildOf),
+            typeof(global::Wargon.Nukecs.ChildOf),
+            typeof(global::Wargon.Nukecs.ChildOf),
+            typeof(global::Wargon.Nukecs.ChildOf),
 
+        };
+    }
     public struct ComponentAmount {
         /// <summary>
         /// Component types amount total
@@ -68,44 +99,77 @@ namespace Wargon.Nukecs {
             if(_initialized) return;
             ComponentTypeMap.Init();
             var count = 0;
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             var componentTypes = new List<(Type, int)>();
             var arrayElementTypes = new List<(Type,int)>();
-            foreach (var assembly in assemblies) {
-                var types = assembly.GetTypes();
-                foreach (var type in types) {
-                    if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
-                        if (type.IsGenericType)
-                        {
-                            var args = FindGenericUsages(type, assembly);
-                            foreach (var type1 in args)
-                            {
-                                //componentTypes.Add((type1, count));
-                                dbug.log(type1.Name);
-                            }
-                            continue;
-                        }
-                        componentTypes.Add((type, count));
-                        count++;
-                    }
-                    if (typeof(IArrayComponent).IsAssignableFrom(type) && type != typeof(IArrayComponent)) {
-                        arrayElementTypes.Add((type, count));
-                        count++;
-                        count++;
-                    }
+
+            Generated.GeneratedComponentList.InitializeComponentList();
+            var components = Generated.GeneratedComponentList.GetAllComponents();
+
+           dbug.log(components.ToList().Count.ToString());
+            foreach (var component in components)
+            {
+                if(component == typeof(IComponent)) continue;
+                //Debug.Log(component);
+                //ComponentTypeMap.InitializeComponentTypeReflection(component, count);
+                componentTypes.Add((component, count));
+                if (component.IsGenericType && component.GetGenericTypeDefinition() == typeof(ComponentArray<>))
+                {
+                    //ComponentTypeMap.InitializeArrayElementTypeReflection(component.GetGenericArguments()[0], count);
+                    arrayElementTypes.Add((component.GetGenericArguments()[0], count));
+                    count++;
                 }
+                count++;
             }
             ComponentAmount.Value.Data = count;
+            // ComponentAmount.Value.Data = count;
             foreach (var (type, index) in componentTypes)
             {
                 ComponentTypeMap.InitializeComponentTypeReflection(type, index);
             }
             foreach (var (type, index) in arrayElementTypes)
             {
-                ComponentTypeMap.InitializeComponentArrayTypeReflection(type, index);
+                ComponentTypeMap.InitializeArrayElementTypeReflection(type, index);
             }
             componentTypes.Clear();
             arrayElementTypes.Clear();
+            // var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            // var componentTypes = new List<(Type, int)>();
+            // var arrayElementTypes = new List<(Type,int)>();
+            // foreach (var assembly in assemblies) {
+            //     var types = assembly.GetTypes();
+            //     foreach (var type in types) {
+            //         if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
+            //             if (type.IsGenericType)
+            //             {
+            //                 var args = FindGenericUsages(type, assembly);
+            //                 foreach (var type1 in args)
+            //                 {
+            //                     //componentTypes.Add((type1, count));
+            //                     dbug.log(type1.Name);
+            //                 }
+            //                 continue;
+            //             }
+            //             componentTypes.Add((type, count));
+            //             count++;
+            //         }
+            //         if (typeof(IArrayComponent).IsAssignableFrom(type) && type != typeof(IArrayComponent)) {
+            //             arrayElementTypes.Add((type, count));
+            //             count++;
+            //             count++;
+            //         }
+            //     }
+            // }
+            // ComponentAmount.Value.Data = count;
+            // foreach (var (type, index) in componentTypes)
+            // {
+            //     
+            // }
+            // foreach (var (type, index) in arrayElementTypes)
+            // {
+            //     ComponentTypeMap.InitializeComponentArrayTypeReflection(type, index);
+            // }
+            //componentTypes.Clear();
+           // arrayElementTypes.Clear();
             _initialized = true;
             
         }

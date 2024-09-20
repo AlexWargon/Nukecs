@@ -86,6 +86,13 @@ namespace Wargon.Nukecs {
             _initialized = true;
         }
         [BurstDiscard]
+        internal static void InitializeArrayElementTypeReflection(Type typeElement, int index)
+        {
+            var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
+            var addElementMethod = addElement.MakeGenericMethod(typeElement);
+            addElementMethod.Invoke(null, new object[] { index });
+        }
+        [BurstDiscard]
         internal static void InitializeComponentArrayTypeReflection(Type typeElement, int index)
         {
             var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
@@ -101,12 +108,7 @@ namespace Wargon.Nukecs {
         [BurstDiscard]
         internal static void InitializeComponentTypeReflection(Type type, int index)
         {
-            if(typeof(ComponentArray<>) == type) return;
-            if (type.IsGenericType)
-            {
-                dbug.log(type.FullName);
-                return;
-            }
+            //dbug.log(type.FullName);
             //Debug.Log(type);
             var method = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
             var genericMethod = method.MakeGenericMethod(type);
