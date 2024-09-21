@@ -63,7 +63,7 @@ namespace Wargon.Nukecs
         public bool fire;
         public bool use;
     }
-    internal static class ComponentList
+    internal static partial class ComponentList
     {
         public readonly static IReadOnlyList<Type> DefaultComponents = new List<Type>()
         {
@@ -101,7 +101,7 @@ namespace Wargon.Nukecs
             var count = 0;
             var componentTypes = new List<(Type, int)>();
             var arrayElementTypes = new List<(Type,int)>();
-
+            
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();
 
