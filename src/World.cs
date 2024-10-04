@@ -499,6 +499,7 @@ namespace Wargon.Nukecs {
         }
         public void Update() {
             UnsafeWorld->ECB.Playback(ref this);
+            UnsafeWorld->ECBFixed.Playback(ref this);
         }
     }
 
@@ -560,6 +561,12 @@ namespace Wargon.Nukecs {
 
     public static class dbug
     {
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void log(object massage)
+        {
+            UnityEngine.Debug.Log(massage);
+        }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void log(string massage)

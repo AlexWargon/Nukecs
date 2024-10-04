@@ -50,10 +50,14 @@ namespace Wargon.Nukecs
                 s.OnCreate(ref world);
                 system = (T) s;
             }
-            runners.Add(new JobSystemRunner<T> {
+
+            var runner = new JobSystemRunner<T>
+            {
                 System = system,
-                EcbJob = default
-            });
+                EcbJob = default,
+                isComplete = system is IComplete
+            };
+            runners.Add(runner);
             return this;
         }
         
@@ -452,6 +456,7 @@ namespace Wargon.Nukecs
     public interface IOnCreate {
         void OnCreate(ref World world);
     }
+    public interface IComplete{}
     public interface ISystem {
         void OnUpdate(ref State state);
     }

@@ -4,7 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Wargon.Nukecs.Reactive
 {
     [BurstCompile]
-    public unsafe struct ReactiveSystem<T> : IJobSystem, IOnCreate where T : unmanaged, IComponent, IReactive
+    public unsafe struct ReactiveCheckSystem<T> : IJobSystem, IOnCreate where T : unmanaged, IComponent, IReactive
     {
         private Query compare;
         public void OnCreate(ref World world)
