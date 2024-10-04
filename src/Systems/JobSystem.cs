@@ -10,9 +10,10 @@ namespace Wargon.Nukecs
     internal class JobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IJobSystem {
         public TSystem System;
         public ECBJob EcbJob;
-
+        public bool isComplete;
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
             System.Schedule(SystemMode.Single, updateContext, ref state);
+            if(isComplete) state.Dependencies.Complete();
             EcbJob.ECB = state.World.GetEcbVieContext(updateContext);
             EcbJob.world = state.World;
             return EcbJob.Schedule(state.Dependencies);
@@ -23,8 +24,10 @@ namespace Wargon.Nukecs
             state.World.ECB.Playback(ref state.World);
         }
     }
-    
-        [JobProducerType(typeof(JobSystemExtensions.JobSystemWrapper<>))]
+    /// <summary>
+    /// Run on single thread. Can be bursted
+    /// </summary>
+    [JobProducerType(typeof(JobSystemExtensions.JobSystemWrapper<>))]
     public interface IJobSystem {
         void OnUpdate(ref State state);
     }
