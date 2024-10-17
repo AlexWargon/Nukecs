@@ -30,7 +30,7 @@ namespace Wargon.Nukecs.Tests {
                 frames = groups[group].GetFrames(id);
                 return true;
             }
-
+            dbug.warn($"Group {group} doesn't exist or doesn't have frames with id {id}");
             frames = default;
             return false;
         }

@@ -31,11 +31,11 @@ namespace Wargon.Nukecs.Collision2D {
                 W = grid2D.W,
                 H = grid2D.H
             };
-            state.Dependencies = populateJob.Schedule(query.Count, 1, state.Dependencies);
+            state.Dependencies = populateJob.Schedule(query.Count, state.Dependencies);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast)]
-        public struct PopulateCellsJob : IJobParallelFor {
+        public struct PopulateCellsJob : IJobFor {
             public Query query;
             public UnsafeList<Grid2DCell> cells;
             public ComponentPool<Transform> transforms;

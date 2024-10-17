@@ -40,6 +40,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
             float PixelsPerUnit;
             float2 SpriteSize;
             float2 Pivot;
+            bool CanFlip;
         };
 
         #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
