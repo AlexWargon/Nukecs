@@ -13,10 +13,12 @@ namespace Wargon.Nukecs.Tests
         private const int MAX_COLOR_VALUE = 255;
         public override void OnInspectorGUI() {
             base.OnInspectorGUI();
-    
+            var data = target as SpriteAnimationData;
+            EditorGUILayout.IntField("Runtime AnimationID", Animator.StringToHash(data.AnimationName));
+            EditorGUILayout.IntField("Runtime Group", Animator.StringToHash(data.AnimationGroup));
             var world = World.Get(0);
             if(world.IsAlive == false) return;
-            var data = target as SpriteAnimationData;
+            
 
             var color = data.color;
             color = EditorGUILayout.ColorField("Runtime Color", color);
@@ -27,6 +29,7 @@ namespace Wargon.Nukecs.Tests
                     spriteData.Color = new float4(color.r, color.g, color.b, color.a);
                 }
             }
+
         }
 
     }
@@ -36,6 +39,7 @@ namespace Wargon.Nukecs.Tests
     public class SpriteAnimationData : Convertor {
         public string AnimationName;
         public string AnimationGroup;
+        public bool canFlip;
         public UnityEngine.Sprite[] sprites;
         //[HideInInspector]
         public Color color = Color.white;
@@ -68,8 +72,16 @@ namespace Wargon.Nukecs.Tests
                 foreach (var float4 in framesUV) {
                     frames.List.Add(float4);
                 }
+                //dbug.log($"id {animationID}:{AnimationName} with group {AnimationGroup}:{group} - added to sprite animations with {frames.List.Length} frames");
                 SpriteAnimationsStorage.Singleton.Add(animationID, group, ref frames);
+                //Check(animationID, group);
             }
+        }
+
+        private void Check(int id, int group)
+        {
+            var frames = SpriteAnimationsStorage.Singleton.GetFrames(group, id);
+            dbug.log($"Check {frames.List.Length} frames in group {group}");
         }
         public Entity CreateAnimatedSpriteEntity(ref World world, float3 position)
         {
@@ -102,7 +114,8 @@ namespace Wargon.Nukecs.Tests
                 Pivot = new float2(
                     sprite.pivot.x / sprite.rect.width,
                     sprite.pivot.y / sprite.rect.height
-                )
+                ),
+                CanFlip = canFlip
             };
             entity.Add(renderData);
 
@@ -147,7 +160,8 @@ namespace Wargon.Nukecs.Tests
                     Pivot = new float2(
                         sprite.pivot.x / sprite.rect.width,
                         sprite.pivot.y / sprite.rect.height
-                    )
+                    ),
+                    CanFlip = canFlip
                 };
                 entity.Add(renderData);
             }

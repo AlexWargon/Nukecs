@@ -13,9 +13,13 @@ namespace Wargon.Nukecs.Tests {
             Map[id] = entity;
         }
 
-        public static Entity Get(int id) {
+        public static Entity Spawn(int id) {
             var prefab = Map[id];
             return Map[id].world.SpawnPrefab(in prefab);
+        }
+        public static Entity Spawn<T>(T obj, ref World world) where T : Object, ICustomConvertor {
+            var prefab = GetOrCreatePrefab(obj, ref world);
+            return prefab.world.SpawnPrefab(in prefab);
         }
         public static Entity GetPrefab(int id) {
             return Map[id];

@@ -28,10 +28,14 @@ namespace Wargon.Nukecs.Tests {
             var frameDuration = 1f / animation.FrameRate;
             if (SpriteAnimationsStorage.Singleton.TryGetFrames(animation.Group, animation.AnimationID, out var frames))
             {
-                if(frames.List.m_length == 0) return;
+                if (frames.List.m_length == 0)
+                {
+                    dbug.log($"{animation.AnimationID} : {animation.Group}: No frames available");
+                    return;
+                }
                 var frameIndex = (int)(animation.CurrentTime / frameDuration) % frames.List.m_length;
 
-                if(input.h is > 0 or < 0)
+                if(input.h is > 0 or < 0 && renderData.CanFlip)
                 {
                     renderData.FlipX = input.h < 0 ? -1 : 0;
                 }

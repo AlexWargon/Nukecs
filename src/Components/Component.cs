@@ -62,6 +62,12 @@ namespace Wargon.Nukecs
         public float v;
         public bool fire;
         public bool use;
+
+        public Unity.Mathematics.float2 Axis
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get=> new (h, v);
+        }
     }
     internal static partial class ComponentList
     {
@@ -263,8 +269,8 @@ namespace Wargon.Nukecs
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void Dispose(ref byte* buffer, int index,int typeIndex){
-            disposers[typeIndex].Dispose(ref buffer, index);
+        internal static unsafe void Dispose(byte* buffer, int index, int typeIndex){
+            disposers[typeIndex].Dispose(buffer, index);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Copy(void* buffer, int from, int to,int typeIndex){
@@ -284,7 +290,7 @@ namespace Wargon.Nukecs
     }
     
     public unsafe interface IComponentDisposer {
-        void Dispose(ref byte* buffer, int index);
+        void Dispose(byte* buffer, int index);
     }
 
     public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged {
@@ -309,9 +315,9 @@ namespace Wargon.Nukecs
                 dispose);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Dispose(ref byte* buffer, int index) {
-            ref var component  = ref ((T*)buffer)[index];
-            _disposeFunc.Invoke(ref component);
+        public unsafe void Dispose(byte* buffer, int index) {
+            //ref var component  = ref ((T*)buffer)[index];
+            _disposeFunc.Invoke(ref ((T*)buffer)[index]);
         }
     }
 

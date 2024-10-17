@@ -59,6 +59,7 @@ Shader "Custom/SpriteShaderInstanced"
                 float PixelsPerUnit;
                 float2 SpriteSize;
                 float2 Pivot;
+                bool CanFlip;
             };
             float4x4 QuaternionToMatrix(float4 quat)
             {

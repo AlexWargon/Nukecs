@@ -16,6 +16,7 @@ namespace Wargon.Nukecs
         internal JobHandle dependencies;
         private List<ISystemRunner> runners;
         private List<ISystemRunner> disposeSystems;
+        private List<ISystemDestroyer> _systemDestroyers;
         private World world;
 
         private NativeList<JobHandle> dependenciesList;
@@ -24,6 +25,7 @@ namespace Wargon.Nukecs
             this.dependencies = default;
             this.runners = new List<ISystemRunner>();
             this.disposeSystems = new List<ISystemRunner>();
+            this._systemDestroyers = new List<ISystemDestroyer>();
             this.dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
             this.world = world;
             //_ecbSystem = default;
@@ -80,7 +82,7 @@ namespace Wargon.Nukecs
                 s.OnCreate(ref world);
                 system = (T) s;
             }
-            
+
             var runner = new EntityJobSystemRunner<T> {
                 System = system,
                 Mode = system.Mode,
@@ -90,7 +92,23 @@ namespace Wargon.Nukecs
             runners.Add(runner);
             return this;
         }
-        
+        public Systems Add<T>(ushort dymmy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy {
+            T system = default;
+            if (system is IOnCreate s) {
+                s.OnCreate(ref world);
+                system = (T) s;
+            }
+
+            var runner = new EntityJobSystemRunner<T> {
+                System = system,
+                Mode = system.Mode,
+                EcbJob = default
+            };
+            _systemDestroyers.Add(new SystemDestroyer<T>(ref system));
+            runner.Query = runner.System.GetQuery(ref world);
+            runners.Add(runner);
+            return this;
+        }
         public Systems Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem {
             T system = default;
             if (system is IOnCreate s) {
@@ -229,6 +247,10 @@ namespace Wargon.Nukecs
         {
             Complete();
             dependenciesList.Dispose();
+            foreach (var systemDestroyer in _systemDestroyers)
+            {
+                systemDestroyer.Destroy(ref world);
+            }
         }
         // public void Run(float dt) {
         //     for (var i = 0; i < runners.Count; i++) {
@@ -299,12 +321,32 @@ namespace Wargon.Nukecs
             ECB.Playback(ref world);
         }
     }
+    internal interface ISystemDestroyer
+    {
+        void Destroy(ref World world);
+    }
 
+    internal unsafe class SystemDestroyer<T> : ISystemDestroyer where T : unmanaged, IOnDestroy
+    {
+        private T* system;
+
+        public SystemDestroyer(ref T system)
+        {
+            fixed (T* ptr = &system)
+            {
+                this.system = ptr;
+            }
+        }
+        public void Destroy(ref World world)
+        {
+            system->OnDestroy(ref world);
+        }
+    }
     internal interface ISystemRunner {
         JobHandle Schedule(UpdateContext updateContext, ref State state);
         void Run(ref State state);
     }
-
+    
     internal class QueryJobSystemRunner<TSystem,T> : ISystemRunner where TSystem : struct, IQueryJobSystem<T> 
         where T : struct, ITuple
     {
@@ -455,6 +497,11 @@ namespace Wargon.Nukecs
 
     public interface IOnCreate {
         void OnCreate(ref World world);
+    }
+
+    public interface IOnDestroy
+    {
+        void OnDestroy(ref World world);
     }
     public interface IComplete{}
     public interface ISystem {

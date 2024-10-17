@@ -17,6 +17,7 @@ namespace Wargon.Nukecs.Tests {
         public float PixelsPerUnit;
         public float2 SpriteSize;
         public float2 Pivot;
+        public bool CanFlip;
     }
 
     public struct Sprite : IComponent
@@ -37,6 +38,11 @@ namespace Wargon.Nukecs.Tests {
     [BurstCompile]
     public static class GraphicsHelp {
         public static float4 ColorToFloat4(Color c) {
+            return new float4(c.a, c.g, c.b, c.a);
+        }
+
+        public static float4 ToFloat4(this Color c)
+        {
             return new float4(c.a, c.g, c.b, c.a);
         }
     }

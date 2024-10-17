@@ -183,7 +183,7 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DisposeComponent(int index) {
-            ComponentHelpers.Dispose(ref UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.index);
+            ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.index);
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
