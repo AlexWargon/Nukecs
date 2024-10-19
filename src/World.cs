@@ -581,6 +581,12 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void error_no_componnet<T>(Entity entity)
+        {
+            UnityEngine.Debug.LogError($"entity: {entity.id}, has no componnet {typeof(T).Name}" );
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void warn(string massage)
         {
             UnityEngine.Debug.LogWarning(massage);

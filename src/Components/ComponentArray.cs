@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
@@ -10,46 +11,67 @@ namespace Wargon.Nukecs {
     {
         internal const int DefaultMaxCapacity = 16;
     }
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct ComponentArrayData<T> where T : unmanaged
+    {
+        internal T* buffer;
+        internal int length;
+        internal int capacity;
+        internal Entity entity;
+
+        public static ComponentArrayData<T>* New(T* buffer, int length, int capacity, Entity entity)
+        {
+            ComponentArrayData<T>* ptr = Unsafe.MallocTracked<ComponentArrayData<T>>(Allocator.Persistent);
+            *ptr = new ComponentArrayData<T>
+            {
+                buffer = buffer,
+                length = length,
+                capacity = capacity,
+                entity = entity
+            };
+            return ptr;
+        }
+
+        public static void Destroy(ComponentArrayData<T>* ptr)
+        {
+            Unsafe.FreeTracked<ComponentArrayData<T>>(ptr, Allocator.Persistent);
+        }
+    }
     public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged, IArrayComponent
     {
         internal const int DefaultMaxCapacity = ComponentArray.DefaultMaxCapacity;
-        internal T* _buffer;
-        internal int _length;
-        internal int _capacity;
-        internal Entity _entity;
-        public int Length => _length;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ComponentArray(int capacity) {
-            _buffer = Unsafe.MallocTracked<T>(capacity, Allocator.Persistent);
-            _capacity = capacity;
-            _length = 0;
-            _entity = default;
-        }
+        internal ComponentArrayData<T>* data;
+        public int Length => data->length;
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // private ComponentArray(int capacity) {
+        //     _buffer = Unsafe.MallocTracked<T>(capacity, Allocator.Persistent);
+        //     _capacity = capacity;
+        //     _length = 0;
+        //     _entity = default;
+        //
+        // }
 
         public ComponentArray(ref GenericPool pool, Entity index)
         {
-            _buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DefaultMaxCapacity;
-            _length = 0;
-            _capacity = DefaultMaxCapacity;
-            _entity = index;
+            data = ComponentArrayData<T>.New((T*)pool.UnsafeBuffer->buffer + index.id * DefaultMaxCapacity, 0, DefaultMaxCapacity, index);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(ref ComponentArray<T> other, int index)
         {
-            _entity = other._entity.worldPointer->GetEntity(index);
+            var entity = other.data->entity.worldPointer->GetEntity(index);
             var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
-            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + _entity.id * DefaultMaxCapacity;
-            _length = other._length;
-            _capacity = other._capacity;
-            UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
+            var buffer = (T*)other.data->entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + entity.id * DefaultMaxCapacity;
+            var length = other.data->length;
+            var capacity = other.data->capacity;
+            data = ComponentArrayData<T>.New(buffer, length, capacity, entity);
+            UnsafeUtility.MemCpy(data->buffer, other.data->buffer, length * sizeof(T));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(int capacity, Allocator allocator)
         {
-            _buffer = Unsafe.MallocTracked<T>(capacity, allocator);
-            _capacity = capacity;
-            _length = 0;
-            _entity = default;
+            var buffer = Unsafe.MallocTracked<T>(capacity, allocator);
+            Entity entity = default;
+            data = ComponentArrayData<T>.New(buffer, 0, DefaultMaxCapacity, entity);
         }
         // [MethodImpl(MethodImplOptions.AggressiveInlining)]
         // private ComponentArray(ref ComponentArray<T> other)
@@ -64,39 +86,39 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
-            if (index < 0 || index >= _length)
+            if (index < 0 || index >= data->length)
                 throw new IndexOutOfRangeException();
-            return ref _buffer[index];
+            return ref data->buffer[index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item)
         {
-            if(_length >= _capacity -1 ) return;
-            if (_length == _capacity)
+            if(data->length >= data->capacity -1 ) return;
+            if (data->length == data->capacity)
             {
-                Resize(_capacity == 0 ? 4 : _capacity * 2);
+                Resize(data->capacity == 0 ? 4 : data->capacity * 2);
             }
-            _buffer[_length++] = item;
+            data->buffer[data->length++] = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(in T item)
         {
-            if (_length < _capacity)
+            if (data->length < data->capacity)
             {
-                _buffer[_length++] = item;
+                data->buffer[data->length++] = item;
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddParallel(in T item)
         {
-            int idx = _length;
-            if (idx < _capacity)
+            int idx = data->length;
+            if (idx < data->capacity)
             {
-                _buffer[idx] = item;
-                Interlocked.Increment(ref _length);
+                data->buffer[idx] = item;
+                Interlocked.Increment(ref data->length);
             }
             // Note: parallel expansion requires additional synchronization
         }
@@ -104,20 +126,20 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index)
         {
-            if (index < 0 || index >= _length)
+            if (index < 0 || index >= data->length)
                 throw new IndexOutOfRangeException();
 
-            _length--;
-            if (index < _length)
+            data->length--;
+            if (index < data->length)
             {
-                UnsafeUtility.MemCpy(_buffer + index, _buffer + index + 1, (_length - index) * sizeof(T));
+                UnsafeUtility.MemCpy(data->buffer + index, data->buffer + index + 1, (data->length - index) * sizeof(T));
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
-            _length = 0;
+            data->length = 0;
         }
         public void Dispose(ref ComponentArray<T> value)
         {
@@ -127,9 +149,10 @@ namespace Wargon.Nukecs {
             //     //UnsafeUtility.Free(value._buffer, Allocator.Persistent);
             //     value._buffer = null;
             // }
-            value._buffer = null;
-            value._length = 0;
-            value._capacity = 0;
+            value.data->buffer = null;
+            value.data->length = 0;
+            value.data->capacity = 0;
+            ComponentArrayData<T>.Destroy(value.data);
         }
 
         public ComponentArray<T> Copy(ref ComponentArray<T> toCopy, int to)
@@ -151,19 +174,19 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator()
         {
-            return new Enumerator(_buffer, _length);
+            return new Enumerator(data->buffer, data->length);
         }
 
         private void Resize(int newCapacity)
         {
             T* newBuffer = Unsafe.MallocTracked<T>(newCapacity, Allocator.Persistent);
-            if (_buffer != null)
+            if (data->buffer != null)
             {
-                UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
-                Unsafe.FreeTracked(_buffer, Allocator.Persistent);
+                UnsafeUtility.MemCpy(newBuffer, data->buffer, data->length * sizeof(T));
+                Unsafe.FreeTracked(data->buffer, Allocator.Persistent);
             }
-            _buffer = newBuffer;
-            _capacity = newCapacity;
+            data->buffer = newBuffer;
+            data->capacity = newCapacity;
         }
 
         public ref struct Enumerator
@@ -203,17 +226,17 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool RemoveSwapBack(T item)
         {
-            for (int i = 0; i < _length; i++)
+            for (int i = 0; i < data->length; i++)
             {
-                if (_buffer[i].Equals(item))
+                if (data->buffer[i].Equals(item))
                 {
-                    if (i != _length - 1)
+                    if (i != data->length - 1)
                     {
                         // Если удаляемый элемент не последний, 
                         // заменяем его последним элементом
-                        _buffer[i] = _buffer[_length - 1];
+                        data->buffer[i] = data->buffer[data->length - 1];
                     }
-                    _length--;
+                    data->length--;
                     return true;
                 }
             }
@@ -229,9 +252,9 @@ namespace Wargon.Nukecs {
                 if (item.Equals(buffer.ElementAt(i))) {
                     if (i != buffer.Length - 1)
                     {
-                        buffer._buffer[i] = buffer._buffer[buffer._length - 1];
+                        buffer.data->buffer[i] = buffer.data->buffer[buffer.data->length - 1];
                     }
-                    buffer._length--;
+                    buffer.data->length--;
                     break;
                 }
             }

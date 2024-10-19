@@ -47,8 +47,8 @@ namespace Wargon.Nukecs.Tests
         [SerializeField]
         private bool randomColor;
         public float frameRate = 10f;
-        [SerializeField][HideInInspector]
-        private float4[] framesUV;
+        [SerializeField]
+        public float4[] framesUV;
 
         [SerializeField] private Shader shader;
         [SerializeField] private Material material;
@@ -56,19 +56,29 @@ namespace Wargon.Nukecs.Tests
             framesUV = new float4[sprites.Length];
             for (var index = 0; index < sprites.Length; index++) {
                 var sprite = sprites[index];
-                var frame = SpriteUtility.CalculateSpriteTiling(sprite);
+                var frame = SpriteUtility.GetTextureST(sprite);
                 framesUV[index] = frame;
             }
 
             AnimationName = name;
         }
 
+        private void InitFramesUV()
+        {
+            framesUV = new float4[sprites.Length];
+            for (var index = 0; index < sprites.Length; index++) {
+                var sprite = sprites[index];
+                var frame = SpriteUtility.GetTextureST(sprite);
+                framesUV[index] = frame;
+            }
+        }
         public void AddToStorage() {
             var animationID = Animator.StringToHash(AnimationName);
             var group = Animator.StringToHash(AnimationGroup);
             
             if (!SpriteAnimationsStorage.Singleton.Has(animationID ,group)) {
                 var frames = new SpriteAnimationFrames(sprites.Length, animationID);
+                if (framesUV.Length == 0) InitFramesUV();
                 foreach (var float4 in framesUV) {
                     frames.List.Add(float4);
                 }
@@ -104,8 +114,8 @@ namespace Wargon.Nukecs.Tests
                 Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
                 FlipX = 0f,
                 FlipY = 0f,
-                SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprite),
-                ShadowAngle = 135f,
+                SpriteTiling = SpriteUtility.GetTextureST(sprite),
+                ShadowAngle = 35f,
                 ShadowLength = 0.5f,
                 ShadowDistortion = 0.5f,
                 Layer = layer,
@@ -122,7 +132,7 @@ namespace Wargon.Nukecs.Tests
             
             var animationComponent = new SpriteAnimation
             {
-                FrameCount = math.min(sprites.Length, SpriteAnimation.MaxFrames),
+                FrameCount = sprites.Length,
                 FrameRate = frameRate,
                 CurrentTime = Random.value,
                 AnimationID = Animator.StringToHash(AnimationName),
@@ -134,7 +144,11 @@ namespace Wargon.Nukecs.Tests
             archetype.AddInitial(ref entity);
             return entity;
         }
-        
+        /// <summary>
+        /// Animation
+        /// </summary>
+        /// <param name="world"></param>
+        /// <param name="entity"></param>
         public override void Convert(ref World world, ref Entity entity) {
             if (sprites == null || sprites.Length == 0)
             {
@@ -150,7 +164,7 @@ namespace Wargon.Nukecs.Tests
                     Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
                     FlipX = 0f,
                     FlipY = 0f,
-                    SpriteTiling = SpriteUtility.CalculateSpriteTiling(sprite),
+                    SpriteTiling = framesUV[0],
                     ShadowAngle = 135f,
                     ShadowLength = 0.5f,
                     ShadowDistortion = 0.5f,

@@ -71,23 +71,41 @@ namespace Wargon.Nukecs {
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6, Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
         {
-            if (!entity.archetypeRef.Has<ComponentArray<T>>()) return ref entity.AddArray<T>(sizeToCreate, allocator);
+            if (!entity.archetypeRef.Has<ComponentArray<T>>())
+            {
+                throw NoComponentException<T>();
+            }
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
 
+        public static ref ComponentArray<T> GetOrCreateArray<T>(this ref Entity entity)
+            where T : unmanaged, IArrayComponent
+        {
+            if (!entity.archetypeRef.Has<ComponentArray<T>>())
+            {
+                return ref AddArray<T>(ref entity);
+            }
+            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            return ref pool.GetRef<ComponentArray<T>>(entity.id);
+        }
+        [BurstDiscard]
+        private static Exception NoComponentException<T>()
+        {
+            return new NoComponentException($"Entity has no component array {typeof(T).Name}");
+        }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> AddArray<T>(this ref Entity entity, int size = 6, Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
         {
             var poolIndex = ComponentType<ComponentArray<T>>.Index;
-            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            //ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             var elementIndex = poolIndex + 1;
             ref var elementPool = ref entity.worldPointer->GetUntypedPool(elementIndex);
             var array = new ComponentArray<T>(ref elementPool, entity);
-            pool.Set(entity.id, in array);
+            //pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add<ComponentArray<T>>(entity.id);
-            return ref pool.GetRef<ComponentArray<T>>(entity.id);
+            ecb.Add<ComponentArray<T>>(entity.id, array);
+            return ref *&array;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -103,8 +121,8 @@ namespace Wargon.Nukecs {
         public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent {
             var componentType = ComponentType<T>.Index;
             if(entity.archetypeRef.Has(componentType)) return;
-            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
-            entity.worldPointer->ECB.Add(entity.id, componentType);
+            //entity.worldPointer->GetPool<T>().Set(entity.id, in component);
+            entity.worldPointer->ECB.Add(entity.id, component);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -112,7 +130,7 @@ namespace Wargon.Nukecs {
         {
             var componentType = ComponentType<T>.Index;
             if(entity.archetypeRef.Has(componentType)) return;
-            entity.worldPointer->GetPool<T>().Set(entity.id);
+            //entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -287,7 +305,10 @@ namespace Wargon.Nukecs {
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent {
             return entity.archetypeRef.Has<T>();
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasArray<T>(this in Entity entity) where T : unmanaged, IArrayComponent {
+            return entity.archetypeRef.Has<ComponentArray<T>>();
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Entity Copy(this in Entity entity) {
             ref var arch = ref entity.archetypeRef;

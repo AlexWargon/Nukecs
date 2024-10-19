@@ -18,6 +18,7 @@ namespace Wargon.Nukecs.Tests {
                 .None<Culled>();
         }
 
+        // ReSharper disable Unity.PerformanceAnalysis
         public void OnUpdate(ref Entity entity, ref State state) {
             ref var animation = ref entity.Get<SpriteAnimation>();
             ref var renderData = ref entity.Get<SpriteRenderData>();

@@ -1,5 +1,4 @@
-﻿using Unity.Collections;
-using Unity.Mathematics;
+﻿using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
@@ -48,8 +47,11 @@ namespace Wargon.Nukecs.Tests {
             
             var sprite = AnimationList ? AnimationList.Animations[animationIndex].sprites[frameIndex] : null;
 
-            if (sprite != null) {
-                Texture2D previewTexture = UnityEditor.AssetPreview.GetAssetPreview(sprite);
+            if (sprite) {
+                
+                var previewTexture = UnityEditor.AssetPreview.GetAssetPreview(sprite);
+                //UnityEngine.Sprite s = UnityEngine.Sprite.Create(sprite.texture, sprite.rect, sprite.pivot);
+                //Texture2D previewTexture = UnityEditor.AssetPreview.GetAssetPreview(s);
                 if (previewTexture) {
                     previewTexture.filterMode = FilterMode.Point;
                 }

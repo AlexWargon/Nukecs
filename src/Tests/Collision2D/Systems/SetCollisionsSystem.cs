@@ -5,6 +5,20 @@ using Unity.Mathematics;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Collision2D {
+    [BurstCompile]
+    public struct AddCollision2DDataSystem : IEntityJobSystem
+    {
+        public SystemMode Mode => SystemMode.Single;
+        public Query GetQuery(ref World world)
+        {
+            return world.Query().None<ComponentArray<Collision2DData>>().With<Circle2D>();
+        }
+
+        public void OnUpdate(ref Entity entity, ref State state)
+        {
+            entity.AddArray<Collision2DData>();
+        }
+    }
     public struct SetCollisionsSystem : ISystem, IOnCreate
     {
         public void OnUpdate(ref State state)
@@ -12,19 +26,16 @@ namespace Wargon.Nukecs.Collision2D {
             ref var hits = ref Grid2D.Instance.Hits;
             if(hits.Count == 0) return;
             var hitsArray = hits.ToArray(Allocator.TempJob);
+            
             state.Dependencies = new Fill
-                    {World = state.World, Hits = hitsArray.AsReadOnly()}
+                {
+                    World = state.World, Hits = hitsArray.AsReadOnly()
+                }
                 .Schedule(hitsArray.Length, state.Dependencies);
+            
             state.Dependencies = hitsArray.Dispose(state.Dependencies);
         }
-        [BurstCompile]
-        public struct QueueToArray<T> : IJob where T : unmanaged {
-            public NativeQueue<T> queue;
-            public NativeArray<T> array;
-            public void Execute() {
-                array = queue.ToArray(Allocator.TempJob);
-            }
-        }
+
         [BurstCompile]
         private struct Fill : IJobFor
         {
@@ -46,7 +57,7 @@ namespace Wargon.Nukecs.Collision2D {
                 if(!other.IsValid()) return;
                 
                 ref var buffer = ref e.GetArray<Collision2DData>();
-                buffer.AddNoResize(new Collision2DData
+                buffer.AddParallel(new Collision2DData
                 {
                     Other = other,
                     Type = hitInfo.Type

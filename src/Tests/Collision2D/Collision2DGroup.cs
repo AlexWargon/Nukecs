@@ -7,6 +7,7 @@
                 this
                 //.Add(new Collision2DOnRectangleOnConvertEntitySystem())
             .Add<CollisionsClear>()
+            .Add<AddCollision2DDataSystem>()
             .Add<SetCollisionsSystem>()
             .Add<CollisionClearGridCellsSystem>()
              

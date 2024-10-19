@@ -46,20 +46,22 @@ namespace Wargon.Nukecs {
             public int AdditionalData;
             public float3 Position;
             public byte active;
+            public bool IsDisposable;
 
             public enum Type : short {
                 AddComponent = 0,
-                AddComponentNoData = 1,
-                RemoveComponent = 2,
-                SetComponent = 3,
-                CreateEntity = 4,
-                DestroyEntity = 5,
-                ChangeTransformRefPosition = 6,
-                SetActiveGameObject = 7,
-                PlayParticleReference = 8,
-                Copy = 13,
-                CreateCopy = 14,
-                RemoveAndDispose = 15
+                AddComponentPtr = 1,
+                AddComponentNoData = 2,
+                RemoveComponent = 3,
+                SetComponent = 4,
+                CreateEntity = 5,
+                DestroyEntity = 6,
+                ChangeTransformRefPosition = 7,
+                SetActiveGameObject = 8,
+                PlayParticleReference = 9,
+                Copy = 10,
+                CreateCopy = 11,
+                RemoveAndDispose = 12
             }
         }
 
@@ -99,18 +101,35 @@ namespace Wargon.Nukecs {
                 count++;
             }
 
+            public void Add<T>(int entity, T* componentPtr, int thread) where T : unmanaged
+            {
+                ref var data = ref ComponentType<T>.Data;
+                var cmd = new ECBCommand {
+                    Component = (byte*)componentPtr,
+                    Entity = entity,
+                    EcbCommandType = ECBCommand.Type.AddComponentPtr,
+                    ComponentType = data.index,
+                    AdditionalData = sizeof(T),
+                    IsDisposable = data.isDisposable
+                };
+                var buffer = perThreadBuffer->ElementAt(thread);
+                buffer->Add(cmd);
+                count++;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T component, int thread) where T : unmanaged {
                 //if(IsCreated== false) return;
                 var size = UnsafeUtility.SizeOf<T>();
                 var ptr = (T*) UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
-                UnsafeUtility.CopyStructureToPtr(ref component, ptr);
+                *ptr = component;
+                ref var data = ref ComponentType<T>.Data;
                 var cmd = new ECBCommand {
                     Component = (byte*)ptr,
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,
-                    ComponentType = ComponentType<T>.Index,
-                    AdditionalData = size
+                    ComponentType = data.index,
+                    AdditionalData = size,
+                    IsDisposable = data.isDisposable
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -271,9 +290,12 @@ namespace Wargon.Nukecs {
         public void Set<T>(int entity) where T : unmanaged {
             ecb->Set<T>(entity, ThreadIndex);
         }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add<T>(int entity, T component) where T : unmanaged {
+        public void AddPtr<T>(int entity, T* component) where T : unmanaged {
+            ecb->Add(entity, component, JobsUtility.ThreadIndex);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add<T>(int entity, in T component) where T : unmanaged {
             ecb->Add(entity, component, JobsUtility.ThreadIndex);
         }
 
@@ -334,14 +356,36 @@ namespace Wargon.Nukecs {
                     ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
-                            if(archetype.Has(cmd.ComponentType)) break;
+                            if (archetype.Has(cmd.ComponentType))
+                            {
+                                if (cmd.IsDisposable)
+                                {
+                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                }
+                                UnsafeUtility.Free(cmd.Component, Allocator.Temp);
+                                break;
+                            }
                             ref var pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
                             pool.SetPtr(cmd.Entity, cmd.Component);
                             UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                             archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                             break;
+                        case ECBCommand.Type.AddComponentPtr:
+                            if (archetype.Has(cmd.ComponentType))
+                            {
+                                if (cmd.IsDisposable)
+                                {
+                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                }
+                                break;
+                            }
+                            pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
+                            pool.SetPtr(cmd.Entity, cmd.Component);
+                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                            break;
                         case ECBCommand.Type.AddComponentNoData:
                             if(archetype.Has(cmd.ComponentType)) break;
+                            world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
                             archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                             break;
                         case ECBCommand.Type.RemoveComponent:
