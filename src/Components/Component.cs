@@ -13,6 +13,13 @@ namespace Wargon.Nukecs
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
 
+    public sealed class NoComponentException : Exception
+    {
+        public NoComponentException(string msg) : base(msg)
+        {
+
+        }
+    }
     public interface IComponent { }
     public interface IArrayComponent { }
     public interface IReactive { }
@@ -37,7 +44,6 @@ namespace Wargon.Nukecs
     public struct DestroyEntity : IComponent { }
     public struct EntityCreated : IComponent { }
     public struct IsPrefab : IComponent { }
-    //public struct Dispose<T> : IComponent where T : struct, IComponent{ }
     public struct ChildOf : IComponent {
         public Entity Value;
     }
@@ -111,7 +117,7 @@ namespace Wargon.Nukecs
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();
 
-           dbug.log(components.ToList().Count.ToString());
+            dbug.log(components.ToList().Count.ToString());
             foreach (var component in components)
             {
                 if(component == typeof(IComponent)) continue;
@@ -269,6 +275,7 @@ namespace Wargon.Nukecs
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [BurstDiscard]
         internal static unsafe void Dispose(byte* buffer, int index, int typeIndex){
             disposers[typeIndex].Dispose(buffer, index);
         }

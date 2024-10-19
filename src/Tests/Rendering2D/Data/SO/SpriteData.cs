@@ -14,7 +14,7 @@ namespace Wargon.Nukecs.Tests {
         private Shader shader;
 
         private void OnValidate() {
-            uv = SpriteUtility.CalculateSpriteTiling(sprite);
+            uv = SpriteUtility.GetTextureST(sprite);
         }
 
         public SpriteRenderData AddToEntity(ref World world, ref Entity entity)
@@ -59,7 +59,7 @@ namespace Wargon.Nukecs.Tests {
             var sprite = spriteRenderer.sprite;
             var shader = spriteRenderer.sharedMaterial.shader;
             var d = spriteRenderer.color;
-            var uv = SpriteUtility.CalculateSpriteTiling(sprite);
+            var uv = SpriteUtility.GetTextureST(sprite);
             var renderData = new SpriteRenderData
             {
                 Color = new float4(d.r, d.g, d.b, d.a),
@@ -75,7 +75,7 @@ namespace Wargon.Nukecs.Tests {
                 Pivot = new float2(
                     sprite.pivot.x / sprite.rect.width,
                     sprite.pivot.y / sprite.rect.height
-                ),
+                )
             };
             entity.Add(in renderData);
             ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
