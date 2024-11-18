@@ -89,7 +89,7 @@ namespace Wargon.Nukecs {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentTypeMap.GetType(UnsafeBuffer->ComponentType.index).Name}] with capacity {UnsafeBuffer->capacity}.");
             }
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef<T>(int index) where T : unmanaged
         {
             CheckValid(index);
@@ -102,7 +102,7 @@ namespace Wargon.Nukecs {
             return UnsafeBuffer->buffer + index * UnsafeBuffer->ComponentType.size;
         }
         
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
         {
             //CheckValid(index);
@@ -116,7 +116,7 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set(int index) {
             UnsafeBuffer->count++;
         }
@@ -163,7 +163,7 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
             if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
@@ -174,7 +174,7 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index) {
             if (UnsafeBuffer->ComponentType.isDisposable) {
                 DisposeComponent(index);
@@ -185,7 +185,7 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count--;
         }
-        //[BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DisposeComponent(int index) {
             //ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.index);
             var fn = new FunctionPointer<DisposeDelegate>(UnsafeBuffer->ComponentType.disposeFn);

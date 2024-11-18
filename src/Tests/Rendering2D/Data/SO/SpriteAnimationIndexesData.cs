@@ -1,6 +1,5 @@
 ﻿using System;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
@@ -30,7 +29,8 @@ namespace Wargon.Nukecs.Tests
         }
         public void Dispose()
         {
-            Groups.Dispose();    
+            Groups.Dispose();
+            dbug.log($"sprite animation indexes disposed");
         }
 
         public SpriteAnimationIndexes Copy(ref SpriteAnimationIndexes toCopy, int to)

@@ -36,11 +36,6 @@ namespace Wargon.Nukecs.Generated
     }
     public static partial class GeneratedDisposeRegistryStatic
     {
-        public static readonly IntPtr[] fn;
-        static GeneratedDisposeRegistryStatic()
-        {
-            fn = new IntPtr[ComponentAmount.Value.Data + 1];
-        }
 
         public static void RegisterTypes()
         {
