@@ -60,7 +60,7 @@ namespace Wargon.Nukecs {
         {
             var entity = other.data->entity.worldPointer->GetEntity(index);
             var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
-            var buffer = (T*)other.data->entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + entity.id * DefaultMaxCapacity;
+            var buffer = (T*)other.data->entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + index * DefaultMaxCapacity;
             var length = other.data->length;
             var capacity = other.data->capacity;
             data = ComponentArrayData<T>.New(buffer, length, capacity, entity);
