@@ -57,17 +57,13 @@ namespace Wargon.Nukecs.Collision2D {
                 if(!other.IsValid()) return;
                 
                 ref var buffer = ref e.GetArray<Collision2DData>();
-                buffer.AddParallel(new Collision2DData
+                buffer.AddNoResize(new Collision2DData
                 {
                     Other = other,
                     Type = hitInfo.Type
                 });
                 e.Add(new CollidedFlag());
             }
-        }
-
-        private void Log(int number) {
-            
         }
 
         public unsafe void OnCreate(ref World world)

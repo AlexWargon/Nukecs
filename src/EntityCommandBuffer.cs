@@ -413,7 +413,76 @@ namespace Wargon.Nukecs {
                 buffer->Clear();
             }
         }
+        internal void Playback(World.WorldUnsafe* world) {
+            //ecb->Playback(ref world);
 
+            for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
+                var buffer = ecb->perThreadBuffer->ElementAt(i);
+                if (buffer->IsEmpty) continue;
+
+                for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
+                    ref var cmd = ref buffer->ElementAt(cmdIndex);
+
+                    ref var archetype = ref *world->entitiesArchetypes.ElementAt(cmd.Entity).impl;
+                    switch (cmd.EcbCommandType) {
+                        case ECBCommand.Type.AddComponent:
+                            if (archetype.Has(cmd.ComponentType))
+                            {
+                                if (cmd.IsDisposable)
+                                {
+                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                }
+                                UnsafeUtility.Free(cmd.Component, Allocator.Temp);
+                                break;
+                            }
+                            ref var pool = ref world->GetUntypedPool(cmd.ComponentType);
+                            pool.SetPtr(cmd.Entity, cmd.Component);
+                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
+                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.AddComponentPtr:
+                            if (archetype.Has(cmd.ComponentType))
+                            {
+                                if (cmd.IsDisposable)
+                                {
+                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                }
+                                break;
+                            }
+                            pool = ref world->GetUntypedPool(cmd.ComponentType);
+                            pool.SetPtr(cmd.Entity, cmd.Component);
+                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.AddComponentNoData:
+                            if(archetype.Has(cmd.ComponentType)) break;
+                            world->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
+                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.RemoveComponent:
+                            if(archetype.Has(cmd.ComponentType) == false) break;
+                            world->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
+                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.CreateEntity:
+                            world->CreateEntity();
+                            break;
+                        case ECBCommand.Type.DestroyEntity:
+                            archetype.Destroy(cmd.Entity);
+                            break;
+                        case ECBCommand.Type.Copy:
+                            archetype.Copy(cmd.Entity, cmd.AdditionalData);
+                            break;
+                        case ECBCommand.Type.RemoveAndDispose:
+                            if(archetype.Has(cmd.ComponentType) == false) break;
+                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
+                            world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
+                            break;
+                    }
+                    ecb->count--;
+                }
+                buffer->Clear();
+            }
+        }
         public void Dispose() {
             ecb->Dispose();
             UnsafeUtility.Free(ecb, Allocator.Persistent);

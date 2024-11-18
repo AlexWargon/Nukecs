@@ -440,6 +440,10 @@ namespace Wargon.Nukecs {
             //     ECB.Remove<T>(entity.id);
             //     ECB.Remove<Dispose<T>>(entity.id);
             // }
+            internal void Update()
+            {
+                ECB.Playback(self);
+            }
         }
 
         public void Dispose() {
