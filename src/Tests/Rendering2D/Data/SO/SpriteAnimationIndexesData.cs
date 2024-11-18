@@ -30,7 +30,7 @@ namespace Wargon.Nukecs.Tests
         public void Dispose()
         {
             Groups.Dispose();
-            dbug.log($"sprite animation indexes disposed");
+            //dbug.log($"sprite animation indexes disposed");
         }
 
         public SpriteAnimationIndexes Copy(ref SpriteAnimationIndexes toCopy, int to)
