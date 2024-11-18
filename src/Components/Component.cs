@@ -1,8 +1,7 @@
-﻿using System.CodeDom.Compiler;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using AOT;
+using NUnit.Framework.Internal;
 using Unity.Collections;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -20,7 +19,6 @@ namespace Wargon.Nukecs
     {
         public NoComponentException(string msg) : base(msg)
         {
-
         }
     }
     public interface IComponent { }
@@ -145,6 +143,7 @@ namespace Wargon.Nukecs
             {
                 ComponentTypeMap.InitializeArrayElementTypeReflection(type, index);
             }
+            Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             Generated.GeneratedDisposeRegistryStatic.RegisterTypes();
             componentTypes.Clear();
             arrayElementTypes.Clear();
@@ -446,7 +445,14 @@ namespace Wargon.Nukecs
             UnsafePtrList<UnsafeList<T>>.Destroy(parallelList);
         }
     }
-    
+
+    internal static unsafe class DisposeRegistryFunction
+    {
+        internal static IntPtr CreatePtr<T>() where T : unmanaged, IDisposable
+        {
+            return BurstCompiler.CompileFunctionPointer<DisposeDelegate>(DisposeRegistryStatic<T>.Dispose).Value;
+        }
+    }
     public static unsafe class DisposeRegistryStatic<T> where T : unmanaged, IDisposable
     {
         [BurstCompile(CompileSynchronously = true)]
@@ -456,29 +462,23 @@ namespace Wargon.Nukecs
             ((T*)buffer)[index].Dispose();
         }
 
-        internal static IntPtr CreatePtr()
-        {
-            return BurstCompiler.CompileFunctionPointer<DisposeDelegate>(Dispose).Value;
-        }
-
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.disposeFn = CreatePtr();
+            componentType.disposeFn = DisposeRegistryFunction.CreatePtr<T>();
             ComponentTypeMap.SetComponentType<T>(componentType);
             //Generated.GeneratedDisposeRegistryStatic.fn[ComponentType<T>.Index] = CreatePtr();
         }
-        public static void Register(ref ComponentType componentType)
+    }
+    public static unsafe class BurstEntryPointResolver
+    {
+        [BurstCompile]
+        private static void EnsureGenericMethodInstantiation(byte* buffer, int index)
         {
-            componentType.disposeFn = CreatePtr();
+            // Force instantiation of the generic method with int
+            DisposeRegistryStatic<TestDisposable>.Dispose(buffer, index);
         }
     }
-
-    public struct TestArrayComponnet : IArrayComponent
-    {
-        
-    }
-
     public struct TestDisposable : IDisposable, IComponent
     {
         public void Dispose()
