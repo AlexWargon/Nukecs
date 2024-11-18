@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using AOT;
+using Unity.Collections;
+using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
@@ -26,9 +29,9 @@ namespace Wargon.Nukecs
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }
-    public interface IDisposable<T> {
-        void Dispose(ref T value);
-    }
+    // public interface IDisposable<T> {
+    //     void Dispose(ref T value);
+    // }
     public interface ICopyable<T> {
         T Copy(ref T toCopy, int to);
     }
@@ -116,7 +119,6 @@ namespace Wargon.Nukecs
             
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();
-
             dbug.log(components.ToList().Count.ToString());
             foreach (var component in components)
             {
@@ -133,6 +135,7 @@ namespace Wargon.Nukecs
                 count++;
             }
             ComponentAmount.Value.Data = count;
+            
             // ComponentAmount.Value.Data = count;
             foreach (var (type, index) in componentTypes)
             {
@@ -142,6 +145,7 @@ namespace Wargon.Nukecs
             {
                 ComponentTypeMap.InitializeArrayElementTypeReflection(type, index);
             }
+            Generated.GeneratedDisposeRegistryStatic.RegisterTypes();
             componentTypes.Clear();
             arrayElementTypes.Clear();
             // var assemblies = AppDomain.CurrentDomain.GetAssemblies();
@@ -284,6 +288,7 @@ namespace Wargon.Nukecs
             coppers[typeIndex].Copy(buffer, from, to);
         }
     }
+
     public unsafe interface IUnsafeBufferWriter {
         void Write(void* buffer, int index, int sizeInBytes, IComponent component);
     }
@@ -301,14 +306,14 @@ namespace Wargon.Nukecs
     }
 
     public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged {
-        private delegate void DisposeDelegate(ref T value);
+        private delegate void DisposeDelegate();
 
         private readonly DisposeDelegate _disposeFunc;
 #if ENABLE_IL2CPP && !UNITY_EDITOR
         T _fakeInstance;
 #endif
         public ComponentDisposer() {
-            var dispose = typeof(T).GetMethod(nameof(IDisposable<T>.Dispose));
+            var dispose = typeof(T).GetMethod(nameof(IDisposable.Dispose));
             if (dispose == null) {
                 throw new Exception (
                     $"IDispose<{typeof (T)}> explicit implementation not supported, use implicit instead.");
@@ -324,10 +329,192 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Dispose(byte* buffer, int index) {
             //ref var component  = ref ((T*)buffer)[index];
-            _disposeFunc.Invoke(ref ((T*)buffer)[index]);
+            _disposeFunc.Invoke();
         }
     }
 
+    public readonly unsafe struct DisposeInfo
+    {
+        public readonly byte* buffer;
+        public readonly int type;
+        public readonly int entity;
+
+        public DisposeInfo(int type, int entity, byte* buffer)
+        {
+            this.type = type;
+            this.entity = entity;
+            this.buffer = buffer;
+        }
+    }
+    public unsafe struct DisposeComponentsSystem : ISystem, IOnCreate, IOnDestroy
+    {
+        ParallelNativeList<DisposeInfo> toDispose;
+        public void OnCreate(ref World world)
+        {
+            toDispose = new ParallelNativeList<DisposeInfo>(128);
+        }
+        public void OnUpdate(ref State state)
+        {
+            foreach (var disposeInfo in toDispose)
+            {
+                ComponentHelpers.Dispose(disposeInfo.buffer, disposeInfo.entity, disposeInfo.type);
+            }
+        }
+        public void OnDestroy(ref World world)
+        {
+            toDispose.Dispose();
+        }
+    }
+
+    public unsafe struct ParallelNativeList<T> : IDisposable where T : unmanaged
+    {
+        private UnsafePtrList<UnsafeList<T>>* parallelList;
+
+        public ParallelNativeList(int capacity, Allocator allocator = Allocator.Persistent)
+        {
+            var threads = JobsUtility.ThreadIndexCount;
+            parallelList = UnsafePtrList<UnsafeList<T>>.Create(threads, allocator);
+            for (int i = 0; i < threads; i++)
+            {
+                parallelList->Add(UnsafeList<T>.Create(capacity, allocator));
+            }
+        }
+
+        public int Count()
+        {
+            int c = 0;
+            for (int i = 0; i < parallelList->m_length; i++)
+            {
+                ref var list = ref parallelList->ElementAt(i);
+                c += list->m_length;
+            }
+
+            return c;
+        }
+        public void Add(in T item, int thread)
+        {
+            parallelList->ElementAt(thread)->Add(item);
+        }
+
+        public Enumarator GetEnumerator()
+        {
+            ref var list = ref parallelList->ElementAt(0);
+            return new Enumarator
+            {
+                maxIndex = JobsUtility.MaxJobThreadCount,
+                index = 0,
+                thread = 0,
+                maxThread = list->m_length,
+                list = list
+            };
+        }
+        public struct Enumarator
+        {
+            internal int maxIndex;
+            internal int index;
+            internal int thread;
+            internal int maxThread;
+            internal UnsafePtrList<UnsafeList<T>>* parallelList;
+            internal UnsafeList<T>* list;
+            private T current;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext()
+            {
+                index++;
+                if (index >= maxIndex)
+                {
+                    while (parallelList->ElementAt(thread)->m_length < 1)
+                    {
+                        thread++;
+                        if (thread == maxThread) return false;
+                    }
+                    list = parallelList->ElementAt(thread);
+                    index = 0;
+                }
+                current = list->Ptr[index];
+                return true;
+            }
+            public T Current => current;
+        }
+
+        public void Dispose()
+        {
+            for (int i = 0; i < parallelList->m_length; i++)
+            {
+                parallelList->ElementAt(i)->Dispose();
+            }
+            UnsafePtrList<UnsafeList<T>>.Destroy(parallelList);
+        }
+    }
+    
+    public static unsafe class DisposeRegistryStatic<T> where T : unmanaged, IDisposable
+    {
+        [BurstCompile(CompileSynchronously = true)]
+        [AOT.MonoPInvokeCallback(typeof(DisposeDelegate))]
+        public static void Dispose(byte* buffer, int index) {
+            //UnsafeUtility.AsRef<T>((T*)comp).Dispose();
+            ((T*)buffer)[index].Dispose();
+        }
+
+        internal static IntPtr CreatePtr()
+        {
+            return BurstCompiler.CompileFunctionPointer<DisposeDelegate>(Dispose).Value;
+        }
+
+        public static void Register()
+        {
+            var componentType = ComponentTypeMap.GetComponentType(typeof(T));
+            componentType.disposeFn = CreatePtr();
+            ComponentTypeMap.SetComponentType<T>(componentType);
+            //Generated.GeneratedDisposeRegistryStatic.fn[ComponentType<T>.Index] = CreatePtr();
+        }
+        public static void Register(ref ComponentType componentType)
+        {
+            componentType.disposeFn = CreatePtr();
+        }
+    }
+
+    public struct TestArrayComponnet : IArrayComponent
+    {
+        
+    }
+
+    public struct TestDisposable : IDisposable, IComponent
+    {
+        public void Dispose()
+        {
+            
+        }
+    }
+
+
+    public unsafe delegate void DisposeDelegate(byte* comp, int index);
+
+    public readonly struct UnmanagedDelegate<T> : IDisposable where T : Delegate
+    {
+        public UnmanagedDelegate(T function)
+        {
+#if UNITY_EDITOR
+            var method = function.Method;
+            if (method == null || !method.IsStatic ||
+                method.GetCustomAttributes(typeof(AOT.MonoPInvokeCallbackAttribute), false).Length == 0)
+            {
+                throw new Exception(
+                    "Unmanaged delegate may only be created from static method with MonoPInvokeCallback attribute");
+            }
+#endif
+            _gcHandle = GCHandle.Alloc(function);
+            ptr = new FunctionPointer<T>(Marshal.GetFunctionPointerForDelegate(function));
+        }
+
+        public readonly FunctionPointer<T> ptr;
+        private readonly GCHandle _gcHandle;
+
+        public void Dispose()
+        {
+            _gcHandle.Free();
+        }
+    }
     public unsafe interface IComponentCopper {
         void Copy(void* buffer, int from, int to);
     }
@@ -499,4 +686,6 @@ namespace Wargon.Nukecs
             v3 = value3;
         }
     }
+
+
 }

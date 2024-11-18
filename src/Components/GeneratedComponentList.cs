@@ -26,12 +26,33 @@ namespace Wargon.Nukecs.Generated
                     }
                 }
             }
+            
         }
-
+    
         public static IReadOnlyList<Type> GetAllComponents()
         {
             return _allComponents;
         }
     }
+    public static partial class GeneratedDisposeRegistryStatic
+    {
+        public static readonly IntPtr[] fn;
+        static GeneratedDisposeRegistryStatic()
+        {
+            fn = new IntPtr[ComponentAmount.Value.Data + 1];
+        }
 
+        public static void RegisterTypes()
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            foreach (var assembly in assemblies)
+            {
+                var type = assembly.GetType("Wargon.Nukecs.Generated.GeneratedDisposeRegistryStatic");
+                if (type != null)
+                {
+                    type.GetMethod("Register").Invoke(null, null);
+                }
+            }
+        }
+    }
 }

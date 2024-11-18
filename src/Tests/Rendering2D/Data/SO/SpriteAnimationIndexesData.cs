@@ -20,7 +20,7 @@ namespace Wargon.Nukecs.Tests
             entity.Add(animator);
         }
     }
-    public struct SpriteAnimationIndexes : IComponent, IDisposable<SpriteAnimationIndexes>, ICopyable<SpriteAnimationIndexes>
+    public struct SpriteAnimationIndexes : IComponent, IDisposable, ICopyable<SpriteAnimationIndexes>
     {
         public NativeList<int> Groups;
 
@@ -28,17 +28,9 @@ namespace Wargon.Nukecs.Tests
         {
             Groups = new NativeList<int>(size, Allocator.Persistent);
         }
-        public void Dispose(ref SpriteAnimationIndexes value)
+        public void Dispose()
         {
-            try
-            {
-                value.Groups.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Debug.Log(ex);
-            }
-                
+            Groups.Dispose();    
         }
 
         public SpriteAnimationIndexes Copy(ref SpriteAnimationIndexes toCopy, int to)

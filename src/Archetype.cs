@@ -192,17 +192,16 @@
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy(int entity) {
-            destroyEdge.Execute(entity);
             for (var index = 0; index < types.m_length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Remove(entity);
             }
+            destroyEdge.Execute(entity);
             world->OnDestroyEntity(entity);
         }
 
         internal void OnEntityFree(int entity) {
-            //destroyEdge.Execute(entity);
             for (var index = 0; index < types.m_length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);

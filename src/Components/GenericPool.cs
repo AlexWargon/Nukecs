@@ -48,7 +48,6 @@ namespace Wargon.Nukecs {
             internal int capacity;
             internal ComponentType ComponentType;
             internal Allocator allocator;
-            
             internal static GenericPoolUnsafe* CreateBuffer<T>(int size, Allocator allocator) where T : unmanaged {
                 var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
                 *ptr = new GenericPoolUnsafe {
@@ -56,9 +55,9 @@ namespace Wargon.Nukecs {
                     count = 0,
                     allocator = allocator,
                     buffer = (byte*)Unsafe.MallocTracked<T>(size, allocator),
-                    ComponentType = ComponentType<T>.Data
+                    ComponentType = ComponentType<T>.Data,
+                    
                 };
-
                 UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
                 return ptr;
             }
@@ -98,6 +97,11 @@ namespace Wargon.Nukecs {
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
 
+        public byte* GetUnsafePtr(int index)
+        {
+            return UnsafeBuffer->buffer + index * UnsafeBuffer->ComponentType.size;
+        }
+        
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
         {
@@ -181,9 +185,11 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count--;
         }
-        [BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DisposeComponent(int index) {
-            ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.index);
+            //ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.index);
+            var fn = new FunctionPointer<DisposeDelegate>(UnsafeBuffer->ComponentType.disposeFn);
+            fn.Invoke(UnsafeBuffer->buffer, index);
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
