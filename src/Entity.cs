@@ -105,8 +105,8 @@ namespace Wargon.Nukecs {
             ref var elementPool = ref entity.worldPointer->GetUntypedPool(elementIndex);
             var array = new ComponentArray<T>(ref elementPool, entity);
             pool.Set(entity.id, in array);
-            //ref var ecb = ref entity.worldPointer->ECB;
-            //ecb.Add(entity.id, array);
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Add<ComponentArray<T>>(entity.id);
             //entity.worldPointer->Update();
             //ref var pool = ref entity.worldPointer->GetUntypedPool(poolIndex);
             
