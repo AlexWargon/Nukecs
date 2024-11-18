@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using NUnit.Framework.Internal;
 using Unity.Collections;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -450,7 +449,12 @@ namespace Wargon.Nukecs
     {
         internal static IntPtr CreatePtr<T>() where T : unmanaged, IDisposable
         {
-            return BurstCompiler.CompileFunctionPointer<DisposeDelegate>(DisposeRegistryStatic<T>.Dispose).Value;
+            return Ptr(DisposeRegistryStatic<T>.Dispose);
+        }
+
+        internal static IntPtr Ptr(DisposeDelegate func)
+        {
+            return Marshal.GetFunctionPointerForDelegate(func);
         }
     }
     public static unsafe class DisposeRegistryStatic<T> where T : unmanaged, IDisposable
@@ -458,7 +462,6 @@ namespace Wargon.Nukecs
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(DisposeDelegate))]
         public static void Dispose(byte* buffer, int index) {
-            //UnsafeUtility.AsRef<T>((T*)comp).Dispose();
             ((T*)buffer)[index].Dispose();
         }
 
@@ -470,15 +473,7 @@ namespace Wargon.Nukecs
             //Generated.GeneratedDisposeRegistryStatic.fn[ComponentType<T>.Index] = CreatePtr();
         }
     }
-    public static unsafe class BurstEntryPointResolver
-    {
-        [BurstCompile]
-        private static void EnsureGenericMethodInstantiation(byte* buffer, int index)
-        {
-            // Force instantiation of the generic method with int
-            DisposeRegistryStatic<TestDisposable>.Dispose(buffer, index);
-        }
-    }
+
     public struct TestDisposable : IDisposable, IComponent
     {
         public void Dispose()
