@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
-namespace Wargon.Nukecs {
-internal struct ComponentArray
+namespace Wargon.Nukecs
+{
+    internal struct ComponentArray
     {
         internal const int DefaultMaxCapacity = 16;
     }
-    public unsafe struct ComponentArray<T> : IComponent, IDisposable<ComponentArray<T>>, ICopyable<ComponentArray<T>> where T : unmanaged, IArrayComponent
+
+    public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>>
+        where T : unmanaged, IArrayComponent
     {
         internal const int DefaultMaxCapacity = ComponentArray.DefaultMaxCapacity;
         internal T* _buffer;
@@ -19,8 +21,10 @@ internal struct ComponentArray
         internal int _capacity;
         internal Entity _entity;
         public int Length => _length;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ComponentArray(int capacity) {
+        private ComponentArray(int capacity)
+        {
             _buffer = Unsafe.MallocTracked<T>(capacity, Allocator.Persistent);
             _capacity = capacity;
             _length = 0;
@@ -34,16 +38,19 @@ internal struct ComponentArray
             _capacity = DefaultMaxCapacity;
             _entity = index;
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(ref ComponentArray<T> other, int index)
         {
             _entity = other._entity.worldPointer->GetEntity(index);
             var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
-            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + _entity.id * DefaultMaxCapacity;
+            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer +
+                      _entity.id * DefaultMaxCapacity;
             _length = other._length;
             _capacity = other._capacity;
             UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ComponentArray(int capacity, Allocator allocator)
         {
@@ -73,27 +80,21 @@ internal struct ComponentArray
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item)
         {
-            if(_length >= _capacity -1 ) return;
-            if (_length == _capacity)
-            {
-                Resize(_capacity == 0 ? 4 : _capacity * 2);
-            }
+            if (_length >= _capacity - 1) return;
+            if (_length == _capacity) Resize(_capacity == 0 ? 4 : _capacity * 2);
             _buffer[_length++] = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(in T item)
         {
-            if (_length < _capacity)
-            {
-                _buffer[_length++] = item;
-            }
+            if (_length < _capacity) _buffer[_length++] = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddParallel(in T item)
         {
-            int idx = _length;
+            var idx = _length;
             if (idx < _capacity)
             {
                 _buffer[idx] = item;
@@ -110,9 +111,7 @@ internal struct ComponentArray
 
             _length--;
             if (index < _length)
-            {
                 UnsafeUtility.MemCpy(_buffer + index, _buffer + index + 1, (_length - index) * sizeof(T));
-            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -120,7 +119,8 @@ internal struct ComponentArray
         {
             _length = 0;
         }
-        public void Dispose(ref ComponentArray<T> value)
+
+        public void Dispose()
         {
             // if (value._buffer != null)
             // {
@@ -128,9 +128,9 @@ internal struct ComponentArray
             //     //UnsafeUtility.Free(value._buffer, Allocator.Persistent);
             //     value._buffer = null;
             // }
-            value._buffer = null;
-            value._length = 0;
-            value._capacity = 0;
+            _buffer = null;
+            _length = 0;
+            _capacity = 0;
         }
 
         public ComponentArray<T> Copy(ref ComponentArray<T> toCopy, int to)
@@ -141,11 +141,8 @@ internal struct ComponentArray
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator)
         {
-            var array = new ComponentArray<T>(size , allocator);
-            for (int i = 0; i < size; i++)
-            {
-                array.Add(in data);
-            }
+            var array = new ComponentArray<T>(size, allocator);
+            for (var i = 0; i < size; i++) array.Add(in data);
             return array;
         }
 
@@ -157,12 +154,13 @@ internal struct ComponentArray
 
         private void Resize(int newCapacity)
         {
-            T* newBuffer = Unsafe.MallocTracked<T>(newCapacity, Allocator.Persistent);
+            var newBuffer = Unsafe.MallocTracked<T>(newCapacity, Allocator.Persistent);
             if (_buffer != null)
             {
                 UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
                 Unsafe.FreeTracked(_buffer, Allocator.Persistent);
             }
+
             _buffer = newBuffer;
             _capacity = newCapacity;
         }
@@ -199,44 +197,45 @@ internal struct ComponentArray
                 get => ref _listPtr[_index];
             }
 
-            public void Dispose() { }
+            public void Dispose()
+            {
+            }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool RemoveSwapBack(T item)
         {
-            for (int i = 0; i < _length; i++)
-            {
+            for (var i = 0; i < _length; i++)
                 if (_buffer[i].Equals(item))
                 {
                     if (i != _length - 1)
-                    {
-                        // Если удаляемый элемент не последний, 
-                        // заменяем его последним элементом
+                        // If the element to be removed is not the last one, 
+                        // replace it with the last element
                         _buffer[i] = _buffer[_length - 1];
-                    }
                     _length--;
                     return true;
                 }
-            }
+
             return false;
         }
-
     }
+
     [BurstCompile]
-    public static class ComponentsArrayExtensions {
+    public static class ComponentsArrayExtensions
+    {
         [BurstCompile]
-        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item) where T: unmanaged, IArrayComponent, IEquatable<T> {
-            for (int i = 0; i < buffer.Length; i++) {
-                if (item.Equals(buffer.ElementAt(i))) {
-                    if (i != buffer.Length - 1)
-                    {
-                        buffer._buffer[i] = buffer._buffer[buffer._length - 1];
-                    }
+        public static unsafe int RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, in T item)
+            where T : unmanaged, IArrayComponent, IEquatable<T>
+        {
+            for (var i = 0; i < buffer.Length; i++)
+                if (item.Equals(buffer.ElementAt(i)))
+                {
+                    if (i != buffer.Length - 1) buffer._buffer[i] = buffer._buffer[buffer._length - 1];
                     buffer._length--;
                     break;
                 }
-            }
-            return buffer.Length- 1;
+
+            return buffer.Length - 1;
         }
     }
 }

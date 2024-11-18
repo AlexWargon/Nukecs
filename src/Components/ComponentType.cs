@@ -24,6 +24,7 @@ namespace Wargon.Nukecs {
 
         public static ref NativeHashMap<int, ComponentType> ElementTypes => ref elementTypes.Data;
         public unsafe void* defaultValue;
+        public IntPtr disposeFn;
         static ComponentType() {
             elementTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentType>();
             elementTypes.Data = new NativeHashMap<int, ComponentType>(32, Allocator.Persistent);
@@ -117,7 +118,7 @@ namespace Wargon.Nukecs {
         public static void InitializeComponentType<T>(int index) where T : unmanaged
         {
             Add(typeof(T), index);
-            var componentType =  AddComponentType<T>(index);
+            var componentType = AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
             if (componentType.isDisposable) {
                 ComponentHelpers.CreateDisposer<T>(index);
@@ -152,13 +153,13 @@ namespace Wargon.Nukecs {
                 size = size,
                 index = index,
                 isTag = size == 1,
-                isDisposable = typeof(T).GetInterfaces()
-                    .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IDisposable<>)),
+                isDisposable = typeof(IDisposable).IsAssignableFrom(typeof(T)),
                 isCopyable = typeof(T).GetInterfaces()
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>)),
-                isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>)
+                isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>),
             };
-            
+
+
             data.defaultValue = UnsafeUtility.Malloc(data.size, data.align, Allocator.Persistent);
             *(T*) data.defaultValue = default(T);
             ComponentTypes.Data.TryAdd(index, data);
@@ -168,6 +169,13 @@ namespace Wargon.Nukecs {
         
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
         public static ComponentType GetComponentType<T>() => ComponentTypesByTypes[typeof(T)];
+
+        public static void SetComponentType<T>(ComponentType componentType) where T : unmanaged
+        {
+            ComponentTypesByTypes[typeof(T)] = componentType;
+            ComponentTypes.Data[ComponentType<T>.Index] =  componentType;
+            ComponentType<T>.Data = componentType;
+        }
         public static ComponentType GetComponentType(Type type) => ComponentTypesByTypes[type];
         internal static void Add(Type type, int index) {
             cache.Add(type, index);
