@@ -15,25 +15,12 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.disposeFn = DisposeRegistryFunction.CreatePtr<T>();
+            componentType.disposeFn = Marshal.GetFunctionPointerForDelegate(new DisposeDelegate(Dispose));
             ComponentTypeMap.SetComponentType<T>(componentType);
-            //Generated.GeneratedDisposeRegistryStatic.fn[ComponentType<T>.Index] = CreatePtr();
         }
     }
-    
-    internal static unsafe class DisposeRegistryFunction
-    {
-        internal static IntPtr CreatePtr<T>() where T : unmanaged, IDisposable
-        {
-            return Ptr(DisposeRegistryStatic<T>.Dispose);
-        }
 
-        internal static IntPtr Ptr(DisposeDelegate func)
-        {
-            return Marshal.GetFunctionPointerForDelegate(func);
-        }
-    }
-    public unsafe delegate void DisposeDelegate(byte* comp, int index);
+    public unsafe delegate void DisposeDelegate(byte* buffer, int index);
     
     public static unsafe class CopyRegistryStatic<T> where T : unmanaged, ICopyable<T>
     {
@@ -48,21 +35,25 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.copyFn = CopyRegistryFunction.CreatePtr<T>();
+            componentType.copyFn = Marshal.GetFunctionPointerForDelegate(new CopyDelegate(Copy));
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
     public unsafe delegate void CopyDelegate(byte* buffer, int from, int to);
-    internal static unsafe class CopyRegistryFunction
+    public unsafe delegate void PoolResizeDelegate(byte* buffer, int index);
+    public static unsafe class OnPoolResizeRegistryStatic<T> where T : unmanaged, IOnPoolResize
     {
-        internal static IntPtr CreatePtr<T>() where T : unmanaged, ICopyable<T>
-        {
-            return Ptr(CopyRegistryStatic<T>.Copy);
+        [BurstCompile(CompileSynchronously = true)]
+        [AOT.MonoPInvokeCallback(typeof(PoolResizeDelegate))]
+        public static void OnResize(byte* buffer, int index) {
+            ((T*)buffer)[index].OnPoolResize(buffer);
         }
-
-        internal static IntPtr Ptr(CopyDelegate func)
+        public static void Register()
         {
-            return Marshal.GetFunctionPointerForDelegate(func);
+            // var componentType = ComponentTypeMap.GetComponentType(typeof(T));
+            // componentType.copyFn = Marshal.GetFunctionPointerForDelegate(new CopyDelegate(Copy));
+            // ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
+
 }

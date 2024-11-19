@@ -29,6 +29,10 @@ namespace Wargon.Nukecs {
         public Type ManagedType => ComponentTypeMap.GetType(index);
         public FunctionPointer<DisposeDelegate> DisposeFn()
         {
+            if (disposeFn == IntPtr.Zero)
+            {
+                throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
+            }
             return new FunctionPointer<DisposeDelegate>(disposeFn);
         }
         
@@ -206,21 +210,16 @@ namespace Wargon.Nukecs {
             {
                 var type = kvPair.Value;
                 ref var pool = ref pools.Ptr[type.index];
-                // pool = GenericPool.Create(type, size, allocator);
                 if (!type.isArray)
                 {
-                    //Debug.Log($"Pool {GetType(type.index)} created");
                     pool = GenericPool.Create(type, size, allocator);
                     poolsCount += 1;
                 }
                 else
                 {
-                    //var realType = GetType(type.index);
-                    //Debug.Log($"Pool {realType} created");
                     pool = GenericPool.Create(type, size, allocator);
                     var elementType = ComponentType.ElementTypes[type.index];
                     ref var elementsPool = ref pools.Ptr[elementType.index + 1];
-                    //Debug.Log($"Pool for elements {realType.GetGenericArguments()[0]} created");
                     elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, allocator);
                     poolsCount += 2;
                 }
