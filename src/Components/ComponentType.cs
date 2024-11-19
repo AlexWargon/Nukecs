@@ -136,12 +136,6 @@ namespace Wargon.Nukecs {
             Add(typeof(T), index);
             var componentType = AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
-            if (componentType.isDisposable) {
-                ComponentHelpers.CreateDisposer<T>(index);
-            }
-            if (componentType.isCopyable) {
-                ComponentHelpers.CreateCopper<T>(index);
-            }
         }
 
         public static unsafe void InitializeElementType<T>(int index) where T : unmanaged, IArrayComponent

@@ -217,34 +217,14 @@ namespace Wargon.Nukecs
     {
         static ComponentHelpers() {
             writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
-            disposers = new IComponentDisposer[ComponentAmount.Value.Data];
-            coppers = new IComponentCopper[ComponentAmount.Value.Data];
         }
         private static readonly IUnsafeBufferWriter[] writers;
-        private static readonly IComponentDisposer[] disposers;
-        private static readonly IComponentCopper[] coppers;
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
             writers[typeIndex] = new UnsafeBufferWriter<T>();
-        }
-        internal static void CreateDisposer<T>(int typeIndex)  where T : unmanaged{
-            disposers[typeIndex] = new ComponentDisposer<T>();
-        }
-        
-        internal static void CreateCopper<T>(int typeIndex)  where T : unmanaged{
-            coppers[typeIndex] = new ComponentCopper<T>();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [BurstDiscard]
-        internal static unsafe void Dispose(byte* buffer, int index, int typeIndex){
-            disposers[typeIndex].Dispose(buffer, index);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void Copy(void* buffer, int from, int to,int typeIndex){
-            coppers[typeIndex].Copy(buffer, from, to);
         }
     }
 
