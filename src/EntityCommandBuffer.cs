@@ -360,7 +360,7 @@ namespace Wargon.Nukecs {
                             {
                                 if (cmd.IsDisposable)
                                 {
-                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                    world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                                 }
                                 UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                                 break;
@@ -375,7 +375,7 @@ namespace Wargon.Nukecs {
                             {
                                 if (cmd.IsDisposable)
                                 {
-                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                    world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                                 }
                                 break;
                             }
@@ -430,7 +430,7 @@ namespace Wargon.Nukecs {
                             {
                                 if (cmd.IsDisposable)
                                 {
-                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                    world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                                 }
                                 UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                                 break;
@@ -445,7 +445,7 @@ namespace Wargon.Nukecs {
                             {
                                 if (cmd.IsDisposable)
                                 {
-                                    ComponentHelpers.Dispose(cmd.Component, 0, cmd.ComponentType);
+                                    world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                                 }
                                 break;
                             }
