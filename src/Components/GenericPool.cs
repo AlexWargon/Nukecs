@@ -204,9 +204,10 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        [BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CopyComponent(int from, int to) {
-            ComponentHelpers.Copy(UnsafeBuffer->buffer, from, to, UnsafeBuffer->ComponentType.index);
+            UnsafeBuffer->ComponentType.CopyFn().Invoke(UnsafeBuffer->buffer, from, to);
+            //ComponentHelpers.Copy(UnsafeBuffer->buffer, from, to, UnsafeBuffer->ComponentType.index);
         }
         [BurstDiscard]
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
