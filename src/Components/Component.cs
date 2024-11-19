@@ -9,7 +9,6 @@ namespace Wargon.Nukecs
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
-    using System.Text;
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
@@ -26,17 +25,14 @@ namespace Wargon.Nukecs
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }
-    // public interface IDisposable<T> {
-    //     void Dispose(ref T value);
-    // }
     public interface ICopyable<T> {
-        T Copy(ref T toCopy, int to);
+        T Copy(int to);
     }
+
     public abstract class Convertor : ScriptableObject, ICustomConvertor {
         public abstract void Convert(ref World world, ref Entity entity);
     }
     public struct Changed<T> : IComponent where T : unmanaged, IComponent {}
-
     public struct Reactive<T> : IComponent where T : unmanaged, IComponent
     {
         public T oldValue;
@@ -131,61 +127,26 @@ namespace Wargon.Nukecs
                 }
                 count++;
             }
-            ComponentAmount.Value.Data = count;
             
-            // ComponentAmount.Value.Data = count;
+            ComponentAmount.Value.Data = count;
+
             foreach (var (type, index) in componentTypes)
             {
                 ComponentTypeMap.InitializeComponentTypeReflection(type, index);
             }
+            
             foreach (var (type, index) in arrayElementTypes)
             {
                 ComponentTypeMap.InitializeArrayElementTypeReflection(type, index);
             }
+            
             Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             Generated.GeneratedDisposeRegistryStatic.RegisterTypes();
+            
             componentTypes.Clear();
             arrayElementTypes.Clear();
-            // var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            // var componentTypes = new List<(Type, int)>();
-            // var arrayElementTypes = new List<(Type,int)>();
-            // foreach (var assembly in assemblies) {
-            //     var types = assembly.GetTypes();
-            //     foreach (var type in types) {
-            //         if (typeof(IComponent).IsAssignableFrom(type) && type != typeof(IComponent)) {
-            //             if (type.IsGenericType)
-            //             {
-            //                 var args = FindGenericUsages(type, assembly);
-            //                 foreach (var type1 in args)
-            //                 {
-            //                     //componentTypes.Add((type1, count));
-            //                     dbug.log(type1.Name);
-            //                 }
-            //                 continue;
-            //             }
-            //             componentTypes.Add((type, count));
-            //             count++;
-            //         }
-            //         if (typeof(IArrayComponent).IsAssignableFrom(type) && type != typeof(IArrayComponent)) {
-            //             arrayElementTypes.Add((type, count));
-            //             count++;
-            //             count++;
-            //         }
-            //     }
-            // }
-            // ComponentAmount.Value.Data = count;
-            // foreach (var (type, index) in componentTypes)
-            // {
-            //     
-            // }
-            // foreach (var (type, index) in arrayElementTypes)
-            // {
-            //     ComponentTypeMap.InitializeComponentArrayTypeReflection(type, index);
-            // }
-            //componentTypes.Clear();
-           // arrayElementTypes.Clear();
-            _initialized = true;
             
+            _initialized = true;
         }
 
         internal static void LogComponent(ComponentType type)
@@ -331,38 +292,6 @@ namespace Wargon.Nukecs
         }
     }
 
-    public readonly unsafe struct DisposeInfo
-    {
-        public readonly byte* buffer;
-        public readonly int type;
-        public readonly int entity;
-
-        public DisposeInfo(int type, int entity, byte* buffer)
-        {
-            this.type = type;
-            this.entity = entity;
-            this.buffer = buffer;
-        }
-    }
-    public unsafe struct DisposeComponentsSystem : ISystem, IOnCreate, IOnDestroy
-    {
-        ParallelNativeList<DisposeInfo> toDispose;
-        public void OnCreate(ref World world)
-        {
-            toDispose = new ParallelNativeList<DisposeInfo>(128);
-        }
-        public void OnUpdate(ref State state)
-        {
-            foreach (var disposeInfo in toDispose)
-            {
-                ComponentHelpers.Dispose(disposeInfo.buffer, disposeInfo.entity, disposeInfo.type);
-            }
-        }
-        public void OnDestroy(ref World world)
-        {
-            toDispose.Dispose();
-        }
-    }
 
     public unsafe struct ParallelNativeList<T> : IDisposable where T : unmanaged
     {
@@ -445,35 +374,6 @@ namespace Wargon.Nukecs
         }
     }
 
-    internal static unsafe class DisposeRegistryFunction
-    {
-        internal static IntPtr CreatePtr<T>() where T : unmanaged, IDisposable
-        {
-            return Ptr(DisposeRegistryStatic<T>.Dispose);
-        }
-
-        internal static IntPtr Ptr(DisposeDelegate func)
-        {
-            return Marshal.GetFunctionPointerForDelegate(func);
-        }
-    }
-    public static unsafe class DisposeRegistryStatic<T> where T : unmanaged, IDisposable
-    {
-        [BurstCompile(CompileSynchronously = true)]
-        [AOT.MonoPInvokeCallback(typeof(DisposeDelegate))]
-        public static void Dispose(byte* buffer, int index) {
-            ((T*)buffer)[index].Dispose();
-        }
-
-        public static void Register()
-        {
-            var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.disposeFn = DisposeRegistryFunction.CreatePtr<T>();
-            ComponentTypeMap.SetComponentType<T>(componentType);
-            //Generated.GeneratedDisposeRegistryStatic.fn[ComponentType<T>.Index] = CreatePtr();
-        }
-    }
-
     public struct TestDisposable : IDisposable, IComponent
     {
         public void Dispose()
@@ -481,9 +381,6 @@ namespace Wargon.Nukecs
             
         }
     }
-
-
-    public unsafe delegate void DisposeDelegate(byte* comp, int index);
 
     public readonly struct UnmanagedDelegate<T> : IDisposable where T : Delegate
     {
@@ -538,24 +435,9 @@ namespace Wargon.Nukecs
         public unsafe void Copy(void* buffer, int from, int to) {
             ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
             UnsafeUtility.WriteArrayElement(buffer, to, _copyFunc.Invoke(ref component, to));
-
-        }
-    }
-    public interface IPool {
-        
-    }
-    public sealed class ManagedPool<T> : IPool where T : struct {
-        internal T[] data;
-        public ManagedPool(int size) {
-            data = new T[size];
         }
     }
 
-    public static class ManagedPoolExtensions {
-        internal static NativePool<T> AsNative<T>(this ManagedPool<T> pool) where T : unmanaged {
-            return new NativePool<T>(pool.data);
-        }
-    }
     public unsafe struct NativePool<T> : IDisposable where T : unmanaged {
         private readonly T* _ptr;
         private GCHandle _handle;
@@ -578,8 +460,6 @@ namespace Wargon.Nukecs
             _handle.Free();
         }
     }
-
-    
     
     public unsafe struct GetRef<TComponent> where TComponent : unmanaged, IComponent
     {
@@ -681,6 +561,16 @@ namespace Wargon.Nukecs
             v3 = value3;
         }
     }
+    public struct TestCopyDispose : IComponent, IDisposable, ICopyable<TestCopyDispose>
+    {
+        public void Dispose()
+        {
+            
+        }
 
-
+        public TestCopyDispose Copy(int to)
+        {
+            return new TestCopyDispose();
+        }
+    }
 }

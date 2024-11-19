@@ -21,10 +21,26 @@ namespace Wargon.Nukecs {
         public bool isCopyable;
         public bool isArray;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> elementTypes;
-
         public static ref NativeHashMap<int, ComponentType> ElementTypes => ref elementTypes.Data;
+        
         public unsafe void* defaultValue;
-        public IntPtr disposeFn;
+        internal IntPtr disposeFn;
+        internal IntPtr copyFn;
+        public Type ManagedType => ComponentTypeMap.GetType(index);
+        public FunctionPointer<DisposeDelegate> DisposeFn()
+        {
+            return new FunctionPointer<DisposeDelegate>(disposeFn);
+        }
+        
+        public FunctionPointer<CopyDelegate> CopyFn()
+        {
+            if (copyFn == IntPtr.Zero)
+            {
+                throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
+            }
+            return new FunctionPointer<CopyDelegate>(copyFn);
+        }
+        
         static ComponentType() {
             elementTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentType>();
             elementTypes.Data = new NativeHashMap<int, ComponentType>(32, Allocator.Persistent);

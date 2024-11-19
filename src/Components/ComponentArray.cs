@@ -133,9 +133,9 @@ namespace Wargon.Nukecs
             _capacity = 0;
         }
 
-        public ComponentArray<T> Copy(ref ComponentArray<T> toCopy, int to)
+        public ComponentArray<T> Copy(int to)
         {
-            return new ComponentArray<T>(ref toCopy, to);
+            return new ComponentArray<T>(ref this, to);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
