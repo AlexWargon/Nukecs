@@ -1,8 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Unity.Collections;
-using Unity.Jobs.LowLevel.Unsafe;
+﻿
 
 namespace Wargon.Nukecs
 {
@@ -12,7 +8,12 @@ namespace Wargon.Nukecs
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
-
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Reflection;
+    using Unity.Collections;
+    using Unity.Jobs.LowLevel.Unsafe;
+    
     public sealed class NoComponentException : Exception
     {
         public NoComponentException(string msg) : base(msg)
@@ -24,6 +25,10 @@ namespace Wargon.Nukecs
     public interface IReactive { }
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
+    }
+    public unsafe interface IOnPoolResize
+    {
+        void OnPoolResize(byte* buffer);
     }
     public interface ICopyable<T> {
         T Copy(int to);
@@ -116,12 +121,10 @@ namespace Wargon.Nukecs
             foreach (var component in components)
             {
                 if(component == typeof(IComponent)) continue;
-                //Debug.Log(component);
-                //ComponentTypeMap.InitializeComponentTypeReflection(component, count);
+
                 componentTypes.Add((component, count));
                 if (component.IsGenericType && component.GetGenericTypeDefinition() == typeof(ComponentArray<>))
                 {
-                    //ComponentTypeMap.InitializeArrayElementTypeReflection(component.GetGenericArguments()[0], count);
                     arrayElementTypes.Add((component.GetGenericArguments()[0], count));
                     count++;
                 }
@@ -358,10 +361,55 @@ namespace Wargon.Nukecs
     {
         public void Dispose()
         {
-            
         }
     }
 
+    public readonly struct UntypedUnmanagedDelegate : IDisposable
+    {
+        private readonly IntPtr _ptr;
+        private readonly GCHandle _gcHandle;
+
+        public T As<T>()
+        {
+            return new FunctionPointer<T>(_ptr).Invoke;
+        }
+        
+        public UntypedUnmanagedDelegate(IntPtr ptr, GCHandle gcHandle)
+        {
+            _ptr = ptr;
+            _gcHandle = gcHandle;
+        }
+        public static UntypedUnmanagedDelegate Create<T>(T function) where T : Delegate
+        {
+#if UNITY_EDITOR
+            var method = function.Method;
+            if (method == null || !method.IsStatic ||
+                method.GetCustomAttributes(typeof(AOT.MonoPInvokeCallbackAttribute), false).Length == 0)
+            {
+                throw new Exception(
+                    "Unmanaged delegate may only be created from static method with MonoPInvokeCallback attribute");
+            }
+#endif
+            return new UntypedUnmanagedDelegate(Marshal.GetFunctionPointerForDelegate(function), GCHandle.Alloc(function));
+        }
+
+        public static unsafe UntypedUnmanagedDelegate* CreatePointer<T>(T function) where T : Delegate
+        {
+            UntypedUnmanagedDelegate* ptr = Unsafe.MallocTracked<UntypedUnmanagedDelegate>(Allocator.Persistent);
+            *ptr = Create(function);
+            return ptr;
+        }
+
+        public static unsafe void Destroy(UntypedUnmanagedDelegate* untypedUnmanagedDelegate)
+        {
+            untypedUnmanagedDelegate->Dispose();
+            Unsafe.FreeTracked(untypedUnmanagedDelegate, Allocator.Persistent);
+        }
+        public void Dispose()
+        {
+            _gcHandle.Free();
+        }
+    }
     public readonly struct UnmanagedDelegate<T> : IDisposable where T : Delegate
     {
         public UnmanagedDelegate(T function)
@@ -376,45 +424,20 @@ namespace Wargon.Nukecs
             }
 #endif
             _gcHandle = GCHandle.Alloc(function);
-            ptr = new FunctionPointer<T>(Marshal.GetFunctionPointerForDelegate(function));
+            _ptr = new FunctionPointer<T>(Marshal.GetFunctionPointerForDelegate(function));
         }
 
-        public readonly FunctionPointer<T> ptr;
+        private readonly FunctionPointer<T> _ptr;
         private readonly GCHandle _gcHandle;
 
+        public T Invoke
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _ptr.Invoke;
+        }
         public void Dispose()
         {
             _gcHandle.Free();
-        }
-    }
-    public unsafe interface IComponentCopper {
-        void Copy(void* buffer, int from, int to);
-    }
-
-    public class ComponentCopper<T> : IComponentCopper where T : unmanaged {
-        private delegate T CopyDelegate(ref T value, int to);
-        private readonly CopyDelegate _copyFunc;
-#if ENABLE_IL2CPP && !UNITY_EDITOR
-        T _fakeInstance;
-#endif
-        public ComponentCopper() {
-            var copy = typeof(T).GetMethod(nameof(ICopyable<T>.Copy));
-            if (copy == null) {
-                throw new Exception (
-                    $"IDispose<{typeof (T).Name}> explicit implementation not supported, use implicit instead.");
-            }
-            _copyFunc = (CopyDelegate)Delegate.CreateDelegate(typeof(CopyDelegate),
-#if ENABLE_IL2CPP && !UNITY_EDITOR
-                    _fakeInstance,
-#else
-                null,
-#endif
-                copy);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Copy(void* buffer, int from, int to) {
-            ref var component  = ref UnsafeUtility.ArrayElementAsRef<T>(buffer, from);
-            UnsafeUtility.WriteArrayElement(buffer, to, _copyFunc.Invoke(ref component, to));
         }
     }
 

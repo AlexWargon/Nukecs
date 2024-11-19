@@ -187,11 +187,10 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DisposeComponent(int index) {
-            //ComponentHelpers.Dispose(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.index);
             var fn = new FunctionPointer<DisposeDelegate>(UnsafeBuffer->ComponentType.disposeFn);
             fn.Invoke(UnsafeBuffer->buffer, index);
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Copy(int source, int destination) {
             if (!UnsafeBuffer->ComponentType.isTag) {
                 CheckResize(math.max(destination, source));
@@ -204,13 +203,13 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        //[BurstDiscard]//[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CopyComponent(int from, int to) {
             UnsafeBuffer->ComponentType.CopyFn().Invoke(UnsafeBuffer->buffer, from, to);
             //ComponentHelpers.Copy(UnsafeBuffer->buffer, from, to, UnsafeBuffer->ComponentType.index);
         }
-        [BurstDiscard]
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize<T>(int index) where T : unmanaged
         {
             if (index >= UnsafeBuffer->capacity)
@@ -243,7 +242,7 @@ namespace Wargon.Nukecs {
                 //Debug.Log($"GenericPool[{ComponentsMap.GetType(impl->componentTypeIndex).Name}] resized on set");
             }
         }
-        [BurstDiscard]
+
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize(int index)
         {
