@@ -14,10 +14,10 @@ namespace Wargon.Nukecs
 {
     public unsafe class Systems {
         internal JobHandle dependencies;
-        private List<ISystemRunner> runners;
-        private List<ISystemRunner> disposeSystems;
-        private List<ISystemDestroyer> _systemDestroyers;
-        private World world;
+        internal List<ISystemRunner> runners;
+        internal List<ISystemRunner> disposeSystems;
+        internal List<ISystemDestroyer> _systemDestroyers;
+        internal World world;
 
         private NativeList<JobHandle> dependenciesList;
         //private ECBSystem _ecbSystem;
@@ -166,35 +166,6 @@ namespace Wargon.Nukecs
             runners.Add(runner);
             return this;
         }
-        // private void AddDisposeSystem<T>() where T: unmanaged, IComponent, IDisposable
-        // {
-        //     var system = new DisposeSystem<T>();
-        //     if (system is IOnCreate s) {
-        //         s.OnCreate(ref world);
-        //         system = (DisposeSystem<T>) s;
-        //     }
-        //     
-        //     var runner = new SystemMainThreadRunnerClass<DisposeSystem<T>> {
-        //         System = system,
-        //         EcbJob = default
-        //     };
-        //     disposeSystems.Add(runner);
-        // }
-        // private void InitDisposeSystems()
-        // {
-        //     var addMethod = typeof(Systems).GetMethod(nameof(AddDisposeSystem));
-        //
-        //     var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-        //     foreach (var assembly in assemblies) {
-        //         var types = assembly.GetTypes();
-        //         foreach (var type in types) {
-        //             if (typeof(IComponent).IsAssignableFrom(type) && typeof(IDisposable).IsAssignableFrom(type))
-        //             {
-        //                 addMethod?.MakeGenericMethod(type).Invoke(this, null);
-        //             }
-        //         }
-        //     }
-        // }
         public Systems Add<T>(T group) where T : SystemsGroup {
             group.world = world;
             for (int i = 0; i < group.runners.Count; i++)
@@ -218,11 +189,6 @@ namespace Wargon.Nukecs
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
-            
-            //for (var i = 0; i < disposeSystems.Count; i++)
-            //{
-            //    world.DependenciesUpdate = disposeSystems[i].Schedule(ref world, dt, ref world.DependenciesUpdate, UpdateContext.Update);
-            //}
         }
         public void OnFixedUpdate(float dt, float time)
         {
@@ -259,6 +225,24 @@ namespace Wargon.Nukecs
         // }
     }
 
+    public static class SystemsExtensions {
+        public static Systems Add<T>(this Systems systems, SystemMode systemMode) where T : struct, IEntityJobSystem{
+            T system = default;
+            if (system is IOnCreate s) {
+                s.OnCreate(ref systems.world);
+                system = (T) s;
+            }
+
+            var runner = new EntityJobSystemRunner<T> {
+                System = system,
+                Mode = systemMode,
+                EcbJob = default
+            };
+            runner.Query = runner.System.GetQuery(ref systems.world);
+            systems.runners.Add(runner);
+            return systems;
+        }
+    }
     public struct State
     {
         public JobHandle Dependencies;

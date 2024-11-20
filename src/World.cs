@@ -14,13 +14,23 @@ namespace Wargon.Nukecs {
     {
         public static object pools = new ();
     }
-    public unsafe struct World : IDisposable {
+    public unsafe partial struct World : IDisposable {
+        public const Allocator Allocator = Unity.Collections.Allocator.Persistent;
         private static readonly World[] worlds = new World[4];
         private static int lastFreeSlot;
         private static int lastWorldID;
         public static ref World Get(int index) => ref worlds[index];
         // ReSharper disable once InconsistentNaming
-        public static ref World Default => ref Get(0);
+        public static ref World Default {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get {
+                ref var w = ref Get(0);
+                if (!w.IsAlive) {
+                    w = Create();
+                }
+                return ref w;
+            }
+        }
         private static event Action OnWorldCreatingEvent;
         private static event Action OnDisposeStaticEvent;
         public static void OnWorldCreating(Action action)
@@ -38,7 +48,7 @@ namespace Wargon.Nukecs {
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.UnsafeWorld = WorldUnsafe.Create(id, WorldConfig.Default_1_000_000);
+            world.UnsafeWorld = WorldUnsafe.Create(id, WorldConfig.Default16384);
             worlds[id] = world;
             
             return world;
@@ -80,11 +90,13 @@ namespace Wargon.Nukecs {
         public ref JobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
         public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
+
+
         internal struct WorldUnsafe {
             internal readonly int Id;
             internal readonly Allocator allocator;
             internal UnsafeList<Entity> entities;
-            internal UnsafeList<Entity> prefabesToSpawn;
+            internal UnsafeList<Entity> prefabsToSpawn;
             internal UnsafeList<int> reservedEntities;
             internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeList<GenericPool> pools;
@@ -130,7 +142,7 @@ namespace Wargon.Nukecs {
                 this.allocator = allocator;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
                     NativeArrayOptions.ClearMemory);
-                this.prefabesToSpawn = new UnsafeList<Entity>(64, allocator, NativeArrayOptions.ClearMemory);
+                this.prefabsToSpawn = new UnsafeList<Entity>(64, allocator, NativeArrayOptions.ClearMemory);
                 this.reservedEntities = new UnsafeList<int>(128, allocator, NativeArrayOptions.ClearMemory);
                 this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(config.StartEntitiesAmount,
                     allocator, NativeArrayOptions.ClearMemory);
@@ -144,7 +156,6 @@ namespace Wargon.Nukecs {
                 this.systemsUpdateJobDependencies = default;
                 this.systemsFixedUpdateJobDependencies = default;
                 this.DefaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
-                
                 this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 this.entitiesAmount = 0;
                 this.lastEntityIndex = 1;
@@ -213,7 +224,7 @@ namespace Wargon.Nukecs {
                 ECBFixed.Dispose();
                 DefaultNoneTypes.Dispose();
                 reservedEntities.Dispose();
-                prefabesToSpawn.Dispose();
+                prefabsToSpawn.Dispose();
                 self = null;
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -266,6 +277,7 @@ namespace Wargon.Nukecs {
             {
                 ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, allocator, ref poolsCount);
             }
+            
             [BurstDiscard]
             private void DebugPoolLog<T>(int poolIndex, int count)
             {
@@ -369,7 +381,7 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Entity SpawnPrefab(in Entity prefab) {
                 var e = prefab.Copy();
-                prefabesToSpawn.Add(e);
+                prefabsToSpawn.Add(e);
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

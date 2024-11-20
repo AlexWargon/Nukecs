@@ -31,13 +31,13 @@ namespace Wargon.Nukecs.Collision2D {
                 {
                     World = state.World, Hits = hitsArray.AsReadOnly()
                 }
-                .Schedule(hitsArray.Length, state.Dependencies);
+                .Schedule(hitsArray.Length,64, state.Dependencies);
             
             state.Dependencies = hitsArray.Dispose(state.Dependencies);
         }
 
         [BurstCompile]
-        private struct Fill : IJobFor
+        private struct Fill : IJobParallelFor
         {
             public World World;
             [ReadOnly]

@@ -144,6 +144,7 @@
                 var q = queries.ElementAtNoCheck(i);
                 q->Add(to);
             }
+
             foreach (var type in types) {
                 ref var pool = ref world->GetUntypedPool(type);
                 pool.Copy(from, to);
@@ -335,8 +336,8 @@
         public Edge(Allocator allocator) {
             this.addEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
             this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-            toMovePtr = null;
-            toMove = default;
+            this.toMovePtr = null;
+            this.toMove = default;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
