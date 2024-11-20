@@ -530,6 +530,7 @@ namespace Wargon.Nukecs {
 
                 public void Reset() {
                     _lastIndex = -1;
+                    _lastIndex.InRange(1,6);
                 }
 
                 public (Ref<T1>, Ref<T2>) Current {
@@ -545,4 +546,10 @@ namespace Wargon.Nukecs {
     }
     public struct With<T> : IFilter where T: struct, ITuple { }
     public struct None<T> : IFilter where T: struct, ITuple { }
+
+    public static class Exts {
+        public static bool InRange(this int integer, int min, int max) {
+            return integer >= min && integer <= max;
+        }
+    }
 }

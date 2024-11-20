@@ -81,10 +81,10 @@ namespace Wargon.Nukecs {
                 return ref ((T*)buffer)[index];
             }
         }
-        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckValid(int index)
         {
-            if (UnsafeBuffer == null) throw new NullReferenceException("Buffer is null!");
+            //if (UnsafeBuffer == null) throw new NullReferenceException("Buffer is null!");
             if (index < 0 || index >= UnsafeBuffer->capacity) {
                 throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentTypeMap.GetType(UnsafeBuffer->ComponentType.index).Name}] with capacity {UnsafeBuffer->capacity}.");
             }
@@ -128,7 +128,7 @@ namespace Wargon.Nukecs {
         public void SetShared<T>(in T value) where T : unmanaged{
             ((T*)UnsafeBuffer->buffer)[0] = value;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, void* value) {
             if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {

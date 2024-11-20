@@ -86,6 +86,10 @@ namespace Wargon.Nukecs
     [BurstCompile]
     public static unsafe class EntityExtensions
     {
+        /// <summary>
+        /// <para>!!!WARNING!!!</para>
+        /// <para>Use 'ref' keyword!</para> 
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6,
             Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
@@ -94,6 +98,10 @@ namespace Wargon.Nukecs
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
+        /// <summary>
+        /// <para>!!!WARNING!!!</para>
+        /// <para>Use 'ref' keyword!</para> 
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetOrCreateArray<T>(this ref Entity entity)
             where T : unmanaged, IArrayComponent
@@ -109,7 +117,10 @@ namespace Wargon.Nukecs
         {
             return new NoComponentException($"Entity has no component array {typeof(T).Name}");
         }
-
+        /// <summary>
+        /// <para>!!!WARNING!!!</para>
+        /// <para>Use 'ref' keyword!</para> 
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> AddArray<T>(this ref Entity entity) where T : unmanaged, IArrayComponent
         {
@@ -209,7 +220,6 @@ namespace Wargon.Nukecs
                 return ref pool.GetRef<T>(entity.id);
             }
 
-            //todo switch to untyped pool
             return ref entity.worldPointer->GetUntypedPool(componentType).GetRef<T>(entity.id);
         }
 
