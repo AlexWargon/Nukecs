@@ -90,8 +90,8 @@ namespace Wargon.Nukecs.Collision2D
             for (var i = 0; i < cells.Length; i++) {
                 var cell = cells[i];
                 cell.Draw(Color.yellow);
-                //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.Index}", style);
-                //UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.up, $"{cell.CollidersBuffer.Count}", style);
+                UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.Index}", style);
+                UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.up, $"{cell.CollidersBuffer.Count}", style);
             }
 #endif
         }

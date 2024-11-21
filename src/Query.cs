@@ -330,6 +330,7 @@ namespace Wargon.Nukecs {
         public int Count => count;
 
         // Method to add an element (set a specific bit)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(int position) {
             if (position < 0 || position >= maxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
@@ -346,6 +347,7 @@ namespace Wargon.Nukecs {
         }
 
         // Method to check if an element is present (a specific bit is set)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int position) {
             if (position < 0 || position >= maxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
@@ -359,6 +361,7 @@ namespace Wargon.Nukecs {
         }
 
         // Method to clear an element (unset a specific bit)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int position) {
             if (position < 0 || position >= maxBits) {
                 throw new ArgumentOutOfRangeException(nameof(position),
