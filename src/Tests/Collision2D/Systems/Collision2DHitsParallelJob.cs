@@ -14,6 +14,7 @@ namespace Wargon.Nukecs.Collision2D {
         public ComponentPool<Transform> transforms;
         public ComponentPool<Rectangle2D> rectangles;
         public ComponentPool<Body2D> bodies;
+        public ComponentPool<ComponentArray<Collision2DData>> collisionData;
         [WriteOnly] public NativeQueue<HitInfo>.ParallelWriter collisionEnterHits;
         public float2 Offset, GridPosition;
         public int W, H, cellSize;
@@ -31,7 +32,7 @@ namespace Wargon.Nukecs.Collision2D {
                 if (di < 0 || di >= cells.m_length) continue;
                 
                 var cell2 = cells[di];
-
+                
                 for (var i = 0; i < cell1.CollidersBuffer.Count; i++) {
                     var e1 = cell1.CollidersBuffer[i];
                     ref var c1 = ref colliders.Get(e1);
@@ -59,6 +60,26 @@ namespace Wargon.Nukecs.Collision2D {
                                 
                                 
                                 collisionEnterHits.Enqueue(hitInfo);
+                                ref var buffer1 = ref collisionData.Get(e1);
+                                ref var buffer2 = ref collisionData.Get(e2);
+                                ref var ent1 = ref world.GetEntity(e1);
+                                ref var ent2 = ref world.GetEntity(e2);
+                                buffer1.AddParallel(new Collision2DData() {
+                                    Other = ent2,
+                                    Type = hitInfo.Type,
+                                    Position = hitInfo.Pos,
+                                    Normal = hitInfo.Normal
+                                });
+                                
+                                buffer2.AddParallel(new Collision2DData() {
+                                    Other = ent1,
+                                    Type = hitInfo.Type,
+                                    Position = hitInfo.Pos,
+                                    Normal = hitInfo.Normal
+                                });
+                                
+                                ent1.Add(new CollidedFlag());
+                                ent2.Add(new CollidedFlag());
                             }
                         }
                     }

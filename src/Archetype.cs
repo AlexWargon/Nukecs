@@ -150,7 +150,7 @@
                 pool.Copy(from, to);
             }
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity Copy(in Entity entity) {
             var newEntity = world->CreateEntity(id);
             for (var i = 0; i < queries.Length; i++) {
@@ -163,7 +163,7 @@
                 ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Copy(entity.id, newEntity.id);
             }
-
+            
             if (mask.Has(ComponentType<ComponentArray<Child>>.Index)) {
                 ref var pool = ref world->GetPool<ComponentArray<Child>>();
                 ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity.id);

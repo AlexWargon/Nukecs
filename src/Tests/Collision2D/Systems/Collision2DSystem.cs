@@ -8,12 +8,14 @@ namespace Wargon.Nukecs.Collision2D
         private GenericPool colliders;
         private GenericPool rectangles;
         private GenericPool bodies;
+        private GenericPool collisionsDataArrays;
         private int collisionStatesSize;
         public void OnCreate(ref World world) {
             transforms = world.GetPool<Transform>();
             colliders = world.GetPool<Circle2D>();
             rectangles = world.GetPool<Rectangle2D>();
             bodies = world.GetPool<Body2D>();
+            collisionsDataArrays = world.GetPool<ComponentArray<Collision2DData>>();
         }
         public void OnUpdate(ref State state) {
             var grind2D = Grid2D.Instance;
@@ -32,6 +34,7 @@ namespace Wargon.Nukecs.Collision2D
                 transforms = transforms.AsComponentPool<Transform>(),
                 bodies = bodies.AsComponentPool<Body2D>(),
                 rectangles = rectangles.AsComponentPool<Rectangle2D>(),
+                collisionData = collisionsDataArrays.AsComponentPool<ComponentArray<Collision2DData>>(),
                 collisionEnterHits = grind2D.Hits.AsParallelWriter(),
                 cells = grind2D.cells,
                 W = grind2D.W,
@@ -41,7 +44,7 @@ namespace Wargon.Nukecs.Collision2D
                 cellSize = grind2D.CellSize,
                 world = state.World
             };
-            state.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 1, state.Dependencies);
+            state.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 64, state.Dependencies);
         }
     }
 }  

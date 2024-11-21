@@ -608,4 +608,25 @@ namespace Wargon.Nukecs {
             UnityEngine.Debug.LogWarning(massage);
         }
     }
+
+    public unsafe struct WorldLock {
+        public int locks;
+        internal World.WorldUnsafe* world;
+        public bool IsLocked => locks > 0;
+        public bool IsMerging => locks < 0;
+        public void Lock() {
+            if(IsMerging) return;
+            locks++;
+        }
+
+        public void Unlock() {
+            if(IsMerging) return;
+            locks--;
+            if (locks == 0) {
+                locks = -1;
+                world->ECB.Playback(world);
+                locks = 0;
+            }
+        }
+    }
 }
