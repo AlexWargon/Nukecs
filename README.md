@@ -43,3 +43,8 @@ public struct TestSystem2 : IJobSystem, ICreate {
 ```
 
 Also for every system can be added ```ICreate``` interface. ```OnCreate(ref World world)``` will be called when system are added to list of systems
+
+
+TODO:
+- Unity integration without tri inspector
+- Generator for generic job systems
