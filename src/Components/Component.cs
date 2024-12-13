@@ -576,4 +576,12 @@ namespace Wargon.Nukecs
             return new TestCopyDispose();
         }
     }
+    public static unsafe class Cast {
+        public static ref T As<T>(void* ptr) where T: unmanaged {
+            return ref *(T*) ptr;
+        }
+        public static ref T Index<T>(void* buffer, int index) where T : unmanaged {
+            return ref ((T*)buffer)[index];
+        }
+    }
 }
