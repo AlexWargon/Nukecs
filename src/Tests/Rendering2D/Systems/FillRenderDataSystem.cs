@@ -1,5 +1,6 @@
 ﻿using Unity.Burst;
-using Wargon.Nukecs.Transforms;
+using UnityEngine;
+using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs.Tests {
     [BurstCompile]
