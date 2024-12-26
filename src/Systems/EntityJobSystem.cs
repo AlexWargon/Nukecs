@@ -67,7 +67,7 @@ namespace Wargon.Nukecs
             private delegate void ExecuteJobFunction(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
             
-            public static void Execute(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
+            public static unsafe void Execute(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 if(fullData.query.Count == 0) return;
                 switch (fullData.JobData.Mode) {
@@ -78,22 +78,18 @@ namespace Wargon.Nukecs
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                             fullData.State.World.CurrentContext = fullData.updateContext;
                             for (var i = begin; i < end; i++) {
-                                unsafe {
-                                    ref var e = ref fullData.query.impl->GetEntity(i);
-                                    if (e != Entity.Null) {
-                                        fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), ref fullData.State);
-                                    }
+                                ref var e = ref fullData.query.impl->GetEntity(i);
+                                if (e != Entity.Null) {
+                                    fullData.JobData.OnUpdate(ref e, ref fullData.State);
                                 }
                             }
                         }
                         break;
                     case SystemMode.Single:
                         for (var i = 0; i < fullData.query.Count; i++) {
-                            unsafe {
-                                ref var e = ref fullData.query.impl->GetEntity(i);
-                                if (e != Entity.Null) {
-                                    fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), ref fullData.State);
-                                }
+                            ref var e = ref fullData.query.impl->GetEntity(i);
+                            if (e != Entity.Null) {
+                                fullData.JobData.OnUpdate(ref e, ref fullData.State);
                             }
                         }
                         break;

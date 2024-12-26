@@ -14,14 +14,14 @@ namespace Wargon.Nukecs.Tests {
         [Title("Components")][HideLabel][GUIColor(0.6f, 0.9f, 1.0f)][SerializeReference] public List<IComponent> components;
         [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected List<Convertor> convertors = new ();
         private bool converted;
-        private void Start() {
+        //private void Start() {
             // if(converted) return;
             // if (!EntityPrefabMap.TryGet(GetInstanceID(), out Entity entity)) {
             //     ref var w = ref World.Get(worldId);
             //     var e = w.Entity();
             //     Convert(ref w, ref e);
             // }
-        }
+        //}
 
         public void Convert(ref World world, ref Entity entity) {
             if(converted) return;

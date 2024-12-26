@@ -217,12 +217,12 @@ namespace Wargon.Nukecs {
         internal const int MaxBits = 1024;
         public const int ArraySize = MaxBits / BitsPerElement;
 
-        internal fixed ulong _bitmaskArray[ArraySize];
+        internal fixed ulong bitmaskArray[ArraySize];
         internal int count;
 
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return count; }
+            get => count;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -236,7 +236,7 @@ namespace Wargon.Nukecs {
             int bitPosition = position % BitsPerElement;
 
             if (!Has(position)) {
-                _bitmaskArray[index] |= 1UL << bitPosition;
+                bitmaskArray[index] |= 1UL << bitPosition;
                 count++;
                 return true;
             }
@@ -253,7 +253,7 @@ namespace Wargon.Nukecs {
             var index = position / BitsPerElement;
             var bitMask = 1UL << (position % BitsPerElement);
 
-            return (_bitmaskArray[index] & bitMask) != 0;
+            return (bitmaskArray[index] & bitMask) != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -267,7 +267,7 @@ namespace Wargon.Nukecs {
             int bitPosition = position % BitsPerElement;
 
             if (Has(position)) {
-                _bitmaskArray[index] &= ~(1UL << bitPosition);
+                bitmaskArray[index] &= ~(1UL << bitPosition);
                 count--;
             }
         }
@@ -275,7 +275,7 @@ namespace Wargon.Nukecs {
         public override string ToString() {
             char[] bitChars = new char[ArraySize * BitsPerElement];
             for (int i = 0; i < ArraySize; i++) {
-                string bits = Convert.ToString((long) _bitmaskArray[i], 2).PadLeft(BitsPerElement, '0');
+                string bits = Convert.ToString((long) bitmaskArray[i], 2).PadLeft(BitsPerElement, '0');
                 for (int j = 0; j < BitsPerElement; j++) {
                     bitChars[i * BitsPerElement + j] = bits[j];
                 }
@@ -292,7 +292,7 @@ namespace Wargon.Nukecs {
         public static unsafe bool Has2(ref this Bitmask1024 bitmask1024, int position) {
             var index = position / Bitmask1024.BitsPerElement;
             var bitPosition = position % Bitmask1024.BitsPerElement;
-            return (bitmask1024._bitmaskArray[index] & (1UL << bitPosition)) != 0;
+            return (bitmask1024.bitmaskArray[index] & (1UL << bitPosition)) != 0;
         }
     }
     
