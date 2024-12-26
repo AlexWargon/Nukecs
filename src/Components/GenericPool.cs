@@ -54,7 +54,7 @@ namespace Wargon.Nukecs {
                     capacity = size,
                     count = 0,
                     allocator = allocator,
-                    buffer = (byte*)Unsafe.MallocTracked<T>(size, allocator),
+                    buffer = (byte*)Unsafe.MallocTracked<T>(size * sizeof(T), allocator),
                     ComponentType = ComponentType<T>.Data,
                     
                 };

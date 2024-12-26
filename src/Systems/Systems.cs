@@ -10,6 +10,7 @@ using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 using Wargon.Nukecs.Tests;
+using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs
 {
@@ -19,7 +20,7 @@ namespace Wargon.Nukecs
         internal List<ISystemRunner> disposeSystems;
         internal List<ISystemDestroyer> _systemDestroyers;
         internal World world;
-
+        internal SystemsDependencies systemsDependencies;
         private NativeList<JobHandle> dependenciesList;
         //private ECBSystem _ecbSystem;
         public Systems(ref World world) {
@@ -28,6 +29,7 @@ namespace Wargon.Nukecs
             this.disposeSystems = new List<ISystemRunner>();
             this._systemDestroyers = new List<ISystemDestroyer>();
             this.dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
+            this.systemsDependencies = SystemsDependencies.Create();
             this.world = world;
             //_ecbSystem = default;
             //_ecbSystem.OnCreate(ref world);
@@ -35,7 +37,10 @@ namespace Wargon.Nukecs
             //this.InitDisposeSystems();
             WorldSystems.Add(world.UnsafeWorld->Id, this);
         }
-        
+
+        public static Systems Default(ref World world) {
+            return new Systems(ref world).AddDefaults();
+        }
         public Systems AddDefaults()
         {
             this.Add<EntityDestroySystem>();
@@ -43,10 +48,7 @@ namespace Wargon.Nukecs
             this.Add<ClearEntityCreatedEventSystem>();
             return this;
         }
-        public Systems AddEndSystems() {
-            Add<ClearEntityCreatedEventSystem>();
-            return this;
-        }
+
         public Systems Add<T>() where T : struct, IJobSystem {
             T system = default;
             if (system is IOnCreate s) {
@@ -181,6 +183,7 @@ namespace Wargon.Nukecs
         private State stateFixed;
         public void OnUpdate(float dt, float time)
         {
+            systemsDependencies.Complete();
             state.Dependencies.Complete();
             //stateFixed.Dependencies.Complete();
             state.Dependencies = world.DependenciesUpdate;
@@ -218,6 +221,7 @@ namespace Wargon.Nukecs
             {
                 systemDestroyer.Destroy(ref world);
             }
+            systemsDependencies.Dispose();
         }
         // public void Run(float dt) {
         //     for (var i = 0; i < runners.Count; i++) {
@@ -639,34 +643,131 @@ namespace Wargon.Nukecs
     }
 
     public struct JobCallback : IJob {
-        public Action callback;
+        public FunctionPointer<Action> callback;
         public void Execute() {
             callback.Invoke();
         }
     }
 
     public static class JobParallelForExtensions {
-        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, int len, int batchCount, JobHandle dependencies)
+        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, int len, int batchCount, JobHandle dependencies = default)
             where T : struct, IJobParallelFor {
             return new JobCallback {
-                callback = callback
+                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
             }.Schedule(job.Schedule(len, batchCount, dependencies));
         }
     }
     public static class JobForExtensions {
-        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, int len, JobHandle dependencies)
+        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, int len, JobHandle dependencies = default)
             where T : struct, IJobFor {
             return new JobCallback {
-                callback = callback
+                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
             }.Schedule(job.Schedule(len, dependencies));
         }
     }
     public static class JobExtensions {
-        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, JobHandle dependencies) 
+        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, JobHandle dependencies = default) 
             where T : struct, IJob {
             return new JobCallback {
-                callback = callback
+                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
             }.Schedule(job.Schedule(dependencies));
         }
     }
+
+    internal struct SystemInfo<T> {
+        internal static SharedStatic<int> data = SharedStatic<int>.GetOrCreate<SystemInfo<T>>();
+        internal static int Index => data.Data;
+    }
+    public unsafe struct SystemsDependencies {
+        private UnsafeList<JobHandle> list;
+        private NativeArray<JobHandle> array;
+        private int lastDefault;
+
+        public static SystemsDependencies Create() {
+            var systemsDependencies = new SystemsDependencies() {
+                list = new UnsafeList<JobHandle>(16, Allocator.Persistent),
+                lastDefault = 0
+            };
+            systemsDependencies.list.Add(new JobHandle());
+            return systemsDependencies;
+        }
+
+        public void Complete() {
+            if (!array.IsCreated) {
+                array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<JobHandle>(list.Ptr, list.Length,
+                    Allocator.Persistent);
+            }
+
+            JobHandle.CompleteAll(array);
+
+        }
+        public void Dispose()
+        {
+            list.Dispose();
+            array.Dispose();
+        }
+        public int GetIndex<T>() {
+            return SystemInfo<T>.Index;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref JobHandle GetDependencies<T>() {
+            return ref list.Ptr[SystemInfo<T>.Index];
+        }
+
+        public JobHandle* GetDependenciesPtr<T>() {
+            return list.Ptr + SystemInfo<T>.Index;
+        }
+        public void SetDependenciesNew<TTo>(JobHandle handle = default) {
+            SystemInfo<TTo>.data.Data = list.Length;
+            list.Add(handle);
+        }
+        public void SetDependencies<TFrom, TTo>() {
+            SystemInfo<TTo>.data.Data = SystemInfo<TFrom>.Index;
+        }
+        public void SetDependenciesDefault<TTo>() {
+            SystemInfo<TTo>.data.Data = 0;
+        }
+    }
+
+    public static class SystemsEx {
+        // public static unsafe Systems Add<TSystem, TDependsOn>(this Systems systems, SystemMode mode = SystemMode.Parallel) where TSystem : struct, IEntityJobSystem where TDependsOn : struct, IEntityJobSystem
+        // {
+        //     systems.systemsDependencies.SetDependencies<TDependsOn, TSystem>();
+        //     TSystem system = default;
+        //     if (system is IOnCreate s) {
+        //         s.OnCreate(ref systems.world);
+        //         system = (TSystem) s;
+        //     }
+        //
+        //     var runner = new EntityJobSystemRunner<TSystem> {
+        //         System = system,
+        //         Mode = system.Mode,
+        //         EcbJob = default,
+        //         jobHandle = systems.systemsDependencies.GetDependenciesPtr<TSystem>()
+        //     };
+        //     
+        //     runner.Query = runner.System.GetQuery(ref systems.world);
+        //     systems.runners.Add(runner);
+        //     
+        //     return systems;
+        // }
+        public static unsafe Systems Add(this Systems systems, Delegate @delegate) {
+            var functionPointer = BurstCompiler.CompileFunctionPointer(@delegate);
+            var gcHandle = GCHandle.Alloc(@delegate);
+            
+            return systems;
+        }
+
+        public struct FNS {
+            public FunctionPointer<QueryFn<Transform, Entity, int>> fn;
+            public GCHandle handle;
+
+            public void Execute() {
+                
+            }
+        }
+    }
+
+    public unsafe delegate void QueryFn<T1, T2, T3>(UnsafeTuple<T1, T2, T3> query)
+        where T1 : unmanaged where T2 : unmanaged where T3 : unmanaged;
 }

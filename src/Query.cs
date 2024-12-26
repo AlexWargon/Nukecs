@@ -1,5 +1,6 @@
 ﻿
 
+using System.Collections;
 using UnityEngine;
 
 
@@ -63,6 +64,7 @@ namespace Wargon.Nukecs {
         public QueryEnumerator GetEnumerator() {
             return new QueryEnumerator(impl);
         }
+
     }
     internal unsafe struct QueryUnsafe {
         internal DynamicBitmask with;

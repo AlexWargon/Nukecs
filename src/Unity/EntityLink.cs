@@ -15,12 +15,12 @@ namespace Wargon.Nukecs.Tests {
         [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected List<Convertor> convertors = new ();
         private bool converted;
         private void Start() {
-            if (!EntityPrefabMap.TryGet(GetInstanceID(), out Entity entity)) {
-                ref var w = ref World.Get(worldId);
-                var e = w.Entity();
-                Convert(ref w, ref e);
-            }
-            
+            // if(converted) return;
+            // if (!EntityPrefabMap.TryGet(GetInstanceID(), out Entity entity)) {
+            //     ref var w = ref World.Get(worldId);
+            //     var e = w.Entity();
+            //     Convert(ref w, ref e);
+            // }
         }
 
         public void Convert(ref World world, ref Entity entity) {

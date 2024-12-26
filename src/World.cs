@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Threading;
+using UnityEngine;
+using Wargon.Nukecs;
 
 namespace Wargon.Nukecs {
 
@@ -10,9 +12,8 @@ namespace Wargon.Nukecs {
     using Unity.Jobs;
     using Unity.Jobs.LowLevel.Unsafe;
 
-    public static class Lockers
-    {
-        public static object pools = new ();
+    public static class Lockers {
+        public static readonly ClassPtr<object> pools;
     }
     public unsafe partial struct World : IDisposable {
         public const Allocator Allocator = Unity.Collections.Allocator.Persistent;
@@ -115,6 +116,7 @@ namespace Wargon.Nukecs {
             internal int entitiesAmount;
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
+            internal Locking locking;
             [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* self;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -164,6 +166,7 @@ namespace Wargon.Nukecs {
                 this.ECBUpdate = new EntityCommandBuffer(256);
                 this.ECBFixed = new EntityCommandBuffer(256);
                 this.currentContext = UpdateContext.Update;
+                this.locking = Locking.Create();
                 this.self = self;
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
@@ -225,6 +228,8 @@ namespace Wargon.Nukecs {
                 DefaultNoneTypes.Dispose();
                 reservedEntities.Dispose();
                 prefabsToSpawn.Dispose();
+                locking.Dispose();
+                Lockers.pools.Dispose();
                 self = null;
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -240,36 +245,40 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
-                // if (!pool.IsCreated) 
-                // {
-                //     AddPool(ref pool, poolIndex);
-                // }
+                if (!pool.IsCreated) 
+                {
+                    AddPool(ref pool, poolIndex);
+                }
                 return ref pool;
             }
-            [BurstDiscard]
+            //[BurstDiscard]
             private void AddPool<T>(ref GenericPool pool, int index) where T : unmanaged
             {
-                lock (Lockers.pools)
-                {
+                locking.Lock();
+                try {
                     if (!pool.IsCreated)
                     {
                         pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
-                        DebugPoolLog<T>(index, poolsCount);
                         poolsCount++;
                     }
                 }
+                finally {
+                    locking.Unlock();
+                }
             }
-            [BurstDiscard]
+
             private void AddPool(ref GenericPool pool, int index)
             {
-                lock (Lockers.pools)
-                {
-                    if (!pool.IsCreated)
-                    {
-                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize, allocator);
-                        DebugPoolLog(index, poolsCount);
+                locking.Lock();
+                try {
+                    if (!pool.IsCreated) {
+                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize,
+                            allocator);
                         poolsCount++;
                     }
+                }
+                finally {
+                    locking.Unlock();
                 }
             }
 
@@ -444,14 +453,6 @@ namespace Wargon.Nukecs {
                 return archetypesMap[hash];
             }
 
-            // internal void Dispose<T>(ref GenericPool pool, ref Entity entity) where T : unmanaged, IComponent, IDisposable
-            // {
-            //     ref var component = ref pool.GetRef<T>(entity.id);
-            //     component.Dispose();
-            //     pool.Set(entity.id, default(T));
-            //     ECB.Remove<T>(entity.id);
-            //     ECB.Remove<Dispose<T>>(entity.id);
-            // }
             internal void Update()
             {
                 ECB.Playback(self);
@@ -609,6 +610,31 @@ namespace Wargon.Nukecs {
         }
     }
 
+    public unsafe struct Locking : IDisposable {
+        public NativeReference<int> locks;
+        
+        public static Locking Create() 
+        {
+            return new Locking() 
+            {
+                locks = new NativeReference<int>(0, Allocator.Persistent)
+            };
+        }
+
+        public void Lock() {
+            while (Interlocked.CompareExchange(ref *locks.GetUnsafePtrWithoutChecks(), 1, 0) != 0)
+            {
+                Unity.Burst.Intrinsics.Common.Pause();
+            }
+        }
+
+        public void Unlock() {
+            locks.Value = 0;
+        }
+        public void Dispose() {
+            locks.Dispose();
+        }
+    }
     public unsafe struct WorldLock {
         public int locks;
         internal World.WorldUnsafe* world;
