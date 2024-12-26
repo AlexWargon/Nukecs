@@ -232,7 +232,7 @@ namespace Wargon.Nukecs {
                 Lockers.pools.Dispose();
                 self = null;
             }
-            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.Ptr[poolIndex];

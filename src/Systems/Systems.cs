@@ -2,15 +2,12 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using JetBrains.Annotations;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using UnityEngine;
 using Wargon.Nukecs.Tests;
-using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs
 {
@@ -183,7 +180,7 @@ namespace Wargon.Nukecs
         private State stateFixed;
         public void OnUpdate(float dt, float time)
         {
-            systemsDependencies.Complete();
+            //systemsDependencies.Complete();
             state.Dependencies.Complete();
             //stateFixed.Dependencies.Complete();
             state.Dependencies = world.DependenciesUpdate;
@@ -264,43 +261,7 @@ namespace Wargon.Nukecs
         Update,
         FixedUpdate
     }
-
-    public unsafe struct ECBSystem : ISystem, IOnCreate, IInit {
-        public static ref ECBSystem Singleton => ref Singleton<ECBSystem>.Instance;
-        public void OnCreate(ref World world) {
-            ecbList = new UnsafeList<EntityCommandBuffer>(3, world.UnsafeWorld->allocator);
-            Singleton<ECBSystem>.Set(ref this);
-        }
-        private int count;
-        private UnsafeList<EntityCommandBuffer> ecbList;
-        public ref EntityCommandBuffer CreateEcb() {
-            if (ecbList.Length >= count) {
-                var ecb = new EntityCommandBuffer(1024);
-                ecbList.Add(ecb);
-            }
-            var index = count;
-            count++;
-            return ref ecbList.ElementAt(index);
-        }
-
-        public void Init()
-        {
-            
-        }
-        public void OnUpdate(ref State state) {
-            for (int i = 0; i < count; i++) {
-                ecbList.ElementAt(i).Playback(ref state.World);
-            }
-            count = 0;
-        }
-
-        internal void OnDestroy() {
-            foreach (var entityCommandBuffer in ecbList) {
-                entityCommandBuffer.Clear();
-            }
-            ecbList.Dispose();
-        }
-    }
+    
     [BurstCompile]
     public struct ECBJob : IJob {
         public EntityCommandBuffer ECB;
@@ -650,7 +611,7 @@ namespace Wargon.Nukecs
     }
 
     public static class JobParallelForExtensions {
-        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, int len, int batchCount, JobHandle dependencies = default)
+        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len, int batchCount, JobHandle dependencies = default)
             where T : struct, IJobParallelFor {
             return new JobCallback {
                 callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
@@ -658,7 +619,7 @@ namespace Wargon.Nukecs
         }
     }
     public static class JobForExtensions {
-        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, int len, JobHandle dependencies = default)
+        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len, JobHandle dependencies = default)
             where T : struct, IJobFor {
             return new JobCallback {
                 callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
@@ -666,7 +627,7 @@ namespace Wargon.Nukecs
         }
     }
     public static class JobExtensions {
-        public static JobHandle ScheduleWithCallback<T>(this T job, [NotNull] Action callback, JobHandle dependencies = default) 
+        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, JobHandle dependencies = default) 
             where T : struct, IJob {
             return new JobCallback {
                 callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
@@ -756,15 +717,6 @@ namespace Wargon.Nukecs
             var gcHandle = GCHandle.Alloc(@delegate);
             
             return systems;
-        }
-
-        public struct FNS {
-            public FunctionPointer<QueryFn<Transform, Entity, int>> fn;
-            public GCHandle handle;
-
-            public void Execute() {
-                
-            }
         }
     }
 
