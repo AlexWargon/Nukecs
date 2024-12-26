@@ -564,6 +564,23 @@ namespace Wargon.Nukecs
             v3 = value3;
         }
     }
+
+    public readonly unsafe struct UnsafeTuple<T1, T2, T3> where T1 : unmanaged where T2 : unmanaged where T3 : unmanaged {
+        public readonly T1* value1;
+        public readonly T2* value2;
+        public readonly T3* value3;
+
+        public UnsafeTuple(T1* t1, T2* t2, T3* t3) {
+            value1 = t1;
+            value2 = t2;
+            value3 = t3;
+        }
+        public void Deconstruct(out T1* t1, out T2* t2, out T3* t3) {
+            t1 = value1;
+            t2 = value2;
+            t3 = value3;
+        }
+    }
     public struct TestCopyDispose : IComponent, IDisposable, ICopyable<TestCopyDispose>
     {
         public void Dispose()
@@ -576,12 +593,43 @@ namespace Wargon.Nukecs
             return new TestCopyDispose();
         }
     }
-    public static unsafe class Cast {
+    public static unsafe class UnsafeAPI {
         public static ref T As<T>(void* ptr) where T: unmanaged {
             return ref *(T*) ptr;
         }
         public static ref T Index<T>(void* buffer, int index) where T : unmanaged {
             return ref ((T*)buffer)[index];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ref T ToComponent<T>(void* ptr) where T : unmanaged {
+            return ref *(T*) ptr;
+        }
+    }
+    
+    public unsafe struct ClassPtr<T> : System.IEquatable<ClassPtr<T>> where T : class {
+
+        [NativeDisableUnsafePtrRestriction]
+        private System.IntPtr ptr;
+        [NativeDisableUnsafePtrRestriction]
+        private System.Runtime.InteropServices.GCHandle gcHandle;
+
+        public bool IsValid => this.ptr.ToPointer() != null;
+
+        public T Value => (T)this.gcHandle.Target;
+
+        public ClassPtr(T data) {
+            this.gcHandle = (data != null ? System.Runtime.InteropServices.GCHandle.Alloc(data) : default);
+            this.ptr = System.Runtime.InteropServices.GCHandle.ToIntPtr(this.gcHandle);
+        }
+
+        public void Dispose() {
+            if (this.gcHandle.IsAllocated == true) {
+                this.gcHandle.Free();
+            }
+        }
+
+        public bool Equals(ClassPtr<T> other) {
+            return other.ptr == ptr;
         }
     }
 }

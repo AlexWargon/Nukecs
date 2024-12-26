@@ -88,15 +88,17 @@ namespace Wargon.Nukecs {
         }
     }
 
+    internal class TypeToComponentType {
+        internal static Dictionary<Type, ComponentType> Map = new();
+    }
     internal struct ComponentTypeMap {
         private static ComponentsMapCache cache;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
-        private static readonly Dictionary<Type, ComponentType> ComponentTypesByTypes;
+        
         private static bool _initialized = false;
         public static List<int> TypesIndexes => cache.TypesIndexes;
         static ComponentTypeMap() {
             ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentTypeMap>();
-            ComponentTypesByTypes = new Dictionary<Type, ComponentType>();
         }
         [BurstDiscard]
         internal static void Init() {
@@ -138,7 +140,7 @@ namespace Wargon.Nukecs {
         public static void InitializeComponentType<T>(int index) where T : unmanaged
         {
             Add(typeof(T), index);
-            var componentType = AddComponentType<T>(index);
+            _ = AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
         }
 
@@ -177,20 +179,20 @@ namespace Wargon.Nukecs {
             data.defaultValue = UnsafeUtility.Malloc(data.size, data.align, Allocator.Persistent);
             *(T*) data.defaultValue = default(T);
             ComponentTypes.Data.TryAdd(index, data);
-            ComponentTypesByTypes.TryAdd(typeof(T), data);
+            TypeToComponentType.Map.TryAdd(typeof(T), data);
             return data;
         }
         
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
-        public static ComponentType GetComponentType<T>() => ComponentTypesByTypes[typeof(T)];
+        public static ComponentType GetComponentType<T>() => TypeToComponentType.Map[typeof(T)];
 
         public static void SetComponentType<T>(ComponentType componentType) where T : unmanaged
         {
-            ComponentTypesByTypes[typeof(T)] = componentType;
+            TypeToComponentType.Map[typeof(T)] = componentType;
             ComponentTypes.Data[ComponentType<T>.Index] =  componentType;
             ComponentType<T>.Data = componentType;
         }
-        public static ComponentType GetComponentType(Type type) => ComponentTypesByTypes[type];
+        public static ComponentType GetComponentType(Type type) => TypeToComponentType.Map[type];
         internal static void Add(Type type, int index) {
             cache.Add(type, index);
         }
@@ -212,8 +214,8 @@ namespace Wargon.Nukecs {
                 ref var pool = ref pools.Ptr[type.index];
                 if (!type.isArray)
                 {
-                    pool = GenericPool.Create(type, size, allocator);
-                    poolsCount += 1;
+                    // pool = GenericPool.Create(type, size, allocator);
+                    // poolsCount += 1;
                 }
                 else
                 {
@@ -231,7 +233,7 @@ namespace Wargon.Nukecs {
                 UnsafeUtility.Free(kvPair.Value.defaultValue, Allocator.Persistent);
             }
             ComponentTypes.Data.Dispose();
-            ComponentTypesByTypes.Clear();
+            TypeToComponentType.Map.Clear();
             ComponentType.ElementTypes.Dispose();
         }
     }

@@ -220,7 +220,7 @@ namespace Wargon.Nukecs
                 return ref pool.GetRef<T>(entity.id);
             }
 
-            return ref entity.worldPointer->GetUntypedPool(componentType).GetRef<T>(entity.id);
+            return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -8,7 +8,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 namespace Wargon.Nukecs {
     [JobProducerType(typeof(IComponentJobSystemUnsafe1Extensions.EntityJobWrapper<>))]
     public unsafe interface IComponentJobSystemUnsafe1 {
-        public void OnUpdate(ref Entity entity, byte* c1, ref State state);
+        public void OnUpdate(ref Entity entity, void* c1, ref State state);
     }
     public static class IComponentJobSystemUnsafe1Extensions 
     {
