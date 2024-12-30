@@ -10,7 +10,8 @@ namespace Wargon.Nukecs.Collision2D
         private GenericPool bodies;
         private GenericPool collisionsDataArrays;
         private int collisionStatesSize;
-        public void OnCreate(ref World world) {
+        public void OnCreate(ref World world)
+        {
             transforms = world.GetPool<Transform>();
             colliders = world.GetPool<Circle2D>();
             rectangles = world.GetPool<Rectangle2D>();

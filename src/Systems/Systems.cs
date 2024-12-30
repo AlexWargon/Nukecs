@@ -245,6 +245,13 @@ namespace Wargon.Nukecs
             return systems;
         }
     }
+    /// <summary>
+    /// <code>
+    /// Dependencies
+    /// World
+    /// Time
+    /// </code>
+    /// </summary>
     public struct State
     {
         public JobHandle Dependencies;

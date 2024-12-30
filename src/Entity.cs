@@ -34,12 +34,12 @@ namespace Wargon.Nukecs
                 this.worldPointer->GetArchetype(archetype);
         }
 
-        internal ref ArchetypeImpl archetypeRef
+        internal ref ArchetypeUnsafe archetypeRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *worldPointer->entitiesArchetypes.ElementAtNoCheck(id).impl;
         }
-
+        
         public override string ToString()
         {
             return $"e:{id}, {archetypeRef.ToString()}";
@@ -79,7 +79,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsValid()
         {
-            return worldPointer != null;
+            return worldPointer != null && worldPointer->EntityIsValid(id);
         }
     }
 
@@ -223,6 +223,11 @@ namespace Wargon.Nukecs
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
+        public static ref T TryGet<T>(this in Entity entity, out bool exist) where T : unmanaged, IComponent
+        {
+            exist = entity.archetypeRef.Has(ComponentType<T>.Index);
+            return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Ref<T> GetRef<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
@@ -373,7 +378,7 @@ namespace Wargon.Nukecs
             ref var arch = ref entity.archetypeRef;
             return arch.Copy(in entity);
         }
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Entity CopyVieECB(this in Entity entity)
         {

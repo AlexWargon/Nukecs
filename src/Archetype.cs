@@ -7,14 +7,20 @@
     using Unity.Mathematics;
     
     public unsafe struct Archetype {
-        [NativeDisableUnsafePtrRestriction] internal ArchetypeImpl* impl;
+        [NativeDisableUnsafePtrRestriction] internal ArchetypeUnsafe* impl;
 
         internal bool Has<T>() where T : unmanaged {
             return impl->Has(ComponentType<T>.Index);
         }
 
+        internal void Refresh()
+        {
+            impl->queries.Clear();
+            impl->PopulateQueries(impl->world);
+        }
+        
         public void Dispose() {
-            ArchetypeImpl.Destroy(impl);
+            ArchetypeUnsafe.Destroy(impl);
             impl = null;
         }
     }
@@ -26,7 +32,7 @@
             return ref pools[ComponentType<T>.Index].GetRef<T>(id);
         }
     }
-    internal unsafe struct ArchetypeImpl {
+    internal unsafe struct ArchetypeUnsafe {
         internal DynamicBitmask mask;
         internal UnsafeList<int> types;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
@@ -36,7 +42,7 @@
         internal readonly int id;
         internal bool IsCreated => world != null;
 
-        internal static void Destroy(ArchetypeImpl* archetype) {
+        internal static void Destroy(ArchetypeUnsafe* archetype) {
             archetype->mask.Dispose();
             archetype->types.Dispose();
             archetype->queries.Dispose();
@@ -51,19 +57,19 @@
             UnsafeUtility.Free(archetype, allocator);
         }
 
-        internal static ArchetypeImpl* Create(World.WorldUnsafe* world, int[] typesSpan = null) {
-            var ptr = Unsafe.Malloc<ArchetypeImpl>(world->allocator);
-            *ptr = new ArchetypeImpl(world, typesSpan);
+        internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, int[] typesSpan = null) {
+            var ptr = Unsafe.Malloc<ArchetypeUnsafe>(world->allocator);
+            *ptr = new ArchetypeUnsafe(world, typesSpan);
             return ptr;
         }
 
-        internal static ArchetypeImpl* Create(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan) {
-            var ptr = Unsafe.Malloc<ArchetypeImpl>(world->allocator);
-            *ptr = new ArchetypeImpl(world, ref typesSpan);
+        internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false) {
+            var ptr = Unsafe.Malloc<ArchetypeUnsafe>(world->allocator);
+            *ptr = new ArchetypeUnsafe(world, ref typesSpan, copyList);
             return ptr;
         }
 
-        internal ArchetypeImpl(World.WorldUnsafe* world, int[] typesSpan = null) {
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, int[] typesSpan = null) {
             this.world = world;
             this.mask = DynamicBitmask.CreateForComponents();
             this.id = 0;
@@ -85,7 +91,7 @@
             this.destroyEdge = CreateDestroyEdge();
         }
 
-        internal ArchetypeImpl(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan) {
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false) {
             this.world = world;
             this.mask = DynamicBitmask.CreateForComponents();
             if (typesSpan.IsCreated) {
@@ -104,8 +110,29 @@
             
             this.PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
+            if (copyList)
+            {
+                types = new UnsafeList<int>(typesSpan.m_length, world->allocator);
+                types.CopyFrom(in typesSpan);
+            }
         }
 
+        internal Entity CreateEntity()
+        {
+            var e = world->CreateEntity(id);
+            for (var i = 0; i < queries.m_length; i++)
+            {
+                queries.Ptr[i]->Add(e.id);
+            }
+            return e;
+        }
+        
+        internal void Refresh()
+        {
+            queries.Clear();
+            PopulateQueries(world);
+        }
+        
         internal void PopulateQueries(World.WorldUnsafe* world) {
             for (var i = 0; i < world->queries.Length; i++) {
                 var q = world->queries[i];
@@ -310,12 +337,12 @@
     public static class ArchetypePointerExtensions {
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool Has<T>(this ref ArchetypeImpl archetype) where T : unmanaged {
+        internal static bool Has<T>(this ref ArchetypeUnsafe archetype) where T : unmanaged {
             return archetype.mask.Has(ComponentType<T>.Index);
         }
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool Has(this ref ArchetypeImpl archetype, int type) {
+        internal static bool Has(this ref ArchetypeUnsafe archetype, int type) {
             return archetype.mask.Has(type);
         }
     }
@@ -323,7 +350,7 @@
     internal readonly unsafe struct Edge : IDisposable {
         [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<QueryUnsafe>* addEntity;
         [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<QueryUnsafe>* removeEntity;
-        [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeImpl* toMovePtr;
+        [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeUnsafe* toMovePtr;
         internal readonly Archetype toMove;
 
         public Edge(ref Archetype archetype, Allocator allocator) {

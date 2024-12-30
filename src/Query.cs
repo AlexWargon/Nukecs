@@ -46,7 +46,7 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref impl->world->entities.ElementAtNoCheck(impl->entities.ElementAtNoCheck(index));
+            return ref impl->world->entities.Ptr[impl->entities.Ptr[index]];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index) {
@@ -147,7 +147,8 @@ namespace Wargon.Nukecs {
             entitiesMap[entity] = 0;
             count--;
             if (count > index) {
-                // if(index < 0) return;
+                
+                if(index < 0) return;
                 // if(count < 0) return;
                 entities[index] = entities[count];
                 entitiesMap[entities[index]] = index + 1;

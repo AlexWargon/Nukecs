@@ -71,6 +71,7 @@ namespace Wargon.Nukecs {
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
+            WorldSystems.Dispose();
         }
         public bool IsAlive => UnsafeWorld != null;
         public WorldConfig Config => UnsafeWorld->config;
@@ -104,7 +105,7 @@ namespace Wargon.Nukecs {
             internal int poolsCount;
             internal UnsafePtrList<QueryUnsafe> queries;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
-            internal UnsafePtrList<ArchetypeImpl> archetypesList;
+            internal UnsafePtrList<ArchetypeUnsafe> archetypesList;
             internal WorldConfig config;
             internal EntityCommandBuffer ECBUpdate;
             internal EntityCommandBuffer ECBFixed;
@@ -151,9 +152,8 @@ namespace Wargon.Nukecs {
                 this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, allocator,
                     NativeArrayOptions.ClearMemory);
                 this.queries = new UnsafePtrList<QueryUnsafe>(32, allocator);
-                this.archetypesList = new UnsafePtrList<ArchetypeImpl>(32, allocator);
+                this.archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, allocator);
                 this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, allocator);
-
                 this.config = config;
                 this.systemsUpdateJobDependencies = default;
                 this.systemsFixedUpdateJobDependencies = default;
@@ -175,6 +175,14 @@ namespace Wargon.Nukecs {
                 CreatePools();
             }
 
+            internal void RefreshArchetypes()
+            {
+                for (int i = 0; i < archetypesList.m_length; i++)
+                {
+                    var archetype = archetypesList.Ptr[i];
+                    archetype->Refresh();
+                }
+            }
             private void SetDefaultNone() {
                 DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index);
                 DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index);
@@ -346,10 +354,15 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
-                entities.ElementAtNoCheck(entity) = Nukecs.Entity.Null;
+                entities.Ptr[entity] = Nukecs.Entity.Null;
                 reservedEntities.Add(entity);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool EntityIsValid(int entity)
+            {
+                return entities.Ptr[entity].id != 0;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntityWithEvent(int archetype) {
@@ -395,11 +408,11 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref Entity GetEntity(int id) {
-                return ref entities.ElementAtNoCheck(id);
+                return ref entities.Ptr[id];
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Archetype CreateArchetype(params int[] types) {
-                var ptr = ArchetypeImpl.Create(self, types);
+                var ptr = ArchetypeUnsafe.Create(self, types);
                 Archetype archetype;
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -407,8 +420,8 @@ namespace Wargon.Nukecs {
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype CreateArchetype(ref UnsafeList<int> types) {
-                var ptr = ArchetypeImpl.Create(self, ref types);
+            internal Archetype CreateArchetype(ref UnsafeList<int> types, bool copyList = false) {
+                var ptr = ArchetypeUnsafe.Create(self, ref types, copyList);
                 Archetype archetype;
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -417,7 +430,7 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
             internal void CreateArchetype(ref UnsafeList<int> types, out Archetype archetype) {
-                var ptr = ArchetypeImpl.Create(self, ref types);
+                var ptr = ArchetypeUnsafe.Create(self, ref types);
                 archetype = new Archetype();
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -426,7 +439,7 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private Archetype CreateArchetype() {
-                var ptr = ArchetypeImpl.Create(self);
+                var ptr = ArchetypeUnsafe.Create(self);
                 Archetype archetype;
                 archetype.impl = ptr;
                 archetypesList.Add(ptr);
@@ -434,8 +447,8 @@ namespace Wargon.Nukecs {
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types) {
-                var hash = ArchetypeImpl.GetHashCode(ref types);
+            internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types, bool copyList = false) {
+                var hash = ArchetypeUnsafe.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     types.Dispose();
                     return archetype;
@@ -514,6 +527,9 @@ namespace Wargon.Nukecs {
         public Query Query<T>(byte dymmy = 1) where T: struct, IFilter {
             return new Query(UnsafeWorld->Query());
         }
+        /// <summary>
+        /// Update dirty entities and queries
+        /// </summary>
         public void Update() {
             UnsafeWorld->ECB.Playback(ref this);
             UnsafeWorld->ECBFixed.Playback(ref this);

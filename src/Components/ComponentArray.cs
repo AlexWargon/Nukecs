@@ -30,8 +30,8 @@ namespace Wargon.Nukecs
             _length = 0;
             _entity = default;
         }
-
-        public ComponentArray(ref GenericPool pool, Entity index)
+        
+        internal ComponentArray(ref GenericPool pool, Entity index)
         {
             _buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DefaultMaxCapacity;
             _length = 0;
@@ -138,6 +138,12 @@ namespace Wargon.Nukecs
             return new ComponentArray<T>(ref this, to);
         }
 
+        public void Fill(T* buffer, int length)
+        {
+            UnsafeUtility.MemCpy(_buffer, buffer, length * sizeof(T));
+            _length = length;
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator)
         {

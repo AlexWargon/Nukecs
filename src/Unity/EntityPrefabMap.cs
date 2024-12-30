@@ -9,8 +9,18 @@ namespace Wargon.Nukecs.Tests {
             Map.Clear();
         }
         public static void Add(int id, Entity entity) {
-            if (Map.ContainsKey(id)) return;
-            Map[id] = entity;
+            if (Map.TryAdd(id, entity))
+            {
+                entity.Add(new IsPrefab());
+                ref var children = ref entity.TryGet<ComponentArray<Child>>(out var exist);
+                if (exist)
+                {
+                    foreach (ref var child in children)
+                    {
+                        child.Value.Add(new IsPrefab());
+                    }
+                }
+            }
         }
 
         public static Entity Spawn(int id) {
@@ -26,7 +36,7 @@ namespace Wargon.Nukecs.Tests {
         }
         public static Entity GetOrCreatePrefab<T>(T obj, ref World world) where T : Object, ICustomConvertor {
             var id = obj.GetInstanceID();
-            if (!Map.ContainsKey(id)) {
+            if (!Map.TryGetValue(id, out var prefab)) {
                 var e = world.Entity();
                 obj.Convert(ref world, ref e);
                 e.Add(new IsPrefab());
@@ -34,7 +44,7 @@ namespace Wargon.Nukecs.Tests {
                 return e;
             }
 
-            return Map[id];
+            return prefab;
         }
         public static bool TryGet(int id, out Entity entity) {
             if (Map.ContainsKey(id)) {

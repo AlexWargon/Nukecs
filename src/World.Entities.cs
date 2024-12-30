@@ -9,7 +9,7 @@ namespace Wargon.Nukecs {
             internal UnsafeList<int> reservedEntities;
             internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
-            internal UnsafePtrList<ArchetypeImpl> archetypesList;
+            internal UnsafePtrList<ArchetypeUnsafe> archetypesList;
             internal UnsafePtrList<QueryUnsafe> queries;
             internal int entitiesAmount;
             internal int lastEntityIndex;
@@ -23,7 +23,7 @@ namespace Wargon.Nukecs {
                     reservedEntities = new UnsafeList<int>(128, world->allocator, NativeArrayOptions.ClearMemory),
                     entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory),
                     queries = new UnsafePtrList<QueryUnsafe>(32, world->allocator),
-                    archetypesList = new UnsafePtrList<ArchetypeImpl>(32, world->allocator),
+                    archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, world->allocator),
                     archetypesMap = new UnsafeHashMap<int, Archetype>(32, world->allocator),
                     entitiesAmount = 0,
                     lastEntityIndex = 1,
