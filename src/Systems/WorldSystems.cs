@@ -21,5 +21,10 @@ namespace Wargon.Nukecs
                 systems.OnWorldDispose();
             }
         }
+
+        public static void Dispose()
+        {
+            systemsMap.Clear();
+        }
     }
 }

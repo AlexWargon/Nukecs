@@ -30,7 +30,7 @@ namespace Wargon.Nukecs.Collision2D
                 grid.DrawCells();
             }
 
-                var buffer = DebugUtility.Buffer;
+            var buffer = DebugUtility.Buffer;
             while (buffer.Count > 0) {
                 var (action, color) = buffer.Dequeue();
                 UnityEditor.Handles.color = color;
@@ -95,7 +95,7 @@ namespace Wargon.Nukecs.Collision2D
 #endif
             }
             public Colliders2DRenders(Color g, Color r) {
-                ref var world = ref World.Get(0);
+                ref var world = ref World.Get(1);
                 query2 = world.Query().With<Rectangle2D>();
                 query = world.Query().With<Circle2D>();
                 circles = world.GetPool<Circle2D>();

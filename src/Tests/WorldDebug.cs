@@ -96,7 +96,7 @@ namespace Wargon.Nukecs.Editor {
 
     internal unsafe class ArchetypeInfo {
         internal Label Label;
-        internal ArchetypeImpl* Archetype;
+        internal ArchetypeUnsafe* Archetype;
     }
 }
 #endif
