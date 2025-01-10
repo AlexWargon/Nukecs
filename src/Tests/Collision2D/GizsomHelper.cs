@@ -95,7 +95,12 @@ namespace Wargon.Nukecs.Collision2D
 #endif
             }
             public Colliders2DRenders(Color g, Color r) {
-                ref var world = ref World.Get(1);
+                ref var world = ref World.Get(0);
+                if (!world.IsAlive)
+                {
+                    Debug.Log("Gizmos World is not Alive");
+                    return;
+                }
                 query2 = world.Query().With<Rectangle2D>();
                 query = world.Query().With<Circle2D>();
                 circles = world.GetPool<Circle2D>();

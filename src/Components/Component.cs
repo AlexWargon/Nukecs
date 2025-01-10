@@ -106,7 +106,7 @@ namespace Wargon.Nukecs
             Count.Data = 0;
         }
         
-        [BurstDiscard]
+
         public static void Initialization() {
 
             if(_initialized) return;
@@ -117,7 +117,7 @@ namespace Wargon.Nukecs
             
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();
-            dbug.log(components.ToList().Count.ToString());
+            //dbug.log(components.ToList().Count.ToString());
             foreach (var component in components)
             {
                 if(component == typeof(IComponent)) continue;
