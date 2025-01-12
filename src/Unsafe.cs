@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
@@ -176,6 +177,20 @@ namespace Wargon.Nukecs {
                 buffer = newBuffer;
                 capacity = newCapacity;
             }
+        }
+    }
+
+    public static class DictionaryExtensions
+    {
+        public static NativeHashMap<TKey, TValue> ToNative<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, Allocator allocator)
+            where TKey : unmanaged, IEquatable<TKey> where TValue : unmanaged
+        {
+            var map = new NativeHashMap<TKey, TValue>(dictionary.Count, allocator);
+            foreach (var (key, value) in dictionary)
+            {
+                map.Add(key, value);
+            }
+            return map;
         }
     }
 }

@@ -96,7 +96,7 @@ namespace Wargon.Nukecs {
             return ref ((T*)UnsafeBuffer->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
-
+        
         public byte* GetUnsafePtr(int index)
         {
             return UnsafeBuffer->buffer + index * UnsafeBuffer->ComponentType.size;
@@ -121,11 +121,11 @@ namespace Wargon.Nukecs {
             UnsafeBuffer->count++;
         }
 
-        public ref T GetShared<T>() where T : unmanaged{
+        public ref T GetSingletone<T>() where T : unmanaged {
             return ref ((T*)UnsafeBuffer->buffer)[0];
         }
         
-        public void SetShared<T>(in T value) where T : unmanaged{
+        public void SetSingletone<T>(in T value) where T : unmanaged{
             ((T*)UnsafeBuffer->buffer)[0] = value;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
