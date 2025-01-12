@@ -102,16 +102,25 @@ namespace Wargon.Nukecs
             }
             // Note: parallel expansion requires additional synchronization
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void RemoveRange(int index, int count)
+        {
+            if (_length <= index + count - 1) return;
 
+            int elemSize = UnsafeUtility.SizeOf<T>();
+
+            UnsafeUtility.MemMove(_buffer + index * elemSize, _buffer + (index + count) * elemSize, (long)elemSize * (Length - count - index));
+            _length -= count;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index)
         {
             if (index < 0 || index >= _length)
                 throw new IndexOutOfRangeException();
-
-            _length--;
-            if (index < _length)
-                UnsafeUtility.MemCpy(_buffer + index, _buffer + index + 1, (_length - index) * sizeof(T));
+            RemoveRange(index, 1);
+            // _length--;
+            // if (index < _length)
+            //     UnsafeUtility.MemCpy(_buffer + index, _buffer + index + 1, (_length - index) * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

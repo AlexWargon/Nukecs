@@ -181,6 +181,7 @@ namespace Wargon.Nukecs
         public void OnUpdate(float dt, float time)
         {
             //systemsDependencies.Complete();
+            state.Time.ElapsedTime += dt;
             state.Dependencies.Complete();
             //stateFixed.Dependencies.Complete();
             state.Dependencies = world.DependenciesUpdate;
@@ -263,6 +264,7 @@ namespace Wargon.Nukecs
     {
         public float DeltaTime;
         public float Time;
+        public double ElapsedTime;
     }
     public enum UpdateContext {
         Update,

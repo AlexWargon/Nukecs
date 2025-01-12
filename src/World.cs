@@ -534,6 +534,11 @@ namespace Wargon.Nukecs {
             UnsafeWorld->ECB.Playback(ref this);
             UnsafeWorld->ECBFixed.Playback(ref this);
         }
+
+        public ref T GetSingleton<T>() where T: unmanaged, IComponent
+        {
+            return ref UnsafeWorld->GetPool<T>().GetSingletone<T>();
+        }
     }
 
 
