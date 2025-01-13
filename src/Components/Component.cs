@@ -106,7 +106,7 @@ namespace Wargon.Nukecs
             Count.Data = 0;
         }
         
-
+        [BurstDiscard]
         public static void Initialization() {
 
             if(_initialized) return;
@@ -488,48 +488,49 @@ namespace Wargon.Nukecs
 
     public interface IAspect
     {
-        Entity Entity { get;}
-    }
-    public interface IAspect<TComponent> : IAspect 
-        where TComponent : unmanaged, IComponent 
-    { }
-    public interface IAspect<TComponent1, TComponent2> : IAspect 
-        where TComponent1 : unmanaged, IComponent 
-        where TComponent2 : unmanaged, IComponent
-    { }
-    public interface IAspect<TComponent1, TComponent2, TComponent3> : IAspect 
-        where TComponent1 : unmanaged, IComponent 
-        where TComponent2 : unmanaged, IComponent
-        where TComponent3 : unmanaged, IComponent
-    { }
-    public interface IAspect<TComponent1, TComponent2, TComponent3, TComponent4> : IAspect 
-        where TComponent1 : unmanaged, IComponent 
-        where TComponent2 : unmanaged, IComponent
-        where TComponent3 : unmanaged, IComponent
-        where TComponent4 : unmanaged, IComponent
-    { }
-    public interface IAspect<TComponent1, TComponent2, TComponent3, TComponent4, TComponent5> : IAspect 
-        where TComponent1 : unmanaged, IComponent 
-        where TComponent2 : unmanaged, IComponent
-        where TComponent3 : unmanaged, IComponent
-        where TComponent4 : unmanaged, IComponent
-        where TComponent5 : unmanaged, IComponent
-    { }
-    public interface IAspect<TComponent1, TComponent2, TComponent3, TComponent4, TComponent5, TComponent6> : IAspect 
-        where TComponent1 : unmanaged, IComponent 
-        where TComponent2 : unmanaged, IComponent
-        where TComponent3 : unmanaged, IComponent
-        where TComponent4 : unmanaged, IComponent
-        where TComponent5 : unmanaged, IComponent
-        where TComponent6 : unmanaged, IComponent
-    { }
-    public struct PlayerAspect : IAspect
-    {
-        public Entity Entity { get; }
-        public GetRef<Input> Input;
-        public GetRef<Transforms.Transform> Transform;
+        Entity Entity { get; set; }
     }
 
+    public interface IAspect<T> where T : unmanaged, IAspect
+    {
+        T Create(ref World world);
+        void Update(ref Entity entity);
+    }
+
+
+    public unsafe struct AspectBuilder<T> where T : unmanaged, IAspect<T>, IAspect
+    {
+        private static readonly T factory;
+        public static T Create(ref World world)
+        {
+            return factory.Create(ref world);
+        }
+        public static T* CreatePtr(ref World world)
+        {
+            var ptr = Unsafe.MallocTracked<T>(world.UnsafeWorld->allocator);
+            *ptr = factory.Create(ref world);
+            return ptr;
+        }
+        public static void Destroy(T* pointer, ref World world)
+        {
+            Unsafe.FreeTracked(pointer, world.UnsafeWorld->allocator);
+        }
+    }
+    public unsafe struct AspectData<T> where T : unmanaged, IComponent
+    {
+        internal T* Buffer;
+        internal int Entity;
+        public ref T Value => ref Buffer[Entity];
+        public static implicit operator T(in AspectData<T> getRef)
+        {
+            return getRef.Value;
+        }
+
+        public void Update(ref Entity entity)
+        {
+            Entity = entity.id;
+        }
+    }
     public struct ComponentsTuple<T1, T2> : ITuple where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent
     {
         private int entity;

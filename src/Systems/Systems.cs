@@ -15,6 +15,7 @@ namespace Wargon.Nukecs
         internal JobHandle dependencies;
         internal List<ISystemRunner> runners;
         internal List<ISystemRunner> disposeSystems;
+        internal List<ISystemRunner> fixedRunners;
         internal List<ISystemDestroyer> _systemDestroyers;
         internal World world;
         internal SystemsDependencies systemsDependencies;
@@ -24,6 +25,7 @@ namespace Wargon.Nukecs
             this.dependencies = default;
             this.runners = new List<ISystemRunner>();
             this.disposeSystems = new List<ISystemRunner>();
+            this.fixedRunners = new List<ISystemRunner>();
             this._systemDestroyers = new List<ISystemDestroyer>();
             this.dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
             this.systemsDependencies = SystemsDependencies.Create();
@@ -178,6 +180,7 @@ namespace Wargon.Nukecs
 
         private State state;
         private State stateFixed;
+        // ReSharper disable Unity.PerformanceAnalysis
         public void OnUpdate(float dt, float time)
         {
             //systemsDependencies.Complete();
@@ -191,7 +194,20 @@ namespace Wargon.Nukecs
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
+            
+            timeSinceLastFixedUpdate += dt;
+            if (timeSinceLastFixedUpdate >= FixedUpdateInterval)
+            {
+                for (var i = 0; i < fixedRunners.Count; i++) {
+                    state.Dependencies = fixedRunners[i].Schedule(UpdateContext.Update, ref state);
+                }
+
+                timeSinceLastFixedUpdate = 0;
+            }
         }
+
+        private const double FixedUpdateInterval = 0.2f;
+        private double timeSinceLastFixedUpdate;
         public void OnFixedUpdate(float dt, float time)
         {
             //state.Dependencies.Complete();
@@ -459,7 +475,7 @@ namespace Wargon.Nukecs
     public interface IOnCreate {
         void OnCreate(ref World world);
     }
-
+    public interface IFixed { }
     public interface IOnDestroy
     {
         void OnDestroy(ref World world);

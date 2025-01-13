@@ -291,9 +291,7 @@ namespace Wargon.Nukecs {
             //Debug.Log($"Pool {type} disposed. {cType.ToString()} ");
         }
 
-        public ComponentPool<T> AsComponentPool<T>() where T : unmanaged {
-            return new ComponentPool<T>(UnsafeBuffer->buffer);
-        }
+
     }
     
     public readonly unsafe struct ComponentPool<T> where T : unmanaged {
@@ -309,6 +307,18 @@ namespace Wargon.Nukecs {
         }
     }
 
+    public static unsafe class GenericPoolExtensions
+    {
+        public static ComponentPool<T> AsComponentPool<T>(in this GenericPool genericPool) where T : unmanaged {
+            return new ComponentPool<T>(genericPool.UnsafeBuffer->buffer);
+        }
+        public static AspectData<T> AsAspectData<T>(in this GenericPool genericPool) where T : unmanaged, IComponent {
+            return new AspectData<T>
+            {
+                Buffer = (T*)genericPool.UnsafeBuffer->buffer
+            };
+        }
+    }
     public struct bbool {
         internal byte value;
 

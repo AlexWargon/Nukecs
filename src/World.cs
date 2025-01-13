@@ -21,6 +21,14 @@ namespace Wargon.Nukecs {
         private static int lastFreeSlot;
         private static int lastWorldID;
         public static ref World Get(int index) => ref worlds[index];
+
+        internal static World* GetPtr(int index)
+        {
+            fixed (World* world = worlds)
+            {
+                return world + index;
+            }
+        }
         // ReSharper disable once InconsistentNaming
         public static ref World Default {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -94,7 +102,7 @@ namespace Wargon.Nukecs {
         //public ref UntypedUnsafeList GetPool<T>() where T : unmanaged => ref _impl->GetPool<T>();
 
 
-        internal struct WorldUnsafe {
+        internal partial struct WorldUnsafe {
             internal readonly int Id;
             internal readonly Allocator allocator;
             internal UnsafeList<Entity> entities;
@@ -167,6 +175,7 @@ namespace Wargon.Nukecs {
                 this.ECBFixed = new EntityCommandBuffer(256);
                 this.currentContext = UpdateContext.Update;
                 this.locking = Locking.Create();
+                this._aspects = new Aspects(allocator, id);
                 this.self = self;
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
@@ -237,6 +246,7 @@ namespace Wargon.Nukecs {
                 reservedEntities.Dispose();
                 prefabsToSpawn.Dispose();
                 locking.Dispose();
+                _aspects.Dispose();
                 Lockers.pools.Dispose();
                 self = null;
             }

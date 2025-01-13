@@ -14,6 +14,9 @@ namespace Wargon.Nukecs {
         public static T* MallocTracked<T>(int items, Allocator allocator) where T : unmanaged {
             return (T*) UnsafeUtility.MallocTracked(sizeof(T) * items, UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
+        public static void FreeTracked(void* ptr, Allocator allocator) {
+            UnsafeUtility.FreeTracked(ptr, allocator);
+        }
         public static void FreeTracked<T>(T* ptr, Allocator allocator) where T : unmanaged {
             UnsafeUtility.FreeTracked(ptr, allocator);
         }
