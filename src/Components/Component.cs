@@ -488,7 +488,7 @@ namespace Wargon.Nukecs
 
     public interface IAspect
     {
-        Entity Entity { get; set; }
+        //Entity Entity { get; set; }
     }
 
     public interface IAspect<T> where T : unmanaged, IAspect
@@ -516,19 +516,21 @@ namespace Wargon.Nukecs
             Unsafe.FreeTracked(pointer, world.UnsafeWorld->allocator);
         }
     }
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct AspectData<T> where T : unmanaged, IComponent
     {
         internal T* Buffer;
-        internal int Entity;
-        public ref T Value => ref Buffer[Entity];
+        private int _entity;
+        public ref T Value => ref Buffer[_entity];
+        public ref readonly T Read => ref Buffer[_entity];
         public static implicit operator T(in AspectData<T> getRef)
         {
             return getRef.Value;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref Entity entity)
         {
-            Entity = entity.id;
+            _entity = entity.id;
         }
     }
     public struct ComponentsTuple<T1, T2> : ITuple where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent

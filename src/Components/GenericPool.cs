@@ -41,6 +41,11 @@ namespace Wargon.Nukecs {
             };
             return ptr;
         }
+
+        public T* GetBuffer<T>() where T : unmanaged, IComponent
+        {
+            return (T*)UnsafeBuffer->buffer;
+        }
         [StructLayout(LayoutKind.Sequential)]
         internal struct GenericPoolUnsafe {
             [NativeDisableUnsafePtrRestriction] internal byte* buffer;
@@ -48,6 +53,13 @@ namespace Wargon.Nukecs {
             internal int capacity;
             internal ComponentType ComponentType;
             internal Allocator allocator;
+            /// <summary>
+            /// Create internal unsafe part of pool 
+            /// </summary>
+            /// <param name="size"></param>
+            /// <param name="allocator"></param>
+            /// <typeparam name="T"></typeparam>
+            /// <returns></returns>
             internal static GenericPoolUnsafe* CreateBuffer<T>(int size, Allocator allocator) where T : unmanaged {
                 var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
                 *ptr = new GenericPoolUnsafe {
@@ -61,7 +73,14 @@ namespace Wargon.Nukecs {
                 UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
                 return ptr;
             }
-
+            
+            /// <summary>
+            /// Create internal unsafe part of pool 
+            /// </summary>
+            /// <param name="type"> Info about component</param>
+            /// <param name="size"> amount of elements</param>
+            /// <param name="allocator">Allocator type</param>
+            /// <returns></returns>
             internal static GenericPoolUnsafe* CreateBuffer(ComponentType type, int size, Allocator allocator) {
                 var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
                 size = type.isTag ? 1 : size;
