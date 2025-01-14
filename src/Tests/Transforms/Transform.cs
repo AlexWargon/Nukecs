@@ -39,4 +39,10 @@ namespace Wargon.Nukecs.Transforms {
             });
         }
     }
+
+    public partial struct TransformAspect : IAspect
+    {
+        public AspectData<Transform> Trasform;
+        public AspectData<LocalTransform> LocalTransform;
+    }
 }

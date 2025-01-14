@@ -443,12 +443,11 @@ namespace Wargon.Nukecs
             child.Remove<ChildOf>();
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public static ref T GetAspect<T>(this ref Entity entity) where T : unmanaged, IAspect<T>, IAspect
         {
             var aspect = entity.worldPointer->GetAspect<T>();
             aspect->Update(ref entity);
-            
             return ref *aspect;
         }
     }
