@@ -79,4 +79,34 @@ namespace Wargon.Nukecs {
             }
         }
     }
+    [System.Serializable]
+    public struct WorldSerialized
+    {
+        public Entity[] entities;
+        public Entity[] prefabsToSpawn;
+        public int[] reservedEntities;
+        public int[] entitiesArchetypes;
+        public int[] archetypesMap;
+        public int entitiesAmount;
+        public int lastEntityIndex;
+        public byte[][] pools;
+        public QuerySerialized[] queries;
+
+
+        public static unsafe void Deserialize(ref WorldSerialized worldSerialized, ref World world)
+        {
+            for (var i = 0; i < worldSerialized.queries.Length; i++)
+            {
+                QuerySerialized.Deseialize(ref worldSerialized.queries[i], world.UnsafeWorld->queries[i]);
+            }
+            Unsafe.Copy(ref world.UnsafeWorld->entities, ref worldSerialized.entities, worldSerialized.entities.Length);
+            Unsafe.Copy(ref world.UnsafeWorld->prefabsToSpawn, ref worldSerialized.prefabsToSpawn, worldSerialized.prefabsToSpawn.Length);
+            Unsafe.Copy(ref world.UnsafeWorld->reservedEntities, ref worldSerialized.reservedEntities, worldSerialized.reservedEntities.Length);
+
+            for (int i = 0; i < worldSerialized.pools.Length; i++)
+            {
+                world.UnsafeWorld->pools[i].Deserialize(worldSerialized.pools[i]);
+            }
+        }
+    }
 }

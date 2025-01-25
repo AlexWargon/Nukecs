@@ -642,28 +642,28 @@ namespace Wargon.Nukecs {
     }
 
     public unsafe struct Locking : IDisposable {
-        public NativeReference<int> locks;
-        
+        private NativeReference<int> _locks;
         public static Locking Create() 
         {
-            return new Locking() 
+            return new Locking 
             {
-                locks = new NativeReference<int>(0, Allocator.Persistent)
+                _locks = new NativeReference<int>(0, Allocator.Persistent)
             };
+            
         }
 
         public void Lock() {
-            while (Interlocked.CompareExchange(ref *locks.GetUnsafePtrWithoutChecks(), 1, 0) != 0)
+            while (Interlocked.CompareExchange(ref *_locks.GetUnsafePtrWithoutChecks(), 1, 0) != 0)
             {
                 Unity.Burst.Intrinsics.Common.Pause();
             }
         }
 
         public void Unlock() {
-            locks.Value = 0;
+            _locks.Value = 0;
         }
         public void Dispose() {
-            locks.Dispose();
+            _locks.Dispose();
         }
     }
     public unsafe struct WorldLock {

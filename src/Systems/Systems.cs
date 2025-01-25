@@ -350,7 +350,7 @@ namespace Wargon.Nukecs
         }
     
         public void Run(ref State state) {
-
+            
         }
         [BurstCompile]
         internal struct GenericJobWrapper : IJobParallelFor {
@@ -359,7 +359,7 @@ namespace Wargon.Nukecs
             public Query<T> query;
             public float dt;
             public void Execute(int index) {
-
+                
             }
         }
     }
@@ -390,8 +390,6 @@ namespace Wargon.Nukecs
         Parallel,
         Single
     }
-
-
     
     [JobProducerType(typeof(QueryJobSystemExtensions.QueryJobStruct<>))]
     public interface IQueryJobSystem {
@@ -430,7 +428,6 @@ namespace Wargon.Nukecs
                 }
             }
         }
-
 
         public static void EarlyJobInit<T>() where T : struct, IQueryJobSystem {
             QueryJobStruct<T>.Initialize();
@@ -480,7 +477,7 @@ namespace Wargon.Nukecs
     {
         void OnDestroy(ref World world);
     }
-    public interface IComplete{}
+    public interface IComplete { }
     public interface ISystem {
         void OnUpdate(ref State state);
     }
@@ -572,7 +569,6 @@ namespace Wargon.Nukecs
             }
         }
 
-
         public static void EarlyJobInit<T>() where T : struct, IEntityIndexJobSystem {
             EntityJobStruct<T>.Initialize();
         }
@@ -582,7 +578,6 @@ namespace Wargon.Nukecs
             return EntityJobStruct<T>.JobReflectionData.Data;
         }
     }
-   
 
     public static class EXT
     {
@@ -665,13 +660,13 @@ namespace Wargon.Nukecs
         internal static int Index => data.Data;
     }
     public unsafe struct SystemsDependencies {
-        private UnsafeList<JobHandle> list;
+        private NativeList<JobHandle> list;
         private NativeArray<JobHandle> array;
         private int lastDefault;
 
         public static SystemsDependencies Create() {
             var systemsDependencies = new SystemsDependencies() {
-                list = new UnsafeList<JobHandle>(16, Allocator.Persistent),
+                list = new NativeList<JobHandle>(16, Allocator.Persistent),
                 lastDefault = 0
             };
             systemsDependencies.list.Add(new JobHandle());
@@ -680,36 +675,34 @@ namespace Wargon.Nukecs
 
         public void Complete() {
             if (!array.IsCreated) {
-                array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<JobHandle>(list.Ptr, list.Length,
-                    Allocator.Persistent);
+                array = list.AsArray();
             }
-
             JobHandle.CompleteAll(array);
-
         }
-        public void Dispose()
-        {
+        
+        public void Dispose() {
             list.Dispose();
             array.Dispose();
         }
+        
         public int GetIndex<T>() {
             return SystemInfo<T>.Index;
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref JobHandle GetDependencies<T>() {
-            return ref list.Ptr[SystemInfo<T>.Index];
+        public JobHandle GetDependencies<T>() {
+            return list[SystemInfo<T>.Index];
         }
 
-        public JobHandle* GetDependenciesPtr<T>() {
-            return list.Ptr + SystemInfo<T>.Index;
-        }
         public void SetDependenciesNew<TTo>(JobHandle handle = default) {
             SystemInfo<TTo>.data.Data = list.Length;
             list.Add(handle);
         }
+        
         public void SetDependencies<TFrom, TTo>() {
             SystemInfo<TTo>.data.Data = SystemInfo<TFrom>.Index;
         }
+        
         public void SetDependenciesDefault<TTo>() {
             SystemInfo<TTo>.data.Data = 0;
         }
@@ -737,7 +730,7 @@ namespace Wargon.Nukecs
         //     
         //     return systems;
         // }
-        public static unsafe Systems Add(this Systems systems, Delegate @delegate) {
+        public static Systems Add(this Systems systems, Delegate @delegate) {
             var functionPointer = BurstCompiler.CompileFunctionPointer(@delegate);
             var gcHandle = GCHandle.Alloc(@delegate);
             
@@ -745,6 +738,6 @@ namespace Wargon.Nukecs
         }
     }
 
-    public unsafe delegate void QueryFn<T1, T2, T3>(UnsafeTuple<T1, T2, T3> query)
+    public delegate void Fn<T1, T2, T3>(UnsafeTuple<T1, T2, T3> query)
         where T1 : unmanaged where T2 : unmanaged where T3 : unmanaged;
 }

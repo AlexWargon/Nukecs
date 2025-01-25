@@ -310,7 +310,18 @@ namespace Wargon.Nukecs {
             //Debug.Log($"Pool {type} disposed. {cType.ToString()} ");
         }
 
+        public byte[] Serialize()
+        {
+            return new Span<byte>(UnsafeBuffer->buffer, UnsafeBuffer->ComponentType.size * UnsafeBuffer->capacity).ToArray();
+        }
 
+        public void Deserialize(byte[] data)
+        {
+            fixed (byte* ptr = data)
+            {
+                UnsafeUtility.MemCpy(UnsafeBuffer->buffer, ptr, data.Length);
+            }
+        }
     }
     
     public readonly unsafe struct ComponentPool<T> where T : unmanaged {
@@ -336,6 +347,11 @@ namespace Wargon.Nukecs {
             {
                 Buffer = (T*)genericPool.UnsafeBuffer->buffer
             };
+        }
+
+        public static Span<T> AsSpan<T>(in this GenericPool genericPool) where T : unmanaged, IComponent
+        {
+            return new Span<T>(genericPool.UnsafeBuffer->buffer, genericPool.UnsafeBuffer->capacity);
         }
     }
     public struct bbool {

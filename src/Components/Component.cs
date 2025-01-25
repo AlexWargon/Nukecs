@@ -516,7 +516,18 @@ namespace Wargon.Nukecs
             Unsafe.FreeTracked(pointer, world.UnsafeWorld->allocator);
         }
     }
-    [StructLayout(LayoutKind.Sequential)]
+
+    // public unsafe struct AspectData<T> where T : unmanaged, IComponent
+    // {
+    //     internal T* Buffer;
+    //     public ref T Value => ref *Buffer;
+    //     public ref readonly T Read => ref *Buffer;
+    //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    //     public void Update(ref Entity entity, ref GenericPool pool)
+    //     {
+    //         Buffer = (T*)pool.UnsafeBuffer->buffer + entity.id;
+    //     }
+    // }
     public unsafe struct AspectData<T> where T : unmanaged, IComponent
     {
         internal T* Buffer;

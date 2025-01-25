@@ -39,6 +39,15 @@ namespace Wargon.Nukecs {
         public static void FreeWithManager<T>(T* ptr, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
             AllocatorManager.Free(allocator, ptr);
         }
+
+        public static void Copy<T>(ref UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
+        {
+            fixed (T* ptr = source)
+            {
+                UnsafeUtility.MemCpy(dst.Ptr, ptr, UnsafeUtility.SizeOf<T>() * source.Length);
+            }
+            dst.m_length = len;
+        }
     }
     public static class UnsafeListExtensions {
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
