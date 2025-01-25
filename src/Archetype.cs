@@ -112,8 +112,8 @@
             this.destroyEdge = CreateDestroyEdge();
             if (copyList)
             {
-                types = new UnsafeList<int>(typesSpan.m_length, world->allocator);
-                types.CopyFrom(in typesSpan);
+                this.types = new UnsafeList<int>(typesSpan.m_length, world->allocator);
+                this.types.CopyFrom(in typesSpan);
             }
         }
 
@@ -381,6 +381,73 @@
         public void Dispose() {
             UnsafePtrList<QueryUnsafe>.Destroy(addEntity);
             UnsafePtrList<QueryUnsafe>.Destroy(removeEntity);
+        }
+    }
+    public unsafe struct Memory
+    {
+        public byte* pointer;
+
+        public Memory(byte* ptr)
+        {
+            this.pointer = ptr;
+        }
+
+        public ref T Get<T>(int index) where T : unmanaged
+        {
+            return ref *(T*)(pointer + index);
+        }
+    }
+    public unsafe struct Memory<T> where T : unmanaged
+    {
+        private T* pointer;
+        public ref T Get(int index) => ref *(pointer + index);
+    }
+    public unsafe struct Chunk
+    {
+        private byte* buffer;
+        private int elemetSize;
+        private int capacity;
+        public Chunk(int size, int capacity, int maxElementSize, int components)
+        {
+            buffer = (byte*)UnsafeUtility.MallocTracked(size, UnsafeUtility.SizeOf<byte>(), Allocator.Persistent, 0);
+            elemetSize = maxElementSize;
+            this.capacity = capacity;
+            for (var index = 0; index < components; index++)
+            {
+                var ptr = (Memory*)(buffer + elemetSize * capacity * index);
+                *ptr = new Memory((byte*)ptr);
+            }
+        }
+
+        public void Dispose()
+        {
+            UnsafeUtility.FreeTracked(buffer, Allocator.Persistent);
+        }
+        public Span<T> GetComponents<T>(int componentIndex) where T : unmanaged
+        {
+            return new Span<T>(buffer + componentIndex * elemetSize, capacity);
+        }
+
+        public ref T Get<T>(int entity, int componentIndex) where T : unmanaged
+        {
+            return ref *((T*)(buffer + componentIndex * elemetSize) + entity);
+        }
+    }
+    public unsafe struct EntityArchetype
+    {
+        private Chunk _chunk;
+
+        public EntityArchetype(params ComponentType[] components)
+        {
+            var m = components.AsSpan();
+            var maxSize = 0;
+            for (var index = 0; index < m.Length; index++)
+            {
+                var componentTypeSize = m[index].size;
+                if (componentTypeSize > maxSize) maxSize = componentTypeSize;
+            }
+            
+            _chunk = new Chunk(maxSize * 256 * components.Length, components.Length, 0, 0);
         }
     }
 }

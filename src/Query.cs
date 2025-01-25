@@ -66,11 +66,41 @@ namespace Wargon.Nukecs {
         }
 
     }
+    [Serializable]
+    public struct QuerySerialized
+    {
+        public ulong[] with;
+        public ulong[] nones;
+        public int[] entities;
+        public int[] entitiesMap;
+        public int count;
+        
+        internal static unsafe QuerySerialized Serialize(QueryUnsafe* queryUnsafe)
+        {
+            return new QuerySerialized
+            {
+                with = queryUnsafe->with.AsArray(),
+                nones = queryUnsafe->none.AsArray(),
+                entities = new Span<int>(queryUnsafe->entities.Ptr, queryUnsafe->entities.Length).ToArray(),
+                entitiesMap = new Span<int>(queryUnsafe->entitiesMap.Ptr, queryUnsafe->entitiesMap.Length).ToArray(),
+                count = queryUnsafe->count
+            };
+        }
+        
+        internal static unsafe void Deseialize(ref QuerySerialized query, QueryUnsafe* queryUnsafe)
+        {
+            queryUnsafe->count = query.count;
+            queryUnsafe->with.FromArray(query.with, query.with.Length);
+            queryUnsafe->none.FromArray(query.nones, query.nones.Length);
+            Unsafe.Copy(ref queryUnsafe->entities, ref query.entities, query.entities.Length);
+            Unsafe.Copy(ref queryUnsafe->entitiesMap, ref query.entitiesMap, query.entitiesMap.Length);
+        }
+    }
     internal unsafe struct QueryUnsafe {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
         internal UnsafeList<int> entities;
-        internal UnsafeParallelHashMap<int, int> entitiesMap;
+        internal UnsafeList<int> entitiesMap;
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
@@ -99,16 +129,14 @@ namespace Wargon.Nukecs {
             this.with = DynamicBitmask.CreateForComponents();
             this.none = DynamicBitmask.CreateForComponents();
             this.count = 0;
-            this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount,
-                world->allocator, NativeArrayOptions.ClearMemory);
-            this.entitiesMap = new UnsafeParallelHashMap<int,int>(world->config.StartEntitiesAmount, world->allocator);
+            this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory);
+            this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory);
             this.self = self;
             if (withDefaultNoneTypes) {
                 foreach (var type in world->DefaultNoneTypes) {
                     none.Add(type);
                 }    
             }
-            
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
@@ -119,11 +147,7 @@ namespace Wargon.Nukecs {
         {
             return entities.ElementAtNoCheck(index);
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool Has(int entity) {
-            //if (entitiesMap.m_length <= entity) return false;
-            return entitiesMap[entity] > 0;
-        }
+
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureCapacity(int requiredCapacity)
         {
@@ -393,7 +417,7 @@ namespace Wargon.Nukecs {
         public DynamicBitmask Copy() {
             var copy = new DynamicBitmask(maxBits);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(bitmaskArray, copy.bitmaskArray, byteLength);
+            UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
             copy.count = count;
             return copy;
         }
@@ -401,7 +425,7 @@ namespace Wargon.Nukecs {
         public DynamicBitmask CopyPlusOne() {
             var copy = new DynamicBitmask(maxBits + 1);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(bitmaskArray, copy.bitmaskArray, byteLength);
+            UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
             copy.count = count;
             return copy;
         }
@@ -410,6 +434,20 @@ namespace Wargon.Nukecs {
         public void Dispose() {
             UnsafeUtility.FreeTracked(bitmaskArray, Allocator.Persistent);
             bitmaskArray = null;
+        }
+
+        public ulong[] AsArray()
+        {
+            return new Span<ulong>(bitmaskArray, arraySize).ToArray();
+        }
+
+        public void FromArray(ulong[] array, int size)
+        {
+            fixed (ulong* ptr = array)
+            {
+                UnsafeUtility.MemCpy(bitmaskArray, ptr, size);
+                arraySize = size;
+            }
         }
     }
 
@@ -458,11 +496,11 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe static implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
-            Ref<T1> ref1 = new Ref<T1>() {
+            var ref1 = new Ref<T1> {
                 pool = queryTuple.pool1.UnsafeBuffer,
                 index = queryTuple.entity
             };
-            Ref<T2> ref2 = new Ref<T2>() {
+            var ref2 = new Ref<T2> {
                 pool = queryTuple.pool2.UnsafeBuffer,
                 index = queryTuple.entity
             };

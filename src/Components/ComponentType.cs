@@ -63,6 +63,30 @@ namespace Wargon.Nukecs {
         {
             return $"ComponentType: {ComponentTypeMap.GetType(index)}  Index = {index}, size = {size}, Tag?[{isTag}], Disposable?[{isDisposable}], Copyable?[{isCopyable}], IsArray?[{isArray}]";
         }
+
+        public static implicit operator Type(ComponentType componentType)
+        {
+            return ComponentTypeMap.GetType(componentType.index);
+        }
+
+        public static explicit operator ComponentType(Type type)
+        {
+            return ComponentTypeMap.GetComponentType(type);
+        }
+
+        public static long GetSizeOfAllComponents()
+        {
+            long size = 0;
+            foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
+            {
+                size += kvPair.Value.size;
+            }
+            foreach (var elementType in ElementTypes)
+            {
+                size += elementType.Value.size * ComponentArray.DefaultMaxCapacity;
+            }
+            return size;
+        }
     }
 
     public struct ComponentType<T> where T : unmanaged {
