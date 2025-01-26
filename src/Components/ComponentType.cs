@@ -74,16 +74,16 @@ namespace Wargon.Nukecs {
             return ComponentTypeMap.GetComponentType(type);
         }
 
-        public static long GetSizeOfAllComponents()
+        public static long GetSizeOfAllComponents(int poolSize = 1)
         {
             long size = 0;
             foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
             {
-                size += kvPair.Value.size;
+                size += kvPair.Value.size * poolSize;
             }
             foreach (var elementType in ElementTypes)
             {
-                size += elementType.Value.size * ComponentArray.DefaultMaxCapacity;
+                size += elementType.Value.size * ComponentArray.DefaultMaxCapacity * poolSize;
             }
             return size;
         }
@@ -230,7 +230,7 @@ namespace Wargon.Nukecs {
             //ComponentsMapCache.Save(cache);
         }
 
-        internal static unsafe void CreatePools(ref UnsafeList<GenericPool> pools, int size, Allocator allocator, ref int poolsCount)
+        internal static unsafe void CreatePools(ref UnsafeList<GenericPool> pools, int size, World.WorldUnsafe* world, ref int poolsCount)
         {
             foreach (var kvPair in ComponentTypes.Data)
             {
@@ -238,15 +238,15 @@ namespace Wargon.Nukecs {
                 ref var pool = ref pools.Ptr[type.index];
                 if (!type.isArray)
                 {
-                    // pool = GenericPool.Create(type, size, allocator);
-                    // poolsCount += 1;
+                    pool = GenericPool.Create(type, size, world);
+                    poolsCount += 1;
                 }
                 else
                 {
-                    pool = GenericPool.Create(type, size, allocator);
+                    pool = GenericPool.Create(type, size, world);
                     var elementType = ComponentType.ElementTypes[type.index];
                     ref var elementsPool = ref pools.Ptr[elementType.index + 1];
-                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, allocator);
+                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, world);
                     poolsCount += 2;
                 }
                 Component.LogComponent(kvPair.Value);

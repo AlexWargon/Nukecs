@@ -72,12 +72,13 @@ namespace Wargon.Nukecs.Tests
                 framesUV[index] = frame;
             }
         }
-        public void AddToStorage() {
+        public void AddToStorage(ref World world) {
+            SpriteAnimationsStorage.Singleton.Initialize(ref world);
             var animationID = Animator.StringToHash(AnimationName);
             var group = Animator.StringToHash(AnimationGroup);
             
             if (!SpriteAnimationsStorage.Singleton.Has(animationID ,group)) {
-                var frames = new SpriteAnimationFrames(sprites.Length, animationID);
+                var frames = new SpriteAnimationFrames(sprites.Length, animationID, world.Allocator);
                 if (framesUV.Length == 0) InitFramesUV();
                 foreach (var float4 in framesUV) {
                     frames.List.Add(float4);

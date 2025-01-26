@@ -6,15 +6,25 @@ namespace Wargon.Nukecs.Tests {
         public static ref SpriteAnimationsStorage Singleton => ref Singleton<SpriteAnimationsStorage>.Instance;
         private NativeHashMap<int, SpriteAnimationGroup> groups;
         private bool _isInitialized;
-
+        private World world;
         public bool Has(int id, int group) {
             if (groups.ContainsKey(group))
                 return groups[group].Has(id);
             return false;
         }
-        public void Add(int id, int group, ref SpriteAnimationFrames animationFrames) {
+
+        public void Initialize(ref World world)
+        {
+            this.world = world;
+            if (!groups.IsCreated)
+            {
+                groups = new NativeHashMap<int, SpriteAnimationGroup>(6, this.world.Allocator);
+            }
+        }
+        public void Add(int id, int group, ref SpriteAnimationFrames animationFrames)
+        {
             if (!groups.ContainsKey(group)) {
-                groups[group] = new SpriteAnimationGroup(6);
+                groups[group] = new SpriteAnimationGroup(6, world.Allocator);
             }
             groups[group].Add(id, ref animationFrames);
         }
@@ -36,6 +46,8 @@ namespace Wargon.Nukecs.Tests {
         }
 
         public void Dispose() {
+            return;
+            
             foreach (var kvPair in groups) {
                 kvPair.Value.Dispose();
             }
@@ -45,7 +57,6 @@ namespace Wargon.Nukecs.Tests {
         public void Init()
         {
             if(_isInitialized) return;
-            groups = new NativeHashMap<int, SpriteAnimationGroup>(6, Allocator.Persistent);
             _isInitialized = true;
         }
     }

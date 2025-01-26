@@ -7,8 +7,8 @@ namespace Wargon.Nukecs.Tests {
     public struct SpriteAnimationFrames : IDisposable {
         public UnsafeList<float4> List;
         public int AnimationID;
-        public SpriteAnimationFrames(int amount, int animationID) {
-            List = new UnsafeList<float4>(amount, Allocator.Persistent);
+        public SpriteAnimationFrames(int amount, int animationID, Allocator allocator) {
+            List = new UnsafeList<float4>(amount, allocator);
             AnimationID = animationID;
         }
 
@@ -20,9 +20,10 @@ namespace Wargon.Nukecs.Tests {
     public unsafe struct SpriteAnimationGroup : IDisposable {
         public UnsafeHashMap<int, SpriteAnimationFrames>* frames;
 
-        public SpriteAnimationGroup(int size) {
-            frames = AllocatorManager.Allocate<UnsafeHashMap<int, SpriteAnimationFrames>>(Allocator.Persistent);
-            *frames = new UnsafeHashMap<int, SpriteAnimationFrames>(size, Allocator.Persistent);
+        public SpriteAnimationGroup(int size, Allocator allocator)
+        {
+            frames = World.Default.UnsafeWorld->_allocate<UnsafeHashMap<int,SpriteAnimationFrames>>();
+            *frames = new UnsafeHashMap<int, SpriteAnimationFrames>(size, allocator);
         }
         public bool Has(int id) => frames->ContainsKey(id);
         public void Add(int id, ref SpriteAnimationFrames animationFrames) {
@@ -40,7 +41,7 @@ namespace Wargon.Nukecs.Tests {
             }
             frames->Dispose();
             
-            AllocatorManager.Free(Allocator.Persistent, frames);
+            World.Default.UnsafeWorld->_free(frames);
         }
     }
 }

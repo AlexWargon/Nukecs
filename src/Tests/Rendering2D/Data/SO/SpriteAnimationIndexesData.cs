@@ -1,5 +1,6 @@
 ﻿using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
@@ -10,7 +11,7 @@ namespace Wargon.Nukecs.Tests
         public SpriteAnimationList[] Animations;
         public override void Convert(ref World world, ref Entity entity)
         {
-            var animator = new SpriteAnimationIndexes(Animations.Length);
+            var animator = new SpriteAnimationIndexes(Animations.Length, world.Allocator);
             foreach (var spriteAnimationList in Animations)
             {
                 spriteAnimationList.Convert(ref world, ref entity);
@@ -21,11 +22,17 @@ namespace Wargon.Nukecs.Tests
     }
     public struct SpriteAnimationIndexes : IComponent, IDisposable, ICopyable<SpriteAnimationIndexes>
     {
-        public NativeList<int> Groups;
-
+        public UnsafeList<int> Groups;
+        private readonly Allocator _allocator;
         public SpriteAnimationIndexes(int size)
         {
-            Groups = new NativeList<int>(size, Allocator.Persistent);
+            Groups = new UnsafeList<int>(size, Allocator.Persistent);
+            _allocator = Allocator.Persistent;
+        }
+        public SpriteAnimationIndexes(int size, Allocator allocator)
+        {
+            Groups = new UnsafeList<int>(size, allocator);
+            _allocator = allocator;
         }
         public void Dispose()
         {
@@ -34,7 +41,7 @@ namespace Wargon.Nukecs.Tests
 
         public SpriteAnimationIndexes Copy(int to)
         {
-            var copy = new SpriteAnimationIndexes(Groups.Length);
+            var copy = new SpriteAnimationIndexes(Groups.Length, _allocator);
             copy.Groups.CopyFrom(in Groups);
             return copy;
         }

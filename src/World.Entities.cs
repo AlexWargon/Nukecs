@@ -18,13 +18,13 @@ namespace Wargon.Nukecs {
 
             internal static Entities Create(WorldUnsafe* world) {
                 return new Entities {
-                    entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory),
-                    prefabsToSpawn = new UnsafeList<Entity>(64, world->allocator, NativeArrayOptions.ClearMemory),
-                    reservedEntities = new UnsafeList<int>(128, world->allocator, NativeArrayOptions.ClearMemory),
-                    entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory),
-                    queries = new UnsafePtrList<QueryUnsafe>(32, world->allocator),
-                    archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, world->allocator),
-                    archetypesMap = new UnsafeHashMap<int, Archetype>(32, world->allocator),
+                    entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory),
+                    prefabsToSpawn = new UnsafeList<Entity>(64, world->Allocator, NativeArrayOptions.ClearMemory),
+                    reservedEntities = new UnsafeList<int>(128, world->Allocator, NativeArrayOptions.ClearMemory),
+                    entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory),
+                    queries = new UnsafePtrList<QueryUnsafe>(32, world->Allocator),
+                    archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, world->Allocator),
+                    archetypesMap = new UnsafeHashMap<int, Archetype>(32, world->Allocator),
                     entitiesAmount = 0,
                     lastEntityIndex = 1,
                     lastDestroyedEntity = 0,

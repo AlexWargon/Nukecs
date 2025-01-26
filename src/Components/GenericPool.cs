@@ -5,6 +5,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine.Assertions;
 
 namespace Wargon.Nukecs {
     [StructLayout(LayoutKind.Sequential)]
@@ -18,29 +19,29 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction] internal GenericPoolUnsafe* UnsafeBuffer;
         public int Count => UnsafeBuffer->count;
         
-        public static GenericPool Create<T>(int size, Allocator allocator) where T : unmanaged {
+        internal static GenericPool Create<T>(int size, World.WorldUnsafe* world) where T : unmanaged {
             return new GenericPool {
-                UnsafeBuffer = GenericPoolUnsafe.CreateBuffer<T>(size, allocator),
+                UnsafeBuffer = GenericPoolUnsafe.CreateBuffer<T>(size, world),
+            };
+        }
+        //
+        // public static void Create<T>(int size, Allocator allocator, out GenericPool pool) where T : unmanaged {
+        //     pool = Create<T>(size, allocator);
+        // }
+        internal static GenericPool Create(ComponentType type, int size, World.WorldUnsafe* world) {
+            return new GenericPool {
+                UnsafeBuffer = GenericPoolUnsafe.CreateBuffer(type, size, world)
             };
         }
 
-        public static void Create<T>(int size, Allocator allocator, out GenericPool pool) where T : unmanaged {
-            pool = Create<T>(size, allocator);
-        }
-        public static GenericPool Create(ComponentType type, int size, Allocator allocator) {
-            return new GenericPool {
-                UnsafeBuffer = GenericPoolUnsafe.CreateBuffer(type, size, allocator),
-            };
-        }
-
-        public static GenericPool* CreatePtr<T>(int size, Allocator allocator) where T : unmanaged {
-            var ptr = Unsafe.MallocTracked<GenericPool>(
-                allocator);
-            *ptr = new GenericPool {
-                UnsafeBuffer = GenericPoolUnsafe.CreateBuffer<T>(size, allocator)
-            };
-            return ptr;
-        }
+        // public static GenericPool* CreatePtr<T>(int size, Allocator allocator) where T : unmanaged {
+        //     var ptr = Unsafe.MallocTracked<GenericPool>(
+        //         allocator);
+        //     *ptr = new GenericPool {
+        //         UnsafeBuffer = GenericPoolUnsafe.CreateBuffer<T>(size, allocator)
+        //     };
+        //     return ptr;
+        // }
 
         public T* GetBuffer<T>() where T : unmanaged, IComponent
         {
@@ -53,44 +54,34 @@ namespace Wargon.Nukecs {
             internal int capacity;
             internal ComponentType ComponentType;
             internal Allocator allocator;
-            /// <summary>
-            /// Create internal unsafe part of pool 
-            /// </summary>
-            /// <param name="size"></param>
-            /// <param name="allocator"></param>
-            /// <typeparam name="T"></typeparam>
-            /// <returns></returns>
-            internal static GenericPoolUnsafe* CreateBuffer<T>(int size, Allocator allocator) where T : unmanaged {
-                var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
+            internal World.WorldUnsafe* worldPtr;
+
+            internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged {
+                var ptr = world->_allocate<GenericPoolUnsafe>();
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
-                    allocator = allocator,
-                    buffer = (byte*)Unsafe.MallocTracked<T>(size * sizeof(T), allocator),
+                    allocator = world->Allocator,
                     ComponentType = ComponentType<T>.Data,
-                    
+                    worldPtr = world
                 };
+                ptr->buffer = (byte*)world->_allocate<T>(size);
                 UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
                 return ptr;
             }
-            
-            /// <summary>
-            /// Create internal unsafe part of pool 
-            /// </summary>
-            /// <param name="type"> Info about component</param>
-            /// <param name="size"> amount of elements</param>
-            /// <param name="allocator">Allocator type</param>
-            /// <returns></returns>
-            internal static GenericPoolUnsafe* CreateBuffer(ComponentType type, int size, Allocator allocator) {
-                var ptr = Unsafe.MallocTracked<GenericPoolUnsafe>(allocator);
+
+            internal static GenericPoolUnsafe* CreateBuffer(ComponentType type, int size, World.WorldUnsafe* world) {
+                
+                var ptr = world->_allocate<GenericPoolUnsafe>();
                 size = type.isTag ? 1 : size;
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
-                    allocator = allocator,
-                    buffer = (byte*)UnsafeUtility.MallocTracked(type.size * size, type.align, allocator, 0),
-                    ComponentType = type
+                    allocator = world->Allocator,
+                    ComponentType = type,
+                    worldPtr = world
                 };
+                ptr->buffer = (byte*)world->_allocate(type.size * size, type.align);
                 UnsafeUtility.MemClear(ptr->buffer, type.size * size);
                 return ptr;
             }
@@ -231,6 +222,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize<T>(int index) where T : unmanaged
         {
+            return;
             if (index >= UnsafeBuffer->capacity)
             {
                 // Calculate new capacity
@@ -265,6 +257,7 @@ namespace Wargon.Nukecs {
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize(int index)
         {
+            return;
             if (index >= UnsafeBuffer->capacity)
             {
                 // Calculate new capacity
@@ -302,10 +295,22 @@ namespace Wargon.Nukecs {
             //var type = ComponentsMap.GetType(UnsafeBuffer->ComponentType.index).Name;
             //var cType = UnsafeBuffer->ComponentType;
             var allocator = UnsafeBuffer->allocator;
-            Unsafe.FreeTracked(UnsafeBuffer->buffer, allocator);
-            UnsafeBuffer->buffer = null;
-            UnsafeBuffer->count = 0;
-            Unsafe.FreeTracked(UnsafeBuffer, allocator);
+            if (UnsafeBuffer->worldPtr != null)
+            {
+                UnsafeBuffer->worldPtr->_free(UnsafeBuffer->buffer, UnsafeBuffer->ComponentType.size, UnsafeBuffer->ComponentType.align, UnsafeBuffer->capacity);
+                UnsafeBuffer->buffer = null;
+                UnsafeBuffer->count = 0;
+                UnsafeBuffer->worldPtr->_free(UnsafeBuffer);
+            }
+            else
+            {
+                UnsafeUtility.FreeTracked(UnsafeBuffer->buffer, allocator);
+                UnsafeBuffer->buffer = null;
+                UnsafeBuffer->count = 0;
+                UnsafeUtility.FreeTracked(UnsafeBuffer, allocator);
+            }
+
+            
             //IsCreated = false;
             //Debug.Log($"Pool {type} disposed. {cType.ToString()} ");
         }

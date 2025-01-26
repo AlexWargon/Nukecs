@@ -1,451 +1,307 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using AOT;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
+
 
 namespace Wargon.Nukecs
 {
-    public unsafe struct MemoryAllocator
+    public struct ALLOCATOR_ERROR
     {
-        private const int MAX_BLOCKS = 1024;
+        public const int NO_ERRORS = 0;
+        public const int ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE = -1;
+        public const int ERROR_ALLOCATOR_MAX_BLOCKS_REACHED = -2;
+        public const int ERROR_ALLOCATOR_OUT_OF_MEMORY= -3;
+    }
+    public unsafe partial struct SerializableMemoryAllocator : IDisposable
+    {
+        private const int MAX_BLOCKS = 10024;
         private const int ALIGNMENT = 16;
-
-        private struct MemoryBlock
+        private const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct MemoryBlock
         {
-            public byte* Pointer;
-            public long Size;
+            public long Pointer;
+            public int Size;
             public bool IsUsed;
         }
 
-        private byte* m_BasePtr;
-        private long m_TotalSize;
-        private MemoryBlock* m_Blocks;
-        private int m_BlockCount;
-
-        public MemoryAllocator(long totalSize)
+        internal byte* basePtr;
+        internal long totalSize;
+        internal MemoryBlock* blocks;
+        internal int blockCount;
+        private int defragmentationCount;
+        private Spinner spinner;
+        public SerializableMemoryAllocator(long totalSize)
         {
-            m_TotalSize = totalSize;
-            m_BasePtr = (byte*)UnsafeUtility.Malloc(totalSize, ALIGNMENT, Allocator.Persistent);
-            m_Blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT,
-                Allocator.Persistent);
-
-            m_Blocks[0] = new MemoryBlock
+            this.totalSize = totalSize;
+            basePtr = (byte*)UnsafeUtility.MallocTracked(totalSize, ALIGNMENT, Allocator.Persistent, 0);
+            blocks = (MemoryBlock*)UnsafeUtility.MallocTracked(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent, 0);
+            // Initialize first block covering entire memory
+            dbug.log($"bloc size {sizeof(MemoryBlock)}");
+            blocks[0] = new MemoryBlock
             {
-                Pointer = m_BasePtr,
-                Size = totalSize,
-                IsUsed = false
+                Pointer = 0,
+                Size = (int)totalSize,
+                IsUsed = false,
             };
-            m_BlockCount = 1;
+            blockCount = 1;
+            defragmentationCount = 0;
+            spinner = new Spinner();
         }
-
-        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // public IntPtr Allocate<T>(int count = 1) where T : unmanaged
-        // {
-        //     long size = UnsafeUtility.SizeOf<T>() * count;
-        //     return AllocateRaw(size);
-        // }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T* Allocate<T>(int count = 1) where T : unmanaged
+        
+        public IntPtr AllocateRaw(long size, ref int error)
         {
-            return (T*)AllocateRaw(UnsafeUtility.SizeOf<T>() * count);
-        }
-
-        public IntPtr AllocateRaw(long size)
-        {
-            Defragment();
-
-            for (var i = 0; i < m_BlockCount; i++)
+            SizeWithAlign(ref size, ALIGNMENT);
+            spinner.Acquire();
+            DeFragment();
+            for (var i = 0; i < blockCount; i++)
             {
-                ref var block = ref m_Blocks[i];
+                ref var block = ref blocks[i];
                 if (!block.IsUsed && block.Size >= size)
                 {
+                    // Split block if larger than requested size
                     if (block.Size > size)
-                        // Split block
-                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false);
+                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false, ref error);
 
-                    block.Size = size;
+                    block.Size = (int)size;
                     block.IsUsed = true;
-                    return (IntPtr)block.Pointer;
+                    //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
+                    spinner.Release();
+                    return (IntPtr)(basePtr + block.Pointer);
                 }
             }
-
-            throw new OutOfMemoryException("Not enough memory");
+            spinner.Release();
+            error = ALLOCATOR_ERROR.ERROR_ALLOCATOR_OUT_OF_MEMORY;
+            return IntPtr.Zero;
         }
 
-        private void InsertBlock(int index, byte* pointer, long size, bool isUsed)
+        private void SizeWithAlign(ref long size, int align)
         {
-            if (m_BlockCount >= MAX_BLOCKS)
-                throw new InvalidOperationException("Max blocks reached");
-
-            for (var i = m_BlockCount; i > index; i--) m_Blocks[i] = m_Blocks[i - 1];
-
-            m_Blocks[index] = new MemoryBlock
+            size = (size + align - 1) / align * align;
+        }
+        public void Free(byte* ptr, ref int error)
+        {
+            spinner.Acquire();
+            var offset = ptr - basePtr;
+            for (var i = 0; i < blockCount; i++)
             {
-                Pointer = pointer,
-                Size = size,
-                IsUsed = isUsed
-            };
-            m_BlockCount++;
-        }
-
-        public void Free(IntPtr ptr)
-        {
-            for (var i = 0; i < m_BlockCount; i++)
-                if (m_Blocks[i].Pointer == (byte*)ptr)
+                ref var block = ref blocks[i];
+                
+                if (block.Pointer == offset)
                 {
-                    m_Blocks[i].IsUsed = false;
-                    break;
+                    block.IsUsed = false;
+                    spinner.Release();
+                    //dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
+                    return;
                 }
+            }
+            spinner.Release();
+            error = ALLOCATOR_ERROR.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
         }
 
-        private void Defragment()
+        internal void DeFragment()
         {
-            for (var i = 0; i < m_BlockCount - 1; i++)
-                if (!m_Blocks[i].IsUsed && !m_Blocks[i + 1].IsUsed)
+            for (var i = 0; i < blockCount - 1; i++)
+                if (!blocks[i].IsUsed && !blocks[i + 1].IsUsed)
                 {
                     // Merge consecutive free blocks
-                    m_Blocks[i].Size += m_Blocks[i + 1].Size;
+                    blocks[i].Size += blocks[i + 1].Size;
                     RemoveBlock(i + 1);
                     i--; // Recheck current block
                 }
+
+            defragmentationCount++;
+        }
+
+        private void InsertBlock(int index, long offset, long size, bool isUsed, ref int error)
+        {
+            if (blockCount >= MAX_BLOCKS)
+            {
+                error = ALLOCATOR_ERROR.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED;
+                return;
+            }
+
+            for (var i = blockCount; i > index; i--) 
+                blocks[i] = blocks[i - 1];
+
+            blocks[index] = new MemoryBlock
+            {
+                Pointer = offset,
+                Size = (int)size,
+                IsUsed = isUsed
+            };
+            blockCount++;
+            error = 0;
         }
 
         private void RemoveBlock(int index)
         {
-            for (var i = index; i < m_BlockCount - 1; i++) m_Blocks[i] = m_Blocks[i + 1];
-            m_BlockCount--;
+            var block = blocks[index];
+            dbug.log($"Removing {block.Size} bytes at offset {block.Pointer}. Pointer {(int)basePtr + block.Pointer}");
+            for (var i = index; i < blockCount - 1; i++)
+            {
+                blocks[i] = blocks[i + 1];
+            }
+            blockCount--;
         }
 
         public void Dispose()
         {
-            if (m_BasePtr != null)
+            spinner.Release();
+            if (basePtr != null)
             {
-                UnsafeUtility.Free(m_BasePtr, Allocator.Persistent);
-                m_BasePtr = null;
+                UnsafeUtility.FreeTracked(basePtr, Allocator.Persistent);
+                basePtr = null;
             }
 
-            if (m_Blocks != null)
+            if (blocks != null)
             {
-                UnsafeUtility.Free(m_Blocks, Allocator.Persistent);
-                m_Blocks = null;
-            }
-        }
-    }
-    
-    public unsafe struct CompleteCustomAllocator : AllocatorManager.IAllocator
-    {
-        private MemoryAllocator m_Allocator;
-        private IntPtr m_AllocatorState;
-        private AllocatorManager.AllocatorHandle handle;
-        public CompleteCustomAllocator(long totalMemorySize)
-        {
-            m_Allocator = new MemoryAllocator(totalMemorySize);
-        
-            // Создаем состояние аллокатора
-            m_AllocatorState = Marshal.AllocHGlobal(IntPtr.Size);
-            Marshal.WriteIntPtr(m_AllocatorState, IntPtr.Zero);
-            handle = Allocator.Persistent;
-            m_allocationCount = 0;
-            m_initialValue = 0;
-        }
-
-        public AllocatorManager.AllocatorHandle Handle {
-            get => handle;
-            set => handle = value;
-        }
-
-        public Allocator ToAllocator => Handle.ToAllocator;
-        private byte m_initialValue;
-        private int m_allocationCount;
-        public int Try(ref AllocatorManager.Block block)
-        {
-            if (block.Range.Pointer == IntPtr.Zero)
-            {
-                block.Range.Allocator = handle;
-                block.Range.Pointer = m_Allocator.AllocateRaw(block.Bytes);
-                
-                if (block.Range.Pointer != IntPtr.Zero)
-                {
-                    UnsafeUtility.MemSet((void*)block.Range.Pointer, m_initialValue, block.Bytes);
-                    m_allocationCount++;
-                }
+                UnsafeUtility.FreeTracked(blocks, Allocator.Persistent);
+                blocks = null;
             }
             
-            else
+        }
+
+        // Get total allocated memory size
+        public long GetTotalSize()
+        {
+            return totalSize;
+        }
+
+        // Optional: Get memory usage information
+        public (long totalSize, long usedSize, long freeSize, int defragmentationCycles, int blockCount) GetMemoryInfo()
+        {
+            long usedSize = 0;
+            var freeSize = totalSize;
+
+            for (var i = 0; i < blockCount; i++)
+                if (blocks[i].IsUsed)
+                {
+                    usedSize += blocks[i].Size;
+                    freeSize -= blocks[i].Size;
+                }
+
+            return (totalSize, usedSize, freeSize, defragmentationCount, blockCount);
+        }
+
+        public MemoryView GetMemoryView()
+        {
+            return new MemoryView
             {
-                
-            }
-            block.Range.Allocator = handle;
-            block.Range.Pointer = m_Allocator.AllocateRaw(block.Bytes);
-
-            var result = handle.Try(ref block);
-            return result;
+                Blocks = blocks,
+                BlockCount = blockCount
+            };
         }
         
-        [BurstCompile]
-        [MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
-        internal static int Try(System.IntPtr state, ref AllocatorManager.Block block) {
-            unsafe { return ((CompleteCustomAllocator*)state)->Try(ref block); }
-        }
-        public AllocatorManager.TryFunction Function => Try;
-
-        public byte* Allocate(long size, int alignment, AllocatorManager.AllocatorHandle handle)
+        public void DebugView()
         {
-            return m_Allocator.Allocate<byte>((int)size);
-        }
+            dbug.log("========== Memory Allocator Debug View ==========");
+            dbug.log($"Total Memory: {totalSize} bytes");
+            dbug.log($"Block Count: {blockCount}");
+            dbug.log($"Defragmentation Cycles: {defragmentationCount}");
 
-        public void Free(IntPtr pointer, AllocatorManager.AllocatorHandle handle)
-        {
-            m_Allocator.Free(pointer);
-        }
+            long usedSize = 0;
+            long freeSize = totalSize;
 
-        public byte* Reallocate(IntPtr pointer, long oldSize, long newSize, int alignment, AllocatorManager.AllocatorHandle handle)
-        {
-            var newPtr = m_Allocator.Allocate<byte>((int)newSize);
-        
-            // Копируем старые данные
-            UnsafeUtility.MemCpy(
-                (void*)newPtr, 
-                (void*)pointer, 
-                Math.Min(oldSize, newSize)
-            );
-
-            return newPtr;
-        }
-
-        public void Dispose()
-        {
-            m_Allocator.Dispose();
-        
-            // Освобождаем состояние аллокатора
-            if (m_AllocatorState != IntPtr.Zero)
+            for (int i = 0; i < blockCount; i++)
             {
-                Marshal.FreeHGlobal(m_AllocatorState);
-                m_AllocatorState = IntPtr.Zero;
-            }
-        }
+                ref var block = ref blocks[i];
+                string status = block.IsUsed ? "Used" : "Free";
+                usedSize += block.IsUsed ? block.Size : 0;
+                freeSize -= block.IsUsed ? block.Size : 0;
 
-        // Дополнительный метод для проверки, что это кастомный аллокатор
-        public bool IsCustomAllocator => true;
+                dbug.log($"Block {i}:");
+                dbug.log($"  Offset: {block.Pointer}");
+                dbug.log($"  Size: {block.Size} bytes");
+                dbug.log($"  Status: {status}");
+            }
+
+            dbug.log("------------------------------------------------");
+            dbug.log($"Used Memory: {usedSize} bytes");
+            dbug.log($"Free Memory: {freeSize} bytes");
+            dbug.log("================================================");
+        }
     }
 
-    [BurstCompile(CompileSynchronously = true)]
-    public unsafe struct ArenaAllocator : AllocatorManager.IAllocator
+    public struct MemoryView
     {
+        internal unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
+        internal int BlockCount;
+    }
+    public unsafe struct UnityAllocatorWrapper : AllocatorManager.IAllocator
+    {
+        public SerializableMemoryAllocator MemoryAllocator;
         private AllocatorManager.AllocatorHandle m_handle;
-
         public AllocatorManager.TryFunction Function => AllocatorFunction;
-        public AllocatorManager.AllocatorHandle Handle { get => m_handle; set => m_handle = value; }
+
+        public AllocatorManager.AllocatorHandle Handle
+        {
+            get => m_handle;
+            set => m_handle = value;
+        }
+
         public Allocator ToAllocator => m_handle.ToAllocator;
-        public bool IsCustomAllocator => m_handle.IsCustomAllocator;
+        public bool IsCustomAllocator => true;
         public bool IsAutoDispose => false;
 
-        private byte* m_memoryBase;         // Указатель на базовую память
-        private long m_capacityInBytes;            // Общий размер памяти
-        private long m_offset;              // Текущая позиция для следующей аллокации
-        private long m_alignment;           // Выравнивание
-        int m_allocationCount;
-        byte m_initialValue;
-        private NativeArray<long> m_freeOffsets; // Массив для хранения освобожденных блоков
-        private int m_freeCount;             // Количество свободных блоков
-        // Value to initialize the allocated memory
-        public byte InitialValue => m_initialValue;
-        // Allocation count
-        public int AllocationCount => m_allocationCount;
-        public long CapacityInBytes => m_capacityInBytes;
-        public long CapacityInKilobytes => m_capacityInBytes / 1000;
-        public long CapacityInMegabytes => m_capacityInBytes / 1000000;
-        public void Initialize(long capacity, long alignment = 16, int maxFreeBlocks = 1024)
+        public void Initialize(long capacity)
         {
-            m_capacityInBytes = capacity;
-            m_offset = 0;
-            m_alignment = alignment;
-
-            // Выделяем память
-            m_memoryBase = (byte*)UnsafeUtility.Malloc(capacity, (int)alignment, Allocator.Persistent);
-            UnsafeUtility.MemSet(m_memoryBase, 0, capacity);
-
-            // Создаем массив для хранения освобожденных блоков
-            m_freeOffsets = new NativeArray<long>(maxFreeBlocks, Allocator.Persistent);
-            m_freeCount = 0;
-            m_allocationCount = 0;
-            m_initialValue = 0;
+            MemoryAllocator = new SerializableMemoryAllocator(capacity);
         }
 
         public void Dispose()
         {
-            if (m_memoryBase != null)
-            {
-                UnsafeUtility.Free(m_memoryBase, Allocator.Persistent);
-                m_memoryBase = null;
-            }
-
-            if (m_freeOffsets.IsCreated)
-            {
-                m_freeOffsets.Dispose();
-            }
-
-            m_capacityInBytes = 0;
-            m_offset = 0;
-            m_freeCount = 0;
+            MemoryAllocator.Dispose();
         }
 
         public int Try(ref AllocatorManager.Block block)
         {
+            var error = ALLOCATOR_ERROR.NO_ERRORS;
             if (block.Range.Pointer == IntPtr.Zero)
             {
-                return Allocate(ref block);
+                block.Range.Pointer = MemoryAllocator.AllocateRaw(block.Bytes, ref error);
             }
             else
             {
-                return Deallocate(ref block);
+                MemoryAllocator.Free((byte*)block.Range.Pointer, ref error);
             }
+            ShowError(error);
+            return error;
         }
-
-        private int Allocate(ref AllocatorManager.Block block)
+        [BurstDiscard]
+        private static void ShowError(int error)
         {
-            // Проверяем наличие свободных блоков
-            if (m_freeCount > 0)
+            if (error != 0)
             {
-                m_freeCount--;
-                long freeOffset = m_freeOffsets[m_freeCount];
-                block.Range.Pointer = (IntPtr)(m_memoryBase + freeOffset);
-                m_allocationCount++;
-                return 0;
+                switch (error)
+                {
+                    case ALLOCATOR_ERROR.ERROR_ALLOCATOR_OUT_OF_MEMORY:
+                        dbug.error("Allocator out of memory.");
+                        break;
+                    case ALLOCATOR_ERROR.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
+                        dbug.error("Allocator max blocks reached.");
+                        break;
+                }
             }
+        }
+        [BurstCompile]
+        [AOT.MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
+        private static int AllocatorFunction(IntPtr customAllocatorPtr, ref AllocatorManager.Block block)
+        {
+            return ((UnityAllocatorWrapper*)customAllocatorPtr)->Try(ref block);
+        }
 
-            // Выравниваем текущий offset
-            long alignedOffset = (m_offset + m_alignment - 1) & ~(m_alignment - 1);
-
-            // Проверяем, достаточно ли памяти
-            if (alignedOffset + block.Bytes > m_capacityInBytes)
+        public SerializableMemoryAllocator* GetAllocatorPtr()
+        {
+            fixed (SerializableMemoryAllocator* ptr = &MemoryAllocator)
             {
-                return -1; // Недостаточно памяти
+                return ptr;
             }
-
-            // Выделяем память
-            block.Range.Pointer = (IntPtr)(m_memoryBase + alignedOffset);
-            m_offset = alignedOffset + block.Bytes;
-            m_allocationCount++;
-            return 0;
-        }
-
-        private int Deallocate(ref AllocatorManager.Block block)
-        {
-            long offset = (byte*)block.Range.Pointer - m_memoryBase;
-
-            // Проверяем, что указатель в пределах арены
-            if (offset < 0 || offset >= m_capacityInBytes)
-            {
-                return -1; // Ошибка: указатель вне диапазона
-            }
-
-            // Проверяем, не переполнен ли массив свободных блоков
-            if (m_freeCount >= m_freeOffsets.Length)
-            {
-                return -1; // Ошибка: массив свободных блоков переполнен
-            }
-
-            // Добавляем блок в массив
-            m_freeOffsets[m_freeCount] = offset;
-            m_freeCount++;
-            block.Range.Pointer = IntPtr.Zero;
-            m_allocationCount--;
-            return 0;
-        }
-
-        [BurstCompile(CompileSynchronously = true)]
-        [MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
-        public static unsafe int AllocatorFunction(IntPtr customAllocatorPtr, ref AllocatorManager.Block block)
-        {
-            return ((ArenaAllocator*)customAllocatorPtr)->Try(ref block);
-        }
-
-        public IntPtr GetBasePointer()
-        {
-            return (IntPtr)m_memoryBase;
-        }
-
-        public long GetRemainingCapacity()
-        {
-            return m_capacityInBytes - m_offset + m_freeCount * m_alignment;
         }
     }
+
     // Example user structure that contains the custom allocator
-    public struct ArenaAllocatorHandle
-    {
-        // Use AllocatorHelper to help creating the example custom alloctor
-        AllocatorHelper<ArenaAllocator> customAllocatorHelper;
-
-        // Custom allocator property for accessibility
-        public ref ArenaAllocator Allocator => ref customAllocatorHelper.Allocator;
-
-        public AllocatorManager.AllocatorHandle AllocatorHandle => customAllocatorHelper.Allocator.Handle;
-        // Create the example custom allocator
-        void CreateCustomAllocator(AllocatorManager.AllocatorHandle backgroundAllocator, long initialValue)
-        {
-            // Allocate the custom allocator from backgroundAllocator and register the allocator
-            customAllocatorHelper = new AllocatorHelper<ArenaAllocator>(backgroundAllocator);
-            
-            // Set the initial value to initialize the memory
-            Allocator.Initialize(initialValue);
-            
-        }
-
-        // Dispose the custom allocator
-        void DisposeCustomAllocator()
-        {
-            // Dispose the custom allocator
-            Allocator.Dispose();
-            // Unregister the custom allocator and dispose it
-            customAllocatorHelper.Dispose();
-        }
-
-        // Constructor of user structure
-        public ArenaAllocatorHandle(long sizeInBytes)
-        {
-            this = default;
-            CreateCustomAllocator(Unity.Collections.Allocator.Persistent, sizeInBytes);
-        }
-
-        // Dispose the user structure
-        public void Dispose()
-        {
-            DisposeCustomAllocator();
-        }
-
-        // Sample code to use the custom allocator to allocate containers
-        public void UseCustomAllocator(out NativeArray<int> nativeArray, out NativeList<int> nativeList)
-        {
-            // Use custom allocator to allocate a native array and check initial value.
-            nativeArray = CollectionHelper.CreateNativeArray<int, ArenaAllocator>(100, ref Allocator, NativeArrayOptions.UninitializedMemory);
-            Assert.AreEqual(Allocator.InitialValue, (byte)nativeArray[0] & 0xFF);
-            nativeArray[0] = 0xFE;
-
-            // Use custom allocator to allocate a native list and check initial value.
-            nativeList = new NativeList<int>(Allocator.Handle);
-            for (int i = 0; i < 50; i++)
-            {
-                nativeList.Add(i);
-            }
-
-            unsafe
-            {
-                // Use custom allocator to allocate a byte buffer.
-                byte* bytePtr = (byte*)AllocatorManager.Allocate(ref Allocator, sizeof(byte), sizeof(byte), 10);
-                Assert.AreEqual(Allocator.InitialValue, bytePtr[0]);
-
-                // Free the byte buffer.
-                AllocatorManager.Free(Allocator.ToAllocator, bytePtr, 10);
-            }
-        }
-
-        // Get allocation count from the custom allocator
-        public int AllocationCount => Allocator.AllocationCount;
-
-    }
 }

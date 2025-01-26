@@ -8,37 +8,56 @@ using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
     public static unsafe class Unsafe {
-        public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged {
+        public static T* __MallocTracked<T, TAllocator>(ref TAllocator allocator, int items) where T : unmanaged
+            where TAllocator : unmanaged, AllocatorManager.IAllocator
+        {
+            return (T*)allocator.Allocate(sizeof(T), UnsafeUtility.AlignOf<T>(), items);
+        }
+        public static T* __MallocTracked<T, TAllocator>(ref TAllocator allocator) where T : unmanaged
+            where TAllocator : unmanaged, AllocatorManager.IAllocator
+        {
+            return (T*)allocator.Allocate(sizeof(T), UnsafeUtility.AlignOf<T>());
+        }
+        public static void* __MallocTracked<TAllocator>(int sizeOf, int align, ref TAllocator allocator)
+            where TAllocator : unmanaged, AllocatorManager.IAllocator
+        {
+            return allocator.Allocate(sizeOf, align);
+        }
+        public static void __FreeTracked<T, TAllocator>(T* ptr, ref TAllocator allocator) where T : unmanaged
+            where TAllocator : unmanaged, AllocatorManager.IAllocator
+        {
+            AllocatorManager.Free(allocator.ToAllocator, ptr);
+        }
+        public static void __FreeTracked<TAllocator>(void* ptr, ref TAllocator allocator)
+            where TAllocator : unmanaged, AllocatorManager.IAllocator
+        {
+            AllocatorManager.Free(allocator.ToAllocator, ptr);
+        }
+        public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged
+        {
             return (T*) UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
+        // public static void* MallocTracked(int sizeOf, int alignOf, Allocator allocator)
+        // {
+        //     if (allocator is Allocator.Persistent or Allocator.Temp or Allocator.TempJob)
+        //     {
+        //         return UnsafeUtility.MallocTracked(sizeOf, alignOf, allocator, 0);
+        //     }
+        //     ref var a = ref ArenaAllocatorHandle.GetAllocator(allocator);
+        //     return a.Allocate(sizeOf, alignOf);
+        // }
         public static T* MallocTracked<T>(int items, Allocator allocator) where T : unmanaged {
-            return (T*) UnsafeUtility.MallocTracked(sizeof(T) * items, UnsafeUtility.AlignOf<T>(), allocator, 0);
+            return (T*)UnsafeUtility.MallocTracked(sizeof(T) * items, UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
+
         public static void FreeTracked(void* ptr, Allocator allocator) {
             UnsafeUtility.FreeTracked(ptr, allocator);
         }
-        public static void FreeTracked<T>(T* ptr, Allocator allocator) where T : unmanaged {
-            UnsafeUtility.FreeTracked(ptr, allocator);
-        }
-        public static T* Malloc<T>(Allocator allocator) where T : unmanaged {
-            return (T*) UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
-        }
 
-        public static T* AllocateWithManager<T>(AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            return AllocatorManager.Allocate<T>(allocator);
-        }
         public static T* Allocate<T>(int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
             return AllocatorManager.Allocate<T>(allocator, items);
         }
-        public static void FreeWithManager(void* ptr, AllocatorManager.AllocatorHandle allocator) {
-            AllocatorManager.Free(allocator, ptr);
-        }
-        public static void FreeWithManager<T>(T* ptr, int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            AllocatorManager.Free(allocator, ptr, items);
-        }
-        public static void FreeWithManager<T>(T* ptr, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            AllocatorManager.Free(allocator, ptr);
-        }
+
 
         public static void Copy<T>(ref UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
         {
