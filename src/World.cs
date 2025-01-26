@@ -16,12 +16,20 @@ namespace Wargon.Nukecs {
         public static readonly ClassPtr<object> pools;
     }
     public unsafe partial struct World : IDisposable {
-        public const Allocator Allocator = Unity.Collections.Allocator.Persistent;
         private static readonly World[] worlds = new World[4];
         private static int lastFreeSlot;
         private static int lastWorldID;
         public static ref World Get(int index) => ref worlds[index];
 
+        public static bool HasActiveWorlds()
+        {
+            for (var i = 0; i < worlds.Length; i++)
+            {
+                if (worlds[i].IsAlive) return true;
+            }
+
+            return false;
+        }
         internal static World* GetPtr(int index)
         {
             fixed (World* world = worlds)
@@ -36,6 +44,7 @@ namespace Wargon.Nukecs {
                 ref var w = ref Get(0);
                 if (!w.IsAlive) {
                     w = Create();
+                    Debug.Log("Created Default World");
                 }
                 return ref w;
             }
@@ -70,7 +79,7 @@ namespace Wargon.Nukecs {
             lastWorldID = id;
             world.UnsafeWorld = WorldUnsafe.Create(id, config);
             worlds[id] = world;
-            
+            Debug.Log($"Created World {id}");
             return world;
         }
         public static void DisposeStatic() {
@@ -85,7 +94,8 @@ namespace Wargon.Nukecs {
         public WorldConfig Config => UnsafeWorld->config;
         [NativeDisableUnsafePtrRestriction] 
         internal WorldUnsafe* UnsafeWorld;
-
+        public Allocator Allocator => UnsafeWorld->Allocator;
+        public UnityAllocatorHandle UnityAllocatorHandle => UnsafeWorld->AllocatorHandle;
         public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
         internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;
@@ -103,8 +113,8 @@ namespace Wargon.Nukecs {
 
 
         internal partial struct WorldUnsafe {
-            internal readonly int Id;
-            internal readonly Allocator allocator;
+            internal int Id;
+            
             internal UnsafeList<Entity> entities;
             internal UnsafeList<Entity> prefabsToSpawn;
             internal UnsafeList<int> reservedEntities;
@@ -117,16 +127,18 @@ namespace Wargon.Nukecs {
             internal WorldConfig config;
             internal EntityCommandBuffer ECBUpdate;
             internal EntityCommandBuffer ECBFixed;
-            private UpdateContext currentContext;
+            internal UpdateContext currentContext;
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
-            internal readonly int job_worker_count;
+            internal int job_worker_count;
             internal UnsafeList<int> DefaultNoneTypes;
             internal int entitiesAmount;
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
             internal Locking locking;
             [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* self;
+            internal Allocator Allocator => AllocatorHandle.AllocatorHandle.ToAllocator;
+            internal UnityAllocatorHandle AllocatorHandle;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref currentContext == UpdateContext.Update ? ref self->ECBUpdate : ref self->ECBFixed;
@@ -135,26 +147,27 @@ namespace Wargon.Nukecs {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] get => currentContext;
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
             }
-            internal static WorldUnsafe* Create(int id, WorldConfig config) {
-                var ptr = Unsafe.AllocateWithManager<WorldUnsafe>(AllocatorManager.Persistent);
-                *ptr = new WorldUnsafe(id, config, Allocator.Persistent);
-                ptr->Init(ptr);
+            internal static WorldUnsafe* Create(int id, WorldConfig config)
+            {
+                var ptr = (WorldUnsafe*)UnsafeUtility.MallocTracked(sizeof(WorldUnsafe), UnsafeUtility.AlignOf<WorldUnsafe>(), Allocator.Persistent, 0);
+                *ptr = new WorldUnsafe();
+                if (ptr == null)
+                {
+                    Debug.Log("Failed to create World Unsafe");
+                }
+                ptr->Initialize(id, config, ptr);
+                ptr->CreatePools();
                 return ptr;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal QueryUnsafe* Query(bool withDefaultNoneTypes = true) {
-                var ptr = QueryUnsafe.Create(self, withDefaultNoneTypes);
-                queries.Add(ptr);
-                return ptr;
-            }
-
-            public WorldUnsafe(int id, WorldConfig config, Allocator allocator, WorldUnsafe* self = null) {
+            internal void Initialize(int id, WorldConfig config, WorldUnsafe* self) {
                 this.Id = id;
-                this.allocator = allocator;
+                var sizeToAllocate = ComponentType.GetSizeOfAllComponents(config.StartPoolSize) + 350_000_000 - 171208732 + 5_000_000;
+                this.AllocatorHandle = new UnityAllocatorHandle(sizeToAllocate);
+                var allocator = AllocatorHandle.AllocatorHandle.ToAllocator;
                 this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(config.StartEntitiesAmount, allocator,
                     NativeArrayOptions.ClearMemory);
-                this.prefabsToSpawn = new UnsafeList<Entity>(64, allocator, NativeArrayOptions.ClearMemory);
-                this.reservedEntities = new UnsafeList<int>(128, allocator, NativeArrayOptions.ClearMemory);
+                this.prefabsToSpawn = new UnsafeList<Entity>(64, AllocatorHandle.AllocatorWrapper.Handle, NativeArrayOptions.ClearMemory);
+                this.reservedEntities = new UnsafeList<int>(128, AllocatorHandle.AllocatorWrapper.Handle, NativeArrayOptions.ClearMemory);
                 this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(config.StartEntitiesAmount,
                     allocator, NativeArrayOptions.ClearMemory);
                 this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, allocator,
@@ -174,16 +187,25 @@ namespace Wargon.Nukecs {
                 this.ECBUpdate = new EntityCommandBuffer(256);
                 this.ECBFixed = new EntityCommandBuffer(256);
                 this.currentContext = UpdateContext.Update;
-                this.locking = Locking.Create();
-                this._aspects = new Aspects(allocator, id);
+                this.locking = Locking.Create(allocator);
+                this.aspects = new Aspects(allocator, id);
+                
                 this.self = self;
+                
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
                 CreatePools();
+                CreateArchetype();
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal QueryUnsafe* Query(bool withDefaultNoneTypes = true) {
+                var ptr = QueryUnsafe.Create(self, withDefaultNoneTypes);
+                queries.Add(ptr);
+                return ptr;
+            }
             internal void RefreshArchetypes()
             {
                 for (int i = 0; i < archetypesList.m_length; i++)
@@ -196,60 +218,8 @@ namespace Wargon.Nukecs {
                 DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index);
                 DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index);
             }
-            internal void Init(WorldUnsafe* self) {
-                this.self = self;
-                CreateArchetype();
-            }
-            public void Free() {
-                foreach (var entity in entities) {
-                    if (entity != Nukecs.Entity.Null) {
-                        entity.Free();
-                    }
-                }
-                //var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
-                // for (var i = 0; i < entitiesAmount; i++) {
-                //     ref var entity = ref entities.ElementAt(i);
-                //     if (entity != Nukecs.Entity.Null) {
-                //         entity.Free();
-                //     }
-                // }
-                
-                WorldSystems.CompleteAll(Id);
 
-                entities.Dispose();
-                entitiesArchetypes.Dispose();
-                // pools list count == total components registered including arrays
-                var poolsToDispose = ComponentAmount.Value.Data;
-                for (var index = 0; index < poolsToDispose; index++) {
-                    
-                    ref var pool = ref pools.Ptr[index];
-                    pool.Dispose();
-                }
-                pools.Dispose();
-                
-                for (var index = 0; index < queries.Length; index++) {
-                    QueryUnsafe* ptr = queries[index];
-                    QueryUnsafe.Free(ptr);
-                }
 
-                queries.Dispose();
-                foreach (var kvPair in archetypesMap) {
-                    kvPair.Value.Dispose();
-                }
-                
-                archetypesList.Dispose();
-                archetypesMap.Dispose();
-                poolsCount = 0;
-                ECBUpdate.Dispose();
-                ECBFixed.Dispose();
-                DefaultNoneTypes.Dispose();
-                reservedEntities.Dispose();
-                prefabsToSpawn.Dispose();
-                locking.Dispose();
-                _aspects.Dispose();
-                Lockers.pools.Dispose();
-                self = null;
-            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
                 var poolIndex = ComponentType<T>.Index;
@@ -276,7 +246,7 @@ namespace Wargon.Nukecs {
                 try {
                     if (!pool.IsCreated)
                     {
-                        pool = GenericPool.Create<T>(config.StartPoolSize, allocator);
+                        pool = GenericPool.Create<T>(config.StartPoolSize, self);
                         poolsCount++;
                     }
                 }
@@ -291,7 +261,7 @@ namespace Wargon.Nukecs {
                 try {
                     if (!pool.IsCreated) {
                         pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize,
-                            allocator);
+                            self);
                         poolsCount++;
                     }
                 }
@@ -302,7 +272,7 @@ namespace Wargon.Nukecs {
 
             internal void CreatePools()
             {
-                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, allocator, ref poolsCount);
+                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, self, ref poolsCount);
             }
             
             [BurstDiscard]
@@ -362,7 +332,7 @@ namespace Wargon.Nukecs {
                 
                 return e;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
                 entities.Ptr[entity] = Nukecs.Entity.Null;
                 reservedEntities.Add(entity);
@@ -456,7 +426,7 @@ namespace Wargon.Nukecs {
                 archetypesMap[ptr->id] = archetype;
                 return archetype;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types, bool copyList = false) {
                 var hash = ArchetypeUnsafe.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
@@ -480,17 +450,29 @@ namespace Wargon.Nukecs {
             {
                 ECB.Playback(self);
             }
-        }
 
-        public void Dispose() {
-            //if (UnsafeWorld == null) return;
-            var id = UnsafeWorld->Id;
-            lastFreeSlot = id;
-            UnsafeWorld-> Free();
-            var allocator = UnsafeWorld->allocator;
-            Unsafe.FreeWithManager(UnsafeWorld, allocator);
-            UnsafeWorld = null;
-            Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
+            internal unsafe void* _allocate(int size, int alignment, int items = 1)
+            {
+                return AllocatorHandle.AllocatorWrapper.Allocate(size, alignment, items);
+            }
+            internal unsafe T* _allocate<T>(int items = 1) where T: unmanaged
+            {
+                //return AllocatorHandle.AllocatorWrapper.MemoryAllocator.AllocateD<T>(items);
+                return (T*)AllocatorHandle.AllocatorWrapper.Allocate(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), items);
+            }
+            internal unsafe void _free<T>(T* ptr, int items = 1) where T : unmanaged
+            {
+                AllocatorManager.Free(AllocatorHandle.AllocatorWrapper.Handle, ptr, items);
+            }
+
+            internal unsafe void _free(void* ptr)
+            {
+                AllocatorManager.Free(AllocatorHandle.AllocatorWrapper.Handle, ptr);
+            }
+            internal unsafe void _free(void* ptr, int sizeInBytes, int alignmentInBytes, int items)
+            {
+                AllocatorManager.Free(AllocatorHandle.AllocatorWrapper.Handle, ptr, sizeInBytes, alignmentInBytes, items);
+            }
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -550,8 +532,6 @@ namespace Wargon.Nukecs {
             return ref UnsafeWorld->GetPool<T>().GetSingletone<T>();
         }
     }
-
-
 
     public struct WorldConfig {
         public int StartEntitiesAmount;
@@ -643,11 +623,11 @@ namespace Wargon.Nukecs {
 
     public unsafe struct Locking : IDisposable {
         private NativeReference<int> _locks;
-        public static Locking Create() 
+        public static Locking Create(Allocator allocator) 
         {
             return new Locking 
             {
-                _locks = new NativeReference<int>(0, Allocator.Persistent)
+                _locks = new NativeReference<int>(0, allocator)
             };
             
         }

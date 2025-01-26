@@ -324,45 +324,6 @@ namespace Wargon.Nukecs
         void Run(ref State state);
     }
     
-    internal class QueryJobSystemRunner<TSystem,T> : ISystemRunner where TSystem : struct, IQueryJobSystem<T> 
-        where T : struct, ITuple
-    {
-        public TSystem System;
-        public Query<T> Query;
-        public SystemMode Mode;
-        public ECBJob EcbJob;
-        private GenericJobWrapper JobWrapper;
-        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
-            if (Mode == SystemMode.Main) {
-                System.OnUpdate(Query);
-            }
-            else {
-
-                JobWrapper.query = Query;
-                JobWrapper.dt = state.Time.DeltaTime;
-                JobWrapper.system = System;
-                state.Dependencies = JobWrapper.Schedule(Query.Count, 1, state.Dependencies);
-            }
-            
-            EcbJob.ECB = state.World.ECB;
-            EcbJob.world = state.World;
-            return EcbJob.Schedule(state.Dependencies);
-        }
-    
-        public void Run(ref State state) {
-            
-        }
-        [BurstCompile]
-        internal struct GenericJobWrapper : IJobParallelFor {
-
-            public TSystem system;
-            public Query<T> query;
-            public float dt;
-            public void Execute(int index) {
-                
-            }
-        }
-    }
 
     internal class GenericSystemMainThreadRunner<TSystem> : ISystemRunner where TSystem : struct, ISystem {
         internal TSystem System;
@@ -460,13 +421,6 @@ namespace Wargon.Nukecs
             //var batchCount = query.Count > workers ? query.Count / workers : 1;
             return dependsOn;
         }
-    }
-
-    public interface IQueryJobSystem<T> where T : struct, ITuple {
-        public Query<T> GetQuery(Query<T> query) {
-            return query;
-        }
-        void OnUpdate(Query<T> query);
     }
 
     public interface IOnCreate {

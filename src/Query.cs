@@ -53,7 +53,7 @@ namespace Wargon.Nukecs {
             return impl->entities.ElementAtNoCheck(index);
         }
         public void Dispose() {
-            var allocator = impl->world->allocator;
+            var allocator = impl->world->Allocator;
             UnsafeUtility.Free(impl, allocator);
         }
 
@@ -107,8 +107,7 @@ namespace Wargon.Nukecs {
         public bool IsCreated => world != null;
         internal static void Free(QueryUnsafe* queryImpl) {
             queryImpl->Free();
-            var allocator = queryImpl->world->allocator;
-            UnsafeUtility.Free(queryImpl, allocator);
+            queryImpl->world->_free(queryImpl);
         }
 
         private void Free() {
@@ -118,19 +117,20 @@ namespace Wargon.Nukecs {
             entitiesMap.Dispose();
         }
 
-        internal static QueryUnsafe* Create(World.WorldUnsafe* world, bool withDefaultNoneTypes = true) {
-            var ptr = Unsafe.Malloc<QueryUnsafe>(world->allocator);
+        internal static QueryUnsafe* Create(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        {
+            var ptr = world->_allocate<QueryUnsafe>();
             *ptr = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
 
         internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
             this.world = world;
-            this.with = DynamicBitmask.CreateForComponents();
-            this.none = DynamicBitmask.CreateForComponents();
+            this.with = DynamicBitmask.CreateForComponents(world);
+            this.none = DynamicBitmask.CreateForComponents(world);
             this.count = 0;
-            this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory);
-            this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->allocator, NativeArrayOptions.ClearMemory);
+            this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory);
+            this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory);
             this.self = self;
             if (withDefaultNoneTypes) {
                 foreach (var type in world->DefaultNoneTypes) {
@@ -329,18 +329,17 @@ namespace Wargon.Nukecs {
         private int maxBits;
         private int arraySize;
         
-        public static DynamicBitmask CreateForComponents() {
-            return new DynamicBitmask(ComponentAmount.Value.Data);
+        internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world) {
+            return new DynamicBitmask(ComponentAmount.Value.Data, world);
         }
 
-        public DynamicBitmask(int maxBits) {
+        internal DynamicBitmask(int maxBits, World.WorldUnsafe* world) {
             if (maxBits <= 0)
                 throw new ArgumentOutOfRangeException(nameof(maxBits), $"maxBits in {nameof(DynamicBitmask)} must be greater than zero.");
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
-            bitmaskArray = (ulong*) UnsafeUtility.MallocTracked(arraySize * sizeof(ulong), UnsafeUtility.AlignOf<ulong>(),
-                Allocator.Persistent, 0);
+            bitmaskArray = (ulong*)world->_allocate<ulong>(arraySize);
             count = 0;
 
             // Clear the allocated memory
@@ -414,16 +413,16 @@ namespace Wargon.Nukecs {
         }
 
         // Copy method to create a deep copy of the DynamicBitmask
-        public DynamicBitmask Copy() {
-            var copy = new DynamicBitmask(maxBits);
+        internal DynamicBitmask Copy(World.WorldUnsafe* world) {
+            var copy = new DynamicBitmask(maxBits,world);
             var byteLength = arraySize * sizeof(ulong);
             UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
             copy.count = count;
             return copy;
         }
 
-        public DynamicBitmask CopyPlusOne() {
-            var copy = new DynamicBitmask(maxBits + 1);
+        internal DynamicBitmask CopyPlusOne(World.WorldUnsafe* world) {
+            var copy = new DynamicBitmask(maxBits + 1, world);
             var byteLength = arraySize * sizeof(ulong);
             UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
             copy.count = count;
@@ -507,83 +506,7 @@ namespace Wargon.Nukecs {
             return (ref1, ref2);
         }
     }
-    public unsafe struct Query<TTuple> where TTuple : struct, ITuple {
-        [NativeDisableUnsafePtrRestriction] private readonly QueryUnsafe* _unsafe;
-        public int Count => _unsafe->count;
-        private void* _queryTuplePtr;
-        internal Query(TTuple tuple, World.WorldUnsafe* worldUnsafe) {
-            _unsafe = QueryUnsafe.Create(worldUnsafe);
-            
-            for (int i = 0; i < tuple.Length; i++) {
-                var t = tuple[i];
-                _unsafe->With(ComponentTypeMap.Index(t.GetType()));
-            }
-
-            _queryTuplePtr = null;
-        }
-
-        public (Ref<TC1>, Ref<TC2>) Get<TC1, TC2>(int index) 
-            where TC1 : unmanaged, IComponent
-            where TC2 : unmanaged, IComponent
-        {
-            if (_queryTuplePtr == null) {
-                var ptr = Unsafe.MallocTracked<QueryTuple<TC1, TC2>>(Allocator.Persistent);
-                *ptr = new QueryTuple<TC1, TC2> {
-                    pool1 = _unsafe->world->GetPool<TC1>(),
-                    pool2 = _unsafe->world->GetPool<TC2>()
-                };
-                _queryTuplePtr = ptr;
-            }
-            var tuple = (QueryTuple<TC1, TC2>*)_queryTuplePtr;
-            tuple->entity = _unsafe->GetEntity(index).id;
-            return *tuple;
-        }
-
-        public QueryIterator<T1, T2> Iter<T1, T2>()
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent {
-            QueryIterator<T1, T2> iterator = new() {
-                _query = this
-            };
-            return iterator;
-        }
-
-        public struct QueryIterator<T1,T2> 
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-        {
-            internal Query<TTuple> _query;
-            public QueryEnumerator GetEnumerator() {
-                return new QueryEnumerator(ref _query);
-            }
-            public ref struct QueryEnumerator {
-                private int _lastIndex;
-                private Query<TTuple> _query;
-                private readonly QueryUnsafe* _queryUnsafe;
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                internal QueryEnumerator(ref Query<TTuple> query) {
-                    _query = query;
-                    _queryUnsafe = query._unsafe;
-                    _lastIndex = -1;
-                }
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public bool MoveNext() {
-                    _lastIndex++;
-                    return _queryUnsafe->count > _lastIndex;
-                }
-
-                public void Reset() {
-                    _lastIndex = -1;
-                    _lastIndex.InRange(1,6);
-                }
-
-                public (Ref<T1>, Ref<T2>) Current {
-                    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                    get => _query.Get<T1,T2>(_lastIndex);
-                }
-            }
-        }
-    }
+    
     public interface IFilter
     {
         

@@ -7,7 +7,7 @@ namespace Wargon.Nukecs.Tests {
         [SerializeField] public SpriteAnimationData[] Animations;
         public Entity Convert(ref World world, float3 pos) {
             foreach (var spriteAnimationData in Animations) {
-                spriteAnimationData.AddToStorage();
+                spriteAnimationData.AddToStorage(ref world);
             }
             var e = Animations[0].CreateAnimatedSpriteEntity(ref world, pos);
             return e;
@@ -15,7 +15,7 @@ namespace Wargon.Nukecs.Tests {
 
         public override void Convert(ref World world, ref Entity entity) {
             foreach (var spriteAnimationData in Animations) {
-                spriteAnimationData.AddToStorage();
+                spriteAnimationData.AddToStorage(ref world);
             }
             Animations[0].Convert(ref world, ref entity);
         }

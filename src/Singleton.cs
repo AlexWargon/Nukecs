@@ -16,6 +16,7 @@ namespace Wargon.Nukecs.Tests {
                     instance.Data.Value.Init();
                     instance.Data.IsCreated = true;
                 }
+
                 return ref instance.Data.Value;
             }
         }

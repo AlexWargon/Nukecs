@@ -10,13 +10,13 @@ namespace Wargon.Nukecs {
             internal int poolsCount;
             internal UnsafeList<int> defaultNoneTypes;
 
-            public Components(ref WorldConfig config, Allocator allocator) {
-                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, allocator,
+            internal Components(ref WorldConfig config, WorldUnsafe* world) {
+                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, world->Allocator,
                     NativeArrayOptions.ClearMemory);
                 poolsCount = 0;
-                this.defaultNoneTypes = new UnsafeList<int>(12, allocator, NativeArrayOptions.ClearMemory);
+                this.defaultNoneTypes = new UnsafeList<int>(12, world->Allocator, NativeArrayOptions.ClearMemory);
                 InitializeDefaultComponents();
-                CreatePools(ref config, allocator);
+                CreatePools(ref config, world);
             }
 
             private void InitializeDefaultComponents() {
@@ -24,9 +24,9 @@ namespace Wargon.Nukecs {
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
             }
-            internal void CreatePools(ref WorldConfig config, Allocator allocator)
+            internal void CreatePools(ref WorldConfig config, WorldUnsafe* world)
             {
-                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, allocator, ref poolsCount);
+                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, world, ref poolsCount);
             }
             public void Dispose() {
                 var poolsToDispose = ComponentAmount.Value.Data;

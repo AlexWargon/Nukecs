@@ -1,6 +1,7 @@
 ﻿using System;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using UnityEngine;
 
 namespace Wargon.Nukecs
 {
@@ -8,22 +9,22 @@ namespace Wargon.Nukecs
     {
         internal unsafe partial struct WorldUnsafe
         {
-            internal Aspects _aspects;
+            internal Aspects aspects;
             internal T* GetAspect<T>() where T : unmanaged, IAspect<T>, IAspect
             {
                 var index = AspectType<T>.Index.Data;
-                var aspect = (T*)_aspects.aspects.Ptr[index];
+                var aspect = (T*)aspects.aspects.Ptr[index];
                 if (aspect == null)
                 {
-                    aspect = AspectBuilder<T>.CreatePtr(ref *_aspects.world);
-                    _aspects.aspects.Ptr[index] = (IntPtr)aspect;
+                    aspect = AspectBuilder<T>.CreatePtr(ref *aspects.world);
+                    aspects.aspects.Ptr[index] = (IntPtr)aspect;
                 }
                 return aspect;
             }
         }
         public unsafe ref T GetAspect<T>(ref Entity entity) where T : unmanaged, IAspect<T>, IAspect
         {
-            var aspect = UnsafeWorld->_aspects.GetAspect<T>();
+            var aspect = UnsafeWorld->aspects.GetAspect<T>();
             aspect->Update(ref entity);
             return ref *aspect;
         }
@@ -54,7 +55,7 @@ namespace Wargon.Nukecs
             {
                 foreach (var intPtr in aspects)
                 {
-                    Unsafe.FreeTracked((void*)intPtr, allocator);
+                    world->UnsafeWorld->_free((void*)intPtr);
                 }
                 aspects.Dispose();
             }

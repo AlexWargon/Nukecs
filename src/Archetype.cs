@@ -52,29 +52,30 @@
 
             archetype->destroyEdge.Dispose();
             archetype->transactions.Dispose();
-            var allocator = archetype->world->allocator;
+            
+            var w = archetype->world;
+            w->_free(archetype);
             archetype->world = null;
-            UnsafeUtility.Free(archetype, allocator);
         }
 
         internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, int[] typesSpan = null) {
-            var ptr = Unsafe.Malloc<ArchetypeUnsafe>(world->allocator);
+            var ptr = world->_allocate<ArchetypeUnsafe>();
             *ptr = new ArchetypeUnsafe(world, typesSpan);
             return ptr;
         }
 
         internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false) {
-            var ptr = Unsafe.Malloc<ArchetypeUnsafe>(world->allocator);
+            var ptr = world->_allocate<ArchetypeUnsafe>();
             *ptr = new ArchetypeUnsafe(world, ref typesSpan, copyList);
             return ptr;
         }
 
         internal ArchetypeUnsafe(World.WorldUnsafe* world, int[] typesSpan = null) {
             this.world = world;
-            this.mask = DynamicBitmask.CreateForComponents();
+            this.mask = DynamicBitmask.CreateForComponents(world);
             this.id = 0;
             if (typesSpan != null) {
-                this.types = new UnsafeList<int>(typesSpan.Length, world->allocator);
+                this.types = new UnsafeList<int>(typesSpan.Length, world->Allocator);
                 this.id = GetHashCode(typesSpan);
                 foreach (var type in typesSpan) {
                     this.mask.Add(type);
@@ -82,10 +83,10 @@
                 }
             }
             else {
-                this.types = new UnsafeList<int>(1, world->allocator);
+                this.types = new UnsafeList<int>(1, world->Allocator);
             }
-            this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
-            this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
+            this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
+            this.transactions = new UnsafeHashMap<int, Edge>(8, world->Allocator);
             this.destroyEdge = default;
             this.PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
@@ -93,7 +94,7 @@
 
         internal ArchetypeUnsafe(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false) {
             this.world = world;
-            this.mask = DynamicBitmask.CreateForComponents();
+            this.mask = DynamicBitmask.CreateForComponents(world);
             if (typesSpan.IsCreated) {
                 this.types = typesSpan;
                 foreach (var type in typesSpan) {
@@ -101,18 +102,18 @@
                 }
             }
             else {
-                this.types = new UnsafeList<int>(1, world->allocator);
+                this.types = new UnsafeList<int>(1, world->Allocator);
             }
             this.id = GetHashCode(ref typesSpan);
-            this.queries = new UnsafePtrList<QueryUnsafe>(8, world->allocator);
-            this.transactions = new UnsafeHashMap<int, Edge>(8, world->allocator);
+            this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
+            this.transactions = new UnsafeHashMap<int, Edge>(8, world->Allocator);
             this.destroyEdge = default;
             
             this.PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
             if (copyList)
             {
-                this.types = new UnsafeList<int>(typesSpan.m_length, world->allocator);
+                this.types = new UnsafeList<int>(typesSpan.m_length, world->Allocator);
                 this.types.CopyFrom(in typesSpan);
             }
         }
@@ -159,7 +160,7 @@
         }
 
         internal Edge CreateDestroyEdge() {
-            var edge = new Edge(world->allocator);
+            var edge = new Edge(world->Allocator);
             for (int i = 0; i < queries.Length; i++) {
                 edge.removeEntity->Add(queries.ElementAt(i));
             }
@@ -218,7 +219,7 @@
             world->entitiesArchetypes.ElementAt(entity) = edge.toMove;
             edge.Execute(entity);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy(int entity) {
             for (var index = 0; index < types.m_length; index++)
             {
@@ -238,7 +239,7 @@
         }
         private void CreateTransaction(int component) {
             var remove = component < 0;
-            var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->allocator,
+            var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->Allocator,
                 NativeArrayOptions.ClearMemory);
             var positiveComponent = math.abs(component);
             foreach (var type in types) {
@@ -253,7 +254,7 @@
 
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
             var otherArchetype = otherArchetypeStruct.impl;
-            var otherEdge = new Edge(ref otherArchetypeStruct, world->allocator);
+            var otherEdge = new Edge(ref otherArchetypeStruct, world->Allocator);
 
             for (var index = 0; index < queries.Length; index++) {
                 var thisQuery = queries[index];

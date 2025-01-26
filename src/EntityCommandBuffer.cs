@@ -22,16 +22,22 @@ namespace Wargon.Nukecs {
                 Allocator.Persistent);
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
-            ecb->perThreadBuffer = Chains(startSize);
+            ecb->perThreadBuffer = Chains(startSize, Allocator.Persistent);
             ecb->isCreated = 1;
         }
-
-        private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize) {
+        internal EntityCommandBuffer(int startSize, World.WorldUnsafe* world) {
+            ecb = world->_allocate<ECBInternal>();
+            *ecb = new ECBInternal();
+            //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
+            ecb->perThreadBuffer = Chains(startSize, world->Allocator);
+            ecb->isCreated = 1;
+        }
+        private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize, Allocator allocator) {
             var threads = JobsUtility.ThreadIndexCount + 2;
             UnsafePtrList<UnsafeList<ECBCommand>>* ptrList =
-                UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, Allocator.Persistent);
+                UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, allocator);
             for (int i = 0; i < threads; i++) {
-                var list = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
+                var list = UnsafeList<ECBCommand>.Create(startSize, allocator);
                 ptrList->Add(list);
             }
             return ptrList;

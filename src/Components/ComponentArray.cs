@@ -25,7 +25,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(int capacity)
         {
-            _buffer = Unsafe.MallocTracked<T>(capacity, Allocator.Persistent);
+            _buffer = (T*)UnsafeUtility.MallocTracked(capacity* sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent, 0);
             _capacity = capacity;
             _length = 0;
             _entity = default;
@@ -51,14 +51,6 @@ namespace Wargon.Nukecs
             UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComponentArray(int capacity, Allocator allocator)
-        {
-            _buffer = Unsafe.MallocTracked<T>(capacity, allocator);
-            _capacity = capacity;
-            _length = 0;
-            _entity = default;
-        }
         // [MethodImpl(MethodImplOptions.AggressiveInlining)]
         // private ComponentArray(ref ComponentArray<T> other)
         // {
@@ -152,14 +144,6 @@ namespace Wargon.Nukecs
             UnsafeUtility.MemCpy(_buffer, buffer, length * sizeof(T));
             _length = length;
         }
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static ComponentArray<T> CreateAndFill(in T data, int size, Allocator allocator)
-        {
-            var array = new ComponentArray<T>(size, allocator);
-            for (var i = 0; i < size; i++) array.Add(in data);
-            return array;
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator()
@@ -169,11 +153,12 @@ namespace Wargon.Nukecs
 
         private void Resize(int newCapacity)
         {
-            var newBuffer = Unsafe.MallocTracked<T>(newCapacity, Allocator.Persistent);
+            var w = _entity.worldPointer;
+            var newBuffer = w->_allocate<T>(newCapacity);
             if (_buffer != null)
             {
                 UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
-                Unsafe.FreeTracked(_buffer, Allocator.Persistent);
+                w->_free(_buffer, _capacity);
             }
 
             _buffer = newBuffer;
