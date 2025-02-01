@@ -12,7 +12,8 @@ namespace Wargon.Nukecs {
     using UnityEngine;
     
     [Serializable]
-    public struct ComponentType {
+    public struct ComponentType
+    {
         public int size;
         public int index;
         public int align;
@@ -54,6 +55,7 @@ namespace Wargon.Nukecs {
         {
             ElementTypes[index] = componentType;
         }
+        [BurstDiscard]
         public override string ToString() {
             return
                 $"ComponentType: {ComponentTypeMap.GetType(index)}  Index = {index}, size = {size}, Tag={isTag}, Disposable={isDisposable}, Copyable={isCopyable}, IsArray={isArray}";
@@ -77,13 +79,14 @@ namespace Wargon.Nukecs {
         public static long GetSizeOfAllComponents(int poolSize = 1)
         {
             long size = 0;
+            var sizeOfGenericPool = UnsafeUtility.SizeOf<GenericPool.GenericPoolUnsafe>();
             foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
             {
-                size += kvPair.Value.size * poolSize;
+                size += kvPair.Value.size * poolSize + sizeOfGenericPool;
             }
             foreach (var elementType in ElementTypes)
             {
-                size += elementType.Value.size * ComponentArray.DefaultMaxCapacity * poolSize;
+                size += elementType.Value.size * ComponentArray.DefaultMaxCapacity * poolSize + sizeOfGenericPool*2;
             }
             return size;
         }
@@ -124,7 +127,7 @@ namespace Wargon.Nukecs {
         static ComponentTypeMap() {
             ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentTypeMap>();
         }
-        [BurstDiscard]
+        //[BurstDiscard]
         internal static void Init() {
             if(_initialized) return;
             cache = new ComponentsMapCache();
@@ -132,27 +135,15 @@ namespace Wargon.Nukecs {
             
             _initialized = true;
         }
-        [BurstDiscard]
+        //[BurstDiscard]
         internal static void InitializeArrayElementTypeReflection(Type typeElement, int index)
         {
             var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
             var addElementMethod = addElement.MakeGenericMethod(typeElement);
             addElementMethod.Invoke(null, new object[] { index });
         }
-        [BurstDiscard]
-        internal static void InitializeComponentArrayTypeReflection(Type typeElement, int index)
-        {
-            var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
-            var addElementMethod = addElement.MakeGenericMethod(typeElement);
-            addElementMethod.Invoke(null, new object[] { index });
-            
-            var arrayType = typeof(ComponentArray<>);
-            var type = arrayType.MakeGenericType(typeElement);
-            var addComponent = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
-            var genericMethod = addComponent.MakeGenericMethod(type);
-            genericMethod.Invoke(null, new object[] { index });
-        }
-        [BurstDiscard]
+
+        //[BurstDiscard]
         internal static void InitializeComponentTypeReflection(Type type, int index)
         {
             //dbug.log(type.FullName);
@@ -209,7 +200,6 @@ namespace Wargon.Nukecs {
         
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
         public static ComponentType GetComponentType<T>() => TypeToComponentType.Map[typeof(T)];
-
         public static void SetComponentType<T>(ComponentType componentType) where T : unmanaged
         {
             TypeToComponentType.Map[typeof(T)] = componentType;
@@ -220,6 +210,7 @@ namespace Wargon.Nukecs {
         internal static void Add(Type type, int index) {
             cache.Add(type, index);
         }
+        [BurstDiscard]
         public static Type GetType(int index) => cache.GetType(index);
         public static int Index(Type type) => cache.Index(type);
         public static int Index(string name) {

@@ -8,16 +8,16 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
-    public struct ALLOCATOR_ERROR
+    public struct AllocatorError
     {
         public const int NO_ERRORS = 0;
         public const int ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE = -1;
         public const int ERROR_ALLOCATOR_MAX_BLOCKS_REACHED = -2;
-        public const int ERROR_ALLOCATOR_OUT_OF_MEMORY= -3;
+        public const int ERROR_ALLOCATOR_OUT_OF_MEMORY = -3;
     }
     public unsafe partial struct SerializableMemoryAllocator : IDisposable
     {
-        private const int MAX_BLOCKS = 10024;
+        private const int MAX_BLOCKS = 1024 * 16;
         private const int ALIGNMENT = 16;
         private const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
         [StructLayout(LayoutKind.Sequential)]
@@ -28,19 +28,46 @@ namespace Wargon.Nukecs
             public bool IsUsed;
         }
 
-        internal byte* basePtr;
-        internal long totalSize;
-        internal MemoryBlock* blocks;
-        internal int blockCount;
+        private byte* basePtr;
+        private long totalSize;
+        private MemoryBlock* blocks;
+        private int blockCount;
+        private long memoryUsed;
+        public long MemoryLeft => totalSize - memoryUsed;
+        public byte* BasePtr
+        {
+            get => basePtr;
+            set => basePtr = value;
+        }
+
+        public long TotalSize
+        {
+            get => totalSize;
+            set => totalSize = value;
+        }
+
+        internal MemoryBlock* Blocks
+        {
+            get => blocks;
+            set => blocks = value;
+        }
+
+        public int BlockCount
+        {
+            get => blockCount;
+            set => blockCount = value;
+        }
+        public bool IsActive { get; private set; }
+        public bool IsDisposed => !IsActive;
         private int defragmentationCount;
         private Spinner spinner;
-        public SerializableMemoryAllocator(long totalSize)
+        public SerializableMemoryAllocator(long sizeInBytes)
         {
-            this.totalSize = totalSize;
+            totalSize = sizeInBytes;
             basePtr = (byte*)UnsafeUtility.MallocTracked(totalSize, ALIGNMENT, Allocator.Persistent, 0);
             blocks = (MemoryBlock*)UnsafeUtility.MallocTracked(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent, 0);
             // Initialize first block covering entire memory
-            dbug.log($"bloc size {sizeof(MemoryBlock)}");
+
             blocks[0] = new MemoryBlock
             {
                 Pointer = 0,
@@ -49,7 +76,9 @@ namespace Wargon.Nukecs
             };
             blockCount = 1;
             defragmentationCount = 0;
+            memoryUsed = 0;
             spinner = new Spinner();
+            IsActive = true;
         }
         
         public IntPtr AllocateRaw(long size, ref int error)
@@ -74,10 +103,37 @@ namespace Wargon.Nukecs
                 }
             }
             spinner.Release();
-            error = ALLOCATOR_ERROR.ERROR_ALLOCATOR_OUT_OF_MEMORY;
+            dbug.error($"Allocator failed allocate {size} bytes. Not free Blocks");
+            error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
+            
             return IntPtr.Zero;
         }
+        public PtrOffset AllocateRaw(long size)
+        {
+            var error = 0;
+            SizeWithAlign(ref size, ALIGNMENT);
+            spinner.Acquire();
+            DeFragment();
+            for (var i = 0; i < blockCount; i++)
+            {
+                ref var block = ref blocks[i];
+                if (!block.IsUsed && block.Size >= size)
+                {
+                    // Split block if larger than requested size
+                    if (block.Size > size)
+                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false, ref error);
 
+                    block.Size = (int)size;
+                    block.IsUsed = true;
+                    //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
+                    spinner.Release();
+                    return new PtrOffset( 0, (uint)block.Pointer);
+                }
+            }
+            spinner.Release();
+
+            return PtrOffset.NULL;
+        }
         private void SizeWithAlign(ref long size, int align)
         {
             size = (size + align - 1) / align * align;
@@ -99,20 +155,21 @@ namespace Wargon.Nukecs
                 }
             }
             spinner.Release();
-            error = ALLOCATOR_ERROR.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
+            
+            error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
         }
 
         internal void DeFragment()
         {
             for (var i = 0; i < blockCount - 1; i++)
+            {
                 if (!blocks[i].IsUsed && !blocks[i + 1].IsUsed)
                 {
-                    // Merge consecutive free blocks
                     blocks[i].Size += blocks[i + 1].Size;
                     RemoveBlock(i + 1);
-                    i--; // Recheck current block
+                    i--;
                 }
-
+            }
             defragmentationCount++;
         }
 
@@ -120,7 +177,7 @@ namespace Wargon.Nukecs
         {
             if (blockCount >= MAX_BLOCKS)
             {
-                error = ALLOCATOR_ERROR.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED;
+                error = AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED;
                 return;
             }
 
@@ -134,13 +191,14 @@ namespace Wargon.Nukecs
                 IsUsed = isUsed
             };
             blockCount++;
+            memoryUsed += size;
             error = 0;
         }
 
         private void RemoveBlock(int index)
         {
-            var block = blocks[index];
-            dbug.log($"Removing {block.Size} bytes at offset {block.Pointer}. Pointer {(int)basePtr + block.Pointer}");
+            //var block = blocks[index];
+            //dbug.log($"Removing {block.Size} bytes at offset {block.Pointer}. Pointer {(int)basePtr + block.Pointer}");
             for (var i = index; i < blockCount - 1; i++)
             {
                 blocks[i] = blocks[i + 1];
@@ -162,7 +220,8 @@ namespace Wargon.Nukecs
                 UnsafeUtility.FreeTracked(blocks, Allocator.Persistent);
                 blocks = null;
             }
-            
+
+            IsActive = false;
         }
 
         // Get total allocated memory size
@@ -226,14 +285,14 @@ namespace Wargon.Nukecs
         }
     }
 
-    public struct MemoryView
+    public class MemoryView
     {
         internal unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
         internal int BlockCount;
     }
     public unsafe struct UnityAllocatorWrapper : AllocatorManager.IAllocator
     {
-        public SerializableMemoryAllocator MemoryAllocator;
+        public SerializableMemoryAllocator Allocator;
         private AllocatorManager.AllocatorHandle m_handle;
         public AllocatorManager.TryFunction Function => AllocatorFunction;
 
@@ -249,39 +308,39 @@ namespace Wargon.Nukecs
 
         public void Initialize(long capacity)
         {
-            MemoryAllocator = new SerializableMemoryAllocator(capacity);
+            Allocator = new SerializableMemoryAllocator(capacity);
         }
 
         public void Dispose()
         {
-            MemoryAllocator.Dispose();
+            Allocator.Dispose();
         }
 
         public int Try(ref AllocatorManager.Block block)
         {
-            var error = ALLOCATOR_ERROR.NO_ERRORS;
+            var error = AllocatorError.NO_ERRORS;
             if (block.Range.Pointer == IntPtr.Zero)
             {
-                block.Range.Pointer = MemoryAllocator.AllocateRaw(block.Bytes, ref error);
+                block.Range.Pointer = Allocator.AllocateRaw(block.Bytes, ref error);
             }
             else
             {
-                MemoryAllocator.Free((byte*)block.Range.Pointer, ref error);
+                Allocator.Free((byte*)block.Range.Pointer, ref error);
             }
             ShowError(error);
             return error;
         }
         [BurstDiscard]
-        private static void ShowError(int error)
+        private void ShowError(int error)
         {
             if (error != 0)
             {
                 switch (error)
                 {
-                    case ALLOCATOR_ERROR.ERROR_ALLOCATOR_OUT_OF_MEMORY:
-                        dbug.error("Allocator out of memory.");
+                    case AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY:
+                        dbug.error($"Allocator out of memory.");
                         break;
-                    case ALLOCATOR_ERROR.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
+                    case AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
                         dbug.error("Allocator max blocks reached.");
                         break;
                 }
@@ -296,12 +355,99 @@ namespace Wargon.Nukecs
 
         public SerializableMemoryAllocator* GetAllocatorPtr()
         {
-            fixed (SerializableMemoryAllocator* ptr = &MemoryAllocator)
+            fixed (SerializableMemoryAllocator* ptr = &Allocator)
             {
                 return ptr;
             }
         }
     }
 
-    // Example user structure that contains the custom allocator
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PtrOffset
+    {
+        public const int SIZE_OF_BYTES = 8;
+        public uint BlockIndex;
+        public uint Offset;
+        
+        public static readonly PtrOffset NULL = new (0u,0u);
+
+        public PtrOffset(uint blockIndex, uint offset)
+        {
+            BlockIndex = blockIndex;
+            Offset = offset;
+        }
+        
+        public unsafe void* AsPtr(ref SerializableMemoryAllocator allocator)
+        {
+            return allocator.BasePtr + allocator.Blocks[BlockIndex].Pointer + Offset;
+        }
+        
+        public unsafe T* AsPtr<T>(ref SerializableMemoryAllocator allocator) where T : unmanaged
+        {
+            return (T*)allocator.BasePtr + Offset;
+        }
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct PtrOffset<T> where T : unmanaged
+    {
+        private PtrOffset offset;
+        private T* pointer;
+        public void Update(ref SerializableMemoryAllocator allocator)
+        {
+            pointer = (T*)(allocator.BasePtr + offset.Offset);
+        }
+
+        public T* AsPtr()
+        {
+            return pointer;
+        }
+    }
+    public unsafe struct SList<T> where T : unmanaged
+    {
+        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<T> list;
+        internal PtrOffset PtrOffset;
+
+        public SList(int capacity, ref UnityAllocatorWrapper allocatorHandler, bool lenAsCapacity = false)
+        {
+            PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity);
+            list = default;
+            list.Capacity = capacity;
+            list.Allocator = allocatorHandler.Handle;
+            list.Ptr = PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
+            if (lenAsCapacity)
+            {
+                list.Length = capacity;
+            }
+        }
+        public void OnDeserialize(uint blockIndex, uint offset, ref SerializableMemoryAllocator memoryAllocator)
+        {
+            PtrOffset = new PtrOffset(blockIndex, offset);
+            list.Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
+        }
+
+        public void OnDeserialize(uint offset, ref SerializableMemoryAllocator memoryAllocator)
+        {
+            PtrOffset = new PtrOffset(0, offset);
+            list.Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
+        }
+    }
+
+    public unsafe struct PtrList<T> where T: unmanaged, IOnDeserialize
+    {
+        internal SList<PtrOffset> list;
+        
+        public void Add(T* ptr, ref SerializableMemoryAllocator allocator)
+        {
+            for (var index = 0; index < list.list.Length; index++)
+            {
+                ref var ptrOffset = ref list.list.Ptr[index];
+            }
+        }
+        
+    }
+    
+    public interface IOnDeserialize
+    {
+        void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator);
+    }
 }

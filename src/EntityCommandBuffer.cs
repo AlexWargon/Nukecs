@@ -25,6 +25,15 @@ namespace Wargon.Nukecs {
             ecb->perThreadBuffer = Chains(startSize, Allocator.Persistent);
             ecb->isCreated = 1;
         }
+        public EntityCommandBuffer(int startSize, Allocator allocator)
+        {
+            ecb = (ECBInternal*)AllocatorManager.Allocate(allocator, sizeof(ECBInternal),
+                UnsafeUtility.AlignOf<ECBInternal>());
+            *ecb = new ECBInternal();
+            //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
+            ecb->perThreadBuffer = Chains(startSize, allocator);
+            ecb->isCreated = 1;
+        }
         internal EntityCommandBuffer(int startSize, World.WorldUnsafe* world) {
             ecb = world->_allocate<ECBInternal>();
             *ecb = new ECBInternal();

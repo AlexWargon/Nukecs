@@ -196,7 +196,7 @@ namespace Wargon.Nukecs {
             none.Add(type);
             return self;
         }
-
+        [BurstDiscard]
         public override string ToString() {
             var sb = new StringBuilder();
             sb.Append($"Query");

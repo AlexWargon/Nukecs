@@ -29,6 +29,11 @@
                 archetypes[i].Clear();
             }
         }
+
+        public unsafe SpriteChunk* GetSpriteChunkPtr(int archetypeIndex)
+        {
+            return archetypes[archetypeIndex].Chunk;
+        }
         public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world) {
             Resize();
             var shaderID = shader.GetInstanceID();
@@ -46,7 +51,8 @@
                 instanceID = instanceID,
                 shaderID = shaderID,
                 Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount),
-                camera = Camera.main
+                camera = Camera.main,
+                index = count
             };
             archetypes[count] = arch;
             count++;
@@ -71,7 +77,8 @@
                 instanceID = instanceID,
                 shaderID = shaderID,
                 Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount),
-                camera = Camera.main
+                camera = Camera.main,
+                index = count
             };
             archetypes[count] = arch;
             count++;
@@ -160,6 +167,7 @@
         internal SpriteChunk* Chunk;
         public int instanceID;
         public int shaderID;
+        public int index;
         internal Material Material;
         internal Mesh mesh;
         private ComputeBuffer transformsBuffer;
@@ -170,7 +178,8 @@
         public void AddInitial(ref Entity entity) {
             Chunk->AddInitial(entity.id);
             entity.Add(new SpriteChunkReference {
-                chunk = Chunk
+                chunk = Chunk,
+                achetypeIndex = index
             });
         }
         public void Add(ref Entity entity, ref SpriteChunkReference spriteChunkReference) {

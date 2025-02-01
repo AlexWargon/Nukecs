@@ -3,7 +3,7 @@ using UnityEngine;
 using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs.Tests {
-    [BurstCompile]
+    //[BurstCompile]
     public struct FillRenderDataSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world) {
@@ -12,8 +12,7 @@ namespace Wargon.Nukecs.Tests {
         public unsafe void OnUpdate(ref Entity entity, ref State state) {
             var (chunk, transform, data) =
                 entity.Read<SpriteChunkReference, Transform, SpriteRenderData>();
-            if(chunk.chunk != null)
-                chunk.ChunkRef.AddToFill(in entity, in transform, in data);
+            SpriteArchetypesStorage.Singleton.GetSpriteChunkPtr(chunk.achetypeIndex)->AddToFill(in entity, in transform, in data);
         }
     }
 }

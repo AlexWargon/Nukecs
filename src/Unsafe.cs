@@ -8,44 +8,11 @@ using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
     public static unsafe class Unsafe {
-        public static T* __MallocTracked<T, TAllocator>(ref TAllocator allocator, int items) where T : unmanaged
-            where TAllocator : unmanaged, AllocatorManager.IAllocator
-        {
-            return (T*)allocator.Allocate(sizeof(T), UnsafeUtility.AlignOf<T>(), items);
-        }
-        public static T* __MallocTracked<T, TAllocator>(ref TAllocator allocator) where T : unmanaged
-            where TAllocator : unmanaged, AllocatorManager.IAllocator
-        {
-            return (T*)allocator.Allocate(sizeof(T), UnsafeUtility.AlignOf<T>());
-        }
-        public static void* __MallocTracked<TAllocator>(int sizeOf, int align, ref TAllocator allocator)
-            where TAllocator : unmanaged, AllocatorManager.IAllocator
-        {
-            return allocator.Allocate(sizeOf, align);
-        }
-        public static void __FreeTracked<T, TAllocator>(T* ptr, ref TAllocator allocator) where T : unmanaged
-            where TAllocator : unmanaged, AllocatorManager.IAllocator
-        {
-            AllocatorManager.Free(allocator.ToAllocator, ptr);
-        }
-        public static void __FreeTracked<TAllocator>(void* ptr, ref TAllocator allocator)
-            where TAllocator : unmanaged, AllocatorManager.IAllocator
-        {
-            AllocatorManager.Free(allocator.ToAllocator, ptr);
-        }
         public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged
         {
             return (T*) UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
-        // public static void* MallocTracked(int sizeOf, int alignOf, Allocator allocator)
-        // {
-        //     if (allocator is Allocator.Persistent or Allocator.Temp or Allocator.TempJob)
-        //     {
-        //         return UnsafeUtility.MallocTracked(sizeOf, alignOf, allocator, 0);
-        //     }
-        //     ref var a = ref ArenaAllocatorHandle.GetAllocator(allocator);
-        //     return a.Allocate(sizeOf, alignOf);
-        // }
+
         public static T* MallocTracked<T>(int items, Allocator allocator) where T : unmanaged {
             return (T*)UnsafeUtility.MallocTracked(sizeof(T) * items, UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
@@ -57,7 +24,6 @@ namespace Wargon.Nukecs {
         public static T* Allocate<T>(int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
             return AllocatorManager.Allocate<T>(allocator, items);
         }
-
 
         public static void Copy<T>(ref UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
         {

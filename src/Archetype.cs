@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using Wargon.Nukecs.Collections;
+
+namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using Unity.Burst;
@@ -37,7 +39,7 @@
         internal UnsafeList<int> types;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal UnsafePtrList<QueryUnsafe> queries;
-        internal UnsafeHashMap<int, Edge> transactions;
+        internal HashMap<int, Edge> transactions;
         internal Edge destroyEdge;
         internal readonly int id;
         internal bool IsCreated => world != null;
@@ -49,10 +51,8 @@
             foreach (var kvPair in archetype->transactions) {
                 kvPair.Value.Dispose();
             }
-
             archetype->destroyEdge.Dispose();
             archetype->transactions.Dispose();
-            
             var w = archetype->world;
             w->_free(archetype);
             archetype->world = null;
@@ -83,10 +83,11 @@
                 }
             }
             else {
+                // Root Archetype
                 this.types = new UnsafeList<int>(1, world->Allocator);
             }
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
-            this.transactions = new UnsafeHashMap<int, Edge>(8, world->Allocator);
+            this.transactions = new HashMap<int, Edge>(8, ref world->AllocatorHandler);
             this.destroyEdge = default;
             this.PopulateQueries(world);
             this.destroyEdge = CreateDestroyEdge();
@@ -102,11 +103,12 @@
                 }
             }
             else {
+                // Root Archetype
                 this.types = new UnsafeList<int>(1, world->Allocator);
             }
             this.id = GetHashCode(ref typesSpan);
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
-            this.transactions = new UnsafeHashMap<int, Edge>(8, world->Allocator);
+            this.transactions = new HashMap<int, Edge>(8, ref world->AllocatorHandler);
             this.destroyEdge = default;
             
             this.PopulateQueries(world);
@@ -271,7 +273,7 @@
 
             transactions.TryAdd(component, otherEdge);
         }
-
+        [BurstDiscard]
         public override string ToString() {
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             sb.Append("<color=#FFB200>Archetype</color>");
