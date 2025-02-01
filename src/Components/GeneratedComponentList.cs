@@ -6,7 +6,7 @@ namespace Wargon.Nukecs.Generated
 {
     public static partial class GeneratedComponentList
     {
-        private static List<Type> _allComponents;
+        private static System.Collections.Generic.List<Type> _allComponents;
 
         //[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void InitializeComponentList()

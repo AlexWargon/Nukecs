@@ -1,9 +1,10 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
-    public struct UnityAllocatorHandle
+    public struct UnityAllocatorHandler
     {
         // Use AllocatorHelper to help creating the example custom allocator
         private AllocatorHelper<UnityAllocatorWrapper> allocatorHelper;
@@ -15,6 +16,7 @@ namespace Wargon.Nukecs
             get => ref allocatorHelper.Allocator;
         }
 
+        internal unsafe UnityAllocatorWrapper* AllocatorWrapperPtr => (UnityAllocatorWrapper*)UnsafeUtility.AddressOf(ref allocatorHelper.Allocator);
         public AllocatorManager.AllocatorHandle AllocatorHandle => allocatorHelper.Allocator.Handle;
 
         // Create the example custom allocator
@@ -38,13 +40,13 @@ namespace Wargon.Nukecs
         }
 
         // Constructor of user structure
-        public UnityAllocatorHandle(long sizeInBytes)
+        public UnityAllocatorHandler(long sizeInBytes)
         {
             this = default;
             CreateCustomAllocator(Allocator.Persistent, sizeInBytes);
             dbug.log($"Allocator created with {sizeInBytes} bytes buffer");
         }
-
+        
         // Dispose the user structure
         public void Dispose()
         {

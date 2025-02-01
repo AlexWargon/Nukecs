@@ -9,10 +9,10 @@ using Wargon.Nukecs.Transforms;
 namespace Wargon.Nukecs
 {
     [StructLayout(LayoutKind.Sequential), Serializable]
-    public readonly unsafe struct Entity : IEquatable<Entity>
+    public unsafe struct Entity : IEquatable<Entity>
     {
-        public readonly int id;
-        [NativeDisableUnsafePtrRestriction, NonSerialized] internal readonly World.WorldUnsafe* worldPointer;
+        public int id;
+        [NativeDisableUnsafePtrRestriction, NonSerialized] internal World.WorldUnsafe* worldPointer;
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
 

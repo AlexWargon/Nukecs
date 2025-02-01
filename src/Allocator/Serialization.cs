@@ -74,37 +74,18 @@ namespace Wargon.Nukecs
                 // Сохранить размер и количество блоков
                 *((long*)pData) = totalSize;
                 *((int*)(pData + sizeof(long))) = blockCount;
-
-                // Копируем блоки памяти
                 UnsafeUtility.MemCpy(pData + sizeof(long) + sizeof(int), blocks, blockCount * sizeof(MemoryBlock));
-        
-                // Копируем основную память
-                UnsafeUtility.MemCpy(
-                    pData + sizeof(long) + sizeof(int) + blockCount * sizeof(MemoryBlock), 
-                    basePtr, 
-                    totalSize);
+                UnsafeUtility.MemCpy(pData + sizeof(long) + sizeof(int) + blockCount * sizeof(MemoryBlock), basePtr, totalSize);
             }
         }
         public unsafe void FastDeserialize(byte[] data)
         {
-            UnsafeUtility.MemClear(blocks, blockCount * sizeof(MemoryBlock));
-            UnsafeUtility.MemClear(basePtr, totalSize);
-            // Восстановить метаданные о размере
             fixed (byte* pData = data)
             {
-                // Выделить память с прежним размером
                 totalSize = *((long*)pData);
                 blockCount = *((int*)(pData + sizeof(long)));
-        
-                //m_BasePtr = (byte*)UnsafeUtility.MallocTracked(m_TotalSize, ALIGNMENT, Allocator.Persistent, 0);
-                //m_Blocks = (MemoryBlock*)UnsafeUtility.MallocTracked(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent, 0);
-
-                // Скопировать блоки
                 UnsafeUtility.MemCpy(blocks, pData + sizeof(long) + sizeof(int), blockCount * sizeof(MemoryBlock));
-        
-                // Скопировать основную память
                 UnsafeUtility.MemCpy(basePtr, pData + sizeof(long) + sizeof(int) + blockCount * sizeof(MemoryBlock), totalSize);
-                dbug.log($"Allocator Deserialized with size {totalSize}");
             }
         }
         

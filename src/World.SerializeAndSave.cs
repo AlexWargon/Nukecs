@@ -4,24 +4,29 @@
     {
         public byte[] Serialize()
         {
-            return UnsafeWorld->AllocatorHandle.AllocatorWrapper.MemoryAllocator.Serialize();
+            return UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.Serialize();
         }
 
         public void Deserialize(byte[] data)
         {
-            UnsafeWorld->AllocatorHandle.AllocatorWrapper.MemoryAllocator.Deserialize(data);
+            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.Deserialize(data);
         }
 
         public void SaveToFile(string path)
         {
             UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            UnsafeWorld->AllocatorHandle.AllocatorWrapper.MemoryAllocator.SaveToFile(path);
+            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.SaveToFile(path);
         }
 
         public void LoadFromFile(string path)
         {
             UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            UnsafeWorld->AllocatorHandle.AllocatorWrapper.MemoryAllocator.LoadFromFile(path);
+            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.LoadFromFile(path);
+            for (var index = 0; index < UnsafeWorld->entities.Length; index++)
+            {
+                ref var entity = ref UnsafeWorld->entities.Ptr[index];
+                entity.worldPointer = UnsafeWorld;
+            }
         }
     }
 }

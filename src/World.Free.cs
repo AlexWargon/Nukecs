@@ -1,4 +1,5 @@
-﻿using Unity.Collections.LowLevel.Unsafe;
+﻿using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Wargon.Nukecs
@@ -9,11 +10,11 @@ public unsafe partial struct World
         {
             public void Free()
             {
-                var info = AllocatorHandle.AllocatorWrapper.MemoryAllocator.GetMemoryInfo();
+                var info = AllocatorHandler.AllocatorWrapper.Allocator.GetMemoryInfo();
                 var sb = new System.Text.StringBuilder();
                 sb.Append($"Allocator on free: Total memory: {info.totalSize} . Free: {info.freeSize} bytes. Used {info.usedSize} bytes. Defragmentation Cycles: {info.defragmentationCycles}. Blocks: {info.blockCount}");
                 sb.AppendLine();
-                var memoryView = AllocatorHandle.AllocatorWrapper.MemoryAllocator.GetMemoryView();
+                var memoryView = AllocatorHandler.AllocatorWrapper.Allocator.GetMemoryView();
                 long unUsedMemory = 0;
                 long usedMemory = 0;
                 for (int i = 0; i < memoryView.BlockCount; i++)
@@ -98,17 +99,20 @@ public unsafe partial struct World
                 // locking.Dispose();
                 // aspects.Dispose();
                 //Lockers.pools.Dispose();
-                AllocatorHandle.Dispose();
+                AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, self);
                 self = null;
             }
             
         }
-        public void Dispose() {
+        public unsafe void Dispose() {
             //if (UnsafeWorld == null) return;
             var id = UnsafeWorld->Id;
             lastFreeSlot = id;
+            var allocator = UnsafeWorld->AllocatorHandler;
             UnsafeWorld->Free();
-            UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
+            AllocatorManager.Free(allocator.AllocatorHandle, UnsafeWorld);
+            allocator.Dispose();
+            //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
             UnsafeWorld = null;
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }

@@ -1,15 +1,45 @@
-﻿using System.Linq;
-using Unity.Collections.LowLevel.Unsafe;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 namespace Wargon.Nukecs
 {
-    public unsafe class MemoryAllocatorVisualizer : EditorWindow
+    public unsafe class MemoryAllocatorDebugWindow : EditorWindow
     {
         private SerializableMemoryAllocator* allocator;
+
+        // Configurable column widths
+        private readonly float[] columnWidths = { 50f, 100f, 100f, 50f };
+        private Color freeColor = new(1f, 0.8f, 0.8f);
+        private Vector2 mouseStartPosition;
+        private readonly float resizeHandleWidth = 5f;
+
+        // State for resizing columns
+        private int resizingColumnIndex = -1;
+
         private Vector2 scrollPosition;
-        private int selectedBlockIndex = -1;
+
+        // Background colors
+        private Color usedColor = new(0.8f, 1f, 0.8f);
+
+        private void OnEnable()
+        {
+            // Load preferences
+            for (var i = 0; i < columnWidths.Length; i++)
+                columnWidths[i] = EditorPrefs.GetFloat($"AllocatorDebug_ColumnWidth_{i}", columnWidths[i]);
+
+            usedColor = LoadColor("AllocatorDebug_UsedColor", usedColor);
+            freeColor = LoadColor("AllocatorDebug_FreeColor", freeColor);
+        }
+
+        private void OnDisable()
+        {
+            // Save preferences
+            for (var i = 0; i < columnWidths.Length; i++)
+                EditorPrefs.SetFloat($"AllocatorDebug_ColumnWidth_{i}", columnWidths[i]);
+
+            SaveColor("AllocatorDebug_UsedColor", usedColor);
+            SaveColor("AllocatorDebug_FreeColor", freeColor);
+        }
 
         private void OnGUI()
         {
@@ -20,149 +50,165 @@ namespace Wargon.Nukecs
             {
                 EditorGUILayout.HelpBox("No allocator found. Please assign one to debug.", MessageType.Warning);
                 if (GUILayout.Button("Initialize Allocator (Test)"))
-                    allocator = world.UnsafeWorld->AllocatorHandle.AllocatorWrapper.GetAllocatorPtr();
+                    allocator = world.UnsafeWorld->AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
                 return;
             }
 
-            // Main layout split into two areas
-            var visualizationArea = new Rect(0, 0, position.width, position.height * 0.8f);
-            var detailsArea = new Rect(0, position.height * 0.8f, position.width, position.height * 0.2f);
+            // Display memory overview
+            EditorGUILayout.LabelField("Memory Allocator Debug View", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"Total Blocks: {allocator->BlockCount}");
 
-            DrawVisualizationArea(visualizationArea);
-            DrawDetailsArea(detailsArea);
-        }
+            // Background color configuration
+            EditorGUILayout.LabelField("Background Colors", EditorStyles.boldLabel);
+            usedColor = EditorGUILayout.ColorField("Used Block Color", usedColor);
+            freeColor = EditorGUILayout.ColorField("Free Block Color", freeColor);
 
-        private void DrawVisualizationArea(Rect area)
-        {
-            GUILayout.BeginArea(area);
-            GUILayout.Label("Memory Blocks Visualization", EditorStyles.boldLabel);
+            EditorGUILayout.Space();
 
-            // Scrollable область для блоков
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Width(area.width),
-                GUILayout.Height(area.height));
+            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
 
-            var memoryView = allocator->GetMemoryView();
-            float totalMemorySize = 10_000_000;
+            // Display table header
+            EditorGUILayout.BeginHorizontal();
 
-            // Константы
-            const float blockPadding = 2f;
-            const float minBlockSize = 10f;
-            const float maxBlockSize = 240f;
-            // Доступные размеры
-            var maxWindowWidth = Screen.width - 40f;
-            var sizeMulti =  maxWindowWidth/ area.width * 0.5f;
-            var availableWidth = area.width - 20f; // Учитываем скролл
-            float currentX = 0;
-            float currentY = 0;
-            float maxRowHeight = 0;
-
-            if (memoryView.BlockCount > 0)
+            for (var i = 0; i < columnWidths.Length; i++)
             {
-                // Сортировка блоков по размеру: от больших к маленьким
-                var blocks = new SerializableMemoryAllocator.MemoryBlock[memoryView.BlockCount];
+                GUILayout.Label(GetColumnTitle(i), GUILayout.Width(columnWidths[i]));
 
-                fixed (void* ptr = blocks)
-                {
-                    UnsafeUtility.MemCpy(ptr, memoryView.Blocks,
-                        memoryView.BlockCount * sizeof(SerializableMemoryAllocator.MemoryBlock));
-                }
-
-                blocks = blocks.OrderByDescending(block => block.Size).ToArray();
-
-                for (var i = 0; i < blocks.Length; i++)
-                {
-                    ref var block = ref blocks[i];
-
-                    // Рассчитываем размеры блока
-                    var blockRatio = block.Size / totalMemorySize ;
-                    var blockSize = Mathf.Max(minBlockSize, blockRatio * availableWidth);
-
-                    blockSize = Mathf.Min(blockSize, maxBlockSize);
-                    
-                    blockSize *= sizeMulti;
-                    blockSize = Mathf.Max(blockSize, 10f);
-                    // Проверяем, поместится ли блок в текущей строке
-                    if (currentX + blockSize > availableWidth)
-                    {
-                        // Переход на новую строку
-                        currentX = 0;
-                        currentY += maxRowHeight + blockPadding;
-                        maxRowHeight = 0;
-                    }
-                    
-                    // Рисуем блок
-                    var blockRect = new Rect(currentX, currentY, blockSize, blockSize);
-                    DrawBlock(block, blockRect, i);
-
-                    // Обновляем позицию и высоту строки
-                    currentX += blockSize + blockPadding;
-                    maxRowHeight = Mathf.Max(maxRowHeight, blockSize);
-                }
+                // Draw the resize handle (visual separator)
+                if (i < columnWidths.Length - 1) // No separator for the last column
+                    DrawResizeHandle(i);
             }
-            else
+
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.LabelField("", GUI.skin.horizontalSlider); // Separator
+
+            // Display table rows
+            for (var i = 0; i < allocator->BlockCount; i++)
             {
-                GUILayout.Label("No memory blocks allocated.");
+                var block = allocator->Blocks[i];
+                var backgroundColor = block.IsUsed ? usedColor : freeColor;
+
+                // Set background color for the row
+                var originalBackgroundColor = GUI.backgroundColor;
+                GUI.backgroundColor = backgroundColor;
+
+                EditorGUILayout.BeginHorizontal("box");
+
+                for (var j = 0; j < columnWidths.Length; j++)
+                {
+                    DrawColumnContent(i, j, block);
+                    if (j < columnWidths.Length - 1)
+                        DrawSeparator(); // Visual separator between columns
+                }
+
+                EditorGUILayout.EndHorizontal();
+
+                GUI.backgroundColor = originalBackgroundColor;
             }
 
             EditorGUILayout.EndScrollView();
-            GUILayout.EndArea();
+
+            HandleColumnResizing();
         }
 
-        protected override void OnBackingScaleFactorChanged()
+        private void DrawResizeHandle(int columnIndex)
         {
-            base.OnBackingScaleFactorChanged();
-            Repaint();
-        }
-        
-        private void DrawBlock(SerializableMemoryAllocator.MemoryBlock block, Rect blockRect, int index)
-        {
-            // Определяем цвет блока
-            var blockColor = block.IsUsed
-                ? Color.Lerp(Color.yellow, Color.red, block.Size / 1_000_000f)
-                : Color.green;
+            var rect = GUILayoutUtility.GetRect(resizeHandleWidth, EditorGUIUtility.singleLineHeight,
+                GUILayout.Width(resizeHandleWidth));
 
-            // Рисуем прямоугольник
-            EditorGUI.DrawRect(blockRect, blockColor);
+            EditorGUI.DrawRect(rect, Color.gray); // Visualize the separator
 
-            // Добавляем текст поверх блока
-            GUI.Label(blockRect, $"{block.Size / 1024.0f:F1} KB", EditorStyles.whiteLabel);
+            EditorGUIUtility.AddCursorRect(rect, MouseCursor.ResizeHorizontal);
 
-            // Обработка кликов
-            if (Event.current.type == EventType.MouseDown && blockRect.Contains(Event.current.mousePosition))
+            if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
             {
-                selectedBlockIndex = index;
-                Repaint();
+                resizingColumnIndex = columnIndex;
+                mouseStartPosition = Event.current.mousePosition;
+                Event.current.Use();
             }
         }
 
-        private void DrawDetailsArea(Rect area)
+        private void DrawColumnContent(int rowIndex, int columnIndex, SerializableMemoryAllocator.MemoryBlock block)
         {
-            GUILayout.BeginArea(area);
-            GUILayout.Label("Block Details", EditorStyles.boldLabel);
-
-            if (selectedBlockIndex != -1)
+            switch (columnIndex)
             {
-                var memoryView = allocator->GetMemoryView();
-                ref var block = ref memoryView.Blocks[selectedBlockIndex];
-
-                GUILayout.Label($"Block Index: {selectedBlockIndex}");
-                GUILayout.Label($"Size: {block.Size} bytes");
-                GUILayout.Label($"Status: {(block.IsUsed ? "Used" : "Free")}");
-                GUILayout.Label($"Offset: {block.Pointer}");
+                case 0:
+                    EditorGUILayout.LabelField(rowIndex.ToString(), GUILayout.Width(columnWidths[columnIndex]));
+                    break;
+                case 1:
+                    EditorGUILayout.LabelField($"0x{(int)(block.Pointer + allocator->BasePtr):X}",
+                        GUILayout.Width(columnWidths[columnIndex]));
+                    break;
+                case 2:
+                    EditorGUILayout.LabelField(block.Size.ToString(), GUILayout.Width(columnWidths[columnIndex]));
+                    break;
+                case 3:
+                    EditorGUILayout.LabelField(block.IsUsed ? "Used" : "Free",
+                        GUILayout.Width(columnWidths[columnIndex]));
+                    break;
             }
-            else
-            {
-                GUILayout.Label("Click on a block to view details.");
-            }
-
-            GUILayout.EndArea();
         }
 
-        [MenuItem("Nuke.cs/Memory Allocator Visualizer")]
+        private void HandleColumnResizing()
+        {
+            if (resizingColumnIndex >= 0)
+            {
+                if (Event.current.type == EventType.MouseDrag)
+                {
+                    var delta = Event.current.mousePosition.x - mouseStartPosition.x;
+                    columnWidths[resizingColumnIndex] = Mathf.Max(30f, columnWidths[resizingColumnIndex] + delta);
+                    mouseStartPosition = Event.current.mousePosition;
+                    Repaint();
+                }
+                else if (Event.current.type == EventType.MouseUp)
+                {
+                    resizingColumnIndex = -1;
+                }
+            }
+        }
+
+        private string GetColumnTitle(int columnIndex)
+        {
+            switch (columnIndex)
+            {
+                case 0: return "Index";
+                case 1: return "Pointer";
+                case 2: return "Size (bytes)";
+                case 3: return "Status";
+                default: return "";
+            }
+        }
+
+        private void DrawSeparator()
+        {
+            GUILayout.Box("", GUILayout.Width(1), GUILayout.ExpandHeight(true));
+        }
+
+        [MenuItem("Tools/Memory Allocator Debug")]
         public static void ShowWindow()
         {
-            var window = GetWindow<MemoryAllocatorVisualizer>("Memory Allocator Visualizer");
+            var window = GetWindow<MemoryAllocatorDebugWindow>("Memory Allocator Debug");
             window.Show();
+        }
+
+        // Helper to save/load colors from EditorPrefs
+        private void SaveColor(string key, Color color)
+        {
+            EditorPrefs.SetFloat($"{key}_R", color.r);
+            EditorPrefs.SetFloat($"{key}_G", color.g);
+            EditorPrefs.SetFloat($"{key}_B", color.b);
+            EditorPrefs.SetFloat($"{key}_A", color.a);
+        }
+
+        private Color LoadColor(string key, Color defaultColor)
+        {
+            return new Color(
+                EditorPrefs.GetFloat($"{key}_R", defaultColor.r),
+                EditorPrefs.GetFloat($"{key}_G", defaultColor.g),
+                EditorPrefs.GetFloat($"{key}_B", defaultColor.b),
+                EditorPrefs.GetFloat($"{key}_A", defaultColor.a)
+            );
         }
     }
 }
