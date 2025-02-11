@@ -36,7 +36,7 @@ namespace Wargon.Nukecs {
     }
     internal unsafe struct ArchetypeUnsafe {
         internal DynamicBitmask mask;
-        internal UnsafeList<int> types;
+        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal UnsafePtrList<QueryUnsafe> queries;
         internal HashMap<int, Edge> transactions;
@@ -64,7 +64,7 @@ namespace Wargon.Nukecs {
             return ptr;
         }
 
-        internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false) {
+        internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> typesSpan, bool copyList = false) {
             var ptr = world->_allocate<ArchetypeUnsafe>();
             *ptr = new ArchetypeUnsafe(world, ref typesSpan, copyList);
             return ptr;
@@ -75,7 +75,7 @@ namespace Wargon.Nukecs {
             this.mask = DynamicBitmask.CreateForComponents(world);
             this.id = 0;
             if (typesSpan != null) {
-                this.types = new UnsafeList<int>(typesSpan.Length, world->Allocator);
+                this.types = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(typesSpan.Length, world->Allocator);
                 this.id = GetHashCode(typesSpan);
                 foreach (var type in typesSpan) {
                     this.mask.Add(type);
@@ -84,7 +84,7 @@ namespace Wargon.Nukecs {
             }
             else {
                 // Root Archetype
-                this.types = new UnsafeList<int>(1, world->Allocator);
+                this.types = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(1, world->Allocator);
             }
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
             this.transactions = new HashMap<int, Edge>(8, ref world->AllocatorHandler);
@@ -93,7 +93,7 @@ namespace Wargon.Nukecs {
             this.destroyEdge = CreateDestroyEdge();
         }
 
-        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false) {
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> typesSpan, bool copyList = false) {
             this.world = world;
             this.mask = DynamicBitmask.CreateForComponents(world);
             if (typesSpan.IsCreated) {
@@ -104,7 +104,7 @@ namespace Wargon.Nukecs {
             }
             else {
                 // Root Archetype
-                this.types = new UnsafeList<int>(1, world->Allocator);
+                this.types = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(1, world->Allocator);
             }
             this.id = GetHashCode(ref typesSpan);
             this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
@@ -115,7 +115,7 @@ namespace Wargon.Nukecs {
             this.destroyEdge = CreateDestroyEdge();
             if (copyList)
             {
-                this.types = new UnsafeList<int>(typesSpan.m_length, world->Allocator);
+                this.types = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(typesSpan.m_length, world->Allocator);
                 this.types.CopyFrom(in typesSpan);
             }
         }
@@ -145,6 +145,7 @@ namespace Wargon.Nukecs {
                     var type = types[index];
                     if (q->HasNone(type)) {
                         hasNone = true;
+                        break;
                     }
                 }
                 if(hasNone) continue;
@@ -164,7 +165,7 @@ namespace Wargon.Nukecs {
         internal Edge CreateDestroyEdge() {
             var edge = new Edge(world->Allocator);
             for (int i = 0; i < queries.Length; i++) {
-                edge.removeEntity->Add(queries.ElementAt(i));
+                edge.RemoveEntity->Add(queries.ElementAt(i));
             }
             return edge;
         }
@@ -212,13 +213,13 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void OnEntityChangeECB(int entity, int component) {
             if (transactions.TryGetValue(component, out var edge)) {
-                world->entitiesArchetypes.ElementAt(entity) = edge.toMove;
+                world->entitiesArchetypes.ElementAt(entity) = edge.ToMove;
                 edge.Execute(entity);
                 return;
             }
             CreateTransaction(component);
             edge = transactions[component];
-            world->entitiesArchetypes.ElementAt(entity) = edge.toMove;
+            world->entitiesArchetypes.ElementAt(entity) = edge.ToMove;
             edge.Execute(entity);
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -241,7 +242,7 @@ namespace Wargon.Nukecs {
         }
         private void CreateTransaction(int component) {
             var remove = component < 0;
-            var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->Allocator,
+            var newTypes = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->Allocator,
                 NativeArrayOptions.ClearMemory);
             var positiveComponent = math.abs(component);
             foreach (var type in types) {
@@ -261,13 +262,13 @@ namespace Wargon.Nukecs {
             for (var index = 0; index < queries.Length; index++) {
                 var thisQuery = queries[index];
                 if (otherArchetype->queries.Contains(thisQuery) == false) {
-                    otherEdge.removeEntity->Add(thisQuery);
+                    otherEdge.RemoveEntity->Add(thisQuery);
                 }
             }
             for (var index = 0; index < otherArchetype->queries.Length; index++) {
                 var otherQuery = otherArchetype->queries[index];
                 if (queries.Contains(otherQuery) == false) {
-                    otherEdge.addEntity->Add(otherQuery);
+                    otherEdge.AddEntity->Add(otherQuery);
                 }
             }
 
@@ -316,7 +317,7 @@ namespace Wargon.Nukecs {
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetHashCode(ref UnsafeList<int> mask) {
+        public static int GetHashCode(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> mask) {
             unchecked {
                 if (mask.Length == 0) return 0;
                 var hash = (int) 2166136261;
@@ -351,106 +352,39 @@ namespace Wargon.Nukecs {
     }
     
     internal readonly unsafe struct Edge : IDisposable {
-        [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<QueryUnsafe>* addEntity;
-        [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<QueryUnsafe>* removeEntity;
-        [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeUnsafe* toMovePtr;
-        internal readonly Archetype toMove;
+        [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<QueryUnsafe>* AddEntity;
+        [NativeDisableUnsafePtrRestriction] internal readonly UnsafePtrList<QueryUnsafe>* RemoveEntity;
+        [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeUnsafe* ToMovePtr;
+        internal readonly Archetype ToMove;
 
         public Edge(ref Archetype archetype, Allocator allocator) {
-            this.toMovePtr = archetype.impl;
-            this.toMove = archetype;
-            this.addEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-            this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
+            ToMovePtr = archetype.impl;
+            ToMove = archetype;
+            AddEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
+            RemoveEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
         }
 
         public Edge(Allocator allocator) {
-            this.addEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-            this.removeEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-            this.toMovePtr = null;
-            this.toMove = default;
+            AddEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
+            RemoveEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
+            ToMovePtr = null;
+            ToMove = default;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Execute(int entity) {
-            for (int i = 0; i < removeEntity->m_length; i++) {
-                removeEntity->ElementAt(i)->Remove(entity);
+            for (var i = 0; i < RemoveEntity->m_length; i++) {
+                RemoveEntity->ElementAt(i)->Remove(entity);
             }
 
-            for (int i = 0; i < addEntity->m_length; i++) {
-                addEntity->ElementAt(i)->Add(entity);
+            for (var i = 0; i < AddEntity->m_length; i++) {
+                AddEntity->ElementAt(i)->Add(entity);
             }
         }
 
         public void Dispose() {
-            UnsafePtrList<QueryUnsafe>.Destroy(addEntity);
-            UnsafePtrList<QueryUnsafe>.Destroy(removeEntity);
-        }
-    }
-    public unsafe struct Memory
-    {
-        public byte* pointer;
-
-        public Memory(byte* ptr)
-        {
-            this.pointer = ptr;
-        }
-
-        public ref T Get<T>(int index) where T : unmanaged
-        {
-            return ref *(T*)(pointer + index);
-        }
-    }
-    public unsafe struct Memory<T> where T : unmanaged
-    {
-        private T* pointer;
-        public ref T Get(int index) => ref *(pointer + index);
-    }
-    public unsafe struct Chunk
-    {
-        private byte* buffer;
-        private int elemetSize;
-        private int capacity;
-        public Chunk(int size, int capacity, int maxElementSize, int components)
-        {
-            buffer = (byte*)UnsafeUtility.MallocTracked(size, UnsafeUtility.SizeOf<byte>(), Allocator.Persistent, 0);
-            elemetSize = maxElementSize;
-            this.capacity = capacity;
-            for (var index = 0; index < components; index++)
-            {
-                var ptr = (Memory*)(buffer + elemetSize * capacity * index);
-                *ptr = new Memory((byte*)ptr);
-            }
-        }
-
-        public void Dispose()
-        {
-            UnsafeUtility.FreeTracked(buffer, Allocator.Persistent);
-        }
-        public Span<T> GetComponents<T>(int componentIndex) where T : unmanaged
-        {
-            return new Span<T>(buffer + componentIndex * elemetSize, capacity);
-        }
-
-        public ref T Get<T>(int entity, int componentIndex) where T : unmanaged
-        {
-            return ref *((T*)(buffer + componentIndex * elemetSize) + entity);
-        }
-    }
-    public unsafe struct EntityArchetype
-    {
-        private Chunk _chunk;
-
-        public EntityArchetype(params ComponentType[] components)
-        {
-            var m = components.AsSpan();
-            var maxSize = 0;
-            for (var index = 0; index < m.Length; index++)
-            {
-                var componentTypeSize = m[index].size;
-                if (componentTypeSize > maxSize) maxSize = componentTypeSize;
-            }
-            
-            _chunk = new Chunk(maxSize * 256 * components.Length, components.Length, 0, 0);
+            UnsafePtrList<QueryUnsafe>.Destroy(AddEntity);
+            UnsafePtrList<QueryUnsafe>.Destroy(RemoveEntity);
         }
     }
 }

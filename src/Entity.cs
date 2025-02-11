@@ -21,7 +21,7 @@ namespace Wargon.Nukecs
         {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
+            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
                 this.worldPointer->GetArchetype(0);
         }
 
@@ -30,14 +30,14 @@ namespace Wargon.Nukecs
         {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAtNoCheck(this.id) =
+            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
                 this.worldPointer->GetArchetype(archetype);
         }
 
         internal ref ArchetypeUnsafe archetypeRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *worldPointer->entitiesArchetypes.ElementAtNoCheck(id).impl;
+            get => ref *worldPointer->entitiesArchetypes.ElementAt(id).impl;
         }
         
         public override string ToString()
@@ -354,7 +354,7 @@ namespace Wargon.Nukecs
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Destroy(entity.id);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Free(this in Entity entity)
         {
             entity.archetypeRef.OnEntityFree(entity.id);

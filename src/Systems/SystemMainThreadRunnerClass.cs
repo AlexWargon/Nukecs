@@ -9,7 +9,6 @@ namespace Wargon.Nukecs
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             ref var world = ref state.World;
-            world.CurrentContext = updateContext;
             System.OnUpdate(ref state);
             EcbJob.ECB = world.GetEcbVieContext(updateContext);
             EcbJob.world = world;

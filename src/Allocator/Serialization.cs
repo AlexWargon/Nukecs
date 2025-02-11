@@ -1,10 +1,11 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using System.Runtime.Serialization.Formatters.Binary;
+using System.IO.Compression;
+using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Wargon.Nukecs
 {
@@ -16,10 +17,10 @@ namespace Wargon.Nukecs
         public bool IsUsed;
     }
 
-    public unsafe partial struct SerializableMemoryAllocator
+    public partial struct SerializableMemoryAllocator
     {
         // Serialize entire memory to byte array
-        public byte[] Serialize()
+        public unsafe byte[] Serialize()
         {
             var serializedData = new byte[totalSize];
             fixed (byte* destPtr = serializedData)
@@ -32,7 +33,7 @@ namespace Wargon.Nukecs
 
         private static byte[] serializedAllocator = Array.Empty<byte>();
         // Deserialize byte array into allocator memory
-        public void Deserialize(byte[] data)
+        public unsafe void Deserialize(byte[] data)
         {
             var copySize = Math.Min(data.Length, totalSize);
             fixed (byte* srcPtr = data)
@@ -67,8 +68,8 @@ namespace Wargon.Nukecs
             if (targetSize != data.Length)
             {
                 Array.Resize(ref data, targetSize);
-                dbug.log("data resized");
             }
+            
             fixed (byte* pData = data)
             {
                 // Сохранить размер и количество блоков
@@ -88,36 +89,85 @@ namespace Wargon.Nukecs
                 UnsafeUtility.MemCpy(basePtr, pData + sizeof(long) + sizeof(int) + blockCount * sizeof(MemoryBlock), totalSize);
             }
         }
-        
-        // public void SaveToFile(string path)
-        // {
-        //     var data = FastSerialize();
-        //     using var fs = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write);
-        //     fs.Write(data, 0, data.Length);
-        // }
-        //
-        // public void LoadFromFile(string path)
-        // {
-        //     if (!File.Exists(path))
-        //     {
-        //         UnityEngine.Debug.LogError($"File not found: {path}");
-        //     }
-        //
-        //     using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-        //     var data = new byte[fs.Length];
-        //     fs.Read(data, 0, data.Length);
-        //     FastDeserialize(data);
-        // }
+
         public void SaveToFile(string filePath)
         {
             spinner.Acquire();
             FastSerialize(ref serializedAllocator);
             using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
-            fs.Write(serializedAllocator, 0, serializedAllocator.Length);
+
+            var data = Compress(serializedAllocator);
+            fs.Write(data, 0, data.Length);
             spinner.Release();
         }
 
-        public void LoadFromFile(string filePath)
+        public async Task SaveToFileAsync(string filePath)
+        {
+            spinner.Acquire();
+            FastSerialize(ref serializedAllocator);
+            await using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
+            var data = await CompressAsync(serializedAllocator);
+            fs.Write(data, 0, data.Length);
+            spinner.Release();
+        }
+
+        public async Task LoadFromFileAsync(string filePath)
+        {
+            spinner.Acquire();
+    
+            if (!File.Exists(filePath))
+            {
+                Debug.LogError($"File not found: {filePath}");
+            }
+            await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            if (serializedAllocator.Length != (int)fs.Length)
+            {
+                Array.Resize(ref serializedAllocator, (int)fs.Length);
+            }
+            
+            var data = await fs.ReadAsync(serializedAllocator, 0, serializedAllocator.Length);
+
+            var decompressedData = await DecompressAsync(serializedAllocator);
+            FastDeserialize(decompressedData);
+            
+            spinner.Release();
+        }
+        private static async Task<byte[]> CompressAsync(byte[] data)
+        {
+            using var memoryStream = new MemoryStream();
+            var gzip = new GZipStream(memoryStream, CompressionLevel.Optimal);
+            await gzip.WriteAsync(data, 0, serializedAllocator.Length);
+            gzip.Close();
+            await gzip.DisposeAsync();
+            return memoryStream.ToArray();
+        }
+
+        private static async Task<byte[]> DecompressAsync(byte[] inputData)
+        {
+            using var input = new MemoryStream(inputData);
+            await using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            await gzip.CopyToAsync(output);
+            return output.ToArray();
+        }
+        private static byte[] Compress(byte[] data)
+        {
+            using var memoryStream = new MemoryStream();
+            using var gzip = new GZipStream(memoryStream, CompressionLevel.Optimal);
+            gzip.Write(data, 0, serializedAllocator.Length);
+            gzip.Close();
+            return memoryStream.ToArray();
+        }
+        private static byte[] Decompress(byte[] inputData)
+        {
+            using var input = new MemoryStream(inputData);
+            using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            using var output = new MemoryStream();
+            gzip.CopyTo(output);
+            return output.ToArray();
+        }
+        
+        public unsafe void LoadFromFile(string filePath)
         {
             spinner.Acquire();
     
@@ -132,7 +182,8 @@ namespace Wargon.Nukecs
             }
             
             fs.Read(serializedAllocator, 0, serializedAllocator.Length);
-            FastDeserialize(serializedAllocator);
+
+            FastDeserialize(Decompress(serializedAllocator));
             
             spinner.Release();
             return;

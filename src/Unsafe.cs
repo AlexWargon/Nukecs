@@ -25,7 +25,7 @@ namespace Wargon.Nukecs {
             return AllocatorManager.Allocate<T>(allocator, items);
         }
 
-        public static void Copy<T>(ref UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
+        public static void Copy<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
         {
             fixed (T* ptr = source)
             {
@@ -36,7 +36,7 @@ namespace Wargon.Nukecs {
     }
     public static class UnsafeListExtensions {
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ref T ElementAtNoCheck<T>(this UnsafeList<T> list, int index) where T : unmanaged {
+        public static unsafe ref T ElementAtNoCheck<T>(this Unity.Collections.LowLevel.Unsafe.UnsafeList<T> list, int index) where T : unmanaged {
             return ref list.Ptr[index];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -45,21 +45,21 @@ namespace Wargon.Nukecs {
         }
     }
     public static class UnsafeHelp {
-        public static UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
+        public static Unity.Collections.LowLevel.Unsafe.UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
             NativeArrayOptions options) where T : unmanaged {
-            return new UnsafeList<T>(size, allocator, options) {
+            return new Unity.Collections.LowLevel.Unsafe.UnsafeList<T>(size, allocator, options) {
                 m_length = size
             };
         }
 
-        public static unsafe UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
+        public static unsafe Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
             NativeArrayOptions options) where T : unmanaged {
-            var ptr = UnsafeList<T>.Create(size, allocator, options);
+            var ptr = Unity.Collections.LowLevel.Unsafe.UnsafeList<T>.Create(size, allocator, options);
             ptr->m_length = size;
             return ptr;
         }
 
-        public static ref UnsafeList<T> ResizeUnsafeList<T>(ref UnsafeList<T> list, int size,
+        public static ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> ResizeUnsafeList<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> list, int size,
             NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
         {
             list.Resize(size, options);
@@ -67,7 +67,7 @@ namespace Wargon.Nukecs {
             return ref list;
         }
 
-        public static unsafe void ResizeUnsafeList<T>(ref UnsafeList<T>* list, int size,
+        public static unsafe void ResizeUnsafeList<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* list, int size,
             NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
         {
             list->Resize(size, options);

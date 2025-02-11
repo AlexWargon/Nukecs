@@ -26,12 +26,12 @@ namespace Wargon.Nukecs {
             efbPtr->isCreated = 1;
         }
 
-        private static UnsafePtrList<UnsafeList<EFBCommand>>* Chains(int startSize) {
+        private static UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>* Chains(int startSize) {
             var threads = JobsUtility.JobWorkerCount + 1;
             var ptrList =
-                UnsafePtrList<UnsafeList<EFBCommand>>.Create(threads, Allocator.Persistent);
+                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>.Create(threads, Allocator.Persistent);
             for (var i = 0; i < threads; i++) {
-                var list = UnsafeList<EFBCommand>.Create(startSize, Allocator.Persistent);
+                var list = Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>.Create(startSize, Allocator.Persistent);
                 ptrList->Add(list);
             }
 
@@ -44,7 +44,7 @@ namespace Wargon.Nukecs {
             internal Edge edge;
             internal int entity;
             public override string ToString() {
-                return $"Entity {World.Get(0).GetEntity(entity).ToString()}; move to {edge.toMovePtr->ToString()}";
+                return $"Entity {World.Get(0).GetEntity(entity).ToString()}; move to {edge.ToMovePtr->ToString()}";
             }
         }
         
@@ -64,10 +64,10 @@ namespace Wargon.Nukecs {
 
             //[NativeDisableUnsafePtrRestriction]
             //internal UnsafeList<ECBCommand>* internalBuffer;
-            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<UnsafeList<EFBCommand>>* perThreadBuffer;
+            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>* perThreadBuffer;
 
 
-            internal UnsafeList<EFBCommand>* internalBuffer {
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>* internalBuffer {
                 get => perThreadBuffer->ElementAt(1);
             }
 
@@ -107,10 +107,10 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Dispose() {
                 for (var i = 0; i < perThreadBuffer->Length; i++) {
-                    UnsafeList<EFBCommand>.Destroy(perThreadBuffer->ElementAt(i));
+                    Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>.Destroy(perThreadBuffer->ElementAt(i));
                 }
 
-                UnsafePtrList<UnsafeList<EFBCommand>>.Destroy(perThreadBuffer);
+                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>.Destroy(perThreadBuffer);
                 //UnsafeList<ECBCommand>.Destroy(internalBuffer);
                 isCreated = 0;
             }

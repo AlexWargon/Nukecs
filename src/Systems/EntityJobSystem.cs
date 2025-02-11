@@ -23,7 +23,6 @@ namespace Wargon.Nukecs
         {
             ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
-                world.CurrentContext = updateContext;
                 for (var i = 0; i < Query.Count; i++) {
                     System.OnUpdate(ref Query.GetEntity(i), ref state);    
                 }
@@ -76,7 +75,6 @@ namespace Wargon.Nukecs
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
-                            fullData.State.World.CurrentContext = fullData.updateContext;
                             for (var i = begin; i < end; i++) {
                                 ref var e = ref fullData.query.impl->GetEntity(i);
                                 if (e != Entity.Null) {

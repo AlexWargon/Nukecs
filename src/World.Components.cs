@@ -11,10 +11,9 @@ namespace Wargon.Nukecs {
             internal UnsafeList<int> defaultNoneTypes;
 
             internal Components(ref WorldConfig config, WorldUnsafe* world) {
-                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, world->Allocator,
-                    NativeArrayOptions.ClearMemory);
+                this.pools = new UnsafeList<GenericPool>(ComponentAmount.Value.Data + 1, ref world->WrapperRef, true);
                 poolsCount = 0;
-                this.defaultNoneTypes = new UnsafeList<int>(12, world->Allocator, NativeArrayOptions.ClearMemory);
+                this.defaultNoneTypes = new UnsafeList<int>(12, ref world->WrapperRef);
                 InitializeDefaultComponents();
                 CreatePools(ref config, world);
             }

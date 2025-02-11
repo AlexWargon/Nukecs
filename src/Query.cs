@@ -1,10 +1,4 @@
-﻿
-
-using System.Collections;
-using UnityEngine;
-
-
-namespace Wargon.Nukecs {
+﻿namespace Wargon.Nukecs {
     
     using System;
     using System.Runtime.CompilerServices;
@@ -31,6 +25,16 @@ namespace Wargon.Nukecs {
         }
         internal Query(QueryUnsafe* impl) {
             this.impl = impl;
+        }
+
+        internal Query(Ptr<QueryUnsafe> query)
+        {
+            this.impl = query.Value;
+        }
+
+        public void Add(int e)
+        {
+            impl->Add(e);
         }
         public Query With<T>() where T :  unmanaged, IComponent {
             impl->With(ComponentType<T>.Index);
@@ -96,11 +100,12 @@ namespace Wargon.Nukecs {
             Unsafe.Copy(ref queryUnsafe->entitiesMap, ref query.entitiesMap, query.entitiesMap.Length);
         }
     }
+
     internal unsafe struct QueryUnsafe {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
-        internal UnsafeList<int> entities;
-        internal UnsafeList<int> entitiesMap;
+        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> entities;
+        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> entitiesMap;
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
@@ -123,7 +128,12 @@ namespace Wargon.Nukecs {
             *ptr = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
-
+        internal static Ptr<QueryUnsafe> CreatePtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        {
+            var ptr = world->_allocate_ptr<QueryUnsafe>();
+            ptr.Ref = new QueryUnsafe(world, ptr.Value, withDefaultNoneTypes);
+            return ptr;
+        }
         internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
             this.world = world;
             this.with = DynamicBitmask.CreateForComponents(world);
@@ -140,12 +150,12 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref world->entities.ElementAtNoCheck(entities.ElementAtNoCheck(index));
+            return ref world->entities[entities.ElementAtNoCheck(index)];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityID(int index)
         {
-            return entities.ElementAtNoCheck(index);
+            return entities.ElementAt(index);
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -187,7 +197,7 @@ namespace Wargon.Nukecs {
         public bool HasWith(int type) {
             return with.Has(type);
         }
-
+        
         public bool HasNone(int type) {
             return none.Has(type);
         }
@@ -386,6 +396,19 @@ namespace Wargon.Nukecs {
             return (bitmaskArray[index] & (1UL << bitPosition)) != 0;
         }
 
+        public bool HasRange(int* buffer, int range)
+        {
+            int matches = 0;
+            for (int i = 0; i < range; i++)
+            {
+                if (Has(buffer[i])) matches++;
+                {
+                    if (matches == range) return true;
+                }
+            }
+            return false;
+        }
+        
         // Method to clear an element (unset a specific bit)
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int position) {

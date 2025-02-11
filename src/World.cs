@@ -18,6 +18,7 @@ namespace Wargon.Nukecs
     public unsafe partial struct World : IDisposable
     {
         [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* UnsafeWorld;
+        internal ref WorldUnsafe UnsafeWorldRef => ref *UnsafeWorld;
         public bool IsAlive => UnsafeWorld != null;
         public WorldConfig Config => UnsafeWorld->config;
         public Allocator Allocator => UnsafeWorld->Allocator;
@@ -29,13 +30,12 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref EntityCommandBuffer GetEcbVieContext(UpdateContext context)
         {
-            return ref context == UpdateContext.Update ? ref UnsafeWorld->ECBUpdate : ref UnsafeWorld->ECBFixed;
+            return ref UnsafeWorld->ECBUpdate;
         }
 
         internal UpdateContext CurrentContext
         {
             get => UnsafeWorld->CurrentContext;
-            set => UnsafeWorld->CurrentContext = value;
         }
 
         public ref JobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
@@ -89,16 +89,16 @@ namespace Wargon.Nukecs
         {
             return new Query(UnsafeWorld->Query(withDefaultNoneTypes));
         }
-
-        public Query Query<T>() where T : struct, ITuple
-        {
-            return new Query(UnsafeWorld->Query());
-        }
-
-        public Query Query<T>(byte dymmy = 1) where T : struct, IFilter
-        {
-            return new Query(UnsafeWorld->Query());
-        }
+        //
+        // public Query Query<T>() where T : struct, ITuple
+        // {
+        //     return new Query(UnsafeWorld->Query());
+        // }
+        //
+        // public Query Query<T>(byte dymmy = 1) where T : struct, IFilter
+        // {
+        //     return new Query(UnsafeWorld->Query());
+        // }
 
         /// <summary>
         ///     Update dirty entities and queries
@@ -106,7 +106,6 @@ namespace Wargon.Nukecs
         public void Update()
         {
             UnsafeWorld->ECB.Playback(ref this);
-            UnsafeWorld->ECBFixed.Playback(ref this);
         }
 
         public ref T GetSingleton<T>() where T : unmanaged, IComponent
