@@ -47,7 +47,7 @@ namespace Wargon.Nukecs.Tests {
             //var frames = SpriteAnimationsStorage.Singleton.GetFrames(animation.Group, animation.AnimationID).List;
 
         }
-        private static float4 GetSpriteTiling(int spriteIndex, ref UnsafeList<float4> frames) {
+        private static float4 GetSpriteTiling(int spriteIndex, ref Unity.Collections.LowLevel.Unsafe.UnsafeList<float4> frames) {
             var r = frames.ElementAt(spriteIndex);
             return r;
         }

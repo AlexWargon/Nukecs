@@ -22,16 +22,16 @@ namespace Wargon.Nukecs.Tests
     }
     public struct SpriteAnimationIndexes : IComponent, IDisposable, ICopyable<SpriteAnimationIndexes>
     {
-        public UnsafeList<int> Groups;
+        public Unity.Collections.LowLevel.Unsafe.UnsafeList<int> Groups;
         private readonly Allocator _allocator;
         public SpriteAnimationIndexes(int size)
         {
-            Groups = new UnsafeList<int>(size, Allocator.Persistent);
+            Groups = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(size, Allocator.Persistent);
             _allocator = Allocator.Persistent;
         }
         public SpriteAnimationIndexes(int size, Allocator allocator)
         {
-            Groups = new UnsafeList<int>(size, allocator);
+            Groups = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(size, allocator);
             _allocator = allocator;
         }
         public void Dispose()

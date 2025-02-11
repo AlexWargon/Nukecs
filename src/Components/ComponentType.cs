@@ -240,7 +240,7 @@ namespace Wargon.Nukecs {
                     elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, world);
                     poolsCount += 2;
                 }
-                Component.LogComponent(kvPair.Value);
+                //Component.LogComponent(kvPair.Value);
             }
         }
         internal static unsafe void Dispose() {

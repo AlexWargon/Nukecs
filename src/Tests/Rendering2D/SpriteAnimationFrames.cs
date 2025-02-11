@@ -5,10 +5,10 @@ using Unity.Mathematics;
 
 namespace Wargon.Nukecs.Tests {
     public struct SpriteAnimationFrames : IDisposable {
-        public UnsafeList<float4> List;
+        public Unity.Collections.LowLevel.Unsafe.UnsafeList<float4> List;
         public int AnimationID;
         public SpriteAnimationFrames(int amount, int animationID, Allocator allocator) {
-            List = new UnsafeList<float4>(amount, allocator);
+            List = new Unity.Collections.LowLevel.Unsafe.UnsafeList<float4>(amount, allocator);
             AnimationID = animationID;
         }
 

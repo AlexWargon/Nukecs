@@ -12,7 +12,6 @@ namespace Wargon.Nukecs
         {
             ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
-                world.CurrentContext = updateContext;
                 System.OnUpdate(ref Query, state.Time.DeltaTime);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;

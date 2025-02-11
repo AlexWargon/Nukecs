@@ -278,15 +278,15 @@ namespace Wargon.Nukecs
 
     public unsafe struct ParallelNativeList<T> : IDisposable where T : unmanaged
     {
-        private UnsafePtrList<UnsafeList<T>>* parallelList;
+        private UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>* parallelList;
 
         public ParallelNativeList(int capacity, Allocator allocator = Allocator.Persistent)
         {
             var threads = JobsUtility.ThreadIndexCount;
-            parallelList = UnsafePtrList<UnsafeList<T>>.Create(threads, allocator);
+            parallelList = UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>.Create(threads, allocator);
             for (int i = 0; i < threads; i++)
             {
-                parallelList->Add(UnsafeList<T>.Create(capacity, allocator));
+                parallelList->Add(Unity.Collections.LowLevel.Unsafe.UnsafeList<T>.Create(capacity, allocator));
             }
         }
 
@@ -324,8 +324,8 @@ namespace Wargon.Nukecs
             internal int index;
             internal int thread;
             internal int maxThread;
-            internal UnsafePtrList<UnsafeList<T>>* parallelList;
-            internal UnsafeList<T>* list;
+            internal UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>* parallelList;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* list;
             private T current;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool MoveNext()
@@ -353,7 +353,7 @@ namespace Wargon.Nukecs
             {
                 parallelList->ElementAt(i)->Dispose();
             }
-            UnsafePtrList<UnsafeList<T>>.Destroy(parallelList);
+            UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>.Destroy(parallelList);
         }
     }
 

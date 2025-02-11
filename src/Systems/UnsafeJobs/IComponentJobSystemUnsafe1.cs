@@ -44,12 +44,11 @@ namespace Wargon.Nukecs {
                     while (true) {
                         if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                             break;
-                        //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
-                        fullData.State.World.CurrentContext = fullData.updateContext;
+                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                         for (var i = begin; i < end; i++) {
                             ref var e = ref fullData.query.impl->GetEntity(i);
                             if (e != Entity.Null) {
-                                fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), pool1.GetUnsafePtr(e.id), ref fullData.State);
+                                fullData.JobData.OnUpdate(ref e, pool1.GetUnsafePtr(e.id), ref fullData.State);
                             }
                         }
                     }
@@ -58,7 +57,7 @@ namespace Wargon.Nukecs {
                     for (var i = 0; i < fullData.query.Count; i++) {
                         ref var e = ref fullData.query.impl->GetEntity(i);
                         if (e != Entity.Null) {
-                            fullData.JobData.OnUpdate(ref fullData.query.impl->GetEntity(i), pool1.GetUnsafePtr(e.id), ref fullData.State);
+                            fullData.JobData.OnUpdate(ref e, pool1.GetUnsafePtr(e.id), ref fullData.State);
                         }
                     }
                     break;

@@ -15,7 +15,7 @@ namespace Wargon.Nukecs
             
             internal UnsafeList<Entity> entities;
             internal UnsafeList<Entity> prefabsToSpawn;
-            internal UnsafeList<int> reservedEntities;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> reservedEntities;
             internal UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeList<GenericPool> pools;
             internal int poolsCount;
@@ -24,12 +24,10 @@ namespace Wargon.Nukecs
             internal UnsafePtrList<ArchetypeUnsafe> archetypesList;
             internal WorldConfig config;
             internal EntityCommandBuffer ECBUpdate;
-            internal EntityCommandBuffer ECBFixed;
-            internal UpdateContext currentContext;
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
-            internal UnsafeList<int> DefaultNoneTypes;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> DefaultNoneTypes;
             internal int entitiesAmount;
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
@@ -38,14 +36,13 @@ namespace Wargon.Nukecs
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
             internal UnityAllocatorHandler AllocatorHandler;
             internal ref SerializableMemoryAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
-            internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
+            internal ref UnityAllocatorWrapper WrapperRef => ref AllocatorHandler.AllocatorWrapper;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref currentContext == UpdateContext.Update ? ref self->ECBUpdate : ref self->ECBFixed;
+                get => ref self->ECBUpdate;
             }
             internal UpdateContext CurrentContext {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)] get => currentContext;
-                [MethodImpl(MethodImplOptions.AggressiveInlining)] set => currentContext = value;
+                [MethodImpl(MethodImplOptions.AggressiveInlining)] get => UpdateContext.Update;
             }
             internal static WorldUnsafe* Create(int id, WorldConfig config)
             {
@@ -70,31 +67,24 @@ namespace Wargon.Nukecs
                     this.AllocatorHandler = allocatorHandler;
                 }
 
-                
-                
-                this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(pConfig.StartEntitiesAmount, Allocator,
-                    NativeArrayOptions.ClearMemory);
-                this.prefabsToSpawn = new UnsafeList<Entity>(64, AllocatorHandler.AllocatorWrapper.Handle, NativeArrayOptions.ClearMemory);
-                this.reservedEntities = new UnsafeList<int>(128, AllocatorHandler.AllocatorWrapper.Handle, NativeArrayOptions.ClearMemory);
-                this.entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(pConfig.StartEntitiesAmount,
-                    Allocator, NativeArrayOptions.ClearMemory);
-                this.pools = UnsafeHelp.UnsafeListWithMaximumLenght<GenericPool>(ComponentAmount.Value.Data + 1, Allocator,
-                    NativeArrayOptions.ClearMemory);
+                this.entities = new UnsafeList<Entity>(pConfig.StartEntitiesAmount, ref WrapperRef, true);
+                this.prefabsToSpawn = new UnsafeList<Entity>(64, ref WrapperRef);
+                this.reservedEntities = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(128, AllocatorHandler.AllocatorWrapper.Handle, NativeArrayOptions.ClearMemory);
+                this.entitiesArchetypes = new UnsafeList<Archetype>(pConfig.StartEntitiesAmount, ref WrapperRef);
+                this.pools = new UnsafeList<GenericPool>(ComponentAmount.Value.Data + 1, ref WrapperRef);
                 this.queries = new UnsafePtrList<QueryUnsafe>(32, Allocator);
                 this.archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, Allocator);
                 this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, Allocator);
                 this.config = pConfig;
                 this.systemsUpdateJobDependencies = default;
                 this.systemsFixedUpdateJobDependencies = default;
-                this.DefaultNoneTypes = new UnsafeList<int>(12, Allocator, NativeArrayOptions.ClearMemory);
+                this.DefaultNoneTypes = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(12, Allocator, NativeArrayOptions.ClearMemory);
                 this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 this.entitiesAmount = 0;
                 this.lastEntityIndex = 1;
                 this.poolsCount = 0;
                 this.lastDestroyedEntity = 0;
                 this.ECBUpdate = new EntityCommandBuffer(256, Allocator);
-                this.ECBFixed = new EntityCommandBuffer(256, Allocator);
-                this.currentContext = UpdateContext.Update;
                 this.locking = Locking.Create(Allocator);
                 this.aspects = new Aspects(Allocator, id);
                 
@@ -197,10 +187,12 @@ namespace Wargon.Nukecs
             internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
-                if (lastEntityIndex >= entities.m_capacity) {
+                if (lastEntityIndex >= entities.Capacity) {
                     var newCapacity = lastEntityIndex * 2;
-                    UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
-                    UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
+                    entities.Resize(newCapacity, ref WrapperRef);
+                    entitiesArchetypes.Resize(newCapacity, ref WrapperRef);
+                    // UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
+                    // UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
                 Entity e;
                 entitiesAmount++;
@@ -209,20 +201,20 @@ namespace Wargon.Nukecs
                     last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
                     reservedEntities.RemoveAt(reservedEntities.m_length - 1);
                     e = new Entity(last, self);
-                    entities.ElementAtNoCheck(last) = e;
+                    entities.ElementAt(last) = e;
                     return e;
                 }
                 e = new Entity(last, self);
-                entities.ElementAtNoCheck(last) = e;
+                entities.ElementAt(last) = e;
                 lastEntityIndex++;
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity(int archetype) {
-                if (lastEntityIndex >= entities.m_capacity) {
+                if (lastEntityIndex >= entities.list.m_capacity) {
                     var newCapacity = lastEntityIndex * 2;
-                    UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
-                    UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
+                    entities.Resize(newCapacity, ref WrapperRef);
+                    entitiesArchetypes.Resize(newCapacity, ref WrapperRef);
                 }
 
                 entitiesAmount++;
@@ -236,7 +228,7 @@ namespace Wargon.Nukecs
                     lastEntityIndex++;
                 }
                 var e = new Entity(last, self, archetype);
-                entities.ElementAtNoCheck(last) = e;
+                entities.ElementAt(last) = e;
                 
                 return e;
             }
@@ -252,25 +244,25 @@ namespace Wargon.Nukecs
             {
                 return entities.Ptr[entity].id != 0;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Entity CreateEntityWithEvent(int archetype) {
-                if (lastEntityIndex >= entities.m_capacity) {
-                    var newCapacity = lastEntityIndex * 2;
-                    UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
-                    UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
-                }
-                Entity e;
-                entitiesAmount++;
-                var last = lastEntityIndex;
-                if (reservedEntities.m_length > 0) {
-                    last = reservedEntities.ElementAtNoCheck(reservedEntities.m_length - 1);
-                    reservedEntities.RemoveAt(reservedEntities.m_length - 1);
-                }
-                e = new Entity(last, self, archetype);
-                entities.ElementAtNoCheck(last) = e;
-                lastEntityIndex++;
-                return e;
-            }
+            // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            // internal Entity CreateEntityWithEvent(int archetype) {
+            //     if (lastEntityIndex >= entities.m_capacity) {
+            //         var newCapacity = lastEntityIndex * 2;
+            //         UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
+            //         UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
+            //     }
+            //     Entity e;
+            //     entitiesAmount++;
+            //     var last = lastEntityIndex;
+            //     if (reservedEntities.m_length > 0) {
+            //         last = reservedEntities.ElementAtNoCheck(reservedEntities.m_length - 1);
+            //         reservedEntities.RemoveAt(reservedEntities.m_length - 1);
+            //     }
+            //     e = new Entity(last, self, archetype);
+            //     entities.ElementAtNoCheck(last) = e;
+            //     lastEntityIndex++;
+            //     return e;
+            // }
 
             internal Entity CreateEntity<T1>(in T1 c1) 
                 where T1 : unmanaged, IComponent 
@@ -291,7 +283,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Entity SpawnPrefab(in Entity prefab) {
                 var e = prefab.Copy();
-                prefabsToSpawn.Add(e);
+                prefabsToSpawn.Add(e, ref WrapperRef);
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -308,7 +300,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype CreateArchetype(ref UnsafeList<int> types, bool copyList = false) {
+            internal Archetype CreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, bool copyList = false) {
                 var ptr = ArchetypeUnsafe.Create(self, ref types, copyList);
                 Archetype archetype;
                 archetype.impl = ptr;
@@ -317,7 +309,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
-            internal void CreateArchetype(ref UnsafeList<int> types, out Archetype archetype) {
+            internal void CreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, out Archetype archetype) {
                 var ptr = ArchetypeUnsafe.Create(self, ref types);
                 archetype = new Archetype();
                 archetype.impl = ptr;
@@ -335,7 +327,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype GetOrCreateArchetype(ref UnsafeList<int> types, bool copyList = false) {
+            internal Archetype GetOrCreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, bool copyList = false) {
                 var hash = ArchetypeUnsafe.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     types.Dispose();
@@ -345,7 +337,7 @@ namespace Wargon.Nukecs
                 return CreateArchetype(ref types);
             }
             [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal void GetOrCreateArchetype(ref UnsafeList<int> types, out Archetype archetype) {
+            internal void GetOrCreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, out Archetype archetype) {
                 archetype = GetOrCreateArchetype(ref types);
             }
 

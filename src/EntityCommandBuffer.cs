@@ -41,12 +41,12 @@ namespace Wargon.Nukecs {
             ecb->perThreadBuffer = Chains(startSize, world->Allocator);
             ecb->isCreated = 1;
         }
-        private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize, Allocator allocator) {
+        private UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* Chains(int startSize, Allocator allocator) {
             var threads = JobsUtility.ThreadIndexCount + 2;
-            UnsafePtrList<UnsafeList<ECBCommand>>* ptrList =
-                UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, allocator);
+            UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* ptrList =
+                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>.Create(threads, allocator);
             for (int i = 0; i < threads; i++) {
-                var list = UnsafeList<ECBCommand>.Create(startSize, allocator);
+                var list = Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>.Create(startSize, allocator);
                 ptrList->Add(list);
             }
             return ptrList;
@@ -85,10 +85,10 @@ namespace Wargon.Nukecs {
 
             //[NativeDisableUnsafePtrRestriction]
             //internal UnsafeList<ECBCommand>* internalBuffer;
-            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadBuffer;
+            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* perThreadBuffer;
 
 
-            internal UnsafeList<ECBCommand>* internalBuffer {
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>* internalBuffer {
                 get => perThreadBuffer->ElementAt(1);
             }
 
@@ -281,10 +281,10 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Dispose() {
                 for (var i = 0; i < perThreadBuffer->Length; i++) {
-                    UnsafeList<ECBCommand>.Destroy(perThreadBuffer->ElementAt(i));
+                    Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>.Destroy(perThreadBuffer->ElementAt(i));
                 }
 
-                UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadBuffer);
+                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>.Destroy(perThreadBuffer);
                 //UnsafeList<ECBCommand>.Destroy(internalBuffer);
                 isCreated = 0;
             }

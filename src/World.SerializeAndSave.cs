@@ -1,6 +1,6 @@
 ﻿namespace Wargon.Nukecs
 {
-    public unsafe partial struct World
+    public unsafe partial  struct World
     {
         public byte[] Serialize()
         {
@@ -27,6 +27,31 @@
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
                 entity.worldPointer = UnsafeWorld;
             }
+        }
+
+        private void UpdateEtntitiesWorld()
+        {
+            for (var index = 0; index < UnsafeWorld->entities.Length; index++)
+            {
+                ref var entity = ref UnsafeWorld->entities.Ptr[index];
+                entity.worldPointer = UnsafeWorld;
+            }
+        }
+    }
+    public partial struct World
+    {
+        public async void LoadFromFileAsync(string path)
+        {
+            UnsafeWorldRef.systemsUpdateJobDependencies.Complete();
+            await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.LoadFromFileAsync(path);
+            UpdateEtntitiesWorld();
+        }
+
+        public async void SaveToFileAsync(string path)
+        {
+            UnsafeWorldRef.systemsUpdateJobDependencies.Complete();
+            await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.SaveToFileAsync(path);
+            
         }
     }
 }

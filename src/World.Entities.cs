@@ -1,13 +1,28 @@
 ﻿using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs {
     public partial struct World {
-        public unsafe struct Entities {
+        public unsafe struct Entities2
+        {
             internal UnsafeList<Entity> entities;
-            internal UnsafeList<Entity> prefabsToSpawn;
-            internal UnsafeList<int> reservedEntities;
-            internal UnsafeList<Archetype> entitiesArchetypes;
+            internal UnsafeList<Ptr<QueryUnsafe>> queries;
+            internal UnsafeList<Ptr<ArchetypeUnsafe>> archetypes;
+            internal HashMap<int, Ptr<ArchetypeUnsafe>> archetypesMap;
+            internal Ptr<WorldUnsafe> world;
+            ArchetypeUnsafe* GetArchetype(int hash)
+            {
+                var ptr = archetypesMap[hash];
+                ptr.Update(ref world.AsPtr()->AllocatorRef);
+                return archetypesMap[hash].AsPtr();
+            }
+        }
+        public unsafe struct Entities {
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<Entity> entities;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<Entity> prefabsToSpawn;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> reservedEntities;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<Archetype> entitiesArchetypes;
             internal UnsafeHashMap<int, Archetype> archetypesMap;
             internal UnsafePtrList<ArchetypeUnsafe> archetypesList;
             internal UnsafePtrList<QueryUnsafe> queries;
@@ -19,8 +34,8 @@ namespace Wargon.Nukecs {
             internal static Entities Create(WorldUnsafe* world) {
                 return new Entities {
                     entities = UnsafeHelp.UnsafeListWithMaximumLenght<Entity>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory),
-                    prefabsToSpawn = new UnsafeList<Entity>(64, world->Allocator, NativeArrayOptions.ClearMemory),
-                    reservedEntities = new UnsafeList<int>(128, world->Allocator, NativeArrayOptions.ClearMemory),
+                    prefabsToSpawn = new Unity.Collections.LowLevel.Unsafe.UnsafeList<Entity>(64, world->Allocator, NativeArrayOptions.ClearMemory),
+                    reservedEntities = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(128, world->Allocator, NativeArrayOptions.ClearMemory),
                     entitiesArchetypes = UnsafeHelp.UnsafeListWithMaximumLenght<Archetype>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory),
                     queries = new UnsafePtrList<QueryUnsafe>(32, world->Allocator),
                     archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, world->Allocator),
@@ -32,7 +47,6 @@ namespace Wargon.Nukecs {
                 };
             }
             internal Entity CreateEntity() {
-                
                 if (lastEntityIndex >= entities.m_capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
@@ -46,12 +60,12 @@ namespace Wargon.Nukecs {
                     last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
                     reservedEntities.RemoveAt(reservedEntities.m_length - 1);
                     e = new Entity(last, world);
-                    entities.ElementAtNoCheck(last) = e;
+                    entities.ElementAt(last) = e;
                     return e;
                 }
                 
                 e = new Entity(last, world);
-                entities.ElementAtNoCheck(last) = e;
+                entities.ElementAt(last) = e;
                 lastEntityIndex++;
                 return e;
             }
@@ -95,18 +109,18 @@ namespace Wargon.Nukecs {
 
         public static unsafe void Deserialize(ref WorldSerialized worldSerialized, ref World world)
         {
-            for (var i = 0; i < worldSerialized.queries.Length; i++)
-            {
-                QuerySerialized.Deseialize(ref worldSerialized.queries[i], world.UnsafeWorld->queries[i]);
-            }
-            Unsafe.Copy(ref world.UnsafeWorld->entities, ref worldSerialized.entities, worldSerialized.entities.Length);
-            Unsafe.Copy(ref world.UnsafeWorld->prefabsToSpawn, ref worldSerialized.prefabsToSpawn, worldSerialized.prefabsToSpawn.Length);
-            Unsafe.Copy(ref world.UnsafeWorld->reservedEntities, ref worldSerialized.reservedEntities, worldSerialized.reservedEntities.Length);
-
-            for (int i = 0; i < worldSerialized.pools.Length; i++)
-            {
-                world.UnsafeWorld->pools[i].Deserialize(worldSerialized.pools[i]);
-            }
+            // for (var i = 0; i < worldSerialized.queries.Length; i++)
+            // {
+            //     QuerySerialized.Deseialize(ref worldSerialized.queries[i], world.UnsafeWorld->queries[i]);
+            // }
+            // Unsafe.Copy(ref world.UnsafeWorld->entities, ref worldSerialized.entities, worldSerialized.entities.Length);
+            // Unsafe.Copy(ref world.UnsafeWorld->prefabsToSpawn, ref worldSerialized.prefabsToSpawn, worldSerialized.prefabsToSpawn.Length);
+            // Unsafe.Copy(ref world.UnsafeWorld->reservedEntities, ref worldSerialized.reservedEntities, worldSerialized.reservedEntities.Length);
+            //
+            // for (int i = 0; i < worldSerialized.pools.Length; i++)
+            // {
+            //     world.UnsafeWorld->pools[i].Deserialize(worldSerialized.pools[i]);
+            // }
         }
     }
 }

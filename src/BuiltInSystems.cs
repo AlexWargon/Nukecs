@@ -16,10 +16,10 @@ namespace Wargon.Nukecs{
             public World.WorldUnsafe* world;
             public void Execute()
             {
-                if(world->prefabsToSpawn.m_length < 1) return;
-                for (var index = 0; index < world->prefabsToSpawn.Length; index++)
+                if(world->prefabsToSpawn.list.m_length < 1) return;
+                for (var index = 0; index < world->prefabsToSpawn.list.m_length; index++)
                 {
-                    ref var e = ref world->prefabsToSpawn.ElementAtNoCheck(index);
+                    ref var e = ref world->prefabsToSpawn.ElementAt(index);
                     e.Remove<IsPrefab>();
                     if (e.Has<ComponentArray<Child>>())
                     {

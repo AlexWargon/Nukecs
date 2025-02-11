@@ -134,9 +134,46 @@ namespace Wargon.Nukecs
 
             return PtrOffset.NULL;
         }
+
+        public Ptr<T> AllocatePtr<T>(long size) where T : unmanaged
+        {
+            var error = 0;
+            SizeWithAlign(ref size, ALIGNMENT);
+            spinner.Acquire();
+            DeFragment();
+            for (var i = 0; i < blockCount; i++)
+            {
+                ref var block = ref blocks[i];
+                if (!block.IsUsed && block.Size >= size)
+                {
+                    // Split block if larger than requested size
+                    if (block.Size > size)
+                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false, ref error);
+
+                    block.Size = (int)size;
+                    block.IsUsed = true;
+                    //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
+                    spinner.Release();
+                    return new Ptr<T>(basePtr,(uint)block.Pointer);
+                }
+            }
+            spinner.Release();
+            return Ptr<T>.NULL;
+        }
         private void SizeWithAlign(ref long size, int align)
         {
             size = (size + align - 1) / align * align;
+        }
+
+        public void Free<T>(Ptr<T> ptr) where T : unmanaged
+        {
+            var p = (byte*)ptr.AsPtr();
+            Free(p);
+        }
+        public void Free(void* ptr)
+        {
+            var error = 0;
+            Free((byte*)ptr, ref error);
         }
         public void Free(byte* ptr, ref int error)
         {
@@ -365,10 +402,9 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public struct PtrOffset
     {
-        public const int SIZE_OF_BYTES = 8;
-        public uint BlockIndex;
         public uint Offset;
-        
+        public uint BlockIndex;
+        public const int SIZE_OF_BYTES = 8;
         public static readonly PtrOffset NULL = new (0u,0u);
 
         public PtrOffset(uint blockIndex, uint offset)
@@ -384,57 +420,70 @@ namespace Wargon.Nukecs
         
         public unsafe T* AsPtr<T>(ref SerializableMemoryAllocator allocator) where T : unmanaged
         {
-            return (T*)allocator.BasePtr + Offset;
+            return (T*)(allocator.BasePtr + Offset);
+        }
+    }
+
+    public unsafe struct sptr<T> where T : unmanaged
+    {
+        public long allocator;
+        public long offset;
+        [NativeDisableUnsafePtrRestriction]
+        public byte* ptrToNull;
+        public T* AsPtr()
+        {
+            return (T*) (ptrToNull + allocator + offset);
         }
     }
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct PtrOffset<T> where T : unmanaged
+    public unsafe struct Ptr<T> : IEquatable<Ptr<T>> where T : unmanaged
     {
         private PtrOffset offset;
+        [NativeDisableUnsafePtrRestriction]
         private T* pointer;
+        public static readonly Ptr<T> NULL = new Ptr<T>(null, 0u);
         public void Update(ref SerializableMemoryAllocator allocator)
         {
             pointer = (T*)(allocator.BasePtr + offset.Offset);
         }
 
+        public Ptr(byte* basePtr, uint offset)
+        {
+            this.offset = new PtrOffset(0, offset);
+            pointer = (T*)(basePtr + offset);
+        }
+
+        public T* Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => pointer;
+        }
+
+        public ref T Ref
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *pointer;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T* AsPtr()
         {
             return pointer;
         }
-    }
-    public unsafe struct SList<T> where T : unmanaged
-    {
-        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<T> list;
-        internal PtrOffset PtrOffset;
-
-        public SList(int capacity, ref UnityAllocatorWrapper allocatorHandler, bool lenAsCapacity = false)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T AsRef()
         {
-            PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity);
-            list = default;
-            list.Capacity = capacity;
-            list.Allocator = allocatorHandler.Handle;
-            list.Ptr = PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
-            if (lenAsCapacity)
-            {
-                list.Length = capacity;
-            }
-        }
-        public void OnDeserialize(uint blockIndex, uint offset, ref SerializableMemoryAllocator memoryAllocator)
-        {
-            PtrOffset = new PtrOffset(blockIndex, offset);
-            list.Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
+            return ref *pointer;
         }
 
-        public void OnDeserialize(uint offset, ref SerializableMemoryAllocator memoryAllocator)
+        public bool Equals(Ptr<T> other)
         {
-            PtrOffset = new PtrOffset(0, offset);
-            list.Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
+            return other.offset.Offset.Equals(offset.Offset);
         }
     }
 
     public unsafe struct PtrList<T> where T: unmanaged, IOnDeserialize
     {
-        internal SList<PtrOffset> list;
+        internal UnsafeList<PtrOffset> list;
         
         public void Add(T* ptr, ref SerializableMemoryAllocator allocator)
         {

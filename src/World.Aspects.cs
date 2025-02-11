@@ -30,7 +30,7 @@ namespace Wargon.Nukecs
         }
         public unsafe struct Aspects : IDisposable
         {
-            internal UnsafeList<IntPtr> aspects;
+            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<IntPtr> aspects;
             internal T* GetAspect<T>() where T : unmanaged, IAspect, IAspect<T>
             {
                 var index = AspectType<T>.Index.Data;

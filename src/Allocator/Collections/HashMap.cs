@@ -17,12 +17,12 @@ namespace Wargon.Nukecs.Collections
         public HashMap(int initialCapacity, ref UnityAllocatorHandler allocatorHandler)
         {
             data = default;
-            data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.kMinimumCapacity, ref allocatorHandler);
+            data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, ref allocatorHandler);
         }
         public HashMap(int initialCapacity, AllocatorManager.AllocatorHandle allocator)
         {
             data = default;
-            data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.kMinimumCapacity, allocator);
+            data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, allocator);
         }
 
         public void OnDeserialize(ref UnityAllocatorHandler allocatorHandler)
@@ -97,7 +97,7 @@ namespace Wargon.Nukecs.Collections
             return -1 != data.Find(key);
         }
         public void TrimExcess() => data.TrimExcess();
-        
+
         public TValue this[TKey key]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -203,7 +203,7 @@ namespace Wargon.Nukecs.Collections
         int keyOffset, nextOffset, bucketOffset;
         internal AllocatorManager.AllocatorHandle Allocator;
 
-        internal const int kMinimumCapacity = 256;
+        internal const int K_MINIMUM_CAPACITY = 256;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int CalcCapacityCeilPow2(int capacity)

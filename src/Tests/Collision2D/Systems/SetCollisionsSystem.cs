@@ -230,7 +230,7 @@ namespace Wargon.Nukecs.Collision2D {
             [NativeDisableUnsafePtrRestriction] public World.WorldUnsafe* physicsWorld;
             public void Execute()
             {
-                for (int i = 0; i < world->prefabsToSpawn.m_length; i++)
+                for (int i = 0; i < world->prefabsToSpawn.Length; i++)
                 {
                     ref var entity = ref world->prefabsToSpawn.Ptr[i];
                     if(!entity.Has<Circle2D>()) continue;
