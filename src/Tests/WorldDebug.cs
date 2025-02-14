@@ -25,7 +25,7 @@ namespace Wargon.Nukecs.Editor {
             if(w.IsAlive == false) return;
             for (var index = 0; index < w.UnsafeWorld->queries.Length; index++) {
                 var ptr = w.UnsafeWorld->queries[index];
-                var queryLabel = QueryInfo(ptr, index);
+                var queryLabel = QueryInfo(ptr.Ptr, index);
                 scrollView.Add(queryLabel);
             }
             foreach (var kvPair in w.UnsafeWorld->archetypesMap) {

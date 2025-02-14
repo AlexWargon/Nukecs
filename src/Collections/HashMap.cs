@@ -610,10 +610,9 @@ namespace Wargon.Nukecs.Collections
         {
             var result = CollectionHelper.CreateNativeArray<TValue>(Count, allocator, NativeArrayOptions.UninitializedMemory);
 
-            for (int i = 0, count = 0, max = result.Length, capacity = BucketCapacity
-                ; i < capacity && count < max
-                ; ++i
-                )
+            for (int i = 0, count = 0, max = result.Length, capacity = BucketCapacity; 
+                 i < capacity && count < max; 
+                 ++i)
             {
                 int bucket = Buckets[i];
 

@@ -76,7 +76,7 @@ namespace Wargon.Nukecs
                                 break;
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                             for (var i = begin; i < end; i++) {
-                                ref var e = ref fullData.query.impl->GetEntity(i);
+                                ref var e = ref fullData.query.impl.Ptr->GetEntity(i);
                                 if (e != Entity.Null) {
                                     fullData.JobData.OnUpdate(ref e, ref fullData.State);
                                 }
@@ -85,7 +85,7 @@ namespace Wargon.Nukecs
                         break;
                     case SystemMode.Single:
                         for (var i = 0; i < fullData.query.Count; i++) {
-                            ref var e = ref fullData.query.impl->GetEntity(i);
+                            ref var e = ref fullData.query.impl.Ptr->GetEntity(i);
                             if (e != Entity.Null) {
                                 fullData.JobData.OnUpdate(ref e, ref fullData.State);
                             }

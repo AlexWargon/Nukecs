@@ -2,71 +2,64 @@
     
     using System;
     using System.Runtime.CompilerServices;
-    using System.Runtime.InteropServices;
     using System.Text;
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
     
-    public readonly unsafe struct Query : IDisposable {
-        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* impl;
+    public unsafe struct Query : IDisposable {
+        internal _Ptr<QueryUnsafe> impl;
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => impl->count;
+            get => impl.Ptr->count;
         }
-        internal int CountMulti => impl->count / impl->world->job_worker_count;
+        internal int CountMulti => impl.Ptr->count / impl.Ptr->world->job_worker_count;
         public bool IsValid {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => impl !=null && impl->IsCreated;
+            get => impl.Ptr !=null && impl.Ptr->IsCreated;
         }
         internal Query(World.WorldUnsafe* world, bool withDefaultNoneTypes = true) {
-            impl = QueryUnsafe.Create(world, withDefaultNoneTypes);
-        }
-        internal Query(QueryUnsafe* impl) {
-            this.impl = impl;
+            impl = QueryUnsafe.CreatePtr(world, withDefaultNoneTypes);
         }
 
-        internal Query(Ptr<QueryUnsafe> query)
+
+        internal Query(in _Ptr<QueryUnsafe> query)
         {
-            this.impl = query.Value;
+            this.impl = query;
         }
 
-        public void Add(int e)
-        {
-            impl->Add(e);
-        }
         public Query With<T>() where T :  unmanaged, IComponent {
-            impl->With(ComponentType<T>.Index);
+            impl.Ptr->With(ComponentType<T>.Index);
             return this;
         }
         public Query WithArray<T>() where T : unmanaged, IArrayComponent {
-            impl->With(ComponentType<ComponentArray<T>>.Index);
+            impl.Ptr->With(ComponentType<ComponentArray<T>>.Index);
             return this;
         }
         public Query None<T>() where T : unmanaged, IComponent {
-            impl->None(ComponentType<T>.Index);
+            impl.Ptr->None(ComponentType<T>.Index);
             return this;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref impl->world->entities.Ptr[impl->entities.Ptr[index]];
+            return ref impl.Ptr->world->entities.Ptr[impl.Ptr->entities.Ptr[index]];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index) {
-            return impl->entities.ElementAtNoCheck(index);
+            return impl.Ptr->entities.ElementAtNoCheck(index);
         }
         public void Dispose() {
-            var allocator = impl->world->Allocator;
-            UnsafeUtility.Free(impl, allocator);
+            var allocator = impl.Ptr->world->Allocator;
+            UnsafeUtility.Free(impl.Ptr, allocator);
         }
 
         public override string ToString() {
-            return impl->ToString();
+            return impl.Ptr->ToString();
         }
 
         public QueryEnumerator GetEnumerator() {
-            return new QueryEnumerator(impl);
+            return new QueryEnumerator(impl.Ptr);
         }
 
     }
@@ -109,6 +102,7 @@
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
+        internal int Id;
         public bool IsCreated => world != null;
         internal static void Free(QueryUnsafe* queryImpl) {
             queryImpl->Free();
@@ -128,10 +122,10 @@
             *ptr = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
-        internal static Ptr<QueryUnsafe> CreatePtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        internal static _Ptr<QueryUnsafe> CreatePtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
         {
             var ptr = world->_allocate_ptr<QueryUnsafe>();
-            ptr.Ref = new QueryUnsafe(world, ptr.Value, withDefaultNoneTypes);
+            ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);
             return ptr;
         }
         internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
@@ -141,6 +135,7 @@
             this.count = 0;
             this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory);
             this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory);
+            this.Id = world->queries.Length;
             this.self = self;
             if (withDefaultNoneTypes) {
                 foreach (var type in world->DefaultNoneTypes) {
@@ -321,158 +316,6 @@
         }
     }
 
-    public static class Bitmask1024Ext {
-        [BurstCompile]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe bool Has2(ref this Bitmask1024 bitmask1024, int position) {
-            var index = position / Bitmask1024.BitsPerElement;
-            var bitPosition = position % Bitmask1024.BitsPerElement;
-            return (bitmask1024.bitmaskArray[index] & (1UL << bitPosition)) != 0;
-        }
-    }
-    
-    [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct DynamicBitmask {
-        private const int BitsPerUlong = 64;
-        [NativeDisableUnsafePtrRestriction] private ulong* bitmaskArray;
-        private int count;
-        private int maxBits;
-        private int arraySize;
-        
-        internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world) {
-            return new DynamicBitmask(ComponentAmount.Value.Data, world);
-        }
-
-        internal DynamicBitmask(int maxBits, World.WorldUnsafe* world) {
-            if (maxBits <= 0)
-                throw new ArgumentOutOfRangeException(nameof(maxBits), $"maxBits in {nameof(DynamicBitmask)} must be greater than zero.");
-
-            this.maxBits = maxBits;
-            arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
-            bitmaskArray = (ulong*)world->_allocate<ulong>(arraySize);
-            count = 0;
-
-            // Clear the allocated memory
-            ClearBitmask();
-        }
-
-        private void ClearBitmask() {
-            for (int i = 0; i < arraySize; i++) {
-                bitmaskArray[i] = 0;
-            }
-        }
-
-        // Property to get the count of set bits
-        public int Count => count;
-
-        // Method to add an element (set a specific bit)
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(int position) {
-            if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {maxBits - 1}.");
-            }
-
-            int index = position / BitsPerUlong;
-            int bitPosition = position % BitsPerUlong;
-
-            if (!Has(position)) {
-                bitmaskArray[index] |= 1UL << bitPosition;
-                count++;
-            }
-        }
-
-        // Method to check if an element is present (a specific bit is set)
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Has(int position) {
-            if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"{nameof(DynamicBitmask)}: {nameof(position)} must be between 0 and {maxBits - 1}. Position = {position}");
-            }
-
-            int index = position / BitsPerUlong;
-            int bitPosition = position % BitsPerUlong;
-
-            return (bitmaskArray[index] & (1UL << bitPosition)) != 0;
-        }
-
-        public bool HasRange(int* buffer, int range)
-        {
-            int matches = 0;
-            for (int i = 0; i < range; i++)
-            {
-                if (Has(buffer[i])) matches++;
-                {
-                    if (matches == range) return true;
-                }
-            }
-            return false;
-        }
-        
-        // Method to clear an element (unset a specific bit)
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove(int position) {
-            if (position < 0 || position >= maxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"{nameof(DynamicBitmask)}: {nameof(position)} must be between 0 and {maxBits - 1}. ");
-            }
-            int index = position / BitsPerUlong;
-            int bitPosition = position % BitsPerUlong;
-
-            if (Has(position)) {
-                bitmaskArray[index] &= ~(1UL << bitPosition);
-                count--;
-            }
-        }
-
-        // Override ToString() to display the bitmask in binary form
-        public override string ToString() {
-            StringBuilder sb = new StringBuilder();
-            for (int i = arraySize - 1; i >= 0; i--) {
-                sb.Append(Convert.ToString((long) bitmaskArray[i], 2).PadLeft(BitsPerUlong, '0'));
-            }
-
-            return sb.ToString();
-        }
-
-        // Copy method to create a deep copy of the DynamicBitmask
-        internal DynamicBitmask Copy(World.WorldUnsafe* world) {
-            var copy = new DynamicBitmask(maxBits,world);
-            var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
-            copy.count = count;
-            return copy;
-        }
-
-        internal DynamicBitmask CopyPlusOne(World.WorldUnsafe* world) {
-            var copy = new DynamicBitmask(maxBits + 1, world);
-            var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
-            copy.count = count;
-            return copy;
-        }
-
-        // Dispose method to release allocated memory
-        public void Dispose() {
-            UnsafeUtility.FreeTracked(bitmaskArray, Allocator.Persistent);
-            bitmaskArray = null;
-        }
-
-        public ulong[] AsArray()
-        {
-            return new Span<ulong>(bitmaskArray, arraySize).ToArray();
-        }
-
-        public void FromArray(ulong[] array, int size)
-        {
-            fixed (ulong* ptr = array)
-            {
-                UnsafeUtility.MemCpy(bitmaskArray, ptr, size);
-                arraySize = size;
-            }
-        }
-    }
-
     public unsafe struct Ref<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
         internal GenericPool.GenericPoolUnsafe* pool;
@@ -529,17 +372,5 @@
             return (ref1, ref2);
         }
     }
-    
-    public interface IFilter
-    {
-        
-    }
-    public struct With<T> : IFilter where T: struct, ITuple { }
-    public struct None<T> : IFilter where T: struct, ITuple { }
 
-    public static class Exts {
-        public static bool InRange(this int integer, int min, int max) {
-            return integer >= min && integer <= max;
-        }
-    }
 }

@@ -11,8 +11,8 @@ namespace Wargon.Nukecs.Tests {
     public class EntityLink : MonoBehaviour, ICustomConvertor {
         [SerializeField] private EntityLinkOption Option;
         [SerializeField] private int worldId;
-        [Title("Components")][HideLabel][GUIColor(0.6f, 0.9f, 1.0f)][SerializeReference] public List<IComponent> components;
-        [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected List<Convertor> convertors = new ();
+        [Title("Components")][HideLabel][GUIColor(0.6f, 0.9f, 1.0f)][SerializeReference] public System.Collections.Generic.List<IComponent> components;
+        [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected System.Collections.Generic.List<Convertor> convertors = new ();
         private bool converted;
         //private void Start() {
             // if(converted) return;

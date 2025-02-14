@@ -38,12 +38,20 @@ namespace Wargon.Nukecs {
         internal DynamicBitmask mask;
         internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
-        internal UnsafePtrList<QueryUnsafe> queries;
+        internal MemoryList<int> queries;
         internal HashMap<int, Edge> transactions;
         internal Edge destroyEdge;
         internal readonly int id;
         internal bool IsCreated => world != null;
 
+        private ref QueryUnsafe IdToQueryRef(int qId)
+        {
+            return ref world->queries.Ptr[qId].Ref;
+        }
+        private QueryUnsafe* Query(int qId)
+        {
+            return world->queries.Ptr[qId].Ptr;
+        }
         internal static void Destroy(ArchetypeUnsafe* archetype) {
             archetype->mask.Dispose();
             archetype->types.Dispose();
@@ -86,7 +94,7 @@ namespace Wargon.Nukecs {
                 // Root Archetype
                 this.types = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(1, world->Allocator);
             }
-            this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
+            this.queries = new MemoryList<int>(8, ref this.world->AllocatorWrapperRef);
             this.transactions = new HashMap<int, Edge>(8, ref world->AllocatorHandler);
             this.destroyEdge = default;
             this.PopulateQueries(world);
@@ -107,7 +115,7 @@ namespace Wargon.Nukecs {
                 this.types = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(1, world->Allocator);
             }
             this.id = GetHashCode(ref typesSpan);
-            this.queries = new UnsafePtrList<QueryUnsafe>(8, world->Allocator);
+            this.queries = new MemoryList<int>(8, ref this.world->AllocatorWrapperRef);
             this.transactions = new HashMap<int, Edge>(8, ref world->AllocatorHandler);
             this.destroyEdge = default;
             
@@ -123,9 +131,9 @@ namespace Wargon.Nukecs {
         internal Entity CreateEntity()
         {
             var e = world->CreateEntity(id);
-            for (var i = 0; i < queries.m_length; i++)
+            for (var i = 0; i < queries.Length; i++)
             {
-                queries.Ptr[i]->Add(e.id);
+                IdToQueryRef(queries.Ptr[i]).Add(e.id);
             }
             return e;
         }
@@ -143,7 +151,7 @@ namespace Wargon.Nukecs {
                 var hasNone = false;
                 for (var index = 0; index < types.Length; index++) {
                     var type = types[index];
-                    if (q->HasNone(type)) {
+                    if (q.Ptr->HasNone(type)) {
                         hasNone = true;
                         break;
                     }
@@ -151,10 +159,10 @@ namespace Wargon.Nukecs {
                 if(hasNone) continue;
                 for (var index = 0; index < types.Length; index++) {
                     var type = types[index];
-                    if (q->HasWith(type)) {
+                    if (q.Ptr->HasWith(type)) {
                         matches++;
-                        if (matches == q->with.Count) {
-                            queries.Add(q);
+                        if (matches == q.Ptr->with.Count) {
+                            queries.Add(q.Ptr->Id, ref this.world->AllocatorWrapperRef);
                             break;
                         }
                     }
@@ -162,18 +170,18 @@ namespace Wargon.Nukecs {
             }
         }
 
-        internal Edge CreateDestroyEdge() {
+        private Edge CreateDestroyEdge() {
             var edge = new Edge(world->Allocator);
-            for (int i = 0; i < queries.Length; i++) {
-                edge.RemoveEntity->Add(queries.ElementAt(i));
+            for (var i = 0; i < queries.Length; i++) {
+                edge.RemoveEntity->Add(Query(queries.ElementAt(i)));
             }
             return edge;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Copy(in int from, in int to) {
-            for (int i = 0; i < queries.Length; i++) {
-                var q = queries.ElementAtNoCheck(i);
-                q->Add(to);
+            for (var i = 0; i < queries.Length; i++) {
+                var queryId = queries.ElementAt(i);
+                Query(queryId)->Add(to);
             }
 
             foreach (var type in types) {
@@ -185,8 +193,8 @@ namespace Wargon.Nukecs {
         internal Entity Copy(in Entity entity) {
             var newEntity = world->CreateEntity(id);
             for (var i = 0; i < queries.Length; i++) {
-                var q = queries.ElementAtNoCheck(i);
-                q->Add(newEntity.id);
+                var queryId = queries.ElementAt(i);
+                Query(queryId)->Add(newEntity.id);
             }
             
             for (var index = 0; index < types.m_length; index++)
@@ -259,15 +267,19 @@ namespace Wargon.Nukecs {
             var otherArchetype = otherArchetypeStruct.impl;
             var otherEdge = new Edge(ref otherArchetypeStruct, world->Allocator);
 
-            for (var index = 0; index < queries.Length; index++) {
-                var thisQuery = queries[index];
-                if (otherArchetype->queries.Contains(thisQuery) == false) {
+            for (var index = 0; index < queries.Length; index++)
+            {
+                var t = queries[index];
+                var thisQuery = Query(t);
+                if (otherArchetype->queries.Contains(thisQuery->Id) == false)
+                {
                     otherEdge.RemoveEntity->Add(thisQuery);
                 }
             }
+
             for (var index = 0; index < otherArchetype->queries.Length; index++) {
-                var otherQuery = otherArchetype->queries[index];
-                if (queries.Contains(otherQuery) == false) {
+                var otherQuery = Query(otherArchetype->queries[index]);
+                if (queries.Contains(otherQuery->Id) == false) {
                     otherEdge.AddEntity->Add(otherQuery);
                 }
             }
@@ -289,7 +301,7 @@ namespace Wargon.Nukecs {
 
             sb.Append(Environment.NewLine);
             for (var index = 0; index < queries.Length; index++) {
-                QueryUnsafe* ptr = queries.ElementAt(index);
+                QueryUnsafe* ptr = Query(queries.ElementAt(index));
                 sb.Append($"<color=#6CFF6C>{ptr->ToString()}</color>;{Environment.NewLine}");
             }
 
@@ -318,6 +330,25 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetHashCode(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> mask) {
+            unchecked {
+                if (mask.Length == 0) return 0;
+                var hash = (int) 2166136261;
+                const int p = 16777619;
+                for (var index = 0; index < mask.Length; index++) {
+                    var i = mask[index];
+                    hash = (hash ^ i) * p;
+                }
+
+                hash += hash << 13;
+                hash ^= hash >> 7;
+                hash += hash << 3;
+                hash ^= hash >> 17;
+                hash += hash << 5;
+                return hash;
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetHashCode(ref Span<int> mask) {
             unchecked {
                 if (mask.Length == 0) return 0;
                 var hash = (int) 2166136261;

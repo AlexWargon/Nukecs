@@ -6,16 +6,16 @@ namespace Wargon.Nukecs {
     public partial struct World {
         public unsafe struct Entities2
         {
-            internal UnsafeList<Entity> entities;
-            internal UnsafeList<Ptr<QueryUnsafe>> queries;
-            internal UnsafeList<Ptr<ArchetypeUnsafe>> archetypes;
-            internal HashMap<int, Ptr<ArchetypeUnsafe>> archetypesMap;
-            internal Ptr<WorldUnsafe> world;
+            internal MemoryList<Entity> entities;
+            internal MemoryList<_Ptr<QueryUnsafe>> queries;
+            internal MemoryList<_Ptr<ArchetypeUnsafe>> archetypes;
+            internal HashMap<int, _Ptr<ArchetypeUnsafe>> archetypesMap;
+            internal _Ptr<WorldUnsafe> world;
             ArchetypeUnsafe* GetArchetype(int hash)
             {
                 var ptr = archetypesMap[hash];
-                ptr.Update(ref world.AsPtr()->AllocatorRef);
-                return archetypesMap[hash].AsPtr();
+                ptr.Update(ref world.Ptr->AllocatorRef);
+                return archetypesMap[hash].Ptr;
             }
         }
         public unsafe struct Entities {

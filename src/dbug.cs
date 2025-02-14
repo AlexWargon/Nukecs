@@ -15,6 +15,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void log(string massage)
         {
+            //CustomConsoleWindow.AddMessage(massage);
             UnityEngine.Debug.Log(massage);
         }
         [BurstDiscard]

@@ -13,20 +13,20 @@ namespace Wargon.Nukecs
 {
     public unsafe class Systems {
         internal JobHandle dependencies;
-        internal List<ISystemRunner> runners;
-        internal List<ISystemRunner> disposeSystems;
-        internal List<ISystemRunner> fixedRunners;
-        internal List<ISystemDestroyer> _systemDestroyers;
+        internal System.Collections.Generic.List<ISystemRunner> runners;
+        internal System.Collections.Generic.List<ISystemRunner> disposeSystems;
+        internal System.Collections.Generic.List<ISystemRunner> fixedRunners;
+        internal System.Collections.Generic.List<ISystemDestroyer> _systemDestroyers;
         internal World world;
         internal SystemsDependencies systemsDependencies;
         private NativeList<JobHandle> dependenciesList;
         //private ECBSystem _ecbSystem;
         public Systems(ref World world) {
             this.dependencies = default;
-            this.runners = new List<ISystemRunner>();
-            this.disposeSystems = new List<ISystemRunner>();
-            this.fixedRunners = new List<ISystemRunner>();
-            this._systemDestroyers = new List<ISystemDestroyer>();
+            this.runners = new System.Collections.Generic.List<ISystemRunner>();
+            this.disposeSystems = new System.Collections.Generic.List<ISystemRunner>();
+            this.fixedRunners = new System.Collections.Generic.List<ISystemRunner>();
+            this._systemDestroyers = new System.Collections.Generic.List<ISystemDestroyer>();
             this.dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
             this.systemsDependencies = SystemsDependencies.Create();
             this.world = world;
@@ -515,7 +515,7 @@ namespace Wargon.Nukecs
                     for (var i = begin; i < end; i++) {
                         unsafe
                         {
-                            var e = fullData.query.impl->GetEntityID(i);
+                            var e = fullData.query.impl.Ptr->GetEntityID(i);
                             fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), ref fullData.State);
                         }
                     }

@@ -3,7 +3,7 @@ namespace Wargon.Nukecs
     using System.Collections.Generic;
 
     public class SystemsGroup {
-        internal List<ISystemRunner> runners = new List<ISystemRunner>();
+        internal System.Collections.Generic.List<ISystemRunner> runners = new System.Collections.Generic.List<ISystemRunner>();
         protected string name;
         public string Name => name;
         internal World world;

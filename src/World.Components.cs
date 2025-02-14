@@ -6,14 +6,14 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Wargon.Nukecs {
     public partial struct World {
         public unsafe struct Components {
-            internal UnsafeList<GenericPool> pools;
+            internal MemoryList<GenericPool> pools;
             internal int poolsCount;
-            internal UnsafeList<int> defaultNoneTypes;
+            internal MemoryList<int> defaultNoneTypes;
 
             internal Components(ref WorldConfig config, WorldUnsafe* world) {
-                this.pools = new UnsafeList<GenericPool>(ComponentAmount.Value.Data + 1, ref world->WrapperRef, true);
+                this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref world->AllocatorWrapperRef, true);
                 poolsCount = 0;
-                this.defaultNoneTypes = new UnsafeList<int>(12, ref world->WrapperRef);
+                this.defaultNoneTypes = new MemoryList<int>(12, ref world->AllocatorWrapperRef);
                 InitializeDefaultComponents();
                 CreatePools(ref config, world);
             }

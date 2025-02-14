@@ -64,7 +64,7 @@ namespace Wargon.Nukecs {
 
         public UnityEngine.Object[] ToObjectArray()
         {
-            var objects = new List<UnityEngine.Object>();
+            var objects = new System.Collections.Generic.List<UnityEngine.Object>();
 
             if (IsCreated && InstanceIDs.Length > 0)
                 Resources.InstanceIDToObjectList(InstanceIDs.AsArray(), objects);

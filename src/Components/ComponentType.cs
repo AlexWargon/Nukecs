@@ -123,7 +123,7 @@ namespace Wargon.Nukecs {
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
         
         private static bool _initialized = false;
-        public static List<int> TypesIndexes => cache.TypesIndexes;
+        public static System.Collections.Generic.List<int> TypesIndexes => cache.TypesIndexes;
         static ComponentTypeMap() {
             ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentTypeMap>();
         }
@@ -221,7 +221,7 @@ namespace Wargon.Nukecs {
             //ComponentsMapCache.Save(cache);
         }
 
-        internal static unsafe void CreatePools(ref UnsafeList<GenericPool> pools, int size, World.WorldUnsafe* world, ref int poolsCount)
+        internal static unsafe void CreatePools(ref MemoryList<GenericPool> pools, int size, World.WorldUnsafe* world, ref int poolsCount)
         {
             foreach (var kvPair in ComponentTypes.Data)
             {
@@ -258,7 +258,7 @@ namespace Wargon.Nukecs {
         private readonly Dictionary<int, Type> _typeByIndex = new();
         private readonly Dictionary<Type, int> _indexByType = new();
         private readonly Dictionary<string, Type> _nameToType = new();
-        public readonly List<int> TypesIndexes = new();
+        public readonly System.Collections.Generic.List<int> TypesIndexes = new();
 
         public void Add(Type type, int index) {
             _typeByIndex[index] = type;

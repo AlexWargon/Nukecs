@@ -31,11 +31,13 @@
 
         private void UpdateEtntitiesWorld()
         {
+            
             for (var index = 0; index < UnsafeWorld->entities.Length; index++)
             {
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
                 entity.worldPointer = UnsafeWorld;
             }
+            Update();
         }
     }
     public partial struct World

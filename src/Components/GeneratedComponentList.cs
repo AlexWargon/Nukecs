@@ -11,7 +11,7 @@ namespace Wargon.Nukecs.Generated
         //[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void InitializeComponentList()
         {
-            _allComponents = new List<Type>();
+            _allComponents = new System.Collections.Generic.List<Type>();
 
             var assemblies = AppDomain.CurrentDomain.GetAssemblies();
             foreach (var assembly in assemblies)
