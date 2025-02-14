@@ -78,7 +78,7 @@ namespace Wargon.Nukecs
     }
     internal static partial class ComponentList
     {
-        public readonly static IReadOnlyList<Type> DefaultComponents = new List<Type>()
+        public readonly static IReadOnlyList<Type> DefaultComponents = new System.Collections.Generic.List<Type>()
         {
             typeof(global::Wargon.Nukecs.ChildOf),
             typeof(global::Wargon.Nukecs.ChildOf),
@@ -112,8 +112,8 @@ namespace Wargon.Nukecs
             if(_initialized) return;
             ComponentTypeMap.Init();
             var count = 0;
-            var componentTypes = new List<(Type, int)>();
-            var arrayElementTypes = new List<(Type,int)>();
+            var componentTypes = new System.Collections.Generic.List<(Type, int)>();
+            var arrayElementTypes = new System.Collections.Generic.List<(Type,int)>();
             
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();

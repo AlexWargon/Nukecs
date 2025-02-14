@@ -87,7 +87,7 @@ namespace Wargon.Nukecs
 
         public Query Query(bool withDefaultNoneTypes = true)
         {
-            return new Query(UnsafeWorld->Query(withDefaultNoneTypes));
+            return new Query(UnsafeWorld->QueryPtr(withDefaultNoneTypes));
         }
         //
         // public Query Query<T>() where T : struct, ITuple

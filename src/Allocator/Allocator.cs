@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -67,7 +66,8 @@ namespace Wargon.Nukecs
             basePtr = (byte*)UnsafeUtility.MallocTracked(totalSize, ALIGNMENT, Allocator.Persistent, 0);
             blocks = (MemoryBlock*)UnsafeUtility.MallocTracked(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent, 0);
             // Initialize first block covering entire memory
-
+            UnsafeUtility.MemClear(basePtr, totalSize);
+            UnsafeUtility.MemClear(blocks, sizeof(MemoryBlock) * MAX_BLOCKS);
             blocks[0] = new MemoryBlock
             {
                 Pointer = 0,
@@ -78,6 +78,7 @@ namespace Wargon.Nukecs
             defragmentationCount = 0;
             memoryUsed = 0;
             spinner = new Spinner();
+            
             IsActive = true;
         }
         
@@ -103,7 +104,7 @@ namespace Wargon.Nukecs
                 }
             }
             spinner.Release();
-            dbug.error($"Allocator failed allocate {size} bytes. Not free Blocks");
+            //dbug.error($"Allocator failed allocate {size} bytes. Not free Blocks");
             error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
             
             return IntPtr.Zero;
@@ -135,7 +136,11 @@ namespace Wargon.Nukecs
             return PtrOffset.NULL;
         }
 
-        public Ptr<T> AllocatePtr<T>(long size) where T : unmanaged
+        public _Ptr<T> AllocatePtr<T>() where T : unmanaged
+        {
+            return AllocatePtr<T>(sizeof(T));
+        }
+        public _Ptr<T> AllocatePtr<T>(long size) where T : unmanaged
         {
             var error = 0;
             SizeWithAlign(ref size, ALIGNMENT);
@@ -154,20 +159,20 @@ namespace Wargon.Nukecs
                     block.IsUsed = true;
                     //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
                     spinner.Release();
-                    return new Ptr<T>(basePtr,(uint)block.Pointer);
+                    return new _Ptr<T>(basePtr,(uint)block.Pointer);
                 }
             }
             spinner.Release();
-            return Ptr<T>.NULL;
+            return _Ptr<T>.NULL;
         }
         private void SizeWithAlign(ref long size, int align)
         {
             size = (size + align - 1) / align * align;
         }
 
-        public void Free<T>(Ptr<T> ptr) where T : unmanaged
+        public void Free<T>(_Ptr<T> ptr) where T : unmanaged
         {
-            var p = (byte*)ptr.AsPtr();
+            var p = (byte*)ptr.Ptr;
             Free(p);
         }
         public void Free(void* ptr)
@@ -187,7 +192,7 @@ namespace Wargon.Nukecs
                 {
                     block.IsUsed = false;
                     spinner.Release();
-                    //dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
+                    dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
                     return;
                 }
             }
@@ -327,77 +332,6 @@ namespace Wargon.Nukecs
         internal unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
         internal int BlockCount;
     }
-    public unsafe struct UnityAllocatorWrapper : AllocatorManager.IAllocator
-    {
-        public SerializableMemoryAllocator Allocator;
-        private AllocatorManager.AllocatorHandle m_handle;
-        public AllocatorManager.TryFunction Function => AllocatorFunction;
-
-        public AllocatorManager.AllocatorHandle Handle
-        {
-            get => m_handle;
-            set => m_handle = value;
-        }
-
-        public Allocator ToAllocator => m_handle.ToAllocator;
-        public bool IsCustomAllocator => true;
-        public bool IsAutoDispose => false;
-
-        public void Initialize(long capacity)
-        {
-            Allocator = new SerializableMemoryAllocator(capacity);
-        }
-
-        public void Dispose()
-        {
-            Allocator.Dispose();
-        }
-
-        public int Try(ref AllocatorManager.Block block)
-        {
-            var error = AllocatorError.NO_ERRORS;
-            if (block.Range.Pointer == IntPtr.Zero)
-            {
-                block.Range.Pointer = Allocator.AllocateRaw(block.Bytes, ref error);
-            }
-            else
-            {
-                Allocator.Free((byte*)block.Range.Pointer, ref error);
-            }
-            ShowError(error);
-            return error;
-        }
-        [BurstDiscard]
-        private void ShowError(int error)
-        {
-            if (error != 0)
-            {
-                switch (error)
-                {
-                    case AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY:
-                        dbug.error($"Allocator out of memory.");
-                        break;
-                    case AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
-                        dbug.error("Allocator max blocks reached.");
-                        break;
-                }
-            }
-        }
-        [BurstCompile]
-        [AOT.MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
-        private static int AllocatorFunction(IntPtr customAllocatorPtr, ref AllocatorManager.Block block)
-        {
-            return ((UnityAllocatorWrapper*)customAllocatorPtr)->Try(ref block);
-        }
-
-        public SerializableMemoryAllocator* GetAllocatorPtr()
-        {
-            fixed (SerializableMemoryAllocator* ptr = &Allocator)
-            {
-                return ptr;
-            }
-        }
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     public struct PtrOffset
@@ -436,46 +370,38 @@ namespace Wargon.Nukecs
         }
     }
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Ptr<T> : IEquatable<Ptr<T>> where T : unmanaged
+    // ReSharper disable once InconsistentNaming
+    public unsafe struct _Ptr<T> : IEquatable<_Ptr<T>> where T : unmanaged
     {
-        private PtrOffset offset;
+        public PtrOffset offset;
         [NativeDisableUnsafePtrRestriction]
-        private T* pointer;
-        public static readonly Ptr<T> NULL = new Ptr<T>(null, 0u);
+        private T* cached;
+        public static readonly _Ptr<T> NULL = new (null, 0u);
         public void Update(ref SerializableMemoryAllocator allocator)
         {
-            pointer = (T*)(allocator.BasePtr + offset.Offset);
+            cached = (T*)(allocator.BasePtr + offset.Offset);
         }
 
-        public Ptr(byte* basePtr, uint offset)
+        public _Ptr(byte* basePtr, uint offset)
         {
             this.offset = new PtrOffset(0, offset);
-            pointer = (T*)(basePtr + offset);
+            cached = (T*)(basePtr + offset);
         }
 
-        public T* Value
+        // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
+        public T* Ptr
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => pointer;
+            get => cached;
         }
 
         public ref T Ref
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *pointer;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T* AsPtr()
-        {
-            return pointer;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T AsRef()
-        {
-            return ref *pointer;
+            get => ref *cached;
         }
 
-        public bool Equals(Ptr<T> other)
+        public bool Equals(_Ptr<T> other)
         {
             return other.offset.Offset.Equals(offset.Offset);
         }
@@ -483,13 +409,13 @@ namespace Wargon.Nukecs
 
     public unsafe struct PtrList<T> where T: unmanaged, IOnDeserialize
     {
-        internal UnsafeList<PtrOffset> list;
+        internal MemoryList<PtrOffset> MemoryList;
         
         public void Add(T* ptr, ref SerializableMemoryAllocator allocator)
         {
-            for (var index = 0; index < list.list.Length; index++)
+            for (var index = 0; index < MemoryList.Length; index++)
             {
-                ref var ptrOffset = ref list.list.Ptr[index];
+                ref var ptrOffset = ref MemoryList.Ptr[index];
             }
         }
         
@@ -499,4 +425,6 @@ namespace Wargon.Nukecs
     {
         void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator);
     }
+    
+    
 }
