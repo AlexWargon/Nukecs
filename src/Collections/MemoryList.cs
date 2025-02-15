@@ -8,7 +8,7 @@ namespace Wargon.Nukecs.Collections
 {
     public unsafe struct MemoryList<T> where T : unmanaged
     {
-        internal PtrOffset PtrOffset;
+        internal ptr_offset PtrOffset;
         internal int capacity;
         internal int length;
         [NativeDisableUnsafePtrRestriction]
@@ -25,7 +25,7 @@ namespace Wargon.Nukecs.Collections
             }
         }
         
-        public static _Ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
+        public static ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
             bool lenAsCapacity = false)
         {
             var list = new MemoryList<T>
@@ -54,7 +54,7 @@ namespace Wargon.Nukecs.Collections
 
 
 
-        public static void Destroy(_Ptr<MemoryList<T>> list, ref UnityAllocatorWrapper allocatorHandler)
+        public static void Destroy(ptr<MemoryList<T>> list, ref UnityAllocatorWrapper allocatorHandler)
         {
             ref var l = ref list.Ref;
             l.Dispose();
@@ -108,7 +108,7 @@ namespace Wargon.Nukecs.Collections
 
         public void OnDeserialize(uint blockIndex, uint offset, ref SerializableMemoryAllocator memoryAllocator)
         {
-            PtrOffset = new PtrOffset(blockIndex, offset);
+            PtrOffset = new ptr_offset(blockIndex, offset);
             Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
         }
 

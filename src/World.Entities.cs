@@ -7,10 +7,10 @@ namespace Wargon.Nukecs {
         public unsafe struct Entities2
         {
             internal MemoryList<Entity> entities;
-            internal MemoryList<_Ptr<QueryUnsafe>> queries;
-            internal MemoryList<_Ptr<ArchetypeUnsafe>> archetypes;
-            internal HashMap<int, _Ptr<ArchetypeUnsafe>> archetypesMap;
-            internal _Ptr<WorldUnsafe> world;
+            internal MemoryList<ptr<QueryUnsafe>> queries;
+            internal MemoryList<ptr<ArchetypeUnsafe>> archetypes;
+            internal HashMap<int, ptr<ArchetypeUnsafe>> archetypesMap;
+            internal ptr<WorldUnsafe> world;
             ArchetypeUnsafe* GetArchetype(int hash)
             {
                 var ptr = archetypesMap[hash];

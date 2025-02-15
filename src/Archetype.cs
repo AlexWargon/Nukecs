@@ -10,7 +10,7 @@ namespace Wargon.Nukecs {
     
     public unsafe struct Archetype {
         internal ArchetypeUnsafe* impl => ptr.Ptr;
-        internal _Ptr<ArchetypeUnsafe> ptr;
+        internal ptr<ArchetypeUnsafe> ptr;
         internal bool Has<T>() where T : unmanaged {
             return impl->Has(ComponentType<T>.Index);
         }
@@ -65,13 +65,13 @@ namespace Wargon.Nukecs {
             w->_free(archetype);
             archetype->world = null;
         }
-        internal static _Ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int[] typesSpan = null) {
+        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int[] typesSpan = null) {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
             *ptr.Ptr = new ArchetypeUnsafe(world, typesSpan);
             return ptr;
         }
 
-        internal static _Ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> typesSpan, bool copyList = false) {
+        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> typesSpan, bool copyList = false) {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
             *ptr.Ptr = new ArchetypeUnsafe(world, ref typesSpan, copyList);
             return ptr;

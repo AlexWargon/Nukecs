@@ -179,7 +179,7 @@ namespace Wargon.Nukecs.Collections
     [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     internal unsafe struct HashMapHelper<TKey> where TKey : unmanaged, IEquatable<TKey>
     {
-        internal PtrOffset PtrOffset;
+        internal ptr_offset PtrOffset;
         
         [NativeDisableUnsafePtrRestriction]
         internal byte* Ptr;

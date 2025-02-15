@@ -71,6 +71,7 @@ public unsafe partial struct World
             UnsafeWorld->Free();
             allocator.AllocatorWrapper.Allocator.Free(UnsafeWorldPtr);
             allocator.Dispose();
+            
             //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
             
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
