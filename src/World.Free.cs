@@ -57,9 +57,49 @@ public unsafe partial struct World
                         entity.Free();
                     }
                 }
+                //var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
+                // for (var i = 0; i < entitiesAmount; i++) {
+                //     ref var entity = ref entities.ElementAt(i);
+                //     if (entity != Nukecs.Entity.Null) {
+                //         entity.Free();
+                //     }
+                // }
+                
                 WorldSystems.CompleteAll(Id);
+
+                //entities.Dispose();
+                //entitiesArchetypes.Dispose();
+                // pools list count == total components registered including arrays
+                var poolsToDispose = ComponentAmount.Value.Data;
+                // for (var index = 0; index < poolsToDispose; index++) {
+                //     
+                //     ref var pool = ref pools.Ptr[index];
+                //     pool.Dispose();
+                // }
+                // pools.Dispose();
+                //
+                // for (var index = 0; index < queries.Length; index++) {
+                //     QueryUnsafe* ptr = queries[index];
+                //     QueryUnsafe.Free(ptr);
+                // }
+                //
+                // queries.Dispose();
+                // foreach (var kvPair in archetypesMap) {
+                //     kvPair.Value.Dispose();
+                // }
+                
+                // archetypesList.Dispose();
+                // archetypesMap.Dispose();
                 poolsCount = 0;
                 ECBUpdate.Dispose();
+                // DefaultNoneTypes.Dispose();
+                // reservedEntities.Dispose();
+                // prefabsToSpawn.Dispose();
+                // locking.Dispose();
+                // aspects.Dispose();
+                //Lockers.pools.Dispose();
+                AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, selfPtr.Ptr);
+                
             }
             
         }
@@ -67,11 +107,10 @@ public unsafe partial struct World
             //if (UnsafeWorld == null) return;
             var id = UnsafeWorld->Id;
             lastFreeSlot = id;
-            ref var allocator = ref UnsafeWorld->AllocatorHandler;
+            var allocator = UnsafeWorld->AllocatorHandler;
             UnsafeWorld->Free();
-            allocator.AllocatorWrapper.Allocator.Free(UnsafeWorldPtr);
+            AllocatorManager.Free(allocator.AllocatorHandle, UnsafeWorld);
             allocator.Dispose();
-            
             //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
             
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
