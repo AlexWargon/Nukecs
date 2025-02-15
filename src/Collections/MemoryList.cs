@@ -1,11 +1,11 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
-
-namespace Wargon.Nukecs.Collections
+﻿namespace Wargon.Nukecs.Collections
 {
+    using System;
+    using System.Runtime.CompilerServices;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    using Unity.Mathematics;
+    
     public unsafe struct MemoryList<T> where T : unmanaged
     {
         internal ptr_offset PtrOffset;
@@ -49,10 +49,7 @@ namespace Wargon.Nukecs.Collections
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => length;
-            
         }
-
-
 
         public static void Destroy(ptr<MemoryList<T>> list, ref UnityAllocatorWrapper allocatorHandler)
         {
@@ -123,73 +120,25 @@ namespace Wargon.Nukecs.Collections
             UnsafeUtility.MemCpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
         }
         
-        public void Resize(int length, ref UnityAllocatorWrapper allocatorHandler)
+        public void Resize(int len, ref UnityAllocatorWrapper allocatorHandler)
         {
-            ref var allocator = ref allocatorHandler.Allocator;
-            // var sizeOf = sizeof(T);
-            // var newCapacity = math.max(length, CollectionHelper.CacheLineSize / sizeOf);
-            // newCapacity = math.ceilpow2(newCapacity);
-            //
-            // if (newCapacity <= list.Capacity)
-            // {
-            //     return;
-            // }
-            //
-            // newCapacity = math.max(0, newCapacity);
-            //
-            // T* newPointer = null;
-            //
-            // //var alignOf = UnsafeUtility.AlignOf<T>();
-            //
-            // if (newCapacity > 0)
-            // {
-            //     PtrOffset = allocator.AllocateRaw(sizeOf * newCapacity);
-            //     ;
-            //     newPointer = PtrOffset.AsPtr<T>(ref allocator);
-            //
-            //     if (list.Ptr != null && list.m_capacity > 0)
-            //     {
-            //         var itemsToCopy = math.min(newCapacity, list.Capacity);
-            //         var bytesToCopy = itemsToCopy * sizeOf;
-            //         UnsafeUtility.MemCpy(newPointer, list.Ptr, bytesToCopy);
-            //     }
-            // }
-            //
-            // allocator.Free(list.Ptr);
-            //
-            // list.Ptr = newPointer;
-            // list.m_capacity = newCapacity;
-            // list.m_length = math.min(list.m_length, newCapacity);
-            
-            //var oldLength = list.m_length;
-
-            if (length > Capacity)
+            if (len > Capacity)
             {
-                SetCapacity(length, ref allocatorHandler);
+                SetCapacity(len, ref allocatorHandler);
             }
-
-            this.length = length;
-
-            // if (options == NativeArrayOptions.ClearMemory && oldLength < length)
-            // {
-            //     var num = length - oldLength;
-            //     byte* ptr = (byte*)Ptr;
-            //     var sizeOf = sizeof(T);
-            //     UnsafeUtility.MemClear(ptr + oldLength * sizeOf, num * sizeOf);
-            // }
+            this.length = len;
         }
         public Enumerator GetEnumerator()
         {
             return new Enumerator { Length = length, Index = -1, Ptr = Ptr };
         }
 
-
-        void SetCapacity(int capacity, ref UnityAllocatorWrapper allocator)
+        private void SetCapacity(int size, ref UnityAllocatorWrapper allocator)
         {
             //CollectionHelper.CheckCapacityInRange(capacity, Length);
 
             var sizeOf = sizeof(T);
-            var newCapacity = math.max(capacity, CollectionHelper.CacheLineSize / sizeOf);
+            var newCapacity = math.max(size, CollectionHelper.CacheLineSize / sizeOf);
             newCapacity = math.ceilpow2(newCapacity);
 
             if (newCapacity == Capacity)
@@ -199,7 +148,8 @@ namespace Wargon.Nukecs.Collections
 
             ResizeExact(ref allocator, newCapacity);
         }
-        void ResizeExact(ref UnityAllocatorWrapper allocatorWrapper, int newCapacity)
+        
+        private void ResizeExact(ref UnityAllocatorWrapper allocatorWrapper, int newCapacity)
         {
             newCapacity = math.max(0, newCapacity);
 
@@ -231,8 +181,6 @@ namespace Wargon.Nukecs.Collections
             var src = dst + 1;
             length--;
 
-            // Because these tend to be smaller (< 1MB), and the cost of jumping context to native and back is
-            // so high, this consistently optimizes to better code than UnsafeUtility.MemCpy
             for (var i = index; i < length; i++)
             {
                 *dst++ = *src++;

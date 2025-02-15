@@ -515,7 +515,7 @@ namespace Wargon.Nukecs
                     for (var i = begin; i < end; i++) {
                         unsafe
                         {
-                            var e = fullData.query.impl.Ptr->GetEntityID(i);
+                            var e = fullData.query.impl->Ptr->GetEntityID(i);
                             fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), ref fullData.State);
                         }
                     }

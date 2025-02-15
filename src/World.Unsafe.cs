@@ -81,7 +81,6 @@ namespace Wargon.Nukecs
                 ptr.Ref = new WorldUnsafe();
                 
                 ptr.Ptr->Initialize(id, config, ptr, ref allocator);
-                ptr.Ptr->CreatePools();
                 return ptr.Ptr;
             }
             internal static ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
@@ -94,7 +93,6 @@ namespace Wargon.Nukecs
                 ptr.Ref = new WorldUnsafe();
                 
                 ptr.Ref.Initialize(id, config, ptr, ref allocator);
-                ptr.Ref.CreatePools();
                 return ptr;
             }
             private void Initialize(int id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
@@ -130,8 +128,9 @@ namespace Wargon.Nukecs
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
+                
                 SetDefaultNone();
-                //CreatePools();
+                CreatePools();
                 CreateRootArchetype();
             }
 
@@ -142,12 +141,13 @@ namespace Wargon.Nukecs
             //     return ptr;
             // }
 
-            internal ptr<QueryUnsafe> QueryPtr(bool withDefaultNoneTypes = true)
+            internal ptr<QueryUnsafe>* QueryPtr(bool withDefaultNoneTypes = true)
             {
-                var ptr = QueryUnsafe.CreatePtr(Self, withDefaultNoneTypes);
-                queries.Add(ptr, ref AllocatorWrapperRef);
+                var ptr = QueryUnsafe.CreatePtrPtr(Self, withDefaultNoneTypes);
+                queries.Add(*ptr, ref AllocatorWrapperRef);
                 return ptr;
             }
+            
             internal void RefreshArchetypes()
             {
                 for (int i = 0; i < archetypesList.length; i++)
@@ -156,11 +156,11 @@ namespace Wargon.Nukecs
                     archetype.Ptr->Refresh();
                 }
             }
+            
             private void SetDefaultNone() {
                 DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index, ref AllocatorWrapperRef);
                 DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index, ref AllocatorWrapperRef);
             }
-
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged {
@@ -172,6 +172,7 @@ namespace Wargon.Nukecs
                 }
                 return ref pool;
             }
+            
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
@@ -181,6 +182,7 @@ namespace Wargon.Nukecs
                 }
                 return ref pool;
             }
+            
             //[BurstDiscard]
             private void AddPool<T>(ref GenericPool pool, int index) where T : unmanaged
             {
@@ -212,7 +214,7 @@ namespace Wargon.Nukecs
                 }
             }
 
-            internal void CreatePools()
+            private void CreatePools()
             {
                 ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, Self, ref poolsCount);
             }
