@@ -17,7 +17,13 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World : IDisposable
     {
-        [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* UnsafeWorld;
+        internal _Ptr<WorldUnsafe> UnsafeWorldPtr;
+
+        internal WorldUnsafe* UnsafeWorld
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => UnsafeWorldPtr.Ptr;
+        }
         internal ref WorldUnsafe UnsafeWorldRef => ref *UnsafeWorld;
         public bool IsAlive => UnsafeWorld != null;
         public WorldConfig Config => UnsafeWorld->config;

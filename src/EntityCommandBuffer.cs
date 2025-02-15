@@ -85,10 +85,10 @@ namespace Wargon.Nukecs {
 
             //[NativeDisableUnsafePtrRestriction]
             //internal UnsafeList<ECBCommand>* internalBuffer;
-            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* perThreadBuffer;
+            [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadBuffer;
 
 
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>* internalBuffer {
+            internal UnsafeList<ECBCommand>* internalBuffer {
                 get => perThreadBuffer->ElementAt(1);
             }
 

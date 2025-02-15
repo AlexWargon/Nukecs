@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using Wargon.Nukecs.Collections;
+
+namespace Wargon.Nukecs {
     
     using System;
     using System.Runtime.CompilerServices;
@@ -47,7 +49,7 @@
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index) {
-            return impl.Ptr->entities.ElementAtNoCheck(index);
+            return impl.Ptr->entities.ElementAt(index);
         }
         public void Dispose() {
             var allocator = impl.Ptr->world->Allocator;
@@ -63,42 +65,13 @@
         }
 
     }
-    [Serializable]
-    public struct QuerySerialized
-    {
-        public ulong[] with;
-        public ulong[] nones;
-        public int[] entities;
-        public int[] entitiesMap;
-        public int count;
-        
-        internal static unsafe QuerySerialized Serialize(QueryUnsafe* queryUnsafe)
-        {
-            return new QuerySerialized
-            {
-                with = queryUnsafe->with.AsArray(),
-                nones = queryUnsafe->none.AsArray(),
-                entities = new Span<int>(queryUnsafe->entities.Ptr, queryUnsafe->entities.Length).ToArray(),
-                entitiesMap = new Span<int>(queryUnsafe->entitiesMap.Ptr, queryUnsafe->entitiesMap.Length).ToArray(),
-                count = queryUnsafe->count
-            };
-        }
-        
-        internal static unsafe void Deseialize(ref QuerySerialized query, QueryUnsafe* queryUnsafe)
-        {
-            queryUnsafe->count = query.count;
-            queryUnsafe->with.FromArray(query.with, query.with.Length);
-            queryUnsafe->none.FromArray(query.nones, query.nones.Length);
-            Unsafe.Copy(ref queryUnsafe->entities, ref query.entities, query.entities.Length);
-            Unsafe.Copy(ref queryUnsafe->entitiesMap, ref query.entitiesMap, query.entitiesMap.Length);
-        }
-    }
+
 
     internal unsafe struct QueryUnsafe {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
-        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> entities;
-        internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> entitiesMap;
+        internal MemoryList<int> entities;
+        internal MemoryList<int> entitiesMap;
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
@@ -133,8 +106,8 @@
             this.with = DynamicBitmask.CreateForComponents(world);
             this.none = DynamicBitmask.CreateForComponents(world);
             this.count = 0;
-            this.entities = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory);
-            this.entitiesMap = UnsafeHelp.UnsafeListWithMaximumLenght<int>(world->config.StartEntitiesAmount, world->Allocator, NativeArrayOptions.ClearMemory);
+            this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorWrapperRef, true);
+            this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorWrapperRef, true);
             this.Id = world->queries.Length;
             this.self = self;
             if (withDefaultNoneTypes) {
@@ -145,7 +118,7 @@
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref world->entities[entities.ElementAtNoCheck(index)];
+            return ref world->entities[entities.ElementAt(index)];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityID(int index)
@@ -156,10 +129,10 @@
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnsureCapacity(int requiredCapacity)
         {
-            if (requiredCapacity > entities.m_capacity)
+            if (requiredCapacity > entities.capacity)
             {
-                int newCapacity = math.max(entities.m_capacity * 2, requiredCapacity);
-                UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity, NativeArrayOptions.ClearMemory);
+                int newCapacity = math.max(entities.capacity * 2, requiredCapacity);
+                //UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity, NativeArrayOptions.ClearMemory);
                 //UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newCapacity, NativeArrayOptions.ClearMemory);
             }
         }
@@ -167,7 +140,7 @@
         internal void Add(int entity) 
         {
             //EnsureCapacity(count + 1);
-            entities.ElementAtNoCheck(count++) = entity;
+            entities.ElementAt(count++) = entity;
             entitiesMap[entity] = count;
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]

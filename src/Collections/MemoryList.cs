@@ -4,7 +4,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
-namespace Wargon.Nukecs
+namespace Wargon.Nukecs.Collections
 {
     public unsafe struct MemoryList<T> where T : unmanaged
     {
@@ -23,18 +23,8 @@ namespace Wargon.Nukecs
             {
                 length = capacity;
             }
-
         }
-
-        internal int Capacity => capacity;
-
-        internal int Length
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => length;
-            
-        }
-
+        
         public static _Ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
             bool lenAsCapacity = false)
         {
@@ -52,6 +42,17 @@ namespace Wargon.Nukecs
             *ptr.Ptr = list;
             return ptr;
         }
+        
+        internal int Capacity => capacity;
+
+        internal int Length
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => length;
+            
+        }
+
+
 
         public static void Destroy(_Ptr<MemoryList<T>> list, ref UnityAllocatorWrapper allocatorHandler)
         {
@@ -111,9 +112,8 @@ namespace Wargon.Nukecs
             Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
         }
 
-        public void OnDeserialize(uint offset, ref SerializableMemoryAllocator memoryAllocator)
+        public void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator)
         {
-            PtrOffset = new PtrOffset(0, offset);
             Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
         }
 
@@ -121,7 +121,6 @@ namespace Wargon.Nukecs
         {
             Resize(other.Length, ref allocatorHandler);
             UnsafeUtility.MemCpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
-            dbug.log("copy");
         }
         
         public void Resize(int length, ref UnityAllocatorWrapper allocatorHandler)
@@ -224,8 +223,22 @@ namespace Wargon.Nukecs
             Ptr = newPointer;
             capacity = newCapacity;
             length = math.min(length, newCapacity);
-            
         }
+        
+        public void RemoveAt(int index)
+        {
+            var dst = Ptr + index;
+            var src = dst + 1;
+            length--;
+
+            // Because these tend to be smaller (< 1MB), and the cost of jumping context to native and back is
+            // so high, this consistently optimizes to better code than UnsafeUtility.MemCpy
+            for (var i = index; i < length; i++)
+            {
+                *dst++ = *src++;
+            }
+        }
+        
         public struct Enumerator
         {
             internal T* Ptr;
@@ -239,10 +252,10 @@ namespace Wargon.Nukecs
 
             public void Reset() => Index = -1;
 
-            public T Current
+            public ref T Current
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => Ptr[Index];
+                get => ref Ptr[Index];
             }
         }
     }

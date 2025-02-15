@@ -9,8 +9,8 @@ namespace Wargon.Nukecs {
     using Unity.Mathematics;
     
     public unsafe struct Archetype {
-        [NativeDisableUnsafePtrRestriction] internal ArchetypeUnsafe* impl;
-
+        internal ArchetypeUnsafe* impl => ptr.Ptr;
+        internal _Ptr<ArchetypeUnsafe> ptr;
         internal bool Has<T>() where T : unmanaged {
             return impl->Has(ComponentType<T>.Index);
         }
@@ -22,8 +22,8 @@ namespace Wargon.Nukecs {
         }
         
         public void Dispose() {
-            ArchetypeUnsafe.Destroy(impl);
-            impl = null;
+            //ArchetypeUnsafe.Destroy(impl);
+
         }
     }
 
@@ -65,7 +65,17 @@ namespace Wargon.Nukecs {
             w->_free(archetype);
             archetype->world = null;
         }
+        internal static _Ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int[] typesSpan = null) {
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            *ptr.Ptr = new ArchetypeUnsafe(world, typesSpan);
+            return ptr;
+        }
 
+        internal static _Ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> typesSpan, bool copyList = false) {
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            *ptr.Ptr = new ArchetypeUnsafe(world, ref typesSpan, copyList);
+            return ptr;
+        }
         internal static ArchetypeUnsafe* Create(World.WorldUnsafe* world, int[] typesSpan = null) {
             var ptr = world->_allocate<ArchetypeUnsafe>();
             *ptr = new ArchetypeUnsafe(world, typesSpan);
