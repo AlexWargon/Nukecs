@@ -110,7 +110,7 @@ namespace Wargon.Nukecs
             
             return IntPtr.Zero;
         }
-        public PtrOffset AllocateRaw(long size)
+        public ptr_offset AllocateRaw(long size)
         {
             var error = 0;
             SizeWithAlign(ref size, ALIGNMENT);
@@ -129,19 +129,19 @@ namespace Wargon.Nukecs
                     block.IsUsed = true;
                     //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
                     spinner.Release();
-                    return new PtrOffset( 0, (uint)block.Pointer);
+                    return new ptr_offset( 0, (uint)block.Pointer);
                 }
             }
             spinner.Release();
 
-            return PtrOffset.NULL;
+            return ptr_offset.NULL;
         }
 
-        public _Ptr<T> AllocatePtr<T>() where T : unmanaged
+        public ptr<T> AllocatePtr<T>() where T : unmanaged
         {
             return AllocatePtr<T>(sizeof(T));
         }
-        public _Ptr<T> AllocatePtr<T>(long size) where T : unmanaged
+        public ptr<T> AllocatePtr<T>(long size) where T : unmanaged
         {
             var error = 0;
             SizeWithAlign(ref size, ALIGNMENT);
@@ -160,18 +160,18 @@ namespace Wargon.Nukecs
                     block.IsUsed = true;
                     //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
                     spinner.Release();
-                    return new _Ptr<T>(basePtr,(uint)block.Pointer);
+                    return new ptr<T>(basePtr,(uint)block.Pointer);
                 }
             }
             spinner.Release();
-            return _Ptr<T>.NULL;
+            return ptr<T>.NULL;
         }
         private void SizeWithAlign(ref long size, int align)
         {
             size = (size + align - 1) / align * align;
         }
 
-        public void Free<T>(_Ptr<T> ptr) where T : unmanaged
+        public void Free<T>(ptr<T> ptr) where T : unmanaged
         {
             var p = (byte*)ptr.Ptr;
             Free(p);
@@ -333,16 +333,16 @@ namespace Wargon.Nukecs
         internal unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
         internal int BlockCount;
     }
-
+    // ReSharper disable once InconsistentNaming
     [StructLayout(LayoutKind.Sequential)]
-    public struct PtrOffset
+    public struct ptr_offset
     {
         public uint Offset;
         public uint BlockIndex;
         public const int SIZE_OF_BYTES = 8;
-        public static readonly PtrOffset NULL = new (0u,0u);
+        public static readonly ptr_offset NULL = new (0u,0u);
 
-        public PtrOffset(uint blockIndex, uint offset)
+        public ptr_offset(uint blockIndex, uint offset)
         {
             BlockIndex = blockIndex;
             Offset = offset;
@@ -359,37 +359,25 @@ namespace Wargon.Nukecs
         }
     }
 
-    public unsafe struct sptr<T> where T : unmanaged
-    {
-        public long allocator;
-        public long offset;
-        [NativeDisableUnsafePtrRestriction]
-        public byte* ptrToNull;
-        public T* AsPtr()
-        {
-            return (T*) (ptrToNull + allocator + offset);
-        }
-    }
-    [StructLayout(LayoutKind.Sequential)]
     // ReSharper disable once InconsistentNaming
-    public unsafe struct _Ptr<T> : IEquatable<_Ptr<T>> where T : unmanaged
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct ptr<T> : IEquatable<ptr<T>> where T : unmanaged
     {
-        public PtrOffset offset;
+        public ptr_offset offset;
         [NativeDisableUnsafePtrRestriction]
         private T* cached;
-        public static readonly _Ptr<T> NULL = new (null, 0u);
+        public static readonly ptr<T> NULL = new (null, 0u);
         public void OnDeserialize(ref SerializableMemoryAllocator allocator)
         {
             cached = (T*)(allocator.BasePtr + offset.Offset);
         }
 
-        public _Ptr(byte* basePtr, uint offset)
+        public ptr(byte* basePtr, uint offset)
         {
-            this.offset = new PtrOffset(0, offset);
+            this.offset = new ptr_offset(0, offset);
             cached = (T*)(basePtr + offset);
         }
 
-        // ReSharper disable once ConvertToAutoPropertyWithPrivateSetter
         public T* Ptr
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -402,38 +390,35 @@ namespace Wargon.Nukecs
             get => ref *cached;
         }
 
-        public bool Equals(_Ptr<T> other)
+        public bool Equals(ptr<T> other)
         {
             return other.offset.Offset.Equals(offset.Offset);
         }
-        public static bool operator != (_Ptr<T> lhs, _Ptr<T> rhs)
+        public static bool operator != (ptr<T> lhs, ptr<T> rhs)
         {
             return lhs.offset.Offset != rhs.offset.Offset;
         }
-        public static bool operator == (_Ptr<T> lhs, _Ptr<T> rhs)
+        public static bool operator == (ptr<T> lhs, ptr<T> rhs)
         {
             return lhs.offset.Offset == rhs.offset.Offset;
         }
-    }
 
-    public unsafe struct PtrList<T> where T: unmanaged, IOnDeserialize
-    {
-        internal MemoryList<PtrOffset> MemoryList;
-        
-        public void Add(T* ptr, ref SerializableMemoryAllocator allocator)
+        public override int GetHashCode()
         {
-            for (var index = 0; index < MemoryList.Length; index++)
+            unchecked
             {
-                ref var ptrOffset = ref MemoryList.Ptr[index];
+                return (int)offset.Offset;    
             }
         }
-        
+
+        public override bool Equals(object obj)
+        {
+            return base.Equals(obj);
+        }
     }
     
     public interface IOnDeserialize
     {
         void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator);
     }
-    
-    
 }

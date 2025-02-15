@@ -11,7 +11,7 @@ namespace Wargon.Nukecs {
     using Unity.Mathematics;
     
     public unsafe struct Query : IDisposable {
-        internal _Ptr<QueryUnsafe> impl;
+        internal ptr<QueryUnsafe> impl;
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => impl.Ptr->count;
@@ -26,7 +26,7 @@ namespace Wargon.Nukecs {
         }
 
 
-        internal Query(in _Ptr<QueryUnsafe> query)
+        internal Query(in ptr<QueryUnsafe> query)
         {
             this.impl = query;
         }
@@ -95,7 +95,7 @@ namespace Wargon.Nukecs {
             *ptr = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
-        internal static _Ptr<QueryUnsafe> CreatePtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        internal static ptr<QueryUnsafe> CreatePtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
         {
             var ptr = world->_allocate_ptr<QueryUnsafe>();
             ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);

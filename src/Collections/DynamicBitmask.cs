@@ -10,7 +10,7 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct DynamicBitmask {
         private const int BitsPerUlong = 64;
-        private _Ptr<ulong> bitmaskArray;
+        private ptr<ulong> bitmaskArray;
         private int count;
         private int maxBits;
         private int arraySize;

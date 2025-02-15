@@ -33,7 +33,7 @@ namespace Wargon.Nukecs
                 {
                     ptr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 }
-                ArchetypeHashCache.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                //ArchetypeHashCache.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 DefaultNoneTypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
             }
@@ -44,10 +44,10 @@ namespace Wargon.Nukecs
             internal MemoryList<Archetype> entitiesArchetypes;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
-            internal MemoryList<_Ptr<QueryUnsafe>> queries;
+            internal MemoryList<ptr<QueryUnsafe>> queries;
             internal HashMap<int, Archetype> archetypesMap;
-            internal MemoryList<_Ptr<ArchetypeUnsafe>> archetypesList;
-            internal MemoryList<int> ArchetypeHashCache;
+            internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
+
             internal WorldConfig config;
             internal EntityCommandBuffer ECBUpdate;
             internal JobHandle systemsUpdateJobDependencies;
@@ -58,7 +58,7 @@ namespace Wargon.Nukecs
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
             internal Locking locking;
-            internal _Ptr<WorldUnsafe> selfPtr;
+            internal ptr<WorldUnsafe> selfPtr;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
             internal UnityAllocatorHandler AllocatorHandler;
@@ -84,7 +84,7 @@ namespace Wargon.Nukecs
                 ptr.Ptr->CreatePools();
                 return ptr.Ptr;
             }
-            internal static _Ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
+            internal static ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
                 var sizeToAllocate = (long)(cSize * 2.3) + 3 * 1024 * 1024;
@@ -93,11 +93,11 @@ namespace Wargon.Nukecs
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
                 
-                ptr.Ptr->Initialize(id, config, ptr, ref allocator);
-                ptr.Ptr->CreatePools();
+                ptr.Ref.Initialize(id, config, ptr, ref allocator);
+                ptr.Ref.CreatePools();
                 return ptr;
             }
-            private void Initialize(int id, WorldConfig worldConfig, _Ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
+            private void Initialize(int id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
                 this.Id = id;
                 this.config = worldConfig;
                 {
@@ -109,8 +109,8 @@ namespace Wargon.Nukecs
                 this.reservedEntities = new MemoryList<int>(128, ref AllocatorHandler.AllocatorWrapper);
                 this.entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorWrapperRef);
                 this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorWrapperRef);
-                this.queries = new MemoryList<_Ptr<QueryUnsafe>>(64, ref AllocatorWrapperRef);
-                this.archetypesList = new MemoryList<_Ptr<ArchetypeUnsafe>>(32, ref AllocatorWrapperRef);
+                this.queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorWrapperRef);
+                this.archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorWrapperRef);
                 this.archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
                 this.config = worldConfig;
                 this.systemsUpdateJobDependencies = default;
@@ -131,7 +131,7 @@ namespace Wargon.Nukecs
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
-                CreatePools();
+                //CreatePools();
                 CreateRootArchetype();
             }
 
@@ -142,7 +142,7 @@ namespace Wargon.Nukecs
             //     return ptr;
             // }
 
-            internal _Ptr<QueryUnsafe> QueryPtr(bool withDefaultNoneTypes = true)
+            internal ptr<QueryUnsafe> QueryPtr(bool withDefaultNoneTypes = true)
             {
                 var ptr = QueryUnsafe.CreatePtr(Self, withDefaultNoneTypes);
                 queries.Add(ptr, ref AllocatorWrapperRef);
