@@ -37,7 +37,7 @@ namespace Wargon.Nukecs
         internal ref ArchetypeUnsafe archetypeRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *worldPointer->entitiesArchetypes.ElementAt(id).impl;
+            get => ref worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ref;
         }
         
         public override string ToString()

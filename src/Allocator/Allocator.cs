@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Wargon.Nukecs.Collections;
 
 
 namespace Wargon.Nukecs
@@ -192,7 +193,7 @@ namespace Wargon.Nukecs
                 {
                     block.IsUsed = false;
                     spinner.Release();
-                    dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
+                    //dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
                     return;
                 }
             }
@@ -377,7 +378,7 @@ namespace Wargon.Nukecs
         [NativeDisableUnsafePtrRestriction]
         private T* cached;
         public static readonly _Ptr<T> NULL = new (null, 0u);
-        public void Update(ref SerializableMemoryAllocator allocator)
+        public void OnDeserialize(ref SerializableMemoryAllocator allocator)
         {
             cached = (T*)(allocator.BasePtr + offset.Offset);
         }
@@ -404,6 +405,14 @@ namespace Wargon.Nukecs
         public bool Equals(_Ptr<T> other)
         {
             return other.offset.Offset.Equals(offset.Offset);
+        }
+        public static bool operator != (_Ptr<T> lhs, _Ptr<T> rhs)
+        {
+            return lhs.offset.Offset != rhs.offset.Offset;
+        }
+        public static bool operator == (_Ptr<T> lhs, _Ptr<T> rhs)
+        {
+            return lhs.offset.Offset == rhs.offset.Offset;
         }
     }
 

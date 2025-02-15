@@ -11,10 +11,10 @@ namespace Wargon.Nukecs
         {
             world = World.Create(config);
             OnWorldCreated(ref world);
-            for (int i = 0; i < world.UnsafeWorld->archetypesList.Length; i++)
+            for (var i = 0; i < world.UnsafeWorld->archetypesList.Length; i++)
             {
-                var archetype = world.UnsafeWorld->archetypesList[i];
-                archetype->Refresh();
+                ref var archetype = ref world.UnsafeWorld->archetypesList[i];
+                archetype.Ptr->Refresh();
             }
             world.Update();
         }

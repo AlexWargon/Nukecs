@@ -10,11 +10,15 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct DynamicBitmask {
         private const int BitsPerUlong = 64;
-        [NativeDisableUnsafePtrRestriction] private ulong* bitmaskArray;
+        private _Ptr<ulong> bitmaskArray;
         private int count;
         private int maxBits;
         private int arraySize;
-        
+
+        internal void OnDeserialize(ref SerializableMemoryAllocator allocator)
+        {
+            bitmaskArray.OnDeserialize(ref allocator);
+        }
         internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world) {
             return new DynamicBitmask(ComponentAmount.Value.Data, world);
         }
@@ -25,7 +29,7 @@ namespace Wargon.Nukecs
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
-            bitmaskArray = (ulong*)world->_allocate<ulong>(arraySize);
+            bitmaskArray = world->_allocate_ptr<ulong>(arraySize);
             count = 0;
 
             // Clear the allocated memory
@@ -34,7 +38,7 @@ namespace Wargon.Nukecs
 
         private void ClearBitmask() {
             for (int i = 0; i < arraySize; i++) {
-                bitmaskArray[i] = 0;
+                bitmaskArray.Ptr[i] = 0;
             }
         }
 
@@ -53,7 +57,7 @@ namespace Wargon.Nukecs
             int bitPosition = position % BitsPerUlong;
 
             if (!Has(position)) {
-                bitmaskArray[index] |= 1UL << bitPosition;
+                bitmaskArray.Ptr[index] |= 1UL << bitPosition;
                 count++;
             }
         }
@@ -69,7 +73,7 @@ namespace Wargon.Nukecs
             int index = position / BitsPerUlong;
             int bitPosition = position % BitsPerUlong;
 
-            return (bitmaskArray[index] & (1UL << bitPosition)) != 0;
+            return (bitmaskArray.Ptr[index] & (1UL << bitPosition)) != 0;
         }
 
         public bool HasRange(int* buffer, int range)
@@ -96,7 +100,7 @@ namespace Wargon.Nukecs
             int bitPosition = position % BitsPerUlong;
 
             if (Has(position)) {
-                bitmaskArray[index] &= ~(1UL << bitPosition);
+                bitmaskArray.Ptr[index] &= ~(1UL << bitPosition);
                 count--;
             }
         }
@@ -105,7 +109,7 @@ namespace Wargon.Nukecs
         public override string ToString() {
             StringBuilder sb = new StringBuilder();
             for (int i = arraySize - 1; i >= 0; i--) {
-                sb.Append(Convert.ToString((long) bitmaskArray[i], 2).PadLeft(BitsPerUlong, '0'));
+                sb.Append(Convert.ToString((long) bitmaskArray.Ptr[i], 2).PadLeft(BitsPerUlong, '0'));
             }
 
             return sb.ToString();
@@ -115,7 +119,7 @@ namespace Wargon.Nukecs
         internal DynamicBitmask Copy(World.WorldUnsafe* world) {
             var copy = new DynamicBitmask(maxBits,world);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
+            UnsafeUtility.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
             copy.count = count;
             return copy;
         }
@@ -123,27 +127,27 @@ namespace Wargon.Nukecs
         internal DynamicBitmask CopyPlusOne(World.WorldUnsafe* world) {
             var copy = new DynamicBitmask(maxBits + 1, world);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray, bitmaskArray, byteLength);
+            UnsafeUtility.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
             copy.count = count;
             return copy;
         }
 
         // Dispose method to release allocated memory
         public void Dispose() {
-            UnsafeUtility.FreeTracked(bitmaskArray, Allocator.Persistent);
-            bitmaskArray = null;
+            // UnsafeUtility.FreeTracked(bitmaskArray.Ptr, Allocator.Persistent);
+            // bitmaskArray = null;
         }
 
         public ulong[] AsArray()
         {
-            return new Span<ulong>(bitmaskArray, arraySize).ToArray();
+            return new Span<ulong>(bitmaskArray.Ptr, arraySize).ToArray();
         }
 
         public void FromArray(ulong[] array, int size)
         {
             fixed (ulong* ptr = array)
             {
-                UnsafeUtility.MemCpy(bitmaskArray, ptr, size);
+                UnsafeUtility.MemCpy(bitmaskArray.Ptr, ptr, size);
                 arraySize = size;
             }
         }

@@ -1,46 +1,72 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
         internal partial struct WorldUnsafe {
+            internal void OnDeserialize()
+            {
+                entities.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                prefabsToSpawn.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                reservedEntities.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                entitiesArchetypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                pools.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                queries.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                foreach (ref var query in queries)
+                {
+                    query.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                }
+                archetypesMap.OnDeserialize(ref AllocatorWrapperRef);
+                foreach (var kvPair in archetypesMap)
+                {
+                    kvPair.Value.ptr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                }
+                archetypesList.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                foreach (ref var ptr in archetypesList)
+                {
+                    ptr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                }
+                ArchetypeHashCache.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                DefaultNoneTypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+            }
             internal int Id;
-            
             internal MemoryList<Entity> entities;
             internal MemoryList<Entity> prefabsToSpawn;
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> reservedEntities;
+            internal MemoryList<int> reservedEntities;
             internal MemoryList<Archetype> entitiesArchetypes;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
             internal MemoryList<_Ptr<QueryUnsafe>> queries;
-            internal UnsafeHashMap<int, Archetype> archetypesMap;
-            internal UnsafePtrList<ArchetypeUnsafe> archetypesList;
+            internal HashMap<int, Archetype> archetypesMap;
+            internal MemoryList<_Ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<int> ArchetypeHashCache;
             internal WorldConfig config;
             internal EntityCommandBuffer ECBUpdate;
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<int> DefaultNoneTypes;
+            internal MemoryList<int> DefaultNoneTypes;
             internal int entitiesAmount;
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
             internal Locking locking;
-            [NativeDisableUnsafePtrRestriction] internal WorldUnsafe* self;
+            internal _Ptr<WorldUnsafe> selfPtr;
+            internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
             internal UnityAllocatorHandler AllocatorHandler;
             internal ref SerializableMemoryAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
             internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref self->ECBUpdate;
+                get => ref Self->ECBUpdate;
             }
             internal UpdateContext CurrentContext {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] get => UpdateContext.Update;
@@ -51,18 +77,27 @@ namespace Wargon.Nukecs
                 var sizeToAllocate = (long)(cSize * 2.3) + 3 * 1024 * 1024;
                 var allocator = new UnityAllocatorHandler(sizeToAllocate);
                 
-                var ptr = (WorldUnsafe*)allocator.AllocatorWrapper.Allocate(sizeof(WorldUnsafe), UnsafeUtility.AlignOf<WorldUnsafe>());
-                *ptr = new WorldUnsafe();
-                if (ptr == null)
-                {
-                    Debug.Log("Failed to create World Unsafe");
-                }
-                ptr->Initialize(id, config, ptr, ref allocator);
-                ptr->CreatePools();
+                var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
+                ptr.Ref = new WorldUnsafe();
+                
+                ptr.Ptr->Initialize(id, config, ptr, ref allocator);
+                ptr.Ptr->CreatePools();
+                return ptr.Ptr;
+            }
+            internal static _Ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
+            {
+                var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
+                var sizeToAllocate = (long)(cSize * 2.3) + 3 * 1024 * 1024;
+                var allocator = new UnityAllocatorHandler(sizeToAllocate);
+                
+                var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
+                ptr.Ref = new WorldUnsafe();
+                
+                ptr.Ptr->Initialize(id, config, ptr, ref allocator);
+                ptr.Ptr->CreatePools();
                 return ptr;
             }
-
-            private void Initialize(int id, WorldConfig worldConfig, WorldUnsafe* worldSelf, ref UnityAllocatorHandler allocatorHandler) {
+            private void Initialize(int id, WorldConfig worldConfig, _Ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
                 this.Id = id;
                 this.config = worldConfig;
                 {
@@ -71,16 +106,16 @@ namespace Wargon.Nukecs
 
                 this.entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorWrapperRef, true);
                 this.prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorWrapperRef);
-                this.reservedEntities = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(128, AllocatorHandler.AllocatorWrapper.Handle, NativeArrayOptions.ClearMemory);
+                this.reservedEntities = new MemoryList<int>(128, ref AllocatorHandler.AllocatorWrapper);
                 this.entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorWrapperRef);
                 this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorWrapperRef);
                 this.queries = new MemoryList<_Ptr<QueryUnsafe>>(64, ref AllocatorWrapperRef);
-                this.archetypesList = new UnsafePtrList<ArchetypeUnsafe>(32, Allocator);
-                this.archetypesMap = new UnsafeHashMap<int, Archetype>(32, Allocator);
+                this.archetypesList = new MemoryList<_Ptr<ArchetypeUnsafe>>(32, ref AllocatorWrapperRef);
+                this.archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
                 this.config = worldConfig;
                 this.systemsUpdateJobDependencies = default;
                 this.systemsFixedUpdateJobDependencies = default;
-                this.DefaultNoneTypes = new Unity.Collections.LowLevel.Unsafe.UnsafeList<int>(12, Allocator, NativeArrayOptions.ClearMemory);
+                this.DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorWrapperRef);
                 this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 this.entitiesAmount = 0;
                 this.lastEntityIndex = 1;
@@ -90,7 +125,7 @@ namespace Wargon.Nukecs
                 this.locking = Locking.Create(Allocator);
                 this.aspects = new Aspects(Allocator, id);
                 
-                this.self = worldSelf;
+                this.selfPtr = worldSelf;
                 
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
@@ -109,21 +144,21 @@ namespace Wargon.Nukecs
 
             internal _Ptr<QueryUnsafe> QueryPtr(bool withDefaultNoneTypes = true)
             {
-                var ptr = QueryUnsafe.CreatePtr(self, withDefaultNoneTypes);
+                var ptr = QueryUnsafe.CreatePtr(Self, withDefaultNoneTypes);
                 queries.Add(ptr, ref AllocatorWrapperRef);
                 return ptr;
             }
             internal void RefreshArchetypes()
             {
-                for (int i = 0; i < archetypesList.m_length; i++)
+                for (int i = 0; i < archetypesList.length; i++)
                 {
-                    var archetype = archetypesList.Ptr[i];
-                    archetype->Refresh();
+                    ref var archetype = ref archetypesList.Ptr[i];
+                    archetype.Ptr->Refresh();
                 }
             }
             private void SetDefaultNone() {
-                DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index);
-                DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index);
+                DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index, ref AllocatorWrapperRef);
+                DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index, ref AllocatorWrapperRef);
             }
 
 
@@ -153,7 +188,7 @@ namespace Wargon.Nukecs
                 try {
                     if (!pool.IsCreated)
                     {
-                        pool = GenericPool.Create<T>(config.StartPoolSize, self);
+                        pool = GenericPool.Create<T>(config.StartPoolSize, Self);
                         poolsCount++;
                     }
                 }
@@ -168,7 +203,7 @@ namespace Wargon.Nukecs
                 try {
                     if (!pool.IsCreated) {
                         pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize,
-                            self);
+                            Self);
                         poolsCount++;
                     }
                 }
@@ -179,7 +214,7 @@ namespace Wargon.Nukecs
 
             internal void CreatePools()
             {
-                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, self, ref poolsCount);
+                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, Self, ref poolsCount);
             }
             
             [BurstDiscard]
@@ -206,14 +241,14 @@ namespace Wargon.Nukecs
                 Entity e;
                 entitiesAmount++;
                 var last = lastEntityIndex;
-                if (reservedEntities.m_length > 0) {
-                    last = reservedEntities.ElementAt(reservedEntities.m_length - 1);
-                    reservedEntities.RemoveAt(reservedEntities.m_length - 1);
-                    e = new Entity(last, self);
+                if (reservedEntities.length > 0) {
+                    last = reservedEntities.ElementAt(reservedEntities.length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.length - 1);
+                    e = new Entity(last, Self);
                     entities.ElementAt(last) = e;
                     return e;
                 }
-                e = new Entity(last, self);
+                e = new Entity(last, Self);
                 entities.ElementAt(last) = e;
                 lastEntityIndex++;
                 return e;
@@ -228,15 +263,15 @@ namespace Wargon.Nukecs
 
                 entitiesAmount++;
                 var last = lastEntityIndex;
-                if (reservedEntities.m_length > 0) {
-                    last = reservedEntities.ElementAtNoCheck(reservedEntities.m_length - 1);
-                    reservedEntities.RemoveAt(reservedEntities.m_length - 1);
+                if (reservedEntities.length > 0) {
+                    last = reservedEntities.ElementAt(reservedEntities.length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.length - 1);
                 }
                 else
                 {
                     lastEntityIndex++;
                 }
-                var e = new Entity(last, self, archetype);
+                var e = new Entity(last, Self, archetype);
                 entities.ElementAt(last) = e;
                 
                 return e;
@@ -244,7 +279,7 @@ namespace Wargon.Nukecs
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
                 entities.Ptr[entity] = Nukecs.Entity.Null;
-                reservedEntities.Add(entity);
+                reservedEntities.Add(entity, ref AllocatorWrapperRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
             }
@@ -301,38 +336,38 @@ namespace Wargon.Nukecs
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Archetype CreateArchetype(params int[] types) {
-                var ptr = ArchetypeUnsafe.Create(self, types);
+                var ptr = ArchetypeUnsafe.CreatePtr(Self, types);
                 Archetype archetype;
-                archetype.impl = ptr;
-                archetypesList.Add(ptr);
-                archetypesMap[ptr->id] = archetype;
+                archetype.ptr = ptr;
+                archetypesList.Add(in ptr, ref AllocatorWrapperRef);
+                archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype CreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, bool copyList = false) {
-                var ptr = ArchetypeUnsafe.Create(self, ref types, copyList);
+                var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, copyList);
                 Archetype archetype;
-                archetype.impl = ptr;
-                archetypesList.Add(ptr);
-                archetypesMap[ptr->id] = archetype;
+                archetype.ptr = ptr;
+                archetypesList.Add(in ptr, ref AllocatorWrapperRef);
+                archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
             internal void CreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, out Archetype archetype) {
-                var ptr = ArchetypeUnsafe.Create(self, ref types);
+                var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types);
                 archetype = new Archetype();
-                archetype.impl = ptr;
-                archetypesList.Add(ptr);
-                archetypesMap[ptr->id] = archetype;
+                archetype.ptr = archetypePtr;
+                archetypesList.Add(in archetypePtr, ref AllocatorWrapperRef);
+                archetypesMap[archetypePtr.Ptr->id] = archetype;
                 //return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private Archetype CreateRootArchetype() {
-                var ptr = ArchetypeUnsafe.Create(self);
+                var ptr = ArchetypeUnsafe.CreatePtr(Self);
                 Archetype archetype;
-                archetype.impl = ptr;
-                archetypesList.Add(ptr);
-                archetypesMap[ptr->id] = archetype;
+                archetype.ptr = ptr;
+                archetypesList.Add(in ptr, ref AllocatorWrapperRef);
+                archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -342,7 +377,7 @@ namespace Wargon.Nukecs
                     types.Dispose();
                     return archetype;
                 }
-
+                
                 return CreateArchetype(ref types);
             }
             [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -357,7 +392,7 @@ namespace Wargon.Nukecs
 
             internal void Update()
             {
-                ECB.Playback(self);
+                ECB.Playback(Self);
             }
         }
     }

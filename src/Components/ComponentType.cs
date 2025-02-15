@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs {
     using System;

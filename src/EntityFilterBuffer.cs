@@ -132,7 +132,7 @@ namespace Wargon.Nukecs {
                 if (buffer->IsEmpty) continue;
                 for (var cmdIndex = 0; cmdIndex < buffer->Length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-                    cmd.edge.Execute(cmd.entity);
+                    //cmd.edge.Execute(cmd.entity);
                 }
                 buffer->Clear();
             }

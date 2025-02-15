@@ -29,15 +29,16 @@
             }
         }
 
-        private void UpdateEtntitiesWorld()
+        private void UpdateEntitiesWorld()
         {
-            
+            // UnsafeWorldPtr.OnDeserialize(ref UnsafeWorld->AllocatorRef);
+            // UnsafeWorld->OnDeserialize();
             for (var index = 0; index < UnsafeWorld->entities.Length; index++)
             {
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
-                entity.worldPointer = UnsafeWorld;
+                entity.worldPointer = UnsafeWorld->Self;
             }
-            Update();
+            //Update();
         }
     }
     public partial struct World
@@ -46,7 +47,7 @@
         {
             UnsafeWorldRef.systemsUpdateJobDependencies.Complete();
             await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.LoadFromFileAsync(path);
-            UpdateEtntitiesWorld();
+            UpdateEntitiesWorld();
         }
 
         public async void SaveToFileAsync(string path)
