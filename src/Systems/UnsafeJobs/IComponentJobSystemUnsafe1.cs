@@ -10,6 +10,7 @@ namespace Wargon.Nukecs {
     public unsafe interface IComponentJobSystemUnsafe1 {
         public void OnUpdate(ref Entity entity, void* c1, ref State state);
     }
+    // ReSharper disable once InconsistentNaming
     public static class IComponentJobSystemUnsafe1Extensions 
     {
         [StructLayout(LayoutKind.Sequential)]
@@ -44,21 +45,17 @@ namespace Wargon.Nukecs {
                     while (true) {
                         if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                             break;
-                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
+                        //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                         for (var i = begin; i < end; i++) {
-                            ref var e = ref fullData.query.impl.Ptr->GetEntity(i);
-                            if (e != Entity.Null) {
-                                fullData.JobData.OnUpdate(ref e, pool1.GetUnsafePtr(e.id), ref fullData.State);
-                            }
+                            ref var e = ref fullData.query.impl->Ptr->GetEntity(i);
+                            fullData.JobData.OnUpdate(ref e, pool1.GetUnsafePtr(e.id), ref fullData.State);
                         }
                     }
                     break;
                 case SystemMode.Single:
                     for (var i = 0; i < fullData.query.Count; i++) {
-                        ref var e = ref fullData.query.impl.Ptr->GetEntity(i);
-                        if (e != Entity.Null) {
-                            fullData.JobData.OnUpdate(ref e, pool1.GetUnsafePtr(e.id), ref fullData.State);
-                        }
+                        ref var e = ref fullData.query.impl->Ptr->GetEntity(i);
+                        fullData.JobData.OnUpdate(ref e, pool1.GetUnsafePtr(e.id), ref fullData.State);
                     }
                     break;
                 }
