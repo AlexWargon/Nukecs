@@ -99,7 +99,7 @@ public unsafe partial struct World
                 // aspects.Dispose();
                 //Lockers.pools.Dispose();
                 AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, selfPtr.Ptr);
-                
+
             }
             
         }

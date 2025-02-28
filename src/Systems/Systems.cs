@@ -14,7 +14,6 @@ namespace Wargon.Nukecs
     public unsafe class Systems {
         internal JobHandle dependencies;
         internal System.Collections.Generic.List<ISystemRunner> runners;
-        internal System.Collections.Generic.List<ISystemRunner> disposeSystems;
         internal System.Collections.Generic.List<ISystemRunner> fixedRunners;
         internal System.Collections.Generic.List<ISystemDestroyer> _systemDestroyers;
         internal World world;
@@ -24,7 +23,6 @@ namespace Wargon.Nukecs
         public Systems(ref World world) {
             this.dependencies = default;
             this.runners = new System.Collections.Generic.List<ISystemRunner>();
-            this.disposeSystems = new System.Collections.Generic.List<ISystemRunner>();
             this.fixedRunners = new System.Collections.Generic.List<ISystemRunner>();
             this._systemDestroyers = new System.Collections.Generic.List<ISystemDestroyer>();
             this.dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
@@ -64,20 +62,7 @@ namespace Wargon.Nukecs
             runners.Add(runner);
             return this;
         }
-        
-        // public Systems Add<T, T2>() where T : struct, IQueryJobSystem<T2> where T2 : struct, ITuple{
-        //     T system = default;
-        //     if (system is IOnCreate s) {
-        //         s.OnCreate(ref world);
-        //         system = (T) s;
-        //     }
-        //     system.GetQuery(new Query<T2>(new T2(), world.Unsafe));
-        //     runners.Add(new QueryJobSystemRunner<T,T2> {
-        //         System = system,
-        //         EcbJob = default
-        //     });
-        //     return this;
-        // }
+
         public Systems Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
             T system = default;
             if (system is IOnCreate s) {
@@ -90,11 +75,11 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref world);
+            runner.Query = *runner.System.GetQuery(ref world).Impl;
             runners.Add(runner);
             return this;
         }
-        public Systems Add<T>(ushort dymmy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy {
+        public unsafe Systems Add<T>(ushort dymmy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -107,7 +92,7 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             _systemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
-            runner.Query = runner.System.GetQuery(ref world);
+            runner.Query = *runner.System.GetQuery(ref world).Impl;
             runners.Add(runner);
             return this;
         }
@@ -183,43 +168,29 @@ namespace Wargon.Nukecs
         // ReSharper disable Unity.PerformanceAnalysis
         public void OnUpdate(float dt, float time)
         {
-            //systemsDependencies.Complete();
-            state.Time.ElapsedTime += dt;
             state.Dependencies.Complete();
-            //stateFixed.Dependencies.Complete();
             state.Dependencies = world.DependenciesUpdate;
             state.World = world;
             state.Time.DeltaTime = dt;
             state.Time.Time = time;
+            state.Time.ElapsedTime += dt;
+            
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
             
             timeSinceLastFixedUpdate += dt;
-            if (timeSinceLastFixedUpdate >= FixedUpdateInterval)
+            if (timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
             {
                 for (var i = 0; i < fixedRunners.Count; i++) {
                     state.Dependencies = fixedRunners[i].Schedule(UpdateContext.Update, ref state);
                 }
-
                 timeSinceLastFixedUpdate = 0;
             }
         }
 
-        private const double FixedUpdateInterval = 0.2f;
+        private const double FIXED_UPDATE_INTERVAL = 0.2f;
         private double timeSinceLastFixedUpdate;
-        public void OnFixedUpdate(float dt, float time)
-        {
-            //state.Dependencies.Complete();
-            stateFixed.Dependencies.Complete();
-            stateFixed.World = world;
-            stateFixed.Time.DeltaTime = dt;
-            stateFixed.Time.Time = time;
-            for (var i = 0; i < runners.Count; i++) {
-                stateFixed.Dependencies = runners[i].Schedule(UpdateContext.FixedUpdate, ref stateFixed);
-            }
-            
-        }
 
         internal void Complete()
         {
@@ -245,7 +216,7 @@ namespace Wargon.Nukecs
     }
 
     public static class SystemsExtensions {
-        public static Systems Add<T>(this Systems systems, SystemMode systemMode) where T : struct, IEntityJobSystem{
+        public unsafe static Systems Add<T>(this Systems systems, SystemMode systemMode) where T : struct, IEntityJobSystem{
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref systems.world);
@@ -257,7 +228,7 @@ namespace Wargon.Nukecs
                 Mode = systemMode,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref systems.world);
+            runner.Query = *runner.System.GetQuery(ref systems.world).Impl;
             systems.runners.Add(runner);
             return systems;
         }
@@ -515,7 +486,7 @@ namespace Wargon.Nukecs
                     for (var i = begin; i < end; i++) {
                         unsafe
                         {
-                            var e = fullData.query.impl->Ptr->GetEntityID(i);
+                            var e = fullData.query.Impl->Ptr->GetEntityID(i);
                             fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), ref fullData.State);
                         }
                     }

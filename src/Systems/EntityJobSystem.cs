@@ -15,7 +15,7 @@ namespace Wargon.Nukecs
     }
     internal class EntityJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
         public TSystem System;
-        public Query Query;
+        public ptr<QueryUnsafe> Query;
         public SystemMode Mode;
         public ECBJob EcbJob;
 
@@ -23,8 +23,8 @@ namespace Wargon.Nukecs
         {
             ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
-                for (var i = 0; i < Query.Count; i++) {
-                    System.OnUpdate(ref Query.GetEntity(i), ref state);    
+                for (var i = 0; i < Query.Ref.count; i++) {
+                    System.OnUpdate(ref Query.Ref.GetEntity(i), ref state);    
                 }
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
@@ -38,18 +38,19 @@ namespace Wargon.Nukecs
         }
 
         public void Run(ref State state) {
-            for (int i = 0; i < Query.Count; i++) {
-                System.OnUpdate(ref this.Query.GetEntity(i), ref state);
+            for (int i = 0; i < Query.Ref.count; i++) {
+                System.OnUpdate(ref this.Query.Ref.GetEntity(i), ref state);
             }
             state.World.ECB.Playback(ref state.World);
         }
     }
 
+    // ReSharper disable once InconsistentNaming
     public static class IEntityJobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
         internal struct EntityJobWrapper<TJob> where TJob : struct, IEntityJobSystem {
             public TJob JobData;
-            public Query query;
+            public ptr<QueryUnsafe> query;
             public UpdateContext updateContext;
             public State State;
             internal static readonly SharedStatic<IntPtr> JobReflectionData =
@@ -68,7 +69,7 @@ namespace Wargon.Nukecs
             
             public static unsafe void Execute(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
-                if(fullData.query.Count == 0) return;
+                if(fullData.query.Ref.count == 0) return;
                 switch (fullData.JobData.Mode) {
                     case SystemMode.Parallel:
                         while (true) {
@@ -76,7 +77,7 @@ namespace Wargon.Nukecs
                                 break;
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                             for (var i = begin; i < end; i++) {
-                                ref var e = ref fullData.query.impl->Ptr->GetEntity(i);
+                                ref var e = ref fullData.query.Ptr->GetEntity(i);
                                 if (e != Entity.Null) {
                                     fullData.JobData.OnUpdate(ref e, ref fullData.State);
                                 }
@@ -84,8 +85,8 @@ namespace Wargon.Nukecs
                         }
                         break;
                     case SystemMode.Single:
-                        for (var i = 0; i < fullData.query.Count; i++) {
-                            ref var e = ref fullData.query.impl->Ptr->GetEntity(i);
+                        for (var i = 0; i < fullData.query.Ref.count; i++) {
+                            ref var e = ref fullData.query.Ptr->GetEntity(i);
                             if (e != Entity.Null) {
                                 fullData.JobData.OnUpdate(ref e, ref fullData.State);
                             }
@@ -105,7 +106,7 @@ namespace Wargon.Nukecs
             return EntityJobWrapper<T>.JobReflectionData.Data;
         }
 
-        public static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref Query query,
+        internal static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref ptr<QueryUnsafe> query,
             SystemMode mode, UpdateContext updateContext, ref State state)
             where TJob : struct, IEntityJobSystem {
             var fullData = new EntityJobWrapper<TJob> {
@@ -122,7 +123,7 @@ namespace Wargon.Nukecs
                 case SystemMode.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
                 case SystemMode.Parallel:
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Ref.count, 1);
             }
             //var workers = JobsUtility.JobWorkerCount;
             //var batchCount = query.Count > workers ? query.Count / workers : 1;
@@ -133,7 +134,7 @@ namespace Wargon.Nukecs
         {
             var fullData = new EntityJobWrapper<TJob> {
                 JobData = jobData,
-                query = query,
+                //query = query,
                 //deltaTime = deltaTime
             };
             JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(

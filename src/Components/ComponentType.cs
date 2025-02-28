@@ -22,8 +22,20 @@ namespace Wargon.Nukecs {
         public bool isDisposable;
         public bool isCopyable;
         public bool isArray;
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> elementTypes;
-        public static ref NativeHashMap<int, ComponentType> ElementTypes => ref elementTypes.Data;
+        internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> elementTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentType>();
+
+        public static ref NativeHashMap<int, ComponentType> ElementTypes
+        {
+            get
+            {
+                if (!elementTypes.Data.IsCreated)
+                {
+                    elementTypes.Data = new NativeHashMap<int, ComponentType>(64, Allocator.Persistent);
+                }
+
+                return ref elementTypes.Data;
+            }
+        }
         
         public unsafe void* defaultValue;
         internal IntPtr disposeFn;
@@ -46,9 +58,9 @@ namespace Wargon.Nukecs {
             }
             return new FunctionPointer<CopyDelegate>(copyFn);
         }
-        
-        static ComponentType() {
-            elementTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentType>();
+
+        internal static void Init()
+        {
             elementTypes.Data = new NativeHashMap<int, ComponentType>(32, Allocator.Persistent);
         }
 
@@ -87,7 +99,7 @@ namespace Wargon.Nukecs {
             }
             foreach (var elementType in ElementTypes)
             {
-                size += elementType.Value.size * ComponentArray.DefaultMaxCapacity * poolSize + sizeOfGenericPool*2;
+                size += elementType.Value.size * ComponentArray.DEFAULT_MAX_CAPACITY * poolSize + sizeOfGenericPool*2;
             }
             return size;
         }
@@ -101,8 +113,7 @@ namespace Wargon.Nukecs {
             get => (*(ComponentType*) ID.UnsafeDataPointer).index;
         }
 
-        internal static unsafe ref ComponentType Data
-        {
+        internal static unsafe ref ComponentType Data {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref UnsafeUtility.AsRef<ComponentType>(ID.UnsafeDataPointer);
         }
@@ -155,6 +166,7 @@ namespace Wargon.Nukecs {
         }
         public static void InitializeComponentType<T>(int index) where T : unmanaged
         {
+            
             Add(typeof(T), index);
             _ = AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
@@ -162,6 +174,7 @@ namespace Wargon.Nukecs {
 
         public static unsafe void InitializeElementType<T>(int index) where T : unmanaged, IArrayComponent
         {
+            //dbug.log($"element type added {index}");
             var size = sizeof(T);
             var data = new ComponentType
             {
@@ -174,6 +187,7 @@ namespace Wargon.Nukecs {
                 isArray = false
             };
             ComponentType.AddElementType(data, index);
+            AddComponentType<T>(index);
         }
         internal static unsafe ComponentType AddComponentType<T>(int index) where T : unmanaged
         {
@@ -200,6 +214,12 @@ namespace Wargon.Nukecs {
         }
         
         public static ComponentType GetComponentType(int index) => ComponentTypes.Data[index];
+
+        public static ComponentType GetComponentType(int index, bool isArrayElement = false)
+        {
+            if (isArrayElement) return ComponentType.ElementTypes[index];
+            return ComponentTypes.Data[index];
+        }
         public static ComponentType GetComponentType<T>() => TypeToComponentType.Map[typeof(T)];
         public static void SetComponentType<T>(ComponentType componentType) where T : unmanaged
         {
@@ -238,7 +258,7 @@ namespace Wargon.Nukecs {
                     pool = GenericPool.Create(type, size, world);
                     var elementType = ComponentType.ElementTypes[type.index];
                     ref var elementsPool = ref pools.Ptr[elementType.index + 1];
-                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DefaultMaxCapacity, world);
+                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DEFAULT_MAX_CAPACITY, world);
                     poolsCount += 2;
                 }
                 //Component.LogComponent(kvPair.Value);

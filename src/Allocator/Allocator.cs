@@ -19,7 +19,7 @@ namespace Wargon.Nukecs
     {
         private const int MAX_BLOCKS = 1024 * 16;
         private const int ALIGNMENT = 16;
-        private const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
+        public const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
         [StructLayout(LayoutKind.Sequential)]
         internal struct MemoryBlock
         {
@@ -181,6 +181,12 @@ namespace Wargon.Nukecs
             var error = 0;
             Free((byte*)ptr, ref error);
         }
+
+        public void Free(uint ptr)
+        {
+            var error = 0;
+            Free(ptr, ref error);
+        }
         public void Free(byte* ptr, ref int error)
         {
             spinner.Acquire();
@@ -201,7 +207,26 @@ namespace Wargon.Nukecs
             
             error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
         }
-
+        public void Free(uint ptr, ref int error)
+        {
+            spinner.Acquire();
+            var offset = ptr;
+            for (var i = 0; i < blockCount; i++)
+            {
+                ref var block = ref blocks[i];
+                
+                if (block.Pointer == offset)
+                {
+                    block.IsUsed = false;
+                    spinner.Release();
+                    //dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
+                    return;
+                }
+            }
+            spinner.Release();
+            
+            error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
+        }
         internal void DeFragment()
         {
             for (var i = 0; i < blockCount - 1; i++)
@@ -333,89 +358,7 @@ namespace Wargon.Nukecs
         internal unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
         internal int BlockCount;
     }
-    // ReSharper disable once InconsistentNaming
-    [StructLayout(LayoutKind.Sequential)]
-    public struct ptr_offset
-    {
-        public uint Offset;
-        public uint BlockIndex;
-        public const int SIZE_OF_BYTES = 8;
-        public static readonly ptr_offset NULL = new (0u,0u);
 
-        public ptr_offset(uint blockIndex, uint offset)
-        {
-            BlockIndex = blockIndex;
-            Offset = offset;
-        }
-        
-        public unsafe void* AsPtr(ref SerializableMemoryAllocator allocator)
-        {
-            return allocator.BasePtr + allocator.Blocks[BlockIndex].Pointer + Offset;
-        }
-        
-        public unsafe T* AsPtr<T>(ref SerializableMemoryAllocator allocator) where T : unmanaged
-        {
-            return (T*)(allocator.BasePtr + Offset);
-        }
-    }
-
-    // ReSharper disable once InconsistentNaming
-    [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct ptr<T> : IEquatable<ptr<T>> where T : unmanaged
-    {
-        public ptr_offset offset;
-        [NativeDisableUnsafePtrRestriction]
-        private T* cached;
-        public static readonly ptr<T> NULL = new (null, 0u);
-        public void OnDeserialize(ref SerializableMemoryAllocator allocator)
-        {
-            cached = (T*)(allocator.BasePtr + offset.Offset);
-        }
-
-        public ptr(byte* basePtr, uint offset)
-        {
-            this.offset = new ptr_offset(0, offset);
-            cached = (T*)(basePtr + offset);
-        }
-
-        public T* Ptr
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => cached;
-        }
-
-        public ref T Ref
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *cached;
-        }
-
-        public bool Equals(ptr<T> other)
-        {
-            return other.offset.Offset.Equals(offset.Offset);
-        }
-        public static bool operator != (ptr<T> lhs, ptr<T> rhs)
-        {
-            return lhs.offset.Offset != rhs.offset.Offset;
-        }
-        public static bool operator == (ptr<T> lhs, ptr<T> rhs)
-        {
-            return lhs.offset.Offset == rhs.offset.Offset;
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (int)offset.Offset;    
-            }
-        }
-
-        public override bool Equals(object obj)
-        {
-            return base.Equals(obj);
-        }
-    }
     
     public interface IOnDeserialize
     {

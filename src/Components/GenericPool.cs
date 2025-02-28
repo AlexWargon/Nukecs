@@ -58,15 +58,16 @@ namespace Wargon.Nukecs {
 
             internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged {
                 var ptr = world->_allocate<GenericPoolUnsafe>();
-                *ptr = new GenericPoolUnsafe {
+                var type = ComponentType<T>.Data;
+                    *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
                     allocator = world->Allocator,
-                    ComponentType = ComponentType<T>.Data,
+                    ComponentType = type,
                     worldPtr = world
                 };
-                ptr->buffer = (byte*)world->_allocate<T>(size);
-                UnsafeUtility.MemClear(ptr->buffer,size * sizeof(T));
+                ptr->buffer = (byte*)world->_allocate(size * type.size, type.align);
+                UnsafeUtility.MemClear(ptr->buffer,size * type.size);
                 return ptr;
             }
 

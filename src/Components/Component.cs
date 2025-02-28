@@ -505,10 +505,10 @@ namespace Wargon.Nukecs
         {
             return factory.Create(ref world);
         }
-        public static T* CreatePtr(ref World world)
+        public static ptr<T> CreatePtr(ref World world)
         {
-            var ptr = world.UnsafeWorld->_allocate<T>();
-            *ptr = factory.Create(ref world);
+            var ptr = world.UnsafeWorld->_allocate_ptr<T>();
+            ptr.Ref = factory.Create(ref world);
             return ptr;
         }
         public static void Destroy(T* pointer, ref World world)

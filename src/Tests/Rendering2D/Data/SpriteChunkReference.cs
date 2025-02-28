@@ -4,9 +4,9 @@ using UnityEngine.Serialization;
 namespace Wargon.Nukecs.Tests {
     [StructLayout(LayoutKind.Sequential)]
     public struct SpriteChunkReference : IComponent {
-        public unsafe SpriteChunk* chunk;
+        public unsafe ptr<SpriteChunk> chunk;
         public int instanceId;
         [FormerlySerializedAs("shader")] public int achetypeIndex;
-        public unsafe ref SpriteChunk ChunkRef => ref *chunk;
+        public unsafe ref SpriteChunk ChunkRef => ref chunk.Ref;
     }
 }

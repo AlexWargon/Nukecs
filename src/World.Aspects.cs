@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
@@ -13,11 +14,12 @@ namespace Wargon.Nukecs
             internal T* GetAspect<T>() where T : unmanaged, IAspect<T>, IAspect
             {
                 var index = AspectType<T>.Index.Data;
-                var aspect = (T*)aspects.aspects.Ptr[index];
+                var aspect = aspects.aspects.Ptr[index].As<T>();
                 if (aspect == null)
                 {
-                    aspect = AspectBuilder<T>.CreatePtr(ref *aspects.world);
-                    aspects.aspects.Ptr[index] = (IntPtr)aspect;
+                    var ptr = AspectBuilder<T>.CreatePtr(ref *aspects.world);
+                    aspect = ptr.Ptr;
+                    aspects.aspects.Ptr[index] = ptr.UntypedPointer;
                 }
                 return aspect;
             }
@@ -30,24 +32,23 @@ namespace Wargon.Nukecs
         }
         public unsafe struct Aspects : IDisposable
         {
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<IntPtr> aspects;
+            internal MemoryList<ptr> aspects;
             internal T* GetAspect<T>() where T : unmanaged, IAspect, IAspect<T>
             {
                 var index = AspectType<T>.Index.Data;
-                var aspect = (T*)aspects.Ptr[index];
+                var aspect = aspects[index].As<T>();
                 if (aspect == null)
                 {
-                    aspect = AspectBuilder<T>.CreatePtr(ref *world);
-                    aspects.Ptr[index] = (IntPtr)aspect;
+                    var ptr = AspectBuilder<T>.CreatePtr(ref *world);
+                    aspect = ptr.Ptr;
+                    aspects.Ptr[index] = ptr.UntypedPointer;
                 }
                 return aspect;
             }
-            internal readonly Allocator allocator;
             internal readonly World* world;
-            internal Aspects(Allocator allocator, int world)
+            internal Aspects(ref UnityAllocatorWrapper allocatorWrapper, int world)
             {
-                this.aspects = UnsafeHelp.UnsafeListWithMaximumLenght<IntPtr>(64, allocator, NativeArrayOptions.ClearMemory);
-                this.allocator = allocator;
+                this.aspects = new MemoryList<ptr>(64, ref allocatorWrapper, true);
                 this.world = GetPtr(world);
             }
 
@@ -55,7 +56,7 @@ namespace Wargon.Nukecs
             {
                 foreach (var intPtr in aspects)
                 {
-                    world->UnsafeWorld->_free((void*)intPtr);
+                    world->UnsafeWorld->_free(intPtr.offset.Offset);
                 }
                 aspects.Dispose();
             }

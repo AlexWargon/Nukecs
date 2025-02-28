@@ -30,10 +30,10 @@
             }
         }
 
-        public unsafe SpriteChunk* GetSpriteChunkPtr(int archetypeIndex)
-        {
-            return archetypes[archetypeIndex].Chunk;
-        }
+        // public unsafe SpriteChunk* GetSpriteChunkPtr(int archetypeIndex)
+        // {
+        //     return archetypes[archetypeIndex].Chunk;
+        // }
         public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world) {
             Resize();
             var shaderID = shader.GetInstanceID();
@@ -50,7 +50,7 @@
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount),
+                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
                 camera = Camera.main,
                 index = count
             };
@@ -76,7 +76,7 @@
                 mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount),
+                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
                 camera = Camera.main,
                 index = count
             };
@@ -164,7 +164,7 @@
     
     public unsafe struct SpriteArchetype : IDisposable {
         [NativeDisableUnsafePtrRestriction]
-        internal SpriteChunk* Chunk;
+        internal ptr<SpriteChunk> Chunk;
         public int instanceID;
         public int shaderID;
         public int index;
@@ -176,25 +176,25 @@
         private static readonly int properties = Shader.PropertyToID("_Properties");
         public Camera camera;
         public void AddInitial(ref Entity entity) {
-            Chunk->AddInitial(entity.id);
+            Chunk.Ref.AddInitial(entity.id);
             entity.Add(new SpriteChunkReference {
                 chunk = Chunk,
                 achetypeIndex = index
             });
         }
         public void Add(ref Entity entity, ref SpriteChunkReference spriteChunkReference) {
-            Chunk->Add(in entity);
+            Chunk.Ref.Add(in entity);
         }
 
         public void Remove(ref Entity entity, in SpriteChunkReference spriteChunkReference) {
-            Chunk->Remove(in entity);
+            Chunk.Ref.Remove(in entity);
         }
         
         public void Clear() {
-            Chunk->Clear();
+            Chunk.Ref.Clear();
         }
         public void OnUpdate() {
-            var count = Chunk->count;
+            var count = Chunk.Ref.count;
 
             if(count == 0) return;
             
@@ -234,7 +234,7 @@
         private NativeArray<SpriteRenderData> RenderDataArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(
-                Chunk->renderDataChunk, 
+                Chunk.Ref.renderDataChunk, 
                 count, 
                 Allocator.None
             );
@@ -247,7 +247,7 @@
         private NativeArray<Transform> MatrixArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Transform>(
-                Chunk->transforms, 
+                Chunk.Ref.transforms, 
                 count, 
                 Allocator.None
             );
@@ -259,14 +259,14 @@
 
         public void Dispose() {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var dataArray = RenderDataArray(Chunk->count);
+            var dataArray = RenderDataArray(Chunk.Ref.count);
             if (dataArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(dataArray));
             }
 
             dataArray.Dispose();
-            var matrixArray = MatrixArray(Chunk->count);
+            var matrixArray = MatrixArray(Chunk.Ref.count);
             if (matrixArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(matrixArray));
@@ -291,9 +291,9 @@
         internal int capacity;
         internal int lastRemoved;
 
-        public static unsafe SpriteChunk* Create(int size) {
-            var ptr = Unsafe.MallocTracked<SpriteChunk>(Allocator.Persistent);
-            *ptr = new SpriteChunk {
+        public static unsafe ptr<SpriteChunk> Create(int size, ref UnityAllocatorWrapper allocator) {
+            var ptr = allocator.Allocator.AllocatePtr<SpriteChunk>();
+            ptr.Ref = new SpriteChunk {
                 renderDataChunk = Unsafe.MallocTracked<SpriteRenderData>(size, Allocator.Persistent),
                 transforms = Unsafe.MallocTracked<Transform>(size, Allocator.Persistent),
                 entityToIndex = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
@@ -407,12 +407,11 @@
             entityToIndex.m_length = entityToIndex.m_capacity;
             count = 0;
         }
-        public static unsafe void Destroy(ref SpriteChunk* chunk) {
-            Unsafe.FreeTracked(chunk->transforms, Allocator.Persistent);
-            Unsafe.FreeTracked(chunk->renderDataChunk, Allocator.Persistent);
-            chunk->indexToEntity.Dispose();
-            chunk->entityToIndex.Dispose();
-            Unsafe.FreeTracked(chunk, Allocator.Persistent);
+        public static unsafe void Destroy(ref ptr<SpriteChunk> chunk) {
+            Unsafe.FreeTracked(chunk.Ref.transforms, Allocator.Persistent);
+            Unsafe.FreeTracked(chunk.Ref.renderDataChunk, Allocator.Persistent);
+            chunk.Ref.indexToEntity.Dispose();
+            chunk.Ref.entityToIndex.Dispose();
         }
     }
 
