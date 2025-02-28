@@ -50,7 +50,7 @@ namespace Wargon.Nukecs
             internal HashMap<int, Archetype> archetypesMap;
             internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal WorldConfig config;
-            internal EntityCommandBuffer ECBUpdate;
+            internal EntityCommandBuffer EntityCommandBuffer;
             internal JobHandle systemsUpdateJobDependencies;
             internal int job_worker_count;
             internal MemoryList<int> DefaultNoneTypes;
@@ -66,7 +66,7 @@ namespace Wargon.Nukecs
             internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref Self->ECBUpdate;
+                get => ref Self->EntityCommandBuffer;
             }
             internal UpdateContext CurrentContext {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] get => UpdateContext.Update;
@@ -118,7 +118,7 @@ namespace Wargon.Nukecs
                 this.lastEntityIndex = 1;
                 this.poolsCount = 0;
                 this.lastDestroyedEntity = 0;
-                this.ECBUpdate = new EntityCommandBuffer(256, Allocator);
+                this.EntityCommandBuffer = new EntityCommandBuffer(256, Allocator);
                 this.spinner = new Spinner();
                 this.aspects = new Aspects(ref AllocatorWrapperRef, id);
                 
@@ -128,7 +128,7 @@ namespace Wargon.Nukecs
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
-                CreatePools();
+                //CreatePools();
                 CreateRootArchetype();
             }
             // [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -186,15 +186,15 @@ namespace Wargon.Nukecs
                 if (!pool.IsCreated) 
                 {
                     spinner.Acquire();
-                    try {
-                        if (!pool.IsCreated) {
-                            pool = GenericPool.Create(ComponentTypeMap.GetComponentType(poolIndex, true), config.StartPoolSize, Self);
-                            poolsCount++;
-                        }
+                    if (!pool.IsCreated) {
+                        pool = GenericPool
+                            .Create(
+                                    ComponentTypeMap.GetComponentType(poolIndex, true), 
+                                    config.StartPoolSize * ComponentArray.DEFAULT_MAX_CAPACITY, 
+                                    Self);
+                        poolsCount++;
                     }
-                    finally {
-                        spinner.Release();
-                    }
+                    spinner.Release();
                 }
                 return ref pool;
             }

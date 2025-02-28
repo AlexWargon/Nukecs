@@ -36,7 +36,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref EntityCommandBuffer GetEcbVieContext(UpdateContext context)
         {
-            return ref UnsafeWorld->ECBUpdate;
+            return ref UnsafeWorld->EntityCommandBuffer;
         }
 
         internal UpdateContext CurrentContext

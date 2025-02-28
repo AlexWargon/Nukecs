@@ -217,7 +217,7 @@ namespace Wargon.Nukecs {
 
         public static ComponentType GetComponentType(int index, bool isArrayElement = false)
         {
-            if (isArrayElement) return ComponentType.ElementTypes[index];
+            if (isArrayElement) return ComponentType.ElementTypes[index - 1];
             return ComponentTypes.Data[index];
         }
         public static ComponentType GetComponentType<T>() => TypeToComponentType.Map[typeof(T)];

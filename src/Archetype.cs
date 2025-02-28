@@ -257,7 +257,7 @@ namespace Wargon.Nukecs
             return newEntity;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void OnEntityChangeECB(int entity, int component)
         {
             if (transactions.TryGetValue(component, out var edge))
