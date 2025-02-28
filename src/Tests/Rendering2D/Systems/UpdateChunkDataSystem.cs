@@ -16,7 +16,7 @@ namespace Wargon.Nukecs.Tests {
             ref readonly var data = ref entity.Read<SpriteRenderData>();
             ref var chunkIndex = ref entity.Get<SpriteChunkReference>();
             ref readonly var transform = ref entity.Read<Transform>();
-            ref var chunk = ref *chunkIndex.chunk;
+            ref var chunk = ref chunkIndex.ChunkRef;
             chunk.UpdateData(entity.id, in data, in transform);
         }
     }

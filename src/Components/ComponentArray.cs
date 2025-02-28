@@ -9,13 +9,13 @@ namespace Wargon.Nukecs
 {
     internal struct ComponentArray
     {
-        internal const int DefaultMaxCapacity = 16;
+        internal const int DEFAULT_MAX_CAPACITY = 16;
     }
 
-    public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>>
+    public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>> 
         where T : unmanaged, IArrayComponent
     {
-        internal const int DefaultMaxCapacity = ComponentArray.DefaultMaxCapacity;
+        internal const int DEFAULT_MAX_CAPACITY = ComponentArray.DEFAULT_MAX_CAPACITY;
         internal T* _buffer;
         internal int _length;
         internal int _capacity;
@@ -33,9 +33,9 @@ namespace Wargon.Nukecs
         
         internal ComponentArray(ref GenericPool pool, Entity index)
         {
-            _buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DefaultMaxCapacity;
+            _buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DEFAULT_MAX_CAPACITY;
             _length = 0;
-            _capacity = DefaultMaxCapacity;
+            _capacity = DEFAULT_MAX_CAPACITY;
             _entity = index;
         }
 
@@ -44,8 +44,7 @@ namespace Wargon.Nukecs
         {
             _entity = other._entity.worldPointer->GetEntity(index);
             var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
-            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer +
-                      _entity.id * DefaultMaxCapacity;
+            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + _entity.id * DEFAULT_MAX_CAPACITY;
             _length = other._length;
             _capacity = other._capacity;
             UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));

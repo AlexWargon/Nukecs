@@ -37,7 +37,15 @@ namespace Wargon.Nukecs
         internal ref ArchetypeUnsafe archetypeRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ref;
+            get
+            {
+                var arch = worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ptr;
+                if (arch == null)
+                {
+                    throw new Exception("Archetype reference is null");
+                }
+                return ref *arch;
+            }
         }
         
         public override string ToString()
@@ -118,7 +126,6 @@ namespace Wargon.Nukecs
             return new NoComponentException($"Entity has no component array {typeof(T).Name}");
         }
         /// <summary>
-        /// <para>!!!WARNING!!!</para>
         /// <para>Use 'ref' keyword!</para> 
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -128,7 +135,7 @@ namespace Wargon.Nukecs
             entity.archetypeRef.OnEntityChangeECB(entity.id, poolIndex);
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             var elementIndex = poolIndex + 1;
-            ref var elementPool = ref entity.worldPointer->GetUntypedPool(elementIndex);
+            ref var elementPool = ref entity.worldPointer->GetElementUntypedPool(elementIndex);
             var array = new ComponentArray<T>(ref elementPool, entity);
             pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
@@ -202,7 +209,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Remove<T>(this ref Entity entity) where T : unmanaged, IComponent
+        public static void Remove<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<T>(entity.id);

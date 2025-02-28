@@ -12,61 +12,60 @@ namespace Wargon.Nukecs {
     
     public unsafe struct Query : IDisposable {
         [NativeDisableUnsafePtrRestriction]
-        internal ptr<QueryUnsafe>* impl;
+        internal ptr<QueryUnsafe>* Impl;
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => impl->Ptr->count;
+            get => Impl->Ptr->count;
         }
-        internal int CountMulti => impl->Ptr->count / impl->Ptr->world->job_worker_count;
+        internal int CountMulti => Impl->Ptr->count / Impl->Ptr->world->job_worker_count;
         public bool IsValid {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => impl->Ptr !=null && impl->Ptr->IsCreated;
+            get => Impl->Ptr !=null && Impl->Ptr->IsCreated;
         }
         internal Query(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
         {
             //impl = world->_allocate<ptr<QueryUnsafe>>();
-            impl = QueryUnsafe.CreatePtrPtr(world, withDefaultNoneTypes);
+            Impl = QueryUnsafe.CreatePtrPtr(world, withDefaultNoneTypes);
         }
 
 
         internal Query(ptr<QueryUnsafe>* query)
         {
-            this.impl = query;
+            this.Impl = query;
         }
 
         public Query With<T>() where T :  unmanaged, IComponent {
-            impl->Ptr->With(ComponentType<T>.Index);
+            Impl->Ptr->With(ComponentType<T>.Index);
             return this;
         }
         public Query WithArray<T>() where T : unmanaged, IArrayComponent {
-            impl->Ptr->With(ComponentType<ComponentArray<T>>.Index);
+            Impl->Ptr->With(ComponentType<ComponentArray<T>>.Index);
             return this;
         }
         public Query None<T>() where T : unmanaged, IComponent {
-            impl->Ptr->None(ComponentType<T>.Index);
+            Impl->Ptr->None(ComponentType<T>.Index);
             return this;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref impl->Ptr->world->entities.Ptr[impl->Ptr->entities.Ptr[index]];
+            return ref Impl->Ptr->world->entities.Ptr[Impl->Ptr->entities.Ptr[index]];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index) {
-            return impl->Ptr->entities.ElementAt(index);
+            return Impl->Ptr->entities.ElementAt(index);
         }
         public void Dispose() {
-            var allocator = impl->Ptr->world->Allocator;
-            Unsafe.FreeTracked(impl, allocator);
+            var allocator = Impl->Ptr->world->Allocator;
+            Unsafe.FreeTracked(Impl, allocator);
         }
 
         public override string ToString() {
-            return impl->Ptr->ToString();
+            return Impl->Ptr->ToString();
         }
 
         public QueryEnumerator GetEnumerator() {
-            return new QueryEnumerator(impl->Ptr);
+            return new QueryEnumerator(Impl->Ptr);
         }
-
     }
 
 

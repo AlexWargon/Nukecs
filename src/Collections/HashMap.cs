@@ -25,9 +25,9 @@ namespace Wargon.Nukecs.Collections
             data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, allocator);
         }
 
-        public void OnDeserialize(ref UnityAllocatorWrapper allocatorHandler)
+        public void OnDeserialize(ref SerializableMemoryAllocator allocator, Allocator unityAllocator)
         {
-            data.OnDeserialize(ref allocatorHandler);
+            data.OnDeserialize(ref allocator, unityAllocator);
         }
         public void Dispose()
         {
@@ -91,6 +91,11 @@ namespace Wargon.Nukecs.Collections
         public bool TryGetValue(TKey key, out TValue item)
         {
             return data.TryGetValue(key, out item);
+        }
+
+        public bool TryGetValuePtr(TKey key, byte* basePtr, out ptr<TValue> ptr)
+        {
+            return data.TryGetPtr(key, basePtr, out ptr);
         }
         public bool ContainsKey(TKey key)
         {
@@ -242,10 +247,10 @@ namespace Wargon.Nukecs.Collections
             AllocatedIndex = 0;
         }
 
-        internal void OnDeserialize(ref UnityAllocatorWrapper allocator)
+        internal void OnDeserialize(ref SerializableMemoryAllocator allocator, Allocator unityAllocator)
         {
-            Allocator = allocator.Handle;
-            Ptr = PtrOffset.AsPtr<byte>(ref allocator.Allocator);
+            Allocator = unityAllocator;
+            Ptr = PtrOffset.AsPtr<byte>(ref allocator);
             Keys = (TKey*)(Ptr + keyOffset);
             Next = (int*)(Ptr + nextOffset);
             Buckets = (int*)(Ptr + bucketOffset);
@@ -497,7 +502,34 @@ namespace Wargon.Nukecs.Collections
             item = default;
             return false;
         }
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
+        internal TValue* TryGetPtr<TValue>(TKey key, out bool contain) where TValue : unmanaged
+        {
+            var idx = Find(key);
+            if (-1 != idx)
+            {
+                contain = true;
+                return ((TValue*)Ptr) + idx;
+            }
 
+            contain = false;
+            return null;
+        }
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
+        internal bool TryGetPtr<TValue>(TKey key, byte* basePtr, out ptr<TValue> valuePtr) where TValue : unmanaged
+        {
+            var idx = Find(key);
+
+            if (-1 != idx)
+            {
+                var offset = (uint)(PtrOffset.Offset + sizeof(TValue) * idx);
+                valuePtr = new ptr<TValue>(basePtr, offset);
+                return true;
+            }
+
+            valuePtr = ptr<TValue>.NULL;
+            return false;
+        }
         internal int TryRemove(TKey key)
         {
             if (Capacity != 0)

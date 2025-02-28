@@ -23,10 +23,11 @@ namespace Wargon.Nukecs
                 {
                     query.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 }
-                archetypesMap.OnDeserialize(ref AllocatorWrapperRef);
+                archetypesMap.OnDeserialize(ref AllocatorRef, Allocator);
                 foreach (var kvPair in archetypesMap)
                 {
                     kvPair.Value.ptr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                    kvPair.Value.ptr.Ref.OnDeserialize(ref AllocatorRef, Allocator);
                 }
                 archetypesList.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 foreach (ref var ptr in archetypesList)
@@ -37,6 +38,7 @@ namespace Wargon.Nukecs
                 DefaultNoneTypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
             }
+            
             internal int Id;
             internal MemoryList<Entity> entities;
             internal MemoryList<Entity> prefabsToSpawn;
@@ -47,17 +49,15 @@ namespace Wargon.Nukecs
             internal MemoryList<ptr<QueryUnsafe>> queries;
             internal HashMap<int, Archetype> archetypesMap;
             internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
-
             internal WorldConfig config;
             internal EntityCommandBuffer ECBUpdate;
             internal JobHandle systemsUpdateJobDependencies;
-            internal JobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
             internal MemoryList<int> DefaultNoneTypes;
             internal int entitiesAmount;
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
-            internal Locking locking;
+            internal Spinner spinner;
             internal ptr<WorldUnsafe> selfPtr;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
@@ -86,7 +86,7 @@ namespace Wargon.Nukecs
             internal static ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize * 2.3) + 3 * 1024 * 1024;
+                var sizeToAllocate = (long)(cSize * 2) + 3 * 1024 * 1024;
                 var allocator = new UnityAllocatorHandler(sizeToAllocate);
                 
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
@@ -112,7 +112,6 @@ namespace Wargon.Nukecs
                 this.archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
                 this.config = worldConfig;
                 this.systemsUpdateJobDependencies = default;
-                this.systemsFixedUpdateJobDependencies = default;
                 this.DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorWrapperRef);
                 this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 this.entitiesAmount = 0;
@@ -120,20 +119,18 @@ namespace Wargon.Nukecs
                 this.poolsCount = 0;
                 this.lastDestroyedEntity = 0;
                 this.ECBUpdate = new EntityCommandBuffer(256, Allocator);
-                this.locking = Locking.Create(Allocator);
-                this.aspects = new Aspects(Allocator, id);
+                this.spinner = new Spinner();
+                this.aspects = new Aspects(ref AllocatorWrapperRef, id);
                 
                 this.selfPtr = worldSelf;
                 
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
-                
                 SetDefaultNone();
                 CreatePools();
                 CreateRootArchetype();
             }
-
             // [MethodImpl(MethodImplOptions.AggressiveInlining)]
             // internal QueryUnsafe* Query(bool withDefaultNoneTypes = true) {
             //     var ptr = QueryUnsafe.Create(self, withDefaultNoneTypes);
@@ -183,10 +180,29 @@ namespace Wargon.Nukecs
                 return ref pool;
             }
             
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal ref GenericPool GetElementUntypedPool(int poolIndex) {
+                ref var pool = ref pools.Ptr[poolIndex];
+                if (!pool.IsCreated) 
+                {
+                    spinner.Acquire();
+                    try {
+                        if (!pool.IsCreated) {
+                            pool = GenericPool.Create(ComponentTypeMap.GetComponentType(poolIndex, true), config.StartPoolSize, Self);
+                            poolsCount++;
+                        }
+                    }
+                    finally {
+                        spinner.Release();
+                    }
+                }
+                return ref pool;
+            }
+            
             //[BurstDiscard]
             private void AddPool<T>(ref GenericPool pool, int index) where T : unmanaged
             {
-                locking.Lock();
+                spinner.Acquire();
                 try {
                     if (!pool.IsCreated)
                     {
@@ -195,22 +211,21 @@ namespace Wargon.Nukecs
                     }
                 }
                 finally {
-                    locking.Unlock();
+                    spinner.Release();
                 }
             }
 
             private void AddPool(ref GenericPool pool, int index)
             {
-                locking.Lock();
+                spinner.Acquire();
                 try {
                     if (!pool.IsCreated) {
-                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize,
-                            Self);
+                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize, Self);
                         poolsCount++;
                     }
                 }
                 finally {
-                    locking.Unlock();
+                    spinner.Release();
                 }
             }
 

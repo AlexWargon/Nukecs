@@ -31,7 +31,10 @@ namespace Wargon.Nukecs
             {
                 AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, ptr, items);
             }
-
+            internal unsafe void _free(uint offset)
+            {
+                AllocatorRef.Free(offset);
+            }
             internal unsafe void _free(void* ptr)
             {
                 AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, ptr);

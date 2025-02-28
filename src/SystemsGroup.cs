@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public SystemsGroup Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
+        public unsafe SystemsGroup Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -40,7 +40,7 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref world);
+            runner.Query = *runner.System.GetQuery(ref world).Impl;
             runners.Add(runner);
             return this;
         }

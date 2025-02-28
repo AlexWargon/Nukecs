@@ -30,9 +30,9 @@
         {
             var list = new MemoryList<T>
             {
-                PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity)
+                PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity),
+                capacity = capacity
             };
-            list.capacity = capacity;
             list.Ptr = list.PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
             if (lenAsCapacity)
             {
