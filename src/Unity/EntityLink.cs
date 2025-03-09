@@ -41,17 +41,24 @@ namespace Wargon.Nukecs.Tests {
                         var childE = world.Entity();
                         ConvertComponent<SpriteRenderer>(childT, ref world, ref childE);
                         entity.AddChild(childE);
-                        Debug.Log(childT.name);
                     }
                     converted = true;
                     EntityPrefabMap.GetOrCreatePrefab(this, ref world);
                     Destroy(gameObject);
+                    world.SpawnPrefab(in entity);
                     break;
                 case EntityLinkOption.Hybrid:
+                    entity.Add(new TransformRef{ Value = transform });
+                    entity.Add(new Transforms.Transform
+                    {
+                        Position = transform.position,
+                        Rotation = transform.rotation,
+                        Scale = transform.lossyScale
+                    });
                     break;
             }
+            converted = true;
             
-            world.SpawnPrefab(in entity);
         }
 
         private static void ConvertComponent<T>(Transform transform, ref World world, ref Entity entity) where T : UnityEngine.Component {

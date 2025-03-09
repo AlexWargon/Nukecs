@@ -45,4 +45,9 @@ namespace Wargon.Nukecs.Transforms {
         public AspectData<Transform> Trasform;
         public AspectData<LocalTransform> LocalTransform;
     }
+
+    public struct TransformRef : IComponent
+    {
+        public UnityObjectRef<UnityEngine.Transform> Value;
+    }
 }

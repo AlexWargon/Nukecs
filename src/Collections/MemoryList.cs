@@ -5,7 +5,7 @@
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
-    
+
     public unsafe struct MemoryList<T> where T : unmanaged
     {
         internal ptr_offset PtrOffset;
@@ -13,10 +13,10 @@
         internal int length;
         [NativeDisableUnsafePtrRestriction]
         internal T* Ptr;
-        public MemoryList(int capacity, ref UnityAllocatorWrapper allocatorHandler, bool lenAsCapacity = false)
+        public MemoryList(int capacity, ref SerializableMemoryAllocator allocator, bool lenAsCapacity = false)
         {
-            PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity);
-            Ptr = PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
+            PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity);
+            Ptr = PtrOffset.AsPtr<T>(ref allocator);
             this.capacity = capacity;
             length = 0;
             if (lenAsCapacity)
@@ -58,24 +58,18 @@
             allocatorHandler.Allocator.Free(list);
         }
 
-
+        /// <summary>
+        /// No bound checks
+        /// </summary>
+        /// <param name="index"></param>
         public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref Ptr[index];
         }
         
-        public void Add(in T value, ref UnityAllocatorWrapper allocatorHandler)
+        public void Add(in T value, ref SerializableMemoryAllocator allocatorHandler)
         {
-            // var idx = list.m_length;
-            // if (list.m_length < list.m_capacity)
-            // {
-            //     list.Ptr[idx] = item;
-            //     list.m_length++;
-            //     return;
-            // }
-            // Resize(idx + 1, ref allocatorHandler);
-            // list.Ptr[idx] = item; 
             var idx = length;
             if (length < capacity)
             {
@@ -92,7 +86,11 @@
         {
             length = 0;
         }
-        
+        /// <summary>
+        /// No bound checks
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
         public ref T ElementAt(int index)
         {
             return ref Ptr[index];
@@ -114,13 +112,13 @@
             Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
         }
 
-        public void CopyFrom(ref MemoryList<T> other, ref UnityAllocatorWrapper allocatorHandler)
+        public void CopyFrom(ref MemoryList<T> other, ref SerializableMemoryAllocator allocatorHandler)
         {
             Resize(other.Length, ref allocatorHandler);
             UnsafeUtility.MemCpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
         }
         
-        public void Resize(int len, ref UnityAllocatorWrapper allocatorHandler)
+        public void Resize(int len, ref SerializableMemoryAllocator allocatorHandler)
         {
             if (len > Capacity)
             {
@@ -133,15 +131,15 @@
             return new Enumerator { Length = length, Index = -1, Ptr = Ptr };
         }
 
-        private void SetCapacity(int size, ref UnityAllocatorWrapper allocator)
+        private void SetCapacity(int size, ref SerializableMemoryAllocator allocator)
         {
-            //CollectionHelper.CheckCapacityInRange(capacity, Length);
+            Utils.CheckCapacityInRange(capacity, length);
 
             var sizeOf = sizeof(T);
             var newCapacity = math.max(size, CollectionHelper.CacheLineSize / sizeOf);
             newCapacity = math.ceilpow2(newCapacity);
 
-            if (newCapacity == Capacity)
+            if (newCapacity == capacity)
             {
                 return;
             }
@@ -149,7 +147,7 @@
             ResizeExact(ref allocator, newCapacity);
         }
         
-        private void ResizeExact(ref UnityAllocatorWrapper allocatorWrapper, int newCapacity)
+        private void ResizeExact(ref SerializableMemoryAllocator allocator, int newCapacity)
         {
             newCapacity = math.max(0, newCapacity);
 
@@ -159,17 +157,16 @@
 
             if (newCapacity > 0)
             {
-                var ptr = allocatorWrapper.Allocator.AllocateRaw(sizeOf * newCapacity);
-                newPointer = ptr.AsPtr<T>(ref allocatorWrapper.Allocator);
+                var ptr = allocator.AllocateRaw(sizeOf * newCapacity);
+                newPointer = ptr.AsPtr<T>(ref allocator);
                 if (Ptr != null && capacity > 0)
                 {
                     var itemsToCopy = math.min(newCapacity, capacity);
                     var bytesToCopy = itemsToCopy * sizeOf;
                     UnsafeUtility.MemCpy(newPointer, Ptr, bytesToCopy);
-                    //dbug.log($"bytesToCopy: {bytesToCopy}");
                 }
             }
-            allocatorWrapper.Allocator.Free(Ptr);
+            allocator.Free(Ptr);
             Ptr = newPointer;
             capacity = newCapacity;
             length = math.min(length, newCapacity);
@@ -219,6 +216,19 @@
         public static bool Contains<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {
             return list.IndexOf(value) != -1;
+        }
+    }
+
+    public static class Utils
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void CheckCapacityInRange(int capacity, int length)
+        {
+            if (capacity < 0)
+                throw new ArgumentOutOfRangeException($"NUKECS: Capacity {capacity} must be positive.");
+
+            if (capacity < length)
+                throw new ArgumentOutOfRangeException($"NUKECS: Capacity {capacity} is out of range in container of '{length}' Length.");
         }
     }
 }

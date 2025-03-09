@@ -91,7 +91,7 @@ public unsafe partial struct World
                 // archetypesList.Dispose();
                 // archetypesMap.Dispose();
                 poolsCount = 0;
-                EntityCommandBuffer.Dispose();
+                //EntityCommandBuffer.Dispose();
                 // DefaultNoneTypes.Dispose();
                 // reservedEntities.Dispose();
                 // prefabsToSpawn.Dispose();

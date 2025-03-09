@@ -10,61 +10,60 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
     
-    public unsafe struct Query : IDisposable {
+    public readonly unsafe struct Query : IDisposable {
         [NativeDisableUnsafePtrRestriction]
-        internal ptr<QueryUnsafe>* Impl;
+        internal readonly QueryUnsafe* InternalPointer;
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Impl->Ptr->count;
+            get => InternalPointer->count;
         }
-        internal int CountMulti => Impl->Ptr->count / Impl->Ptr->world->job_worker_count;
-        public bool IsValid {
+        internal int CountMulti => InternalPointer->count / InternalPointer->world->job_worker_count;
+        public bool IsValid
+        {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Impl->Ptr !=null && Impl->Ptr->IsCreated;
+            get => InternalPointer != null;
         }
         internal Query(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
         {
-            //impl = world->_allocate<ptr<QueryUnsafe>>();
-            Impl = QueryUnsafe.CreatePtrPtr(world, withDefaultNoneTypes);
+            InternalPointer = QueryUnsafe.Create(world, withDefaultNoneTypes);
         }
 
-
-        internal Query(ptr<QueryUnsafe>* query)
+        internal Query(ptr<QueryUnsafe> query)
         {
-            this.Impl = query;
+            InternalPointer = query.Ptr;
         }
 
         public Query With<T>() where T :  unmanaged, IComponent {
-            Impl->Ptr->With(ComponentType<T>.Index);
+            InternalPointer->With(ComponentType<T>.Index);
             return this;
         }
         public Query WithArray<T>() where T : unmanaged, IArrayComponent {
-            Impl->Ptr->With(ComponentType<ComponentArray<T>>.Index);
+            InternalPointer->With(ComponentType<ComponentArray<T>>.Index);
             return this;
         }
         public Query None<T>() where T : unmanaged, IComponent {
-            Impl->Ptr->None(ComponentType<T>.Index);
+            InternalPointer->None(ComponentType<T>.Index);
             return this;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
-            return ref Impl->Ptr->world->entities.Ptr[Impl->Ptr->entities.Ptr[index]];
+            return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[index]];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index) {
-            return Impl->Ptr->entities.ElementAt(index);
+            return InternalPointer->entities.ElementAt(index);
         }
         public void Dispose() {
-            var allocator = Impl->Ptr->world->Allocator;
-            Unsafe.FreeTracked(Impl, allocator);
+            //var allocator = InternalPointer->world->Allocator;
+            //Unsafe.FreeTracked(InternalPointer, allocator);
         }
 
         public override string ToString() {
-            return Impl->Ptr->ToString();
+            return InternalPointer->ToString();
         }
 
         public QueryEnumerator GetEnumerator() {
-            return new QueryEnumerator(Impl->Ptr);
+            return new QueryEnumerator(InternalPointer);
         }
     }
 
@@ -103,21 +102,19 @@ namespace Wargon.Nukecs {
             ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);
             return ptr;
         }
-        internal static ptr<QueryUnsafe>* CreatePtrPtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        internal static ptr<QueryUnsafe> CreatePtrPtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
         {
-            var ptrPtr = Unsafe.MallocTracked<ptr<QueryUnsafe>>(Allocator.Persistent);
             var ptr = world->_allocate_ptr<QueryUnsafe>();
             ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);
-            *ptrPtr = ptr;
-            return ptrPtr;
+            return ptr;
         }
         internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
             this.world = world;
             this.with = DynamicBitmask.CreateForComponents(world);
             this.none = DynamicBitmask.CreateForComponents(world);
             this.count = 0;
-            this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorWrapperRef, true);
-            this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorWrapperRef, true);
+            this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
+            this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
             this.Id = world->queries.Length;
             this.self = self;
             if (withDefaultNoneTypes) {
