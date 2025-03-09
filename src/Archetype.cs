@@ -115,7 +115,7 @@ namespace Wargon.Nukecs
                 types = new UnsafeList<int>(1, world->Allocator);
             }
 
-            queries = new MemoryList<int>(8, ref this.world->AllocatorWrapperRef);
+            queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
             transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             destroyEdge = default;
             PopulateQueries(world);
@@ -138,7 +138,7 @@ namespace Wargon.Nukecs
             }
 
             id = GetHashCode(ref typesSpan);
-            queries = new MemoryList<int>(8, ref this.world->AllocatorWrapperRef);
+            queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
             transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             destroyEdge = default;
 
@@ -171,9 +171,8 @@ namespace Wargon.Nukecs
                 var q = world->queries[i];
                 var matches = 0;
                 var hasNone = false;
-                for (var index = 0; index < types.Length; index++)
+                foreach (var type in types)
                 {
-                    var type = types[index];
                     if (q.Ptr->HasNone(type))
                     {
                         hasNone = true;
@@ -182,15 +181,14 @@ namespace Wargon.Nukecs
                 }
 
                 if (hasNone) continue;
-                for (var index = 0; index < types.Length; index++)
+                foreach (var type in types)
                 {
-                    var type = types[index];
                     if (q.Ptr->HasWith(type))
                     {
                         matches++;
                         if (matches == q.Ptr->with.Count)
                         {
-                            queries.Add(q.Ptr->Id, ref this.world->AllocatorWrapperRef);
+                            queries.Add(q.Ptr->Id, ref this.world->AllocatorRef);
                             break;
                         }
                     }
@@ -200,9 +198,9 @@ namespace Wargon.Nukecs
 
         private Edge CreateDestroyEdge()
         {
-            var edge = new Edge(ref world->AllocatorWrapperRef);
+            var edge = new Edge(ref world->AllocatorRef);
             for (var i = 0; i < queries.Length; i++)
-                edge.RemoveEntity.Add(in Query(queries.ElementAt(i)), ref world->AllocatorWrapperRef);
+                edge.RemoveEntity.Add(in Query(queries.ElementAt(i)), ref world->AllocatorRef);
             return edge;
         }
 
@@ -309,21 +307,21 @@ namespace Wargon.Nukecs
 
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
             var otherArchetype = otherArchetypeStruct.impl;
-            var otherEdge = new Edge(ref otherArchetypeStruct, ref world->AllocatorWrapperRef);
+            var otherEdge = new Edge(ref otherArchetypeStruct, ref world->AllocatorRef);
 
             for (var index = 0; index < queries.Length; index++)
             {
                 var t = queries[index];
                 ref var thisQuery = ref Query(t);
                 if (otherArchetype->queries.Contains(thisQuery.Ref.Id) == false)
-                    otherEdge.RemoveEntity.Add(thisQuery, ref world->AllocatorWrapperRef);
+                    otherEdge.RemoveEntity.Add(thisQuery, ref world->AllocatorRef);
             }
 
             for (var index = 0; index < otherArchetype->queries.Length; index++)
             {
                 ref var otherQuery = ref Query(otherArchetype->queries[index]);
                 if (queries.Contains(otherQuery.Ref.Id) == false)
-                    otherEdge.AddEntity.Add(otherQuery, ref world->AllocatorWrapperRef);
+                    otherEdge.AddEntity.Add(otherQuery, ref world->AllocatorRef);
             }
 
             var ptr = world->_allocate_ptr<Edge>();
@@ -449,7 +447,7 @@ namespace Wargon.Nukecs
         [NativeDisableUnsafePtrRestriction] internal ArchetypeUnsafe* ToMovePtr;
         internal readonly Archetype ToMove;
 
-        public Edge(ref Archetype archetype, ref UnityAllocatorWrapper allocator)
+        public Edge(ref Archetype archetype, ref SerializableMemoryAllocator allocator)
         {
             ToMovePtr = archetype.impl;
             ToMove = archetype;
@@ -457,26 +455,13 @@ namespace Wargon.Nukecs
             RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
         }
 
-        public Edge(ref UnityAllocatorWrapper allocator)
+        public Edge(ref SerializableMemoryAllocator allocator)
         {
             AddEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
             RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            ToMovePtr = null;
+            ToMovePtr = default;
             ToMove = default;
         }
-        // public Edge(ref Archetype archetype, Allocator allocator) {
-        //     ToMovePtr = archetype.impl;
-        //     ToMove = archetype;
-        //     AddEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-        //     RemoveEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-        // }
-        //
-        // public Edge(Allocator allocator) {
-        //     AddEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-        //     RemoveEntity = UnsafePtrList<QueryUnsafe>.Create(8, allocator);
-        //     ToMovePtr = null;
-        //     ToMove = default;
-        // }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Execute(int entity)
@@ -490,6 +475,19 @@ namespace Wargon.Nukecs
         {
             //UnsafePtrList<QueryUnsafe>.Destroy(AddEntity);
             //UnsafePtrList<QueryUnsafe>.Destroy(RemoveEntity);
+        }
+
+        public void OnDeserialize(ref SerializableMemoryAllocator allocator)
+        {
+            foreach (ref var ptr in AddEntity)
+            {
+                ptr.OnDeserialize(ref allocator);
+            }
+
+            foreach (ref var ptr in RemoveEntity)
+            {
+                ptr.OnDeserialize(ref allocator);
+            }
         }
     }
 }

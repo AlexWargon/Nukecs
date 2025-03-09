@@ -74,24 +74,20 @@ namespace Wargon.Nukecs
             internal static WorldUnsafe* Create(int id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize * 2.3) + 3 * 1024 * 1024;
+                var sizeToAllocate = (long)(cSize) + 3 * 1024 * 1024;
                 var allocator = new UnityAllocatorHandler(sizeToAllocate);
-                
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
-                
                 ptr.Ptr->Initialize(id, config, ptr, ref allocator);
                 return ptr.Ptr;
             }
             internal static ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize * 2) + 3 * 1024 * 1024;
+                var sizeToAllocate = (long)(cSize) + 3 * 1024 * 1024;
                 var allocator = new UnityAllocatorHandler(sizeToAllocate);
-                
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
-                
                 ptr.Ref.Initialize(id, config, ptr, ref allocator);
                 return ptr;
             }
@@ -102,17 +98,18 @@ namespace Wargon.Nukecs
                     this.AllocatorHandler = allocatorHandler;
                 }
 
-                this.entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorWrapperRef, true);
-                this.prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorWrapperRef);
-                this.reservedEntities = new MemoryList<int>(128, ref AllocatorHandler.AllocatorWrapper);
-                this.entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorWrapperRef);
-                this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorWrapperRef);
-                this.queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorWrapperRef);
-                this.archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorWrapperRef);
+                this.entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true);
+                this.prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef);
+                this.reservedEntities = new MemoryList<int>(128, ref AllocatorRef);
+                this.entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorRef);
+                this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef);
+                this.queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef);
+                this.archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef);
                 this.archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                this.DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef);
                 this.config = worldConfig;
                 this.systemsUpdateJobDependencies = default;
-                this.DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorWrapperRef);
+                
                 this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 this.entitiesAmount = 0;
                 this.lastEntityIndex = 1;
@@ -120,7 +117,7 @@ namespace Wargon.Nukecs
                 this.lastDestroyedEntity = 0;
                 this.EntityCommandBuffer = new EntityCommandBuffer(256, Allocator);
                 this.spinner = new Spinner();
-                this.aspects = new Aspects(ref AllocatorWrapperRef, id);
+                this.aspects = new Aspects(ref AllocatorRef, id);
                 
                 this.selfPtr = worldSelf;
                 
@@ -131,17 +128,11 @@ namespace Wargon.Nukecs
                 //CreatePools();
                 CreateRootArchetype();
             }
-            // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            // internal QueryUnsafe* Query(bool withDefaultNoneTypes = true) {
-            //     var ptr = QueryUnsafe.Create(self, withDefaultNoneTypes);
-            //     queries.Add(ptr);
-            //     return ptr;
-            // }
 
-            internal ptr<QueryUnsafe>* QueryPtr(bool withDefaultNoneTypes = true)
+            internal ptr<QueryUnsafe> CreateQueryPtr(bool withDefaultNoneTypes = true)
             {
                 var ptr = QueryUnsafe.CreatePtrPtr(Self, withDefaultNoneTypes);
-                queries.Add(*ptr, ref AllocatorWrapperRef);
+                queries.Add(ptr, ref AllocatorRef);
                 return ptr;
             }
             
@@ -155,8 +146,8 @@ namespace Wargon.Nukecs
             }
             
             private void SetDefaultNone() {
-                DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index, ref AllocatorWrapperRef);
-                DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index, ref AllocatorWrapperRef);
+                DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index, ref AllocatorRef);
+                DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index, ref AllocatorRef);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -165,7 +156,7 @@ namespace Wargon.Nukecs
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
-                    AddPool<T>(ref pool, poolIndex);
+                    AddPool<T>(ref pool);
                 }
                 return ref pool;
             }
@@ -200,7 +191,7 @@ namespace Wargon.Nukecs
             }
             
             //[BurstDiscard]
-            private void AddPool<T>(ref GenericPool pool, int index) where T : unmanaged
+            private void AddPool<T>(ref GenericPool pool) where T : unmanaged
             {
                 spinner.Acquire();
                 try {
@@ -250,8 +241,8 @@ namespace Wargon.Nukecs
             internal Entity CreateEntity() {
                 if (lastEntityIndex >= entities.Capacity) {
                     var newCapacity = lastEntityIndex * 2;
-                    entities.Resize(newCapacity, ref AllocatorWrapperRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorWrapperRef);
+                    entities.Resize(newCapacity, ref AllocatorRef);
+                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     // UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
                     // UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
@@ -274,8 +265,8 @@ namespace Wargon.Nukecs
             internal Entity CreateEntity(int archetype) {
                 if (lastEntityIndex >= entities.capacity) {
                     var newCapacity = lastEntityIndex * 2;
-                    entities.Resize(newCapacity, ref AllocatorWrapperRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorWrapperRef);
+                    entities.Resize(newCapacity, ref AllocatorRef);
+                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                 }
 
                 entitiesAmount++;
@@ -296,7 +287,7 @@ namespace Wargon.Nukecs
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
                 entities.Ptr[entity] = Nukecs.Entity.Null;
-                reservedEntities.Add(entity, ref AllocatorWrapperRef);
+                reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
             }
@@ -344,7 +335,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Entity SpawnPrefab(in Entity prefab) {
                 var e = prefab.Copy();
-                prefabsToSpawn.Add(e, ref AllocatorWrapperRef);
+                prefabsToSpawn.Add(e, ref AllocatorRef);
                 return e;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -356,7 +347,7 @@ namespace Wargon.Nukecs
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, types);
                 Archetype archetype;
                 archetype.ptr = ptr;
-                archetypesList.Add(in ptr, ref AllocatorWrapperRef);
+                archetypesList.Add(in ptr, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
@@ -365,7 +356,7 @@ namespace Wargon.Nukecs
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, copyList);
                 Archetype archetype;
                 archetype.ptr = ptr;
-                archetypesList.Add(in ptr, ref AllocatorWrapperRef);
+                archetypesList.Add(in ptr, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
@@ -374,7 +365,7 @@ namespace Wargon.Nukecs
                 var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types);
                 archetype = new Archetype();
                 archetype.ptr = archetypePtr;
-                archetypesList.Add(in archetypePtr, ref AllocatorWrapperRef);
+                archetypesList.Add(in archetypePtr, ref AllocatorRef);
                 archetypesMap[archetypePtr.Ptr->id] = archetype;
                 //return archetype;
             }
@@ -383,7 +374,7 @@ namespace Wargon.Nukecs
                 var ptr = ArchetypeUnsafe.CreatePtr(Self);
                 Archetype archetype;
                 archetype.ptr = ptr;
-                archetypesList.Add(in ptr, ref AllocatorWrapperRef);
+                archetypesList.Add(in ptr, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }

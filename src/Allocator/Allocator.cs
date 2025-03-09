@@ -364,4 +364,16 @@ namespace Wargon.Nukecs
     {
         void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator);
     }
+
+    namespace Allocators
+    {
+        public enum Allocator
+        {
+            World,
+            OneFrame,
+            UnityPersistnace,
+            UnityTemp,
+            UnityJobs
+        }
+    }
 }

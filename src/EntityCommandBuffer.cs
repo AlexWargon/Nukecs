@@ -16,25 +16,29 @@ namespace Wargon.Nukecs {
         public int Count => ecb->count;
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
         internal int ThreadIndex => JobsUtility.ThreadIndex;
-
-        public EntityCommandBuffer(int startSize) {
+        internal Allocator Allocator;
+        public EntityCommandBuffer(int startSize)
+        {
+            Allocator = Allocator.Persistent;
             ecb = (ECBInternal*) UnsafeUtility.Malloc(sizeof(ECBInternal), UnsafeUtility.AlignOf<ECBInternal>(),
-                Allocator.Persistent);
+                Allocator);
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
-            ecb->perThreadBuffer = Chains(startSize, Allocator.Persistent);
+            ecb->perThreadBuffer = Chains(startSize, Allocator);
             ecb->isCreated = 1;
         }
         public EntityCommandBuffer(int startSize, Allocator allocator)
         {
-            ecb = (ECBInternal*)AllocatorManager.Allocate(allocator, sizeof(ECBInternal),
+            Allocator = allocator;
+            ecb = (ECBInternal*)AllocatorManager.Allocate(Allocator, sizeof(ECBInternal),
                 UnsafeUtility.AlignOf<ECBInternal>());
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
-            ecb->perThreadBuffer = Chains(startSize, allocator);
+            ecb->perThreadBuffer = Chains(startSize, Allocator);
             ecb->isCreated = 1;
         }
         internal EntityCommandBuffer(int startSize, World.WorldUnsafe* world) {
+            Allocator = world->Allocator;
             ecb = world->_allocate<ECBInternal>();
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
@@ -500,7 +504,7 @@ namespace Wargon.Nukecs {
         }
         public void Dispose() {
             ecb->Dispose();
-            UnsafeUtility.Free(ecb, Allocator.Persistent);
+            UnsafeUtility.Free(ecb, Allocator);
         }
     }
 }

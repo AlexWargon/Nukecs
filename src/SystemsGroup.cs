@@ -40,7 +40,7 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = *runner.System.GetQuery(ref world).Impl;
+            runner.Query = runner.System.GetQuery(ref world).InternalPointer;
             runners.Add(runner);
             return this;
         }

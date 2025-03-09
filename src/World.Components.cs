@@ -12,9 +12,9 @@ namespace Wargon.Nukecs {
             internal MemoryList<int> defaultNoneTypes;
 
             internal Components(ref WorldConfig config, WorldUnsafe* world) {
-                this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref world->AllocatorWrapperRef, true);
+                this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref world->AllocatorRef, true);
                 poolsCount = 0;
-                this.defaultNoneTypes = new MemoryList<int>(12, ref world->AllocatorWrapperRef);
+                this.defaultNoneTypes = new MemoryList<int>(12, ref world->AllocatorRef);
                 InitializeDefaultComponents();
                 CreatePools(ref config, world);
             }

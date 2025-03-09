@@ -87,11 +87,11 @@ namespace Wargon.Nukecs
         public static void DisposeStatic()
         {
             ComponentTypeMap.Dispose();
-            ComponentTypeMap.Save();
+            //ComponentTypeMap.Save();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
-            WorldSystems.Dispose();
+            //WorldSystems.Dispose();
         }
     }
 }

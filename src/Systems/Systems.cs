@@ -75,7 +75,7 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = *runner.System.GetQuery(ref world).Impl;
+            runner.Query = runner.System.GetQuery(ref world).InternalPointer;
             runners.Add(runner);
             return this;
         }
@@ -92,7 +92,7 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             _systemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
-            runner.Query = *runner.System.GetQuery(ref world).Impl;
+            runner.Query = runner.System.GetQuery(ref world).InternalPointer;
             runners.Add(runner);
             return this;
         }
@@ -228,7 +228,7 @@ namespace Wargon.Nukecs
                 Mode = systemMode,
                 EcbJob = default
             };
-            runner.Query = *runner.System.GetQuery(ref systems.world).Impl;
+            runner.Query = runner.System.GetQuery(ref systems.world).InternalPointer;
             systems.runners.Add(runner);
             return systems;
         }
@@ -486,7 +486,7 @@ namespace Wargon.Nukecs
                     for (var i = begin; i < end; i++) {
                         unsafe
                         {
-                            var e = fullData.query.Impl->Ptr->GetEntityID(i);
+                            var e = fullData.query.InternalPointer->GetEntityID(i);
                             fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), ref fullData.State);
                         }
                     }
