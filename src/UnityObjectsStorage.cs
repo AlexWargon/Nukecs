@@ -146,7 +146,7 @@ namespace Wargon.Nukecs {
                 return null;
             return (T) Resources.InstanceIDToObject(unityObjectRef.Id.instanceId);
         }
-
+        
         /// <summary>
         /// Object being referenced by this <see cref="UnityObjectRef{T}"/>.
         /// </summary>
