@@ -5,6 +5,10 @@ namespace Wargon.Nukecs.Tests {
     public static class EntityPrefabMap {
         private static Dictionary<int, Entity> Map = new Dictionary<int, Entity>();
 
+        static EntityPrefabMap()
+        {
+            StaticAllocations.AddDisposable(Clear);
+        }
         public static void Clear() {
             Map.Clear();
         }

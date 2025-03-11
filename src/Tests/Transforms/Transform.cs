@@ -1,5 +1,8 @@
 ﻿
 
+using Unity.Collections;
+using UnityEngine.Jobs;
+
 namespace Wargon.Nukecs.Transforms {
     using System;
     using System.Runtime.CompilerServices;
@@ -46,8 +49,44 @@ namespace Wargon.Nukecs.Transforms {
         public AspectData<LocalTransform> LocalTransform;
     }
 
-    public struct TransformRef : IComponent
+    // public struct TransformsQuery
+    // {
+    //     public TransformAccessArray TransformAccess;
+    //     public NativeHashMap<int, int> entityToIndex;
+    //     public void Add(int entity, int instanceID)
+    //     {
+    //         if (entityToIndex.ContainsKey(entity)) return; // Уже добавлен
+    //
+    //         int index = TransformAccess.length;
+    //         TransformAccess.Add(instanceID);
+    //         entityToIndex[entity] = index;
+    //     }
+    //     public void Remove(int entity)
+    //     {
+    //         if (!entityToIndex.TryGetValue(entity, out int index)) return;
+    //
+    //         int lastIndex = TransformAccess.length - 1;
+    //         if (index != lastIndex)
+    //         {
+    //             TransformAccess[index] = TransformAccess[lastIndex]; // Перемещаем последний элемент
+    //             int lastEntity = entityToIndex.FirstOrDefault(e => e.Value == lastIndex).Key;
+    //             entityToIndex[lastEntity] = index;
+    //         }
+    //
+    //         TransformAccess.RemoveAtSwapBack(lastIndex);
+    //         entityToIndex.Remove(entity);
+    //     }
+    // }
+    public struct TransformRef : IComponent, ICopyable<TransformRef>
     {
-        public UnityObjectRef<UnityEngine.Transform> Value;
+        public ObjectRef<UnityEngine.Transform> Value;
+        public TransformRef Copy(int to)
+        {
+            var go = UnityEngine.Object.Instantiate(Value.Value.gameObject);
+            return new TransformRef
+            {
+                Value = go.transform
+            };
+        }
     }
 }
