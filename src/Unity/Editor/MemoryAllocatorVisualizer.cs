@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿#if UNITY_EDITOR
+using System.Linq;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
 using UnityEngine;
@@ -20,7 +21,7 @@ namespace Wargon.Nukecs
             {
                 EditorGUILayout.HelpBox("No allocator found. Please assign one to debug.", MessageType.Warning);
                 if (GUILayout.Button("Initialize Allocator (Test)"))
-                    allocator = world.UnsafeWorld->AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
+                    allocator = world.AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
                 return;
             }
 
@@ -171,3 +172,4 @@ namespace Wargon.Nukecs
         }
     }
 }
+#endif

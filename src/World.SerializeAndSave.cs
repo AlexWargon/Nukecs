@@ -4,12 +4,12 @@
     {
         public byte[] Serialize()
         {
-            return UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.Serialize();
+            return UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastSerialize();
         }
 
         public void Deserialize(byte[] data)
         {
-            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.Deserialize(data);
+            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastDeserialize(data);
         }
 
         public void SaveToFile(string path)
@@ -56,5 +56,6 @@
             await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.SaveToFileAsync(path);
             
         }
+
     }
 }

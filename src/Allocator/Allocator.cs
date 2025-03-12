@@ -21,7 +21,7 @@ namespace Wargon.Nukecs
         private const int ALIGNMENT = 16;
         public const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
         [StructLayout(LayoutKind.Sequential)]
-        internal struct MemoryBlock
+        public struct MemoryBlock
         {
             public long Pointer;
             public int Size;
@@ -46,7 +46,7 @@ namespace Wargon.Nukecs
             set => totalSize = value;
         }
 
-        internal MemoryBlock* Blocks
+        public MemoryBlock* Blocks
         {
             get => blocks;
             set => blocks = value;
@@ -355,8 +355,8 @@ namespace Wargon.Nukecs
 
     public class MemoryView
     {
-        internal unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
-        internal int BlockCount;
+        public unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
+        public int BlockCount;
     }
 
     
