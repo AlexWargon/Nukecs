@@ -10,7 +10,7 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
-        internal partial struct WorldUnsafe {
+        public partial struct WorldUnsafe {
             internal void OnDeserialize()
             {
                 entities.OnDeserialize(ref AllocatorWrapperRef.Allocator);

@@ -2,7 +2,7 @@
 using Unity.Burst;
 
 namespace Wargon.Nukecs.Tests {
-    public struct Singleton<T> where T: unmanaged, IInit 
+    public struct Singleton<T> where T : unmanaged,IInit 
     {
         private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();
         public static ref T Instance

@@ -19,7 +19,7 @@ namespace Wargon.Nukecs
     {
         internal ptr<WorldUnsafe> UnsafeWorldPtr;
 
-        internal WorldUnsafe* UnsafeWorld
+        public WorldUnsafe* UnsafeWorld
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => UnsafeWorldPtr.Ptr;

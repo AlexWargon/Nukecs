@@ -6,7 +6,7 @@ namespace Wargon.Nukecs
 {
 public unsafe partial struct World
     {
-        internal unsafe partial struct WorldUnsafe
+        public unsafe partial struct WorldUnsafe
         {
             public void Free()
             {

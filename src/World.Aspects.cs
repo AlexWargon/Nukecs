@@ -8,7 +8,7 @@ namespace Wargon.Nukecs
 {
     public partial struct World
     {
-        internal unsafe partial struct WorldUnsafe
+        public unsafe partial struct WorldUnsafe
         {
             internal Aspects aspects;
             internal T* GetAspect<T>() where T : unmanaged, IAspect<T>, IAspect
@@ -61,5 +61,16 @@ namespace Wargon.Nukecs
                 aspects.Dispose();
             }
         }
+    }
+
+    public struct Rollbacks
+    {
+        private byte[][] rollbacks;
+
+        public Rollbacks(int length)
+        {
+            rollbacks = new byte[length][];
+        }
+
     }
 }

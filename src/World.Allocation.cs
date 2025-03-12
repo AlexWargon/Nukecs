@@ -5,7 +5,7 @@ namespace Wargon.Nukecs
 {
     public partial struct World
     {
-        internal unsafe partial struct WorldUnsafe
+        public unsafe partial struct WorldUnsafe
         {
             internal unsafe void* _allocate_for_pool(int size, int alignment, ComponentType componentType, int items = 1)
             {

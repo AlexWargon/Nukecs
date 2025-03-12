@@ -12,48 +12,51 @@ namespace Wargon.Nukecs
     public class WorldInstaller : MonoBehaviour
     {
         [ReadOnly][SerializeField] private int WorldId;
-        protected World World;
+        protected World world;
+        public ref World World => ref world;
         protected Systems Systems;
         protected WorldConfig Config = WorldConfig.Default16384;
 
         private unsafe void Awake()
         {
-            World = World.Create(Config);
-            Systems = new Systems(ref World);
-            Systems.AddDefaults().Add<RotateCubeSystem>().Add<SyncTransformsSystem>();;
-            OnWorldCreated(ref World);
-            for (var i = 0; i < World.UnsafeWorld->archetypesList.Length; i++)
+            world = World.Create(Config);
+            Systems = new Systems(ref world);
+            Systems.AddDefaults();
+            OnWorldCreated(ref world);
+            for (var i = 0; i < world.UnsafeWorld->archetypesList.Length; i++)
             {
-                ref var archetype = ref World.UnsafeWorld->archetypesList[i];
+                ref var archetype = ref world.UnsafeWorld->archetypesList[i];
                 archetype.Ptr->Refresh();
             }
             ConvertEntities();
-            World.Update();
-            WorldId = World.UnsafeWorld->Id;
+            CreateEntities(ref world);
+            world.Update();
+            WorldId = world.UnsafeWorld->Id;
+            
         }
 
         protected virtual void OnWorldCreated(ref World world)
         {
             
         }
-        
+
+        protected virtual void CreateEntities(ref World world)
+        {
+            
+        }
         protected virtual void ConvertEntities()
         {
             var children = transform.GetComponentsInChildren<EntityLink>();
             for (int i = 0; i < transform.childCount; i++)
             {
-                var e = World.Entity();
-                children[i].Convert(ref World, ref e);
+                var e = world.Entity();
+                children[i].Convert(ref world, ref e);
             }
         }
-        
-        private void Update()
+
+        protected virtual void OnDestroy()
         {
-            Systems.OnUpdate(Time.deltaTime, Time.time);
-        }
-        private void OnDestroy()
-        {
-            World.Dispose();
+            world.Dispose();
         }
     }
     
