@@ -25,6 +25,7 @@ namespace Wargon.Nukecs
             get => UnsafeWorldPtr.Ptr;
         }
         internal ref WorldUnsafe UnsafeWorldRef => ref UnsafeWorldPtr.Ref;
+        public int Id => UnsafeWorld->Id;
         public bool IsAlive => UnsafeWorld != null;
         public WorldConfig Config => UnsafeWorld->config;
         public Allocator Allocator => UnsafeWorld->Allocator;

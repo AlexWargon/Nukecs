@@ -1,4 +1,6 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -21,6 +23,7 @@ namespace Wargon.Nukecs
         {
             allocatorHelper = new AllocatorHelper<UnityAllocatorWrapper>(backgroundAllocator);
             AllocatorWrapper.Initialize(initialValue);
+            using var d = new NativeReference<int>(AllocatorWrapper.ToAllocator);
         }
         private void DisposeAllocator()
         {
@@ -33,11 +36,12 @@ namespace Wargon.Nukecs
         {
             this = default;
             CreateCustomAllocator(Allocator.Persistent, sizeInBytes);
-            dbug.log($"Allocator created with {sizeInBytes} bytes buffer");
+            //dbug.log($"Allocator created with {sizeInBytes} bytes buffer");
         }
         public void Dispose()
         {
             DisposeAllocator();
         }
+
     }
 }

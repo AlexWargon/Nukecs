@@ -89,4 +89,21 @@ namespace Wargon.Nukecs.Transforms {
             };
         }
     }
+
+    public struct ClearTransformsSystem : ISystem, IOnCreate
+    {
+        private Query query;
+        public void OnCreate(ref World world)
+        {
+            query = world.Query(false).With<DestroyEntity>().With<TransformRef>();
+        }
+
+        public void OnUpdate(ref State state)
+        {
+            foreach (ref var entity in query)
+            {
+                UnityEngine.Object.Destroy(entity.Get<TransformRef>().Value.Value.gameObject);
+            }
+        }
+    }
 }

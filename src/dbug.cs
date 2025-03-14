@@ -1,15 +1,22 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Burst;
+using UnityEngine;
 
 namespace Wargon.Nukecs
 {
     public static class dbug
     {
+        private static string hexColor;
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void log(object massage)
         {
             UnityEngine.Debug.Log(massage);
+        }
+        public static void log(string message, Color color)
+        {
+            hexColor = ColorUtility.ToHtmlStringRGB(color);
+            Debug.Log($"<color=#{hexColor}>{message}</color>");
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
