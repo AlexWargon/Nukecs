@@ -27,7 +27,8 @@ namespace Wargon.Nukecs.Tests {
             if(converted) return;
             foreach (var component in components)
             {
-                entity.AddObject(component);
+                if(component != null)
+                    entity.AddObject(component);
             }
             foreach (var customConvertor in convertors) {
                 customConvertor.Convert(ref world,ref entity);

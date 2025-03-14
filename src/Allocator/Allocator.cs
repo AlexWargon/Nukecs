@@ -99,13 +99,11 @@ namespace Wargon.Nukecs
 
                     block.Size = (int)size;
                     block.IsUsed = true;
-                    //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
                     spinner.Release();
                     return (IntPtr)(basePtr + block.Pointer);
                 }
             }
             spinner.Release();
-            //dbug.error($"Allocator failed allocate {size} bytes. Not free Blocks");
             error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
             
             return IntPtr.Zero;
@@ -127,7 +125,6 @@ namespace Wargon.Nukecs
 
                     block.Size = (int)size;
                     block.IsUsed = true;
-                    //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
                     spinner.Release();
                     return new ptr_offset( 0, (uint)block.Pointer);
                 }
@@ -158,7 +155,6 @@ namespace Wargon.Nukecs
 
                     block.Size = (int)size;
                     block.IsUsed = true;
-                    //Debug.Log($"Allocated {size} bytes ({((float)size/1048576):F} Megabytes) ");
                     spinner.Release();
                     return new ptr<T>(basePtr,(uint)block.Pointer);
                 }
@@ -199,7 +195,6 @@ namespace Wargon.Nukecs
                 {
                     block.IsUsed = false;
                     spinner.Release();
-                    //dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
                     return;
                 }
             }
@@ -219,7 +214,6 @@ namespace Wargon.Nukecs
                 {
                     block.IsUsed = false;
                     spinner.Release();
-                    //dbug.log($"Allocator Free {block.Size} bytes at offset {block.Pointer}. Pointer {(int)ptr}");
                     return;
                 }
             }
@@ -265,8 +259,6 @@ namespace Wargon.Nukecs
 
         private void RemoveBlock(int index)
         {
-            //var block = blocks[index];
-            //dbug.log($"Removing {block.Size} bytes at offset {block.Pointer}. Pointer {(int)basePtr + block.Pointer}");
             for (var i = index; i < blockCount - 1; i++)
             {
                 blocks[i] = blocks[i + 1];
@@ -323,34 +315,34 @@ namespace Wargon.Nukecs
             };
         }
         
-        public void DebugView()
-        {
-            dbug.log("========== Memory Allocator Debug View ==========");
-            dbug.log($"Total Memory: {totalSize} bytes");
-            dbug.log($"Block Count: {blockCount}");
-            dbug.log($"Defragmentation Cycles: {defragmentationCount}");
-
-            long usedSize = 0;
-            long freeSize = totalSize;
-
-            for (int i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                string status = block.IsUsed ? "Used" : "Free";
-                usedSize += block.IsUsed ? block.Size : 0;
-                freeSize -= block.IsUsed ? block.Size : 0;
-
-                dbug.log($"Block {i}:");
-                dbug.log($"  Offset: {block.Pointer}");
-                dbug.log($"  Size: {block.Size} bytes");
-                dbug.log($"  Status: {status}");
-            }
-
-            dbug.log("------------------------------------------------");
-            dbug.log($"Used Memory: {usedSize} bytes");
-            dbug.log($"Free Memory: {freeSize} bytes");
-            dbug.log("================================================");
-        }
+        // public void DebugView()
+        // {
+        //     dbug.log("========== Memory Allocator Debug View ==========");
+        //     dbug.log($"Total Memory: {totalSize} bytes");
+        //     dbug.log($"Block Count: {blockCount}");
+        //     dbug.log($"Defragmentation Cycles: {defragmentationCount}");
+        //
+        //     long usedSize = 0;
+        //     long freeSize = totalSize;
+        //
+        //     for (int i = 0; i < blockCount; i++)
+        //     {
+        //         ref var block = ref blocks[i];
+        //         string status = block.IsUsed ? "Used" : "Free";
+        //         usedSize += block.IsUsed ? block.Size : 0;
+        //         freeSize -= block.IsUsed ? block.Size : 0;
+        //
+        //         dbug.log($"Block {i}:");
+        //         dbug.log($"  Offset: {block.Pointer}");
+        //         dbug.log($"  Size: {block.Size} bytes");
+        //         dbug.log($"  Status: {status}");
+        //     }
+        //
+        //     dbug.log("------------------------------------------------");
+        //     dbug.log($"Used Memory: {usedSize} bytes");
+        //     dbug.log($"Free Memory: {freeSize} bytes");
+        //     dbug.log("================================================");
+        // }
     }
 
     public class MemoryView

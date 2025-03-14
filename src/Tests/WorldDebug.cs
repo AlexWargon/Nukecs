@@ -63,9 +63,11 @@ namespace Wargon.Nukecs.Editor {
             label.name = info;
             label.schedule.Execute(() => {
                 var inf = QueryLabels[index];
-                if(inf.Query->world!=null)
+                if (inf.Query != null && inf.Query->world != null)
+                {
                     label.text = $"{inf.Label.name}{inf.Query->count}";
-            }).Every(50);
+                }
+            }).Every(60);
             QueryLabels[index] = new QueryInfo {
                 Label = label,
                 Query = queryImpl

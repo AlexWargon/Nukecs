@@ -59,7 +59,15 @@ namespace Wargon.Nukecs
                 EcbJob = default,
                 isComplete = system is IComplete
             };
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
+
             return this;
         }
 
@@ -76,7 +84,14 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             runner.Query = runner.System.GetQuery(ref world).InternalPointer;
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
         public unsafe Systems Add<T>(ushort dymmy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy {
@@ -93,7 +108,14 @@ namespace Wargon.Nukecs
             };
             _systemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
             runner.Query = runner.System.GetQuery(ref world).InternalPointer;
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
         public Systems Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem {
@@ -108,7 +130,14 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             runner.Query = runner.System.GetQuery(ref world);
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
 
@@ -123,7 +152,14 @@ namespace Wargon.Nukecs
                 System = system,
                 EcbJob = default
             };
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
         public Systems Add<T>(long dymmy = 1) where T : class, ISystem, new() {
@@ -137,7 +173,14 @@ namespace Wargon.Nukecs
                 System = system,
                 EcbJob = default
             };
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
         private Systems AddSystem<T>(T system) where T : class, ISystem, new() {
@@ -150,7 +193,14 @@ namespace Wargon.Nukecs
                 System = system,
                 EcbJob = default
             };
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
         public Systems Add<T>(T group) where T : SystemsGroup {
@@ -174,7 +224,7 @@ namespace Wargon.Nukecs
             state.Time.DeltaTime = dt;
             state.Time.Time = time;
             state.Time.ElapsedTime += dt;
-            
+            state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
             for (var i = 0; i < runners.Count; i++) {
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
             }
@@ -189,8 +239,8 @@ namespace Wargon.Nukecs
             }
         }
 
-        private const double FIXED_UPDATE_INTERVAL = 0.2f;
-        private double timeSinceLastFixedUpdate;
+        private const float FIXED_UPDATE_INTERVAL = 0.016f;
+        private float timeSinceLastFixedUpdate;
 
         internal void Complete()
         {
@@ -250,6 +300,7 @@ namespace Wargon.Nukecs
     public struct TimeData
     {
         public float DeltaTime;
+        public float DeltaTimeFixed;
         public float Time;
         public double ElapsedTime;
     }

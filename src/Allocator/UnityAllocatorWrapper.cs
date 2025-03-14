@@ -4,6 +4,7 @@ using Unity.Collections;
 
 namespace Wargon.Nukecs
 {
+    [BurstCompile(CompileSynchronously = true)]
     public unsafe struct UnityAllocatorWrapper : AllocatorManager.IAllocator
     {
         public SerializableMemoryAllocator Allocator;
@@ -16,6 +17,11 @@ namespace Wargon.Nukecs
             set => m_handle = value;
         }
 
+        public UnityAllocatorWrapper(byte dumb)
+        {
+            Allocator = default;
+            m_handle = default;
+        }
         public Allocator ToAllocator => m_handle.ToAllocator;
         public bool IsCustomAllocator => true;
         public bool IsAutoDispose => false;
@@ -41,30 +47,31 @@ namespace Wargon.Nukecs
             {
                 Allocator.Free((byte*)block.Range.Pointer, ref error);
             }
-            ShowError(error);
+            //ShowError(error);
             return error;
         }
-        [BurstDiscard]
-        private void ShowError(int error)
-        {
-            if (error != 0)
-            {
-                switch (error)
-                {
-                    case AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY:
-                        dbug.error($"Allocator out of memory.");
-                        break;
-                    case AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
-                        dbug.error("Allocator max blocks reached.");
-                        break;
-                }
-            }
-        }
-        [BurstCompile]
+        // [BurstDiscard]
+        // private void ShowError(int error)
+        // {
+        //     if (error != 0)
+        //     {
+        //         switch (error)
+        //         {
+        //             case AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY:
+        //                 dbug.error($"Allocator out of memory.");
+        //                 break;
+        //             case AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
+        //                 dbug.error("Allocator max blocks reached.");
+        //                 break;
+        //         }
+        //     }
+        // }
+        
+        [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
-        private static int AllocatorFunction(IntPtr customAllocatorPtr, ref AllocatorManager.Block block)
+        public static int AllocatorFunction(IntPtr allocatorState, ref AllocatorManager.Block block)
         {
-            return ((UnityAllocatorWrapper*)customAllocatorPtr)->Try(ref block);
+            return ((UnityAllocatorWrapper*)allocatorState)->Try(ref block);
         }
 
         public SerializableMemoryAllocator* GetAllocatorPtr()

@@ -241,7 +241,7 @@ namespace Wargon.Nukecs {
                 {
                     GCHandle.FromIntPtr(pointer).Free();
                 }
-                pointer = value == null ? IntPtr.Zero : (IntPtr)GCHandle.Alloc(value, GCHandleType.Weak);
+                pointer = value == null ? IntPtr.Zero : (IntPtr)GCHandle.Alloc(value, GCHandleType.Pinned);
             }
         }
 
