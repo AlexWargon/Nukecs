@@ -55,7 +55,7 @@ namespace Wargon.Nukecs {
             internal ComponentType ComponentType;
             internal Allocator allocator;
             internal World.WorldUnsafe* worldPtr;
-
+            internal uint offsetPtr;
             internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged {
                 var ptr = world->_allocate<GenericPoolUnsafe>();
                 var type = ComponentType<T>.Data;
@@ -66,8 +66,11 @@ namespace Wargon.Nukecs {
                     ComponentType = type,
                     worldPtr = world
                 };
-                ptr->buffer = (byte*)world->_allocate(size * type.size, type.align);
+                var lenPtr = world->_allocate_ptr<T>(size);
+                ptr->offsetPtr = lenPtr.offset.Offset;
+                ptr->buffer = (byte*)lenPtr.Ptr;
                 UnsafeUtility.MemClear(ptr->buffer,size * type.size);
+                
                 return ptr;
             }
 
@@ -82,7 +85,9 @@ namespace Wargon.Nukecs {
                     ComponentType = type,
                     worldPtr = world
                 };
-                ptr->buffer = (byte*)world->_allocate(type.size * size, type.align);
+                var lenPtr = world->_allocate_ptr<byte>(size * type.size);
+                ptr->offsetPtr = lenPtr.offset.Offset;
+                ptr->buffer = lenPtr.Ptr;
                 UnsafeUtility.MemClear(ptr->buffer, type.size * size);
                 return ptr;
             }
@@ -108,11 +113,19 @@ namespace Wargon.Nukecs {
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
         
-        public byte* GetUnsafePtr(int index)
+        public byte* UnsafeGetPtr(int index)
         {
             return UnsafeBuffer->buffer + index * UnsafeBuffer->ComponentType.size;
         }
-        
+
+        public ref T UnsafeGetRef<T>(int index, byte[] buffer) where T : unmanaged
+        {
+            CheckValid(index);
+            fixed (byte* ptr = buffer)
+            {
+                return ref ((T*)ptr + UnsafeBuffer->offsetPtr)[index];
+            }
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
         {
