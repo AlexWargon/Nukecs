@@ -5,10 +5,10 @@
 
 ### +++
 
--Use burst on default systems
--Jobs like systems schedule
--World seralisation
--Custom Allocator
+- Use burst on default systems
+- Jobs like systems schedule
+- World seralisation
+- Custom Allocator
 
 ### Entity Job System
 ```cs
