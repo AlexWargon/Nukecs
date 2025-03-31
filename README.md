@@ -17,7 +17,7 @@
 public struct ExampleSystem1 : IEntityJobSystem
 {
 	public SystemMode Mode => SystemMode.Parallel;
-	public Query GetQuery(ref world) => world.CreateQuery()
+	public Query GetQuery(ref world) => world.Query()
 					.With<Component1>()
 					.With<Component2>()
 					.None<Component3>();
@@ -37,7 +37,7 @@ public struct TestSystem2 : IJobSystem, ICreate {
 	private Query _query;
 
 	public void OnCreate(ref World world) {
-	        _query = world.CreateQuery().None<Component1>().With<Component2>();
+	        _query = world.Query().None<Component1>().With<Component2>();
 	}
 
 	public void OnUpdate(ref World world, float deltaTime)
