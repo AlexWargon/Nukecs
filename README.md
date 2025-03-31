@@ -56,3 +56,4 @@ Also for every system can be added ```ICreate``` interface. ```IOnCreate(ref Wor
 TODO:
 - Unity integration without tri inspector
 - Generator for generic job systems
+- Add sync of to network for entity commands
