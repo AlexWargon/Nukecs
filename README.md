@@ -57,3 +57,5 @@ TODO:
 - Unity integration without tri inspector
 - Generator for generic job systems
 - Add sync of to network for entity commands
+- Rework allocator
+- Add support of managed components
