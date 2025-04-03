@@ -147,6 +147,12 @@ Just struct for accessing such things as World, Time and all dependencies chain
         public TimeData Time;
     }
 ```
+### World Serialization/Deserialization
+```cs
+    byte[] data = state.World.Serialize();
+    
+    state.World.Deserialize(data);
+```
 TODO:
 - Update README
 - Unity integration without tri inspector
