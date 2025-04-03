@@ -13,7 +13,7 @@
 
 ### How to use:
 
-Create class inherted from ```WorldInstaller``` and drop it on scene
+Create class inherited from ```WordInstaller``` and drop it on scene
 ```cs
     public class TestRunner : WorldInstaller
     {
@@ -70,13 +70,16 @@ Create class inherted from ```WorldInstaller``` and drop it on scene
 ### Entity Job System
 ```cs
     [BurstCompile]
-    public struct MoveBulletSystem : IEntityJobSystem {
+    public struct MoveBulletSystem : IEntityJobSystem
+    {
         public SystemMode Mode => SystemMode.Parallel;
-        public Query GetQuery(ref World world) {
+        public Query GetQuery(ref World world)
+	{
             return world.Query().With<Bullet>().With<Transform>().With<Body2D>().With<Speed>().None<StaticTag>();
         }
 
-        public void OnUpdate(ref Entity entity, ref State state) {
+        public void OnUpdate(ref Entity entity, ref State state)
+	{
             ref var t = ref entity.Get<Transform>();
             ref var b = ref entity.Get<Body2D>();
             ref readonly var s = ref entity.Read<Speed>();
@@ -87,9 +90,11 @@ Create class inherted from ```WorldInstaller``` and drop it on scene
 ### Job System
 ```cs
 	[BurstCompile]
-	public struct TestJobSystem : IJobSystem, ICreate {
+	public struct TestJobSystem : IJobSystem, ICreate
+	{
 		private Query _query;
-		public void OnCreate(ref World world) {
+		public void OnCreate(ref World world)
+		{
 			_query = world.Query().None<Component1>().With<Component2>();
 		}
 	
