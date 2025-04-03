@@ -102,7 +102,7 @@ Create class inherited from ```WordInstaller``` and drop it on scene
 		{
 			foreach (ref var entity in _query)
 	                {
-	                    ref var c = ref entity.Get<Component1>();
+	                    ref var c = ref entity.Get<Component2>();
 	                }
 		}
 	}
