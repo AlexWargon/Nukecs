@@ -148,6 +148,7 @@ Just struct for accessing such things as World, Time and all dependencies chain
     }
 ```
 TODO:
+- Update README
 - Unity integration without tri inspector
 - Generator for generic job systems
 - Add sync of to network for entity commands
