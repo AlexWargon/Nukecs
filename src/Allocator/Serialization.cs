@@ -81,6 +81,7 @@ namespace Wargon.Nukecs
         }
         public unsafe void FastDeserialize(byte[] data)
         {
+            spinner.Acquire();
             fixed (byte* pData = data)
             {
                 totalSize = *((long*)pData);
@@ -88,6 +89,7 @@ namespace Wargon.Nukecs
                 UnsafeUtility.MemCpy(blocks, pData + sizeof(long) + sizeof(int), blockCount * sizeof(MemoryBlock));
                 UnsafeUtility.MemCpy(basePtr, pData + sizeof(long) + sizeof(int) + blockCount * sizeof(MemoryBlock), totalSize);
             }
+            spinner.Release();
         }
 
         public void SaveToFile(string filePath)

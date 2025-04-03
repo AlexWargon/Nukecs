@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Runtime.InteropServices;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs {
@@ -12,7 +13,7 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
     
-    [Serializable]
+    [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct ComponentType
     {
         public int size;
@@ -22,6 +23,10 @@ namespace Wargon.Nukecs {
         public bool isDisposable;
         public bool isCopyable;
         public bool isArray;
+        
+        public unsafe void* defaultValue;
+        internal IntPtr disposeFn;
+        internal IntPtr copyFn;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> elementTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentType>();
 
         public static ref NativeHashMap<int, ComponentType> ElementTypes
@@ -37,9 +42,6 @@ namespace Wargon.Nukecs {
             }
         }
         
-        public unsafe void* defaultValue;
-        internal IntPtr disposeFn;
-        internal IntPtr copyFn;
         public Type ManagedType => ComponentTypeMap.GetType(index);
         public FunctionPointer<DisposeDelegate> DisposeFn()
         {
@@ -135,11 +137,11 @@ namespace Wargon.Nukecs {
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
         
         private static bool _initialized = false;
-        public static System.Collections.Generic.List<int> TypesIndexes => cache.TypesIndexes;
+        public static List<int> TypesIndexes => cache.TypesIndexes;
         static ComponentTypeMap() {
             ComponentTypes = SharedStatic<NativeHashMap<int, ComponentType>>.GetOrCreate<ComponentTypeMap>();
         }
-        //[BurstDiscard]
+
         internal static void Init() {
             if(_initialized) return;
             cache = new ComponentsMapCache();
@@ -147,7 +149,7 @@ namespace Wargon.Nukecs {
             
             _initialized = true;
         }
-        //[BurstDiscard]
+
         internal static void InitializeArrayElementTypeReflection(Type typeElement, int index)
         {
             var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
@@ -155,18 +157,15 @@ namespace Wargon.Nukecs {
             addElementMethod.Invoke(null, new object[] { index });
         }
 
-        //[BurstDiscard]
         internal static void InitializeComponentTypeReflection(Type type, int index)
         {
-            //dbug.log(type.FullName);
-            //Debug.Log(type);
             var method = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
             var genericMethod = method.MakeGenericMethod(type);
             genericMethod.Invoke(null, new object[] { index });
         }
+        
         public static void InitializeComponentType<T>(int index) where T : unmanaged
         {
-            
             Add(typeof(T), index);
             _ = AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
@@ -174,7 +173,6 @@ namespace Wargon.Nukecs {
 
         public static unsafe void InitializeElementType<T>(int index) where T : unmanaged, IArrayComponent
         {
-            //dbug.log($"element type added {index}");
             var size = sizeof(T);
             var data = new ComponentType
             {
@@ -189,6 +187,7 @@ namespace Wargon.Nukecs {
             ComponentType.AddElementType(data, index);
             AddComponentType<T>(index);
         }
+        
         internal static unsafe ComponentType AddComponentType<T>(int index) where T : unmanaged
         {
             if (ComponentTypes.Data.ContainsKey(index)) return ComponentTypes.Data[index];
@@ -206,8 +205,8 @@ namespace Wargon.Nukecs {
             };
 
 
-            data.defaultValue = UnsafeUtility.Malloc(data.size, data.align, Allocator.Persistent);
-            *(T*) data.defaultValue = default(T);
+            data.defaultValue = UnsafeUtility.MallocTracked(data.size, data.align, Allocator.Persistent , 0);
+            *(T*) data.defaultValue = default;
             ComponentTypes.Data.TryAdd(index, data);
             TypeToComponentType.Map.TryAdd(typeof(T), data);
             return data;
@@ -220,20 +219,27 @@ namespace Wargon.Nukecs {
             if (isArrayElement) return ComponentType.ElementTypes[index - 1];
             return ComponentTypes.Data[index];
         }
+        
         public static ComponentType GetComponentType<T>() => TypeToComponentType.Map[typeof(T)];
+        
         public static void SetComponentType<T>(ComponentType componentType) where T : unmanaged
         {
             TypeToComponentType.Map[typeof(T)] = componentType;
             ComponentTypes.Data[ComponentType<T>.Index] =  componentType;
             ComponentType<T>.Data = componentType;
         }
+        
         public static ComponentType GetComponentType(Type type) => TypeToComponentType.Map[type];
+        
         internal static void Add(Type type, int index) {
             cache.Add(type, index);
         }
+        
         [BurstDiscard]
         public static Type GetType(int index) => cache.GetType(index);
+        
         public static int Index(Type type) => cache.Index(type);
+        
         public static int Index(string name) {
             return cache.Index(name);
         }
@@ -265,8 +271,10 @@ namespace Wargon.Nukecs {
             }
         }
         internal static unsafe void Dispose() {
+            if(!_initialized) return;
             foreach (var kvPair in ComponentTypes.Data) {
-                UnsafeUtility.Free(kvPair.Value.defaultValue, Allocator.Persistent);
+                if(kvPair.Value.defaultValue != null)
+                    UnsafeUtility.FreeTracked(kvPair.Value.defaultValue, Allocator.Persistent);
             }
             ComponentTypes.Data.Dispose();
             TypeToComponentType.Map.Clear();
@@ -316,7 +324,7 @@ namespace Wargon.Nukecs {
                 dataStream.Close();
                 return saveData;
             }
-            else {
+            {
                 // File does not exist
                 Debug.LogError("Save file not found in " + filePath);
                 saveData = new ComponentsMapCache();

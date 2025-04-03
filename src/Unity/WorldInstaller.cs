@@ -11,15 +11,16 @@ namespace Wargon.Nukecs
 {
     public class WorldInstaller : MonoBehaviour
     {
-        [ReadOnly][SerializeField] private int WorldId;
+        [ReadOnly][SerializeField] public int WorldId;
         protected World world;
         public ref World World => ref world;
         protected Systems Systems;
-        protected WorldConfig Config = WorldConfig.Default16384;
+        protected virtual WorldConfig GetConfig() => WorldConfig.Default16384;
 
         private unsafe void Awake()
         {
-            world = World.Create(Config);
+            world = World.Create(GetConfig());
+            WorldId = world.Id;
             Systems = new Systems(ref world);
             Systems.AddDefaults();
             OnWorldCreated(ref world);

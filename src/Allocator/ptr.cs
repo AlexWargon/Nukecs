@@ -56,6 +56,22 @@ namespace Wargon.Nukecs
         {
             return (T*)(allocator.BasePtr + Offset);
         }
+
+        public unsafe void* AsPtr(byte[] buffer)
+        {
+            fixed (byte* ptr = buffer)
+            {
+                return ptr + Offset;
+            }
+        }
+
+        public unsafe T* AsPtr<T>(byte[] buffer) where T : unmanaged
+        {
+            fixed (byte* ptr = buffer)
+            {
+                return (T*)(ptr + Offset);
+            }
+        }
     }
 
     // ReSharper disable once InconsistentNaming

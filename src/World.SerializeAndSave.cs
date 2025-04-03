@@ -9,7 +9,13 @@
 
         public void Deserialize(byte[] data)
         {
+            UnsafeWorld->systemsUpdateJobDependencies.Complete();
             UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastDeserialize(data);
+            for (var index = 0; index < UnsafeWorld->entities.Length; index++)
+            {
+                ref var entity = ref UnsafeWorld->entities.Ptr[index];
+                entity.worldPointer = UnsafeWorld;
+            }
         }
 
         public void SaveToFile(string path)

@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-
-namespace Wargon.Nukecs {
+﻿namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
@@ -8,8 +6,7 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs.LowLevel.Unsafe;
     using Unity.Mathematics;
-    using Wargon.Nukecs.Transforms;
-    using Wargon.Nukecs.Tests;
+
     public unsafe struct EntityCommandBuffer : IDisposable {
         [NativeDisableUnsafePtrRestriction] private readonly ECBInternal* ecb;
         public int Capacity => ecb->Capacity;
