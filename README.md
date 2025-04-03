@@ -113,7 +113,7 @@ System for main thread. Can be struct or class
 
     public struct ClearTransformsSystem : ISystem, IOnCreate
     {
-        private Query query;
+        private Query _query;
         public void OnCreate(ref World world)
         {
             query = world.Query(withDefaultNoneTypes : false)	// by default Query() use some deafult types for excluding from filtring,
@@ -123,7 +123,7 @@ System for main thread. Can be struct or class
 
         public void OnUpdate(ref State state)
         {
-            foreach (ref var entity in query)
+            foreach (ref var entity in _query)
             {
                 UnityEngine.Object.Destroy(entity.Get<TransformRef>().Value.Value.gameObject);
             }
