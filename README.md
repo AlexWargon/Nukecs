@@ -149,9 +149,9 @@ Just struct for accessing such things as World, Time and all dependencies chain
 ```
 ### World Serialization/Deserialization
 ```cs
-    byte[] data = state.World.Serialize();
+    byte[] data = world.Serialize();
     
-    state.World.Deserialize(data);
+    world.Deserialize(data);
 ```
 TODO:
 - Update README
