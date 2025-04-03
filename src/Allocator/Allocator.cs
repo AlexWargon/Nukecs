@@ -15,6 +15,7 @@ namespace Wargon.Nukecs
         public const int ERROR_ALLOCATOR_MAX_BLOCKS_REACHED = -2;
         public const int ERROR_ALLOCATOR_OUT_OF_MEMORY = -3;
     }
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe partial struct SerializableMemoryAllocator : IDisposable
     {
         private const int MAX_BLOCKS = 1024 * 16;

@@ -5,7 +5,6 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
 
 namespace Wargon.Nukecs {
     [StructLayout(LayoutKind.Sequential)]
@@ -24,10 +23,7 @@ namespace Wargon.Nukecs {
                 UnsafeBuffer = GenericPoolUnsafe.CreateBuffer<T>(size, world),
             };
         }
-        //
-        // public static void Create<T>(int size, Allocator allocator, out GenericPool pool) where T : unmanaged {
-        //     pool = Create<T>(size, allocator);
-        // }
+
         internal static GenericPool Create(ComponentType type, int size, World.WorldUnsafe* world) {
             return new GenericPool {
                 UnsafeBuffer = GenericPoolUnsafe.CreateBuffer(type, size, world)
@@ -55,20 +51,19 @@ namespace Wargon.Nukecs {
             internal ComponentType ComponentType;
             internal Allocator allocator;
             internal World.WorldUnsafe* worldPtr;
-            internal uint offsetPtr;
+            internal ptr_offset bufferPtr;
             internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged {
                 var ptr = world->_allocate<GenericPoolUnsafe>();
                 var type = ComponentType<T>.Data;
-                    *ptr = new GenericPoolUnsafe {
+                *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
                     allocator = world->Allocator,
                     ComponentType = type,
                     worldPtr = world
                 };
-                var lenPtr = world->_allocate_ptr<T>(size);
-                ptr->offsetPtr = lenPtr.offset.Offset;
-                ptr->buffer = (byte*)lenPtr.Ptr;
+                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
+                ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
                 UnsafeUtility.MemClear(ptr->buffer,size * type.size);
                 
                 return ptr;
@@ -85,9 +80,8 @@ namespace Wargon.Nukecs {
                     ComponentType = type,
                     worldPtr = world
                 };
-                var lenPtr = world->_allocate_ptr<byte>(size * type.size);
-                ptr->offsetPtr = lenPtr.offset.Offset;
-                ptr->buffer = lenPtr.Ptr;
+                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
+                ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
                 UnsafeUtility.MemClear(ptr->buffer, type.size * size);
                 return ptr;
             }
@@ -121,10 +115,7 @@ namespace Wargon.Nukecs {
         public ref T UnsafeGetRef<T>(int index, byte[] buffer) where T : unmanaged
         {
             CheckValid(index);
-            fixed (byte* ptr = buffer)
-            {
-                return ref ((T*)ptr + UnsafeBuffer->offsetPtr)[index];
-            }
+            return ref UnsafeBuffer->bufferPtr.AsPtr<T>(buffer)[index];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
@@ -350,6 +341,7 @@ namespace Wargon.Nukecs {
         internal ComponentPool(void* buffer) {
             _buffer = (T*) buffer;
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get(int index) {
             return ref _buffer[index];

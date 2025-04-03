@@ -95,7 +95,7 @@ namespace Wargon.Nukecs.Transforms {
         private Query query;
         public void OnCreate(ref World world)
         {
-            query = world.Query(false).With<DestroyEntity>().With<TransformRef>();
+            query = world.Query(withDefaultNoneTypes : false).With<DestroyEntity>().With<TransformRef>();
         }
 
         public void OnUpdate(ref State state)

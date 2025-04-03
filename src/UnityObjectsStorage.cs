@@ -202,11 +202,104 @@ namespace Wargon.Nukecs {
             return !left.Equals(right);
         }
     }
-    [StructLayout(LayoutKind.Sequential)]
 
-    public unsafe struct ObjectRef<T> : IEquatable<ObjectRef<T>>, IDisposable where T : class
+    internal static class StaticObjectRefStorage
     {
-        private IntPtr pointer;
+        internal static AutoArray<object> Objects = new AutoArray<object>(32, 1);
+
+        internal static int Add<T>(T item)
+        {
+            if (item == null) throw new ArgumentNullException(nameof(item), "Cannot add null to StaticObjectRefStorage");
+            return Objects.Add(item);
+        }
+
+        internal static void Remove(int index)
+        {
+            Objects.Remove(index);
+        }
+
+        internal static void Clear()
+        {
+            Objects.Clear();
+        }
+    }
+
+    internal class AutoArray<T>
+    {
+        private int count;
+        private int freeCount;
+        private T[] array;
+        private int[] freeIndices;
+
+        public AutoArray(int capacity, int start = 0)
+        {
+            count = start;
+            freeCount = 0;
+            array = new T[capacity];
+            freeIndices = new int[capacity];
+        }
+
+        public T this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= array.Length) throw new IndexOutOfRangeException();
+                return array[index];
+            }
+            set
+            {
+                if (index < 0) throw new IndexOutOfRangeException();
+                if (index >= array.Length)
+                {
+                    var newSize = Math.Max(array.Length * 2, index + 1);
+                    Array.Resize(ref array, newSize);
+                    Array.Resize(ref freeIndices, newSize);
+                }
+                array[index] = value;
+            }
+        }
+
+        public int Add(T value)
+        {
+            int index;
+            if (freeCount > 0)
+            {
+                index = freeIndices[--freeCount];
+            }
+            else
+            {
+                index = count++;
+            }
+            this[index] = value;
+            return index;
+        }
+
+        public void Remove(int index)
+        {
+            if (index < 0 || index >= array.Length) throw new IndexOutOfRangeException();
+            array[index] = default; // Очищаем элемент
+            if (freeCount >= freeIndices.Length)
+            {
+                Array.Resize(ref freeIndices, freeIndices.Length * 2);
+            }
+            freeIndices[freeCount++] = index;
+        }
+
+        public void Clear()
+        {
+            Array.Clear(array, 0, array.Length);
+            Array.Clear(freeIndices, 0, freeIndices.Length);
+            count = 0;
+            freeCount = 0;
+        }
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ObjectRef<T> : IEquatable<ObjectRef<T>>, IDisposable where T : class
+    {
+        private int pointer; // Индекс в StaticObjectRefStorage.Objects
+
+        // Используем -1 как "неинициализирован", чтобы 0 был валидным индексом
+        private const int InvalidPointer = -1;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator ObjectRef<T>(T instance)
@@ -216,7 +309,7 @@ namespace Wargon.Nukecs {
 
         public ObjectRef(T instance)
         {
-            pointer = instance == null ? IntPtr.Zero : (IntPtr)GCHandle.Alloc(instance, GCHandleType.Weak);
+            pointer = instance != null ? StaticObjectRefStorage.Add(instance) : InvalidPointer;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -228,20 +321,15 @@ namespace Wargon.Nukecs {
         public T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                if (pointer == IntPtr.Zero) return null;
-                var handle = GCHandle.FromIntPtr(pointer);
-                return handle.IsAllocated ? handle.Target as T : null;
-            }
+            get => pointer == InvalidPointer ? null : (T)StaticObjectRefStorage.Objects[pointer];
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                if (pointer != IntPtr.Zero)
+                if (pointer != InvalidPointer)
                 {
-                    GCHandle.FromIntPtr(pointer).Free();
+                    StaticObjectRefStorage.Remove(pointer);
                 }
-                pointer = value == null ? IntPtr.Zero : (IntPtr)GCHandle.Alloc(value, GCHandleType.Pinned);
+                pointer = value != null ? StaticObjectRefStorage.Add(value) : InvalidPointer;
             }
         }
 
@@ -272,9 +360,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsValid()
         {
-            if (pointer == IntPtr.Zero) return false;
-            var handle = GCHandle.FromIntPtr(pointer);
-            return handle.IsAllocated && handle.Target != null;
+            return pointer != InvalidPointer && StaticObjectRefStorage.Objects[pointer] != null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -289,10 +375,12 @@ namespace Wargon.Nukecs {
             return !left.Equals(right);
         }
 
-        public void Dispose() {
-            if (pointer != IntPtr.Zero)
+        public void Dispose()
+        {
+            if (pointer != InvalidPointer)
             {
-                GCHandle.FromIntPtr(pointer).Free();
+                StaticObjectRefStorage.Remove(pointer);
+                pointer = InvalidPointer;
             }
         }
     }

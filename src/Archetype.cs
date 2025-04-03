@@ -30,7 +30,7 @@ namespace Wargon.Nukecs
             //ArchetypeUnsafe.Destroy(impl);
         }
     }
-
+    [BurstCompile(CompileSynchronously = true)]
     internal unsafe struct ArchetypeUnsafe
     {
         internal DynamicBitmask mask;

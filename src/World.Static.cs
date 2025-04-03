@@ -87,6 +87,7 @@ namespace Wargon.Nukecs
         public static void DisposeStatic()
         {
             ComponentTypeMap.Dispose();
+            StaticObjectRefStorage.Clear();
             //ComponentTypeMap.Save();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;

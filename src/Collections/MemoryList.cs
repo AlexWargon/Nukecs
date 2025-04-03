@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs.Collections
+﻿using System.Runtime.InteropServices;
+
+namespace Wargon.Nukecs.Collections
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -6,6 +8,7 @@
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
 
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct MemoryList<T> where T : unmanaged
     {
         internal ptr_offset PtrOffset;
