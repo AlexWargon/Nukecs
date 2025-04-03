@@ -11,48 +11,137 @@
 - World seralisation
 - Custom Allocator
 
+### How to use:
+
+Create class inherted from ```WorldInstaller``` and drop it on scene
+```cs
+    public class TestRunner : WorldInstaller
+    {
+	// if you wnat use other world config
+	protected override WorldConfig GetConfig() => new WorldConfig()
+        {
+            StartPoolSize = 100000, //start pool capacity
+            StartEntitiesAmount = 100000 //start entities capacity
+        };
+	
+	// use Udpate for exectuing all systems
+        private void Update()
+        {
+            Systems.OnUpdate(Time.deltaTime, Time.time);
+        }
+	// add systems here
+        protected override void OnWorldCreated(ref World world)
+        {
+            Systems
+                .Add<MySystem1>()
+                .Add<MySystem2>()
+                .Add<MySystem3>()
+                .Add<MySystem4>()
+                
+                ...
+                
+                .Add<MySystemN>()
+                ;
+        }
+        
+        //create entities here
+        protected virtual void CreateEntities(ref World world)
+        {
+            var e = world.Entity();
+            e.Add(new Player());
+            e.Add(new Input());
+            e.Add(new Speed{value = 4f});
+            e.Add(new Body2D());
+            e.Add(new Circle2D
+            {
+                radius = 1.3f,
+                layer = CollisionLayer.Player,
+                collideWith = CollisionLayer.Enemy | CollisionLayer.Player
+            });
+        }
+	
+	protected override void OnDestroy()
+        {
+            base.OnDestroy(); world will be disposed here
+        }
+    }
+```
+
 ### Entity Job System
 ```cs
-[BurstCompile]
-public struct ExampleSystem1 : IEntityJobSystem
-{
-	public SystemMode Mode => SystemMode.Parallel;
-	public Query GetQuery(ref world) => world.Query()
-					.With<Component1>()
-					.With<Component2>()
-					.None<Component3>();
- 	public void OnUpdate(ref Entity entity, float deltaTime)
-	{
- 		ref var comp1 = ref entity.Get<Component1>();
-		ref var comp2 = ref entity.Get<Component2>();
-		entity.Has<Component3>() // return false in this case
-		entity.Remove<Component1>();
- 	}
-}
+    [BurstCompile]
+    public struct MoveBulletSystem : IEntityJobSystem {
+        public SystemMode Mode => SystemMode.Parallel;
+        public Query GetQuery(ref World world) {
+            return world.Query().With<Bullet>().With<Transform>().With<Body2D>().With<Speed>().None<StaticTag>();
+        }
+
+        public void OnUpdate(ref Entity entity, ref State state) {
+            ref var t = ref entity.Get<Transform>();
+            ref var b = ref entity.Get<Body2D>();
+            ref readonly var s = ref entity.Read<Speed>();
+            t.Position = math.mul(t.Rotation, math.right()) * s.value * state.Time.DeltaTime;
+        }
+    }
 ```
 ### Job System
 ```cs
-[BurstCompile]
-public struct TestSystem2 : IJobSystem, ICreate {
-	private Query _query;
-
-	public void OnCreate(ref World world) {
-	        _query = world.Query().None<Component1>().With<Component2>();
-	}
-
-	public void OnUpdate(ref World world, float deltaTime)
-	{
-		if (_query.Count > 0) 
+	[BurstCompile]
+	public struct TestJobSystem : IJobSystem, ICreate {
+		private Query _query;
+		public void OnCreate(ref World world) {
+			_query = world.Query().None<Component1>().With<Component2>();
+		}
+	
+		public void OnUpdate(ref State state)
 		{
-			Debug.Log("WORK");
+			foreach (ref var entity in _query)
+	                {
+	                    ref var c = ref entity.Get<Component1>();
+	                }
 		}
 	}
-}
 ```
+### ISystem
+System for main thread. Can be struct or class
+```cs
 
-Also for every system can be added ```ICreate``` interface. ```IOnCreate(ref World world)``` will be called when system are added to list of systems
+    public struct ClearTransformsSystem : ISystem, IOnCreate
+    {
+        private Query query;
+        public void OnCreate(ref World world)
+        {
+            query = world.Query(withDefaultNoneTypes : false)	// by default Query() use some deafult types for excluding from filtring,
+		.With<DestroyEntity>()  			// but can this can be turned of just setting parametr to false
+		.With<TransformRef>();
+        }
+
+        public void OnUpdate(ref State state)
+        {
+            foreach (ref var entity in query)
+            {
+                UnityEngine.Object.Destroy(entity.Get<TransformRef>().Value.Value.gameObject);
+            }
+        }
+    }
+```
+Also for every system can be used with some other interfaces: 
+
+```ICreate```. ```IOnCreate(ref World world)``` will be called when system are added to list of systems
+
+```IFixed``` For physics or other staff with fixed tickrate. System will be called every 0.016 seconds
 
 
+### State
+Just struct for accessing such things as World, Time and all dependencies chain
+```cs
+    public struct State
+    {
+        public JobHandle Dependencies;
+        public World World;
+        public TimeData Time;
+    }
+```
 TODO:
 - Unity integration without tri inspector
 - Generator for generic job systems
