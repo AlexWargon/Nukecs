@@ -205,7 +205,7 @@ namespace Wargon.Nukecs.Collections
         internal int AllocatedIndex;
         internal int FirstFreeIdx;
         internal int SizeOfTValue;
-        int keyOffset, nextOffset, bucketOffset;
+        private int keyOffset, nextOffset, bucketOffset;
         internal AllocatorManager.AllocatorHandle Allocator;
 
         internal const int K_MINIMUM_CAPACITY = 256;
