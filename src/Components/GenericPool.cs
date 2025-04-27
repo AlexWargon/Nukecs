@@ -196,7 +196,7 @@ namespace Wargon.Nukecs {
             }
 
             if (!UnsafeBuffer->ComponentType.isTag) {
-                SetPtr(index, UnsafeBuffer->ComponentType.defaultValue);
+                //SetPtr(index, UnsafeBuffer->ComponentType.defaultValue);
             }
             UnsafeBuffer->count--;
         }

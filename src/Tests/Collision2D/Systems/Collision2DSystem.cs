@@ -1,3 +1,5 @@
+using Unity.Collections;
+
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
@@ -21,6 +23,13 @@ namespace Wargon.Nukecs.Collision2D
         public void OnUpdate(ref State state) {
             var grind2D = Grid2D.Instance;
             grind2D.Hits.Clear();
+            int estimatedSize = colliders.Count * 24 + 1000;
+            ref var processedCollisions = ref grind2D.ProcessedCollisions;
+            if (processedCollisions.IsCreated)
+            {
+                processedCollisions.Dispose();
+            }
+            processedCollisions = new NativeParallelHashSet<ulong>(estimatedSize, Allocator.TempJob);
             // ref var collisionState = ref grind2D.collisionStates;
             // collisionStatesSize = collisionState.Capacity;
             //
@@ -31,19 +40,20 @@ namespace Wargon.Nukecs.Collision2D
             //     collisionStatesSize = newCapacity;
             // }
             var collisionJob1 = new Collision2DHitsParallelJob {
-                colliders = colliders.AsComponentPool<Circle2D>(),
-                transforms = transforms.AsComponentPool<Transform>(),
-                bodies = bodies.AsComponentPool<Body2D>(),
-                rectangles = rectangles.AsComponentPool<Rectangle2D>(),
-                collisionData = collisionsDataArrays.AsComponentPool<ComponentArray<Collision2DData>>(),
-                collisionEnterHits = grind2D.Hits.AsParallelWriter(),
-                cells = grind2D.cells,
+                Colliders = colliders.AsComponentPool<Circle2D>(),
+                Transforms = transforms.AsComponentPool<Transform>(),
+                Bodies = bodies.AsComponentPool<Body2D>(),
+                Rectangles = rectangles.AsComponentPool<Rectangle2D>(),
+                CollisionData = collisionsDataArrays.AsComponentPool<ComponentArray<Collision2DData>>(),
+                CollisionEnterHits = grind2D.Hits.AsParallelWriter(),
+                Cells = grind2D.cells,
                 W = grind2D.W,
                 H = grind2D.H,
                 Offset = grind2D.Offset,
                 GridPosition = grind2D.Position,
                 cellSize = grind2D.CellSize,
-                world = state.World
+                world = state.World,
+                ProcessedCollisions = processedCollisions.AsParallelWriter()
             };
             state.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 64, state.Dependencies);
         }

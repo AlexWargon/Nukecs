@@ -21,6 +21,7 @@ namespace Wargon.Nukecs.Collision2D
         public Vector2 Position;
 
         public NativeParallelHashMap<ulong, bool> collisionStates;
+        public NativeParallelHashSet<ulong> ProcessedCollisions;
         public int W, H, CellSize;
         private readonly World world;
 
@@ -35,8 +36,7 @@ namespace Wargon.Nukecs.Collision2D
             cells.Length = W * H;
 
             Hits = new NativeQueue<HitInfo>(Allocator.Persistent);
-            collisionStates = new NativeParallelHashMap<ulong, bool>(world.Config.StartEntitiesAmount,
-                Allocator.Persistent);
+            collisionStates = new NativeParallelHashMap<ulong, bool>(world.Config.StartEntitiesAmount, Allocator.Persistent);
             for (var x = 0; x < W; x++)
             for (var y = 0; y < H; y++) {
                 var i = W * y + x;
@@ -114,6 +114,7 @@ namespace Wargon.Nukecs.Collision2D
             cells.Dispose();
             Hits.Dispose();
             collisionStates.Dispose();
+            ProcessedCollisions.Dispose();
         }
     }
     public static class Debug2D {

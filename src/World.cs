@@ -96,16 +96,6 @@ namespace Wargon.Nukecs
         {
             return new Query(UnsafeWorld->CreateQueryPtr(withDefaultNoneTypes));
         }
-        //
-        // public Query Query<T>() where T : struct, ITuple
-        // {
-        //     return new Query(UnsafeWorld->Query());
-        // }
-        //
-        // public Query Query<T>(byte dymmy = 1) where T : struct, IFilter
-        // {
-        //     return new Query(UnsafeWorld->Query());
-        // }
 
         /// <summary>
         ///     Update dirty entities and queries
