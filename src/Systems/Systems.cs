@@ -143,9 +143,9 @@ namespace Wargon.Nukecs
 
         public Systems Add<T>(int dymmy = 1) where T : struct, ISystem {
             T system = default;
-            if (system is IOnCreate s) {
-                s.OnCreate(ref world);
-                system = (T) s;
+            if (system is IOnCreate onCreate) {
+                onCreate.OnCreate(ref world);
+                system = (T) onCreate;
             }
             
             var runner = new SystemMainThreadRunnerStruct<T> {
@@ -181,6 +181,10 @@ namespace Wargon.Nukecs
             {
                 runners.Add(runner);
             }
+            if (system is IOnDestroy onDestroySystem)
+            {
+                _systemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
+            }
             return this;
         }
         private Systems AddSystem<T>(T system) where T : class, ISystem, new() {
@@ -200,6 +204,11 @@ namespace Wargon.Nukecs
             else
             {
                 runners.Add(runner);
+            }
+
+            if (system is IOnDestroy onDestroySystem)
+            {
+                _systemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
             }
             return this;
         }
@@ -339,6 +348,20 @@ namespace Wargon.Nukecs
         {
             system->OnDestroy(ref world);
             gcHandle.Free();
+        }
+    }
+
+    internal class SystemClassDestroyer : ISystemDestroyer
+    {
+        private IOnDestroy system;
+
+        internal SystemClassDestroyer(IOnDestroy system)
+        {
+            this.system = system;
+        }
+        public void Destroy(ref World world)
+        {
+            system.OnDestroy(ref world);
         }
     }
     internal interface ISystemRunner {
