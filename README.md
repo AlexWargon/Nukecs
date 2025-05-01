@@ -73,10 +73,11 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     {
         public int Data;
     }
-    public struct MyTagComponents : IComponent { } // if a component doesn't have any data, it will be marked as a tag and won't take up any memory,
-                                                   // it will just be used in the query for filtering.
-    
-    public struct MyDisposableComponents : IComponent, System.IDisposable //used to clear component data to avoid leak or something like that
+    // if a component doesn't have any data, it will be marked as a tag and won't take up any memory,
+    public struct MyTagComponents : IComponent { }  // it will just be used in the query for filtering.
+                                                  
+    // System.IDisposable //used to clear component data to avoid leak or something like that
+    public struct MyDisposableComponents : IComponent, System.IDisposable
     {
         public float MyValue; //unmanaged data
         public NativeArray<int> MyNativeArray; //unmanaged struct and etc
