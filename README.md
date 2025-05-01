@@ -67,7 +67,7 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     }
 ```
 ### Components:
-    Components is just unmanaged structs
+    Components are just unmanaged structs with IComponent interface
 ```cs
     public struct MySimpleComponent : IComponent
     {
