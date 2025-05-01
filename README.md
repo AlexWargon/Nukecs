@@ -69,13 +69,20 @@ Create class inherited from ```WordInstaller``` and drop it on scene
 ### Components:
     Components is just unmanaged structs
 ```cs
-    public struct MyComponent : IComponent, IDisposable
+    public struct MySimpleComponent : IComponent
+    {
+        public int Data;
+    }
+    public struct MyTagComponents : IComponent { } // if a component doesn't have any data, it will be marked as a tag and won't take up any memory,
+                                                   // it will just be used in the query for filtering.
+    
+    public struct MyDisposableComponents : IComponent, System.IDisposable //used to clear component data to avoid leak or something like that
     {
         public float MyValue; //unmanaged data
         public NativeArray<int> MyNativeArray; //unmanaged struct and etc
         public ObjectRef<List<int>> MyManagedList; //managed classes and etc
-	public UnityObjectRef<Transform> MyUnityTransform; //unity object reference
-        public void Dispose() //Dispose will be called on Remove this components or Entity.Destoy
+        public UnityObjectRef<Transform> MyUnityTransform; //unity object reference
+        public void Dispose() //Dispose will be called when this component is removed from the entity or Entity.Destroy is called
         {
             MyNativeArray.Dispose();
             MyManagedList.Dispose();
