@@ -55,5 +55,4 @@
             // ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
-
 }

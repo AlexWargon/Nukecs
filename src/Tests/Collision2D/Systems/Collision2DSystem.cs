@@ -1,10 +1,8 @@
-using Unity.Collections;
-
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
     using Transforms;
-
+    using Unity.Collections;
     public struct Collision2DSystem : ISystem, IOnCreate {
         private GenericPool transforms;
         private GenericPool colliders;
@@ -12,6 +10,7 @@ namespace Wargon.Nukecs.Collision2D
         private GenericPool bodies;
         private GenericPool collisionsDataArrays;
         private int collisionStatesSize;
+        
         public void OnCreate(ref World world)
         {
             transforms = world.GetPool<Transform>();
@@ -20,25 +19,18 @@ namespace Wargon.Nukecs.Collision2D
             bodies = world.GetPool<Body2D>();
             collisionsDataArrays = world.GetPool<ComponentArray<Collision2DData>>();
         }
+        
         public void OnUpdate(ref State state) {
             var grind2D = Grid2D.Instance;
             grind2D.Hits.Clear();
-            int estimatedSize = colliders.Count * 24 + 1000;
+            var estimatedSize = colliders.Count * 24 + 1000;
             ref var processedCollisions = ref grind2D.ProcessedCollisions;
             if (processedCollisions.IsCreated)
             {
                 processedCollisions.Dispose();
             }
             processedCollisions = new NativeParallelHashSet<ulong>(estimatedSize, Allocator.TempJob);
-            // ref var collisionState = ref grind2D.collisionStates;
-            // collisionStatesSize = collisionState.Capacity;
-            //
-            // if (collisionStatesSize < state.World.EntitiesAmount * 4)
-            // {
-            //     var newCapacity = collisionStatesSize * 2;
-            //     collisionState.Capacity = newCapacity;
-            //     collisionStatesSize = newCapacity;
-            // }
+
             var collisionJob1 = new Collision2DHitsParallelJob {
                 Colliders = colliders.AsComponentPool<Circle2D>(),
                 Transforms = transforms.AsComponentPool<Transform>(),

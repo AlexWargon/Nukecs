@@ -81,16 +81,13 @@ namespace Wargon.Nukecs.Collision2D
                 for (int i = 0; i < query2.Count; i++)
                 {
                     var entity = query2.GetEntityIndex(i);
-                    ref var c = ref rectangles.GetRef<Rectangle2D>(entity);
+                    ref var rectangle = ref rectangles.GetRef<Rectangle2D>(entity);
                     ref var transform = ref transforms.GetRef<Transform>(entity);
-                    var Y1 = new Vector3(transform.Position.x, transform.Position.y + c.h);
-                    var X1 = new Vector3(transform.Position.x, transform.Position.y);
-                    var Y2 = new Vector3(transform.Position.x + c.w, transform.Position.y + c.h);
-                    var X2 = new Vector3(transform.Position.x + c.w, transform.Position.y);
-                    Debug.DrawLine(X1, Y1, green);
-                    Debug.DrawLine(Y1, Y2, green);
-                    Debug.DrawLine(Y2, X2, green);
-                    Debug.DrawLine(X2, X1, green);
+                    rectangle.GetVerticesVectors(in transform, out var v0, out var v1, out var v2, out var v3);
+                    Debug.DrawLine(v0, v1, green);
+                    Debug.DrawLine(v1, v2, green);
+                    Debug.DrawLine(v2, v3, green);
+                    Debug.DrawLine(v3, v0, green);
                 }
 #endif
             }
