@@ -76,7 +76,7 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     // if a component doesn't have any data, it will be marked as a tag and won't take up any memory,
     public struct MyTagComponent : IComponent { }  // it will just be used in the query for filtering.
                                                   
-    // System.IDisposable //used to clear component data to avoid leak or something like that
+    // System.IDisposable used to clear component data to avoid leak or something like that
     public struct MyDisposableComponent : IComponent, System.IDisposable
     {
         public float MyValue; //unmanaged data
@@ -87,6 +87,23 @@ Create class inherited from ```WordInstaller``` and drop it on scene
         {
             MyNativeArray.Dispose();
             MyManagedList.Dispose();
+        }
+    }
+
+     
+    //when you need to copy some complex structure from another component. It will be executed when you call Entity.Copy()
+    public struct MyCopyableComponent : IComponent, ICopyable<MyCopyableComponent>
+    {
+        public NativeList<SomeData> List;
+        public MyCopyableComponent Copy(int to)
+        {
+            var copy = new NativeList<SomeData>(List.Length, Allocator.Persistent);
+            copy.CopyFrom(in List);
+            
+            return new MyCopyableComponent
+            {
+                List = copy
+            };
         }
     }
 ```
