@@ -17,12 +17,5 @@
         }
     }
 
-    public static class SystemsExtensions
-    {
-        public static Systems AddReactive<T>(this Systems systems) where T : unmanaged, IComponent, IReactive
-        {
-            systems.Add<ReactAndClearSystem<T>>().Add<ReactiveCheckSystem<T>>();
-            return systems;
-        }
-    }
+
 }
