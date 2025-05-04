@@ -274,6 +274,15 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Destroy(int entity)
         {
+            if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
+            {
+                ref var pool = ref world->GetPool<ComponentArray<Child>>();
+                ref var children = ref pool.GetRef<ComponentArray<Child>>(entity);
+                foreach (ref var child in children)
+                {
+                    child.Value.Destroy();
+                }
+            }
             for (var index = 0; index < types.m_length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);

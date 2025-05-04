@@ -173,6 +173,11 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
 
+        internal static void AddByComponentIndex(this ref Entity entity, int component)
+        {
+            if(entity.archetypeRef.Has(component)) return;
+            entity.worldPointer->ECB.Add(entity.id, component);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Set<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
         {

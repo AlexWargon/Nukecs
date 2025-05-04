@@ -71,6 +71,29 @@ namespace Wargon.Nukecs
             return this;
         }
 
+        internal Systems AddRef<T>(ref T system) where T : struct, IEntityJobSystem
+        {
+            if (system is IOnCreate s) {
+                s.OnCreate(ref world);
+                system = (T) s;
+            }
+
+            var runner = new EntityJobSystemRunner<T> {
+                System = system,
+                Mode = system.Mode,
+                EcbJob = default
+            };
+            runner.Query = runner.System.GetQuery(ref world).InternalPointer;
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
+            return this;
+        }
         public Systems Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
             T system = default;
             if (system is IOnCreate s) {
