@@ -45,6 +45,18 @@ namespace Wargon.Nukecs {
             InternalPointer->None(ComponentType<T>.Index);
             return this;
         }
+
+        internal Query With(int componentIndex)
+        {
+            InternalPointer->With(componentIndex);
+            return this;
+        }
+
+        internal Query None(int componentIndex)
+        {
+            InternalPointer->None(componentIndex);
+            return this;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
             return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[index]];

@@ -9,19 +9,21 @@ using Transform = UnityEngine.Transform;
 
 namespace Wargon.Nukecs.Tests {
     public class EntityLink : MonoBehaviour, ICustomConvertor {
+        public bool SelfConvert = true;
         [SerializeField] private EntityLinkOption Option;
         [SerializeField] private int worldId;
         [Title("Components")][HideLabel][GUIColor(0.6f, 0.9f, 1.0f)][SerializeReference] public System.Collections.Generic.List<IComponent> components;
         [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected System.Collections.Generic.List<Convertor> convertors = new ();
         private bool converted;
-        //private void Start() {
-            // if(converted) return;
-            // if (!EntityPrefabMap.TryGet(GetInstanceID(), out Entity entity)) {
-            //     ref var w = ref World.Get(worldId);
-            //     var e = w.Entity();
-            //     Convert(ref w, ref e);
-            // }
-        //}
+        private void Start() {
+            if(!SelfConvert) return;
+             if(converted) return;
+             if (!EntityPrefabMap.TryGet(GetInstanceID(), out var entity)) {
+                 ref var w = ref World.Get(worldId);
+                 var e = w.Entity();
+                 Convert(ref w, ref e);
+             }
+        }
 
         public void Convert(ref World world, ref Entity entity) {
             if(converted) return;

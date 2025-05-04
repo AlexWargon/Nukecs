@@ -5,8 +5,8 @@
             this.name = nameof(SpriteRender2D);
             this
                 .Add<UpdateCameraCullingSystem>()
-                //.Add<CullSpritesSystem>()
-                //.Add<UnCullSpritesSystem>()
+                .Add<CullSpritesSystem>()
+                .Add<UnCullSpritesSystem>()
                 .Add<SpriteAnimationSystem>()
                 .Add<FillRenderDataSystem>()
                 .Add<SpriteRenderSystem>()
