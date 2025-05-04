@@ -6,17 +6,19 @@ namespace Wargon.Nukecs.Collision2D
     using System.Runtime.InteropServices;
 
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct BufferInt256 {
+    public unsafe struct BufferInt256
+    {
         private fixed int buffer[256];
-        private volatile int count;
-        public int Count {
+        private int count; // Убираем volatile, так как используем Interlocked
+
+        public int Count
+        {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => count;
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private set => Interlocked.Exchange(ref count, value);
+            get => Interlocked.CompareExchange(ref count, 0, 0); // Атомарное чтение
         }
 
-        public int this[int index] {
+        public int this[int index]
+        {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => buffer[index];
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -24,15 +26,21 @@ namespace Wargon.Nukecs.Collision2D
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Add(int value) {
-            if (count == 255) return;
-            var idx = count;
+        public bool Add(int value)
+        {
+            int idx = Interlocked.Increment(ref count) - 1;
+            if (idx >= 256)
+            {
+                Interlocked.Decrement(ref count);
+                return false;
+            }
             buffer[idx] = value;
-            Interlocked.Increment(ref count);
+            return true;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Clear() {
+        public void Clear()
+        {
             Interlocked.Exchange(ref count, 0);
         }
     }

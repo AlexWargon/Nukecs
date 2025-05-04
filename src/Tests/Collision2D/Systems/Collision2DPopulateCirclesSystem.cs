@@ -35,7 +35,7 @@ namespace Wargon.Nukecs.Collision2D {
                 gridWidth = grid2D.W,
                 gridHight = grid2D.H
             };
-            state.Dependencies = populateJob.Schedule(query.Count, state.Dependencies);
+            state.Dependencies = populateJob.Schedule(query.Count, 64, state.Dependencies);
         }
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
@@ -73,7 +73,7 @@ namespace Wargon.Nukecs.Collision2D {
             }
         }
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
-        public struct PopulateCellsJobSingle : IJobFor {
+        public struct PopulateCellsJobSingle : IJobParallelFor {
             public Query query;
             public UnsafeList<Grid2DCell> cells;
             public ComponentPool<Circle2D> colliders;
