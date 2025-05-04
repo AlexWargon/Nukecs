@@ -66,6 +66,47 @@ Create class inherited from ```WordInstaller``` and drop it on scene
         }
     }
 ```
+### Components:
+    Components are just unmanaged structs with IComponent interface
+```cs
+    public struct MySimpleComponent : IComponent
+    {
+        public int Data;
+    }
+    // if a component doesn't have any data, it will be marked as a tag and won't take up any memory,
+    public struct MyTagComponent : IComponent { }  // it will just be used in the query for filtering.
+                                                  
+    // System.IDisposable used to clear component data to avoid leak or something like that
+    public struct MyDisposableComponent : IComponent, System.IDisposable
+    {
+        public float MyValue; //unmanaged data
+        public NativeArray<int> MyNativeArray; //unmanaged struct and etc
+        public ObjectRef<List<int>> MyManagedList; //managed classes and etc
+        public UnityObjectRef<Transform> MyUnityTransform; //unity object reference
+        public void Dispose() //Dispose will be called when this component is removed from the entity or Entity.Destroy is called
+        {
+            MyNativeArray.Dispose();
+            MyManagedList.Dispose();
+        }
+    }
+
+     
+    //when you need to copy some complex structure from another component. It will be executed when you call Entity.Copy()
+    public struct MyCopyableComponent : IComponent, ICopyable<MyCopyableComponent>
+    {
+        public NativeList<SomeData> List;
+        public MyCopyableComponent Copy(int to)
+        {
+            var copy = new NativeList<SomeData>(List.Length, Allocator.Persistent);
+            copy.CopyFrom(in List);
+            
+            return new MyCopyableComponent
+            {
+                List = copy
+            };
+        }
+    }
+```
 
 ### Entity Job System
 ```cs
