@@ -23,13 +23,5 @@ namespace Wargon.Nukecs.Collision2D
             Debug.DrawLine(Y2, X2, color);
             Debug.DrawLine(X2, X1, color);
         }
-
-        // public void DrawSolid(Color color) {
-        //     DebugUtility.DrawRect(new Vector2(Pos.x, Pos.y), new Vector2(W, H), color, color);
-        // }
-        //
-        // public unsafe ref Circle2D GetCircle(Circle2D* ptr, int index) {
-        //     return ref UnsafeUtility.ArrayElementAsRef<Circle2D>(ptr, index);
-        // }
     }
 }  

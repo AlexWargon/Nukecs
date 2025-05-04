@@ -6,17 +6,17 @@ namespace Wargon.Nukecs.Collision2D
     using UnityEngine;
     using Transform = Transforms.Transform;
 
-    public class GizsomHelper : MonoBehaviour
+    public class GizmosHelper : MonoBehaviour
     {
         public bool render;
         public bool renderGrid;
         [SerializeField] private Color green;
         [SerializeField] private Color red;
-        private GizsomDrawer drawer;
+        private GizmosDrawer drawer;
         private void Start()
         {
-            drawer = new GizsomDrawer();
-            GizsomDrawer.Instance = drawer;
+            drawer = new GizmosDrawer();
+            GizmosDrawer.Instance = drawer;
             drawer.AddRender(new Colliders2DRenders(green, red));
         }
 #if UNITY_EDITOR
@@ -41,9 +41,9 @@ namespace Wargon.Nukecs.Collision2D
         public interface IGizmosRender {
             void Render();
         }
-        public class GizsomDrawer {
+        public class GizmosDrawer {
             private readonly List<IGizmosRender> gizmosList = new();
-            public static GizsomDrawer Instance;
+            public static GizmosDrawer Instance;
             public void AddRender(IGizmosRender gizmosRender) {
                 gizmosList.Add(gizmosRender);
             }
@@ -63,9 +63,9 @@ namespace Wargon.Nukecs.Collision2D
         private class Colliders2DRenders : IGizmosRender {
             private readonly Query query2;
             private readonly Query query;
-            private readonly GenericPool circles;
-            private readonly GenericPool rectangles;
-            private readonly GenericPool transforms;
+            private GenericPool circles;
+            private GenericPool rectangles;
+            private GenericPool transforms;
             private readonly Color green;
             private readonly Color red;
             public void Render() {

@@ -1,3 +1,5 @@
+using Unity.Jobs.LowLevel.Unsafe;
+
 namespace Wargon.Nukecs.Collision2D
 {
     using Unity.Jobs;
@@ -31,7 +33,7 @@ namespace Wargon.Nukecs.Collision2D
             }
             processedCollisions = new NativeParallelHashSet<ulong>(estimatedSize, Allocator.TempJob);
 
-            var collisionJob1 = new Collision2DHitsParallelJob {
+            var collisionJob = new Collision2DHitsParallelJobBatched {
                 Colliders = colliders.AsComponentPool<Circle2D>(),
                 Transforms = transforms.AsComponentPool<Transform>(),
                 Bodies = bodies.AsComponentPool<Body2D>(),
@@ -47,7 +49,8 @@ namespace Wargon.Nukecs.Collision2D
                 world = state.World,
                 ProcessedCollisions = processedCollisions.AsParallelWriter()
             };
-            state.Dependencies = collisionJob1.Schedule(Grid2D.Instance.cells.Length, 64, state.Dependencies);
+
+            state.Dependencies = collisionJob.ScheduleBatch(grind2D.cells.Length, 64, state.Dependencies);
         }
     }
 }  
