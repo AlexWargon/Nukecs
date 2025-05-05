@@ -79,11 +79,16 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     // System.IDisposable used to clear component data to avoid leak or something like that
     public struct MyDisposableComponent : IComponent, System.IDisposable
     {
-        public float MyValue; //unmanaged data
-        public NativeArray<int> MyNativeArray; //unmanaged struct and etc
-        public ObjectRef<List<int>> MyManagedList; //managed classes and etc
-        public UnityObjectRef<Transform> MyUnityTransform; //unity object reference
-        public void Dispose() //Dispose will be called when this component is removed from the entity or Entity.Destroy is called
+	//unmanaged data
+        public float MyValue;
+	//unmanaged struct and etc
+        public NativeArray<int> MyNativeArray;
+	//managed classes and etc
+        public ObjectRef<List<int>> MyManagedList;
+	//unity object reference
+        public UnityObjectRef<Transform> MyUnityTransform;
+	//Dispose will be called when this component is removed from the entity or Entity.Destroy is called
+        public void Dispose()
         {
             MyNativeArray.Dispose();
             MyManagedList.Dispose();
