@@ -52,8 +52,11 @@ namespace Wargon.Nukecs {
             internal Allocator allocator;
             internal World.WorldUnsafe* worldPtr;
             internal ptr_offset bufferPtr;
-            internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged {
-                var ptr = world->_allocate<GenericPoolUnsafe>();
+            internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged
+            {
+                ref var allocator = ref world->AllocatorRef;
+                var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
+                var ptr = ptrRef.Ptr;
                 var type = ComponentType<T>.Data;
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
@@ -71,7 +74,9 @@ namespace Wargon.Nukecs {
 
             internal static GenericPoolUnsafe* CreateBuffer(ComponentType type, int size, World.WorldUnsafe* world) {
                 
-                var ptr = world->_allocate<GenericPoolUnsafe>();
+                ref var allocator = ref world->AllocatorRef;
+                var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
+                var ptr = ptrRef.Ptr;
                 size = type.isTag ? 1 : size;
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
@@ -136,11 +141,11 @@ namespace Wargon.Nukecs {
             UnsafeBuffer->count++;
         }
 
-        public ref T GetSingletone<T>() where T : unmanaged {
+        public ref T GetSingleton<T>() where T : unmanaged {
             return ref ((T*)UnsafeBuffer->buffer)[0];
         }
         
-        public void SetSingletone<T>(in T value) where T : unmanaged{
+        public void SetSingleton<T>(in T value) where T : unmanaged{
             ((T*)UnsafeBuffer->buffer)[0] = value;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -213,7 +218,9 @@ namespace Wargon.Nukecs {
                     CopyComponent(source, destination);
                 }
                 else {
-                    UnsafeUtility.MemCpy(UnsafeBuffer->buffer + destination * UnsafeBuffer->ComponentType.size, UnsafeBuffer->buffer + source * UnsafeBuffer->ComponentType.size, UnsafeBuffer->ComponentType.size);
+                    UnsafeUtility.MemCpy(UnsafeBuffer->buffer + destination * UnsafeBuffer->ComponentType.size, 
+                        UnsafeBuffer->buffer + source * UnsafeBuffer->ComponentType.size, 
+                        UnsafeBuffer->ComponentType.size);
                 }
             }
             UnsafeBuffer->count++;
