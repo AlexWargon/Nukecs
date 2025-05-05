@@ -180,8 +180,7 @@ namespace Wargon.Nukecs
                 {
                     spinner.Acquire();
                     if (!pool.IsCreated) {
-                        pool = GenericPool
-                            .Create(
+                        pool = GenericPool.Create(
                                     ComponentTypeMap.GetComponentType(poolIndex, true), 
                                     config.StartPoolSize * ComponentArray.DEFAULT_MAX_CAPACITY, 
                                     Self);

@@ -11,6 +11,7 @@ namespace Wargon.Nukecs.Collision2D
         EnemyProjectile = 1 << 3,
         Bonus = 1 << 4,
         DoorTrigger = 1 << 5,
-        WinCollider = 1 << 6
+        WinCollider = 1 << 6,
+        Wall = 1 << 7,
     }
 }  
