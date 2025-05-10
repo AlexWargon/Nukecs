@@ -8,11 +8,15 @@ using Wargon.Nukecs.Transforms;
 
 namespace Wargon.Nukecs
 {
-    [StructLayout(LayoutKind.Sequential), Serializable]
+    [StructLayout(LayoutKind.Sequential)]
+    [Serializable]
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
-        [NativeDisableUnsafePtrRestriction, NonSerialized] internal World.WorldUnsafe* worldPointer;
+
+        [NativeDisableUnsafePtrRestriction] [NonSerialized]
+        internal World.WorldUnsafe* worldPointer;
+
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
 
@@ -40,14 +44,11 @@ namespace Wargon.Nukecs
             get
             {
                 var arch = worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ptr;
-                if (arch == null)
-                {
-                    throw new Exception("Archetype reference is null");
-                }
+                if (arch == null) throw new Exception("Archetype reference is null");
                 return ref *arch;
             }
         }
-        
+
         public override string ToString()
         {
             return $"e:{id}, {archetypeRef.ToString()}";
@@ -95,8 +96,8 @@ namespace Wargon.Nukecs
     public static unsafe class EntityExtensions
     {
         /// <summary>
-        /// <para>!!!WARNING!!!</para>
-        /// <para>Use 'ref' keyword!</para> 
+        ///     <para>!!!WARNING!!!</para>
+        ///     <para>Use 'ref' keyword!</para>
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6,
@@ -106,9 +107,10 @@ namespace Wargon.Nukecs
             ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
             return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
+
         /// <summary>
-        /// <para>!!!WARNING!!!</para>
-        /// <para>Use 'ref' keyword!</para> 
+        ///     <para>!!!WARNING!!!</para>
+        ///     <para>Use 'ref' keyword!</para>
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> GetOrCreateArray<T>(this ref Entity entity)
@@ -125,8 +127,9 @@ namespace Wargon.Nukecs
         {
             return new NoComponentException($"Entity has no component array {typeof(T).Name}");
         }
+
         /// <summary>
-        /// <para>Use 'ref' keyword!</para> 
+        ///     <para>Use 'ref' keyword!</para>
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref ComponentArray<T> AddArray<T>(this ref Entity entity) where T : unmanaged, IArrayComponent
@@ -159,9 +162,9 @@ namespace Wargon.Nukecs
             var componentType = ComponentType<T>.Index;
             if (entity.archetypeRef.Has(componentType)) return;
             entity.worldPointer->ECB.Add(entity.id, component);
-            #if NUKECS_NETCODE
+#if NUKECS_NETCODE
             entity.worldPointer->NetCodeECB.Add(entity.id, component);
-            #endif
+#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -175,9 +178,10 @@ namespace Wargon.Nukecs
 
         internal static void AddByComponentIndex(this ref Entity entity, int component)
         {
-            if(entity.archetypeRef.Has(component)) return;
+            if (entity.archetypeRef.Has(component)) return;
             entity.worldPointer->ECB.Add(entity.id, component);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Set<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
         {
@@ -239,6 +243,7 @@ namespace Wargon.Nukecs
             exist = entity.archetypeRef.Has(ComponentType<T>.Index);
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Ref<T> GetRef<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
@@ -365,6 +370,7 @@ namespace Wargon.Nukecs
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Destroy(entity.id);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void Free(this in Entity entity)
         {
@@ -389,7 +395,7 @@ namespace Wargon.Nukecs
             ref var arch = ref entity.archetypeRef;
             return arch.Copy(in entity);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Entity CopyVieECB(this in Entity entity)
         {
@@ -454,7 +460,7 @@ namespace Wargon.Nukecs
             child.Remove<ChildOf>();
         }
 
-        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref T GetAspect<T>(this ref Entity entity) where T : unmanaged, IAspect<T>, IAspect
         {
             var aspect = entity.worldPointer->GetAspect<T>();

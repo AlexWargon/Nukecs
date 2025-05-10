@@ -15,6 +15,7 @@ namespace Wargon.Nukecs.Collision2D
         [MarshalAs(UnmanagedType.U1)] public bool collided;
         [MarshalAs(UnmanagedType.U1)] public bool trigger;
         [MarshalAs(UnmanagedType.U1)] public bool oneFrame;
+        [MarshalAs(UnmanagedType.U1)] public bool WriteHitsWithSameLayer;
         public CollisionLayer layer;
         public CollisionLayer collideWith;
 

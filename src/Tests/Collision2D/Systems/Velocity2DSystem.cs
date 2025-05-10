@@ -13,12 +13,11 @@ namespace Wargon.Nukecs.Collision2D
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            var deltaTime = state.Time.DeltaTime;
             ref var body = ref entity.Get<Body2D>();
             
             ref var transform = ref entity.Get<Transform>();
-            transform.Position = new float3(transform.Position.x + body.velocity.x, transform.Position.y + body.velocity.y, transform.Position.z);
-            //body.velocity = float2.zero;
+            //transform.Position = new float3(transform.Position.x + body.velocity.x, transform.Position.y + body.velocity.y, transform.Position.z);
+            transform.Position += new float3(body.velocity * state.Time.DeltaTime, 0f);
         }
     }
 

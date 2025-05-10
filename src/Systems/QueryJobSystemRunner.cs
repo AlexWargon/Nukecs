@@ -15,7 +15,7 @@ namespace Wargon.Nukecs
                 System.OnUpdate(ref Query, state.Time.DeltaTime);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
-                EcbJob.Run();
+                EcbJob.Execute();
             }
             else {
                 state.Dependencies = System.Schedule(ref Query, state.Time.DeltaTime, Mode, state.Dependencies);
