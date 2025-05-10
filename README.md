@@ -81,7 +81,7 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     {
 	//unmanaged data
         public float MyValue;
-	//unmanaged struct and etc
+	//unmanaged collections and etc
         public NativeArray<int> MyNativeArray;
 	//managed classes and etc
         public ObjectRef<List<int>> MyManagedList;
