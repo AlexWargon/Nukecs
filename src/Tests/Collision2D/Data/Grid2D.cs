@@ -85,13 +85,17 @@ namespace Wargon.Nukecs.Collision2D
 #if UNITY_EDITOR
             var style = new GUIStyle();
             style.normal.textColor = Color.white;
-            style.fontSize = 24;
+            style.fontSize = 14;
             
             for (var i = 0; i < cells.Length; i++) {
                 var cell = cells[i];
                 cell.Draw(Color.yellow);
+                style.normal.textColor = Color.yellow;
                 UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.one, $"{cell.Index}", style);
+                style.normal.textColor = Color.white;
                 UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.up, $"{cell.CollidersBuffer.Count}", style);
+                style.normal.textColor = Color.red;
+                UnityEditor.Handles.Label((Vector2)cell.Pos + Vector2.up + new Vector2(0.5f, 0), $"{cell.RectanglesBuffer.Count}", style);
             }
 #endif
         }

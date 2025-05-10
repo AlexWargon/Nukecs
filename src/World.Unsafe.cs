@@ -190,8 +190,7 @@ namespace Wargon.Nukecs
                 }
                 return ref pool;
             }
-            
-            //[BurstDiscard]
+
             private void AddPool<T>(ref GenericPool pool) where T : unmanaged
             {
                 spinner.Acquire();
@@ -241,7 +240,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
                 if (lastEntityIndex >= entities.Capacity) {
-                    var newCapacity = lastEntityIndex * 2;
+                    var newCapacity = lastEntityIndex << 1;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     // UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
@@ -265,7 +264,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity(int archetype) {
                 if (lastEntityIndex >= entities.capacity) {
-                    var newCapacity = lastEntityIndex * 2;
+                    var newCapacity = lastEntityIndex << 1;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                 }

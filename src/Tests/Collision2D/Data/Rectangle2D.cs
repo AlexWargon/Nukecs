@@ -19,7 +19,6 @@ namespace Wargon.Nukecs.Collision2D
         public float3 Position(in Transform transform)
         {
             var centerPosition = transform.Position;
-            // Преобразуем float2 в float3 для вращения (z = 0)
             var localCorner = new float3(-w * 0.5f, -h * 0.5f, 0f);
             var rotatedCorner = mul(transform.Rotation, localCorner);
             centerPosition.x += rotatedCorner.x;

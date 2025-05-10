@@ -50,16 +50,6 @@ namespace Wargon.Nukecs
             UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
         }
 
-        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // private ComponentArray(ref ComponentArray<T> other)
-        // {
-        //     _buffer = Unsafe.MallocTracked<T>(other._capacity, Allocator.Persistent);
-        //     _capacity = other._capacity;
-        //     _length = other._length;
-        //     UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
-        //     _entity = default;
-        // }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
@@ -109,9 +99,6 @@ namespace Wargon.Nukecs
             if (index < 0 || index >= _length)
                 throw new IndexOutOfRangeException();
             RemoveRange(index, 1);
-            // _length--;
-            // if (index < _length)
-            //     UnsafeUtility.MemCpy(_buffer + index, _buffer + index + 1, (_length - index) * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -122,12 +109,6 @@ namespace Wargon.Nukecs
 
         public void Dispose()
         {
-            // if (value._buffer != null)
-            // {
-            //     Unsafe.FreeTracked(value._buffer, Allocator.Persistent);
-            //     //UnsafeUtility.Free(value._buffer, Allocator.Persistent);
-            //     value._buffer = null;
-            // }
             _buffer = null;
             _length = 0;
             _capacity = 0;
@@ -199,23 +180,6 @@ namespace Wargon.Nukecs
             public void Dispose()
             {
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool RemoveSwapBack(T item)
-        {
-            for (var i = 0; i < _length; i++)
-                if (_buffer[i].Equals(item))
-                {
-                    if (i != _length - 1)
-                        // If the element to be removed is not the last one, 
-                        // replace it with the last element
-                        _buffer[i] = _buffer[_length - 1];
-                    _length--;
-                    return true;
-                }
-
-            return false;
         }
     }
 

@@ -175,6 +175,7 @@ namespace Wargon.Nukecs
                 System = system,
                 EcbJob = default
             };
+            
             if (system is IFixed)
             {
                 fixedRunners.Add(runner);
@@ -645,6 +646,14 @@ namespace Wargon.Nukecs
         }
     }
 
+    public struct ActionJob : IJob
+    {
+        public Action Action;
+        public void Execute()
+        {
+            this.Action?.Invoke();
+        }
+    }
     public struct JobCallback : IJob {
         public FunctionPointer<Action> callback;
         public void Execute() {
@@ -674,6 +683,15 @@ namespace Wargon.Nukecs
             return new JobCallback {
                 callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
             }.Schedule(job.Schedule(dependencies));
+        }
+        public static JobHandle ScheduleWithCallback<T>(this T jobData, int arrayLength, int indicesPerJobCount, Action callback,
+            JobHandle dependsOn = default) 
+            where T : struct, IJobParallelForBatch
+        {
+            var handle = jobData.ScheduleBatch(arrayLength, indicesPerJobCount, dependsOn);
+            return new JobCallback {
+                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
+            }.Schedule(handle);
         }
     }
 
