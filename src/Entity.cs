@@ -40,9 +40,10 @@ namespace Wargon.Nukecs
 
         internal ref ArchetypeUnsafe archetypeRef
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
+                if(worldPointer == null) throw new Exception("World pointer is null");
                 var arch = worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ptr;
                 if (arch == null) throw new Exception("Archetype reference is null");
                 return ref *arch;

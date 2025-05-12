@@ -17,20 +17,20 @@ namespace Wargon.Nukecs
             {
                 return AllocatorHandler.AllocatorWrapper.Allocate(size, alignment, items);
             }
-            internal unsafe T* _allocate<T>(int items = 1) where T: unmanaged
+            internal T* _allocate<T>(int items = 1) where T: unmanaged
             {
                 //return AllocatorHandle.AllocatorWrapper.MemoryAllocator.AllocateD<T>(items);
                 return (T*)AllocatorHandler.AllocatorWrapper.Allocate(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), items);
             }
-            internal unsafe ptr<T> _allocate_ptr<T>(int items = 1) where T: unmanaged
+            internal ptr<T> _allocate_ptr<T>(int items = 1) where T: unmanaged
             {
                 return AllocatorHandler.AllocatorWrapper.Allocator.AllocatePtr<T>(UnsafeUtility.SizeOf<T>() * items);
             }
-            internal unsafe void _free<T>(T* ptr, int items = 1) where T : unmanaged
+            internal void _free<T>(T* ptr, int items = 1) where T : unmanaged
             {
                 AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, ptr, items);
             }
-            internal unsafe void _free(uint offset)
+            internal void _free(uint offset)
             {
                 AllocatorRef.Free(offset);
             }

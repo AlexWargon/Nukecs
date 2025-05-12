@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
                 }
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
-                EcbJob.Run();
+                EcbJob.ECB.PlaybackMainThread(ref world);
                 return state.Dependencies;
             }
             state.Dependencies = System.Schedule(Query, Mode, updateContext, ref state);
@@ -79,16 +79,16 @@ namespace Wargon.Nukecs
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                             for (var i = begin; i < end; i++) {
                                 ref var e = ref fullData.query->GetEntity(i);
-                                if (e != Entity.Null) {
+                                //if (e.IsValid()) {
                                     fullData.JobData.OnUpdate(ref e, ref fullData.State);
-                                }
+                                //}
                             }
                         }
                         break;
                     case SystemMode.Single:
                         for (var i = 0; i < fullData.query->count; i++) {
                             ref var e = ref fullData.query->GetEntity(i);
-                            if (e != Entity.Null) {
+                            if (e.IsValid()) {
                                 fullData.JobData.OnUpdate(ref e, ref fullData.State);
                             }
                         }

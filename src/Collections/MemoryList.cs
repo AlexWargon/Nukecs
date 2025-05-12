@@ -11,6 +11,7 @@ namespace Wargon.Nukecs.Collections
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct MemoryList<T> where T : unmanaged
     {
+        public bool IsCreated => Ptr != null;
         internal ptr_offset PtrOffset;
         internal int capacity;
         internal int length;
@@ -127,7 +128,7 @@ namespace Wargon.Nukecs.Collections
             {
                 SetCapacity(len, ref allocatorHandler);
             }
-            this.length = len;
+            length = len;
         }
         public Enumerator GetEnumerator()
         {

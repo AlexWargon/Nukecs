@@ -6,6 +6,7 @@ using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
@@ -40,7 +41,7 @@ namespace Wargon.Nukecs
                 DefaultNoneTypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
             }
-            
+            internal const int FIRST_ENTITY_ID = 1;
             internal int Id;
             internal MemoryList<Entity> entities;
             internal MemoryList<Entity> prefabsToSpawn;
@@ -94,34 +95,31 @@ namespace Wargon.Nukecs
                 return ptr;
             }
             private void Initialize(int id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
-                this.Id = id;
-                this.config = worldConfig;
-                {
-                    this.AllocatorHandler = allocatorHandler;
-                }
-
-                this.entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true);
-                this.prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef);
-                this.reservedEntities = new MemoryList<int>(128, ref AllocatorRef);
-                this.entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorRef);
-                this.pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef);
-                this.queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef);
-                this.archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef);
-                this.archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
-                this.DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef);
-                this.config = worldConfig;
-                this.systemsUpdateJobDependencies = default;
+                Id = id;
+                config = worldConfig;
+                AllocatorHandler = allocatorHandler;
+                entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true);
+                prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef);
+                reservedEntities = new MemoryList<int>(128, ref AllocatorRef);
+                entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorRef);
+                pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef);
+                queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef);
+                archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef);
+                archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef);
+                config = worldConfig;
+                systemsUpdateJobDependencies = default;
                 
-                this.job_worker_count = JobsUtility.JobWorkerMaximumCount;
-                this.entitiesAmount = 0;
-                this.lastEntityIndex = 1;
-                this.poolsCount = 0;
-                this.lastDestroyedEntity = 0;
-                this.EntityCommandBuffer = new EntityCommandBuffer(256, Allocator);
-                this.spinner = new Spinner();
-                this.aspects = new Aspects(ref AllocatorRef, id);
+                job_worker_count = JobsUtility.JobWorkerMaximumCount;
+                entitiesAmount = 0;
+                lastEntityIndex = FIRST_ENTITY_ID;
+                poolsCount = 0;
+                lastDestroyedEntity = 0;
+                EntityCommandBuffer = new EntityCommandBuffer(256, Allocator);
+                spinner = new Spinner();
+                aspects = new Aspects(ref AllocatorRef, id);
                 
-                this.selfPtr = worldSelf;
+                selfPtr = worldSelf;
                 
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
@@ -240,7 +238,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
                 if (lastEntityIndex >= entities.Capacity) {
-                    var newCapacity = lastEntityIndex << 1;
+                    var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     // UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
@@ -264,7 +262,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity(int archetype) {
                 if (lastEntityIndex >= entities.capacity) {
-                    var newCapacity = lastEntityIndex << 1;
+                    var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                 }
@@ -352,7 +350,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype CreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, bool copyList = false) {
+            internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, copyList);
                 Archetype archetype;
                 archetype.ptr = ptr;
@@ -361,7 +359,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
-            internal void CreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, out Archetype archetype) {
+            internal void CreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
                 var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types);
                 archetype = new Archetype();
                 archetype.ptr = archetypePtr;
@@ -379,7 +377,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype GetOrCreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, bool copyList = false) {
+            internal Archetype GetOrCreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var hash = ArchetypeUnsafe.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     types.Dispose();
@@ -389,7 +387,7 @@ namespace Wargon.Nukecs
                 return CreateArchetype(ref types);
             }
             [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal void GetOrCreateArchetype(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<int> types, out Archetype archetype) {
+            internal void GetOrCreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
                 archetype = GetOrCreateArchetype(ref types);
             }
 

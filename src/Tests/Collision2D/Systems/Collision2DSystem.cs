@@ -99,6 +99,7 @@ namespace Wargon.Nukecs.Collision2D
                     ref var buffer2 = ref CollisionsDataPool.Get(hitInfo.To);
                     ref var ent1 = ref World.GetEntity(hitInfo.From);
                     ref var ent2 = ref World.GetEntity(hitInfo.To);
+                    if(!ent1.IsValid() || !ent2.IsValid()) continue;
                     buffer1.AddParallel(new Collision2DData
                     {
                         Other = ent2,

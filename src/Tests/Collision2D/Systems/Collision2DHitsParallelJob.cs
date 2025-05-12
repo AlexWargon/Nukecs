@@ -65,7 +65,7 @@ namespace Wargon.Nukecs.Collision2D {
                                 rect.index = e2;
 
                                 HitInfo hitInfo = default;
-                                ResolveCircleRectangleCollisionGpt3(ref c1, ref t1, ref b1, ref rect, ref rectTransform, ref hitInfo);
+                                ResolveCircleRectangleCollisionGpt4(ref c1, ref t1, ref b1, ref rect, ref rectTransform, ref hitInfo);
                                 hitInfo.From = e1;
                                 hitInfo.To = e2;
                                 CollisionEnterHits.Enqueue(hitInfo);
@@ -124,6 +124,7 @@ namespace Wargon.Nukecs.Collision2D {
                                     {
                                         CollisionEnterHits.Enqueue(hitInfo);
                                     }
+
 
 
                                     // ref var buffer1 = ref CollisionData.Get(e1);
@@ -304,7 +305,108 @@ namespace Wargon.Nukecs.Collision2D {
             hit.From = circle.index;
             hit.To = rectangle.index;
         }
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Default)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void ResolveCircleRectangleCollisionGpt4(
+            ref Circle2D circle,
+            ref Transform circleTransform,
+            ref Body2D circleBody,
+            ref Rectangle2D rectangle,
+            ref Transform rectangleTransform,
+            ref HitInfo hit)
+        {
+            var circlePos = circleTransform.Position.xy;
+            var rectCenter = rectangleTransform.Position.xy;
+            var invRotation = math.inverse(rectangleTransform.Rotation);
 
+            // Преобразуем позицию круга в локальное пространство прямоугольника
+            var localCirclePos = math.mul(invRotation, new float3(circlePos - rectCenter, 0f)).xy;
+
+            var halfWidth = rectangle.w * 0.5f;
+            var halfHeight = rectangle.h * 0.5f;
+
+            // Находим ближайшую точку на прямоугольнике в локальном пространстве
+            var clamped = math.clamp(localCirclePos, new float2(-halfWidth, -halfHeight), new float2(halfWidth, halfHeight));
+            var localDelta = localCirclePos - clamped;
+            var distSqr = math.lengthsq(localDelta);
+            var radius = circle.radius;
+
+            // Проверяем наличие столкновения
+            if (distSqr > radius * radius)
+                return;
+
+            float2 localNormal;
+            float2 localMtv;
+            float dist = math.sqrt(distSqr);
+
+            if (dist > 0f)
+            {
+                // Круг снаружи: нормаль от круга к прямоугольнику
+                localNormal = localDelta / dist;
+                localMtv = localNormal * (radius - dist) * 1.05f; // Усиление для устранения проникновения
+            }
+            else
+            {
+                // Круг внутри: ищем ближайшую грань
+                var distToLeft = halfWidth + localCirclePos.x;
+                var distToRight = halfWidth - localCirclePos.x;
+                var distToBottom = halfHeight + localCirclePos.y;
+                var distToTop = halfHeight - localCirclePos.y;
+
+                var minDist = math.min(math.min(distToLeft, distToRight), math.min(distToBottom, distToTop));
+
+                if (minDist == distToLeft)
+                {
+                    localNormal = new float2(-1f, 0f);
+                    localMtv = new float2(-distToLeft - radius, 0f) * 1.05f;
+                }
+                else if (minDist == distToRight)
+                {
+                    localNormal = new float2(1f, 0f);
+                    localMtv = new float2(distToRight + radius, 0f) * 1.05f;
+                }
+                else if (minDist == distToBottom)
+                {
+                    localNormal = new float2(0f, -1f);
+                    localMtv = new float2(0f, -distToBottom - radius) * 1.05f;
+                }
+                else // distToTop
+                {
+                    localNormal = new float2(0f, 1f);
+                    localMtv = new float2(0f, distToTop + radius) * 1.05f;
+                }
+            }
+
+            // Преобразуем нормаль и MTV в мировое пространство
+            var worldMtv = math.mul(rectangleTransform.Rotation, new float3(localMtv, 0f)).xy;
+            var worldNormal = math.mul(rectangleTransform.Rotation, new float3(localNormal, 0f)).xy;
+            if (math.lengthsq(worldNormal) > 0f)
+                worldNormal = math.normalize(worldNormal);
+
+            // Точка контакта в мировом пространстве
+            var contactPointWorld = rectCenter + math.mul(rectangleTransform.Rotation, new float3(clamped, 0f)).xy;
+
+            // Перемещаем круг наружу
+            circleTransform.Position += new float3(worldMtv, 0f);
+
+            // Корректируем скорость
+            var projection = math.dot(circleBody.velocity, worldNormal);
+            if (projection < 0f) // Только если круг движется к прямоугольнику
+            {
+                const float friction = 0.7f;
+                circleBody.velocity -= projection * worldNormal; // Убираем нормальную составляющую
+                var tangent = new float2(-worldNormal.y, worldNormal.x);
+                var tangentProjection = math.dot(circleBody.velocity, tangent);
+                circleBody.velocity -= tangentProjection * friction * tangent; // Применяем трение
+            }
+
+            // Устанавливаем флаги и HitInfo
+            circle.collided = true;
+            hit.Pos = contactPointWorld;
+            hit.Normal = worldNormal;
+            hit.From = circle.index;
+            hit.To = rectangle.index;
+        }
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Default)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool CircleRectangleCollision(in Circle2D circle, in Transform circleTransform,

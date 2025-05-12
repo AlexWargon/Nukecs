@@ -31,7 +31,7 @@ namespace Wargon.Nukecs.Tests {
             {
                 if (frames.List.m_length == 0)
                 {
-                    dbug.log($"{animation.AnimationID} : {animation.Group}: No frames available");
+                    //dbug.log($"{animation.AnimationID} : {animation.Group}: No frames available");
                     return;
                 }
                 var frameIndex = (int)(animation.CurrentTime / frameDuration) % frames.List.m_length;
