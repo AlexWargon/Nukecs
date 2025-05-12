@@ -47,6 +47,7 @@ namespace Wargon.Nukecs.Tests {
                 obj.Convert(ref world, ref e);
                 e.Add(new IsPrefab());
                 Map[id] = e;
+                world.Update();
                 return e;
             }
 

@@ -10,7 +10,7 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
     
-    public readonly unsafe struct Query : IDisposable {
+    public readonly unsafe struct Query {
         [NativeDisableUnsafePtrRestriction]
         internal readonly QueryUnsafe* InternalPointer;
         public int Count {
@@ -64,10 +64,6 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index) {
             return InternalPointer->entities.ElementAt(index);
-        }
-        public void Dispose() {
-            //var allocator = InternalPointer->world->Allocator;
-            //Unsafe.FreeTracked(InternalPointer, allocator);
         }
 
         public override string ToString() {
@@ -145,37 +141,40 @@ namespace Wargon.Nukecs {
             return entities.ElementAt(index);
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EnsureCapacity(int requiredCapacity)
-        {
-            if (requiredCapacity > entities.capacity)
-            {
-                int newCapacity = math.max(entities.capacity * 2, requiredCapacity);
-                //UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity, NativeArrayOptions.ClearMemory);
-                //UnsafeHelp.ResizeUnsafeList(ref entitiesMap, newCapacity, NativeArrayOptions.ClearMemory);
-            }
-        }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity) 
         {
-            //EnsureCapacity(count + 1);
             entities.ElementAt(count++) = entity;
             entitiesMap[entity] = count;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Remove(int entity) {
+
+        // internal void Remove(int entity) {
+        //     var index = entitiesMap[entity] - 1;
+        //     entitiesMap[entity] = 0;
+        //     count--;
+        //     if (count > index) {
+        //         
+        //         if(index < 0) return;
+        //         entities[index] = entities[count];
+        //         entitiesMap[entities[index]] = index + 1;
+        //     }
+        // }
+        internal void Remove(int entity)
+        {
             var index = entitiesMap[entity] - 1;
+            //dbug.log($"Removing entity {entity} from query {Id}, index = {index}, count = {count}");
+            if (index < 0)
+            {
+                //dbug.error($"Warning: Entity {entity} not found in query {Id}");
+                return;
+            }
             entitiesMap[entity] = 0;
             count--;
-            if (count > index) {
-                
-                if(index < 0) return;
-                // if(count < 0) return;
+            if (count > index)
+            {
                 entities[index] = entities[count];
                 entitiesMap[entities[index]] = index + 1;
             }
         }
-
         public QueryUnsafe* With(int type) {
             with.Add(type);
             return self;

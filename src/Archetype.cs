@@ -5,6 +5,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
@@ -33,8 +34,9 @@ namespace Wargon.Nukecs
     [BurstCompile(CompileSynchronously = true)]
     internal unsafe struct ArchetypeUnsafe
     {
+        private Spinner spinner;
         internal DynamicBitmask mask;
-        internal UnsafeList<int> types;
+        internal MemoryList<int> types;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal MemoryList<int> queries;
         internal HashMap<int, ptr<Edge>> transactions;
@@ -71,8 +73,6 @@ namespace Wargon.Nukecs
             archetype->mask.Dispose();
             archetype->types.Dispose();
             archetype->queries.Dispose();
-            foreach (var kvPair in archetype->transactions) kvPair.Value.Ref.Dispose();
-            archetype->destroyEdge.Dispose();
             archetype->transactions.Dispose();
             var worldPtr = archetype->world;
             worldPtr->_free(archetype);
@@ -86,7 +86,7 @@ namespace Wargon.Nukecs
             return ptr;
         }
 
-        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan,
+        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref MemoryList<int> typesSpan,
             bool copyList = false)
         {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
@@ -96,23 +96,24 @@ namespace Wargon.Nukecs
 
         internal ArchetypeUnsafe(World.WorldUnsafe* world, int[] typesSpan = null)
         {
+            spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
             id = 0;
             if (typesSpan != null)
             {
-                types = new UnsafeList<int>(typesSpan.Length, world->Allocator);
+                types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
                 id = GetHashCode(typesSpan);
                 foreach (var type in typesSpan)
                 {
                     mask.Add(type);
-                    types.Add(in type);
+                    types.Add(type, ref world->AllocatorRef);
                 }
             }
             else
             {
                 // Root Archetype
-                types = new UnsafeList<int>(1, world->Allocator);
+                types = new MemoryList<int>(1, ref world->AllocatorRef);
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
@@ -122,8 +123,9 @@ namespace Wargon.Nukecs
             destroyEdge = CreateDestroyEdge();
         }
 
-        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref UnsafeList<int> typesSpan, bool copyList = false)
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, bool copyList = false)
         {
+            spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
             if (typesSpan.IsCreated)
@@ -134,20 +136,19 @@ namespace Wargon.Nukecs
             else
             {
                 // Root Archetype
-                types = new UnsafeList<int>(1, world->Allocator);
+                types = new MemoryList<int>(1, ref world->AllocatorRef);
             }
 
             id = GetHashCode(ref typesSpan);
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
             transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             destroyEdge = default;
-
             PopulateQueries(world);
             destroyEdge = CreateDestroyEdge();
             if (copyList)
             {
-                types = new UnsafeList<int>(typesSpan.m_length, world->Allocator);
-                types.CopyFrom(in typesSpan);
+                types = new MemoryList<int>(typesSpan.length, ref world->AllocatorRef);
+                types.CopyFrom(ref typesSpan, ref world->AllocatorRef);
             }
         }
 
@@ -230,7 +231,7 @@ namespace Wargon.Nukecs
                 Query(queryId).Ref.Add(newEntity.id);
             }
 
-            for (var index = 0; index < types.m_length; index++)
+            for (var index = 0; index < types.length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Copy(entity.id, newEntity.id);
@@ -258,17 +259,20 @@ namespace Wargon.Nukecs
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void OnEntityChangeECB(int entity, int component)
         {
-            if (transactions.TryGetValue(component, out var edge))
             {
-                world->entitiesArchetypes.ElementAt(entity) = edge.Ref.ToMove;
-                edge.Ref.Execute(entity);
-                return;
+                if (transactions.TryGetValue(component, out var edge))
+                {
+                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.ToMove;
+                    edge.Ref.Execute(entity);
+                }
+                else
+                {
+                    CreateTransaction(component);
+                    edge = transactions[component];
+                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.ToMove;
+                    edge.Ref.Execute(entity);
+                }
             }
-
-            CreateTransaction(component);
-            edge = transactions[component];
-            world->entitiesArchetypes.ElementAt(entity) = edge.Ref.ToMove;
-            edge.Ref.Execute(entity);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -283,7 +287,7 @@ namespace Wargon.Nukecs
                     child.Value.Destroy();
                 }
             }
-            for (var index = 0; index < types.m_length; index++)
+            for (var index = 0; index < types.length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Remove(entity);
@@ -295,7 +299,7 @@ namespace Wargon.Nukecs
 
         internal void OnEntityFree(int entity)
         {
-            for (var index = 0; index < types.m_length; index++)
+            for (var index = 0; index < types.length; index++)
             {
                 ref var pool = ref world->GetUntypedPool(types[index]);
                 pool.Remove(entity);
@@ -305,14 +309,13 @@ namespace Wargon.Nukecs
         private void CreateTransaction(int component)
         {
             var remove = component < 0;
-            var newTypes = new UnsafeList<int>(remove ? mask.Count - 1 : mask.Count + 1, world->Allocator,
-                NativeArrayOptions.ClearMemory);
+            var newTypes = new MemoryList<int>(remove ? mask.Count - 1 : mask.Count + 1, ref world->AllocatorRef);
             var positiveComponent = math.abs(component);
             foreach (var type in types)
                 if ((remove && type == positiveComponent) == false)
-                    newTypes.Add(type);
+                    newTypes.Add(type, ref world->AllocatorRef);
 
-            if (remove == false) newTypes.Add(component);
+            if (remove == false) newTypes.Add(component, ref world->AllocatorRef);
 
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
             var otherArchetype = otherArchetypeStruct.impl;
@@ -406,7 +409,28 @@ namespace Wargon.Nukecs
                 return hash;
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetHashCode(ref MemoryList<int> mask)
+        {
+            unchecked
+            {
+                if (mask.Length == 0) return 0;
+                var hash = (int)2166136261;
+                const int p = 16777619;
+                for (var index = 0; index < mask.Length; index++)
+                {
+                    var i = mask[index];
+                    hash = (hash ^ i) * p;
+                }
 
+                hash += hash << 13;
+                hash ^= hash >> 7;
+                hash += hash << 3;
+                hash ^= hash >> 17;
+                hash += hash << 5;
+                return hash;
+            }
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetHashCode(ref Span<int> mask)
         {
@@ -449,7 +473,7 @@ namespace Wargon.Nukecs
         }
     }
 
-    internal unsafe struct Edge : IDisposable
+    internal unsafe struct Edge
     {
         internal MemoryList<ptr<QueryUnsafe>> AddEntity;
         internal MemoryList<ptr<QueryUnsafe>> RemoveEntity;
@@ -478,12 +502,6 @@ namespace Wargon.Nukecs
             for (var i = 0; i < RemoveEntity.length; i++) RemoveEntity.ElementAt(i).Ref.Remove(entity);
 
             for (var i = 0; i < AddEntity.length; i++) AddEntity.ElementAt(i).Ref.Add(entity);
-        }
-
-        public void Dispose()
-        {
-            //UnsafePtrList<QueryUnsafe>.Destroy(AddEntity);
-            //UnsafePtrList<QueryUnsafe>.Destroy(RemoveEntity);
         }
 
         public void OnDeserialize(ref SerializableMemoryAllocator allocator)

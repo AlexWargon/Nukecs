@@ -11,8 +11,8 @@ namespace Wargon.Nukecs
             ref var world = ref state.World;
             System.OnUpdate(ref state);
             EcbJob.ECB = world.GetEcbVieContext(updateContext);
-            EcbJob.world = world;
-            return EcbJob.Schedule(state.Dependencies);
+            EcbJob.ECB.PlaybackMainThread(ref world);
+            return state.Dependencies;
         }
 
         public void Run(ref State state) {
