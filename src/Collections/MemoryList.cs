@@ -1,4 +1,6 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace Wargon.Nukecs.Collections
 {
@@ -9,7 +11,7 @@ namespace Wargon.Nukecs.Collections
     using Unity.Mathematics;
 
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct MemoryList<T> where T : unmanaged
+    public unsafe struct MemoryList<T> where T : unmanaged 
     {
         public bool IsCreated => Ptr != null;
         internal ptr_offset PtrOffset;
@@ -187,7 +189,11 @@ namespace Wargon.Nukecs.Collections
                 *dst++ = *src++;
             }
         }
-        
+
+        public Span<T> AsSpan()
+        {
+            return new Span<T>(Ptr, length);
+        }
         public struct Enumerator
         {
             internal T* Ptr;
@@ -207,6 +213,7 @@ namespace Wargon.Nukecs.Collections
                 get => ref Ptr[Index];
             }
         }
+
     }
 
     public static unsafe class Extensions

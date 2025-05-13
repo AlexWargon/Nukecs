@@ -14,7 +14,7 @@ namespace Wargon.Nukecs
     {
         internal ArchetypeUnsafe* impl => ptr.Ptr;
         internal ptr<ArchetypeUnsafe> ptr;
-
+        public bool IsCreated => impl != null;
         internal bool Has<T>() where T : unmanaged
         {
             return impl->Has(ComponentType<T>.Index);

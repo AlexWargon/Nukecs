@@ -2,7 +2,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Serialization.Formatters.Binary;
-using Unity.Collections;
 
 namespace Wargon.Nukecs {
     [Serializable]
