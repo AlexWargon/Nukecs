@@ -46,6 +46,21 @@ namespace Wargon.Nukecs
             return this;
         }
 
+        public Systems RemoveComponent<T>() where T : unmanaged, IComponent
+        {
+            var system = new RemoveComponentSystem
+            {
+                Type = ComponentType<T>.Index
+            };
+            var runner = new EntityJobSystemRunner<RemoveComponentSystem> {
+                System = system,
+                Mode = system.Mode,
+                EcbJob = default
+            };
+            runner.Query = runner.System.GetQuery(ref world).InternalPointer;
+            runners.Add(runner);
+            return this;
+        }
         public Systems Add<T>() where T : struct, IJobSystem {
             T system = default;
             if (system is IOnCreate s) {
@@ -638,7 +653,21 @@ namespace Wargon.Nukecs
             entity.Remove<EntityCreated>();
         }
     }
-
+    [BurstCompile]
+    internal struct RemoveComponentSystem : IEntityJobSystem
+    {
+        internal int Type;
+        public SystemMode Mode => SystemMode.Single;
+        public Query GetQuery(ref World world) {
+            return world.Query().With(Type);
+        }
+        [BurstCompile]
+        public void OnUpdate(ref Entity entity, ref State state)
+        {
+            //dbug.log($"remove entity {entity}");
+            state.World.ECB.Remove(entity.id, Type);
+        }
+    }
     public interface IComponentSystem<TAspect>  where TAspect : unmanaged, IAspect
     {
         public void OnUpdate(ref TAspect aspect)

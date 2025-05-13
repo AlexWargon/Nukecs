@@ -147,38 +147,34 @@ namespace Wargon.Nukecs
 
         public ref struct Enumerator
         {
-            private readonly T* _listPtr;
-            private readonly int _len;
-            private int _index;
+            private readonly T* listPtr;
+            private readonly int len;
+            private int index;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Enumerator(T* list, int length)
             {
-                _listPtr = list;
-                _len = length;
-                _index = -1;
+                listPtr = list;
+                len = length;
+                index = -1;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool MoveNext()
             {
-                _index++;
-                return _index < _len;
+                index++;
+                return index < len;
             }
 
             public void Reset()
             {
-                _index = -1;
+                index = -1;
             }
 
             public ref T Current
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => ref _listPtr[_index];
-            }
-
-            public void Dispose()
-            {
+                get => ref listPtr[index];
             }
         }
     }

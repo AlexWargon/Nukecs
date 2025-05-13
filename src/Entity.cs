@@ -223,7 +223,13 @@ namespace Wargon.Nukecs
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Remove<T>(entity.id);
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void RemoveUntyped(this in Entity entity, int componentType)
+        {
+            entity.worldPointer->ECB.Remove(entity.id, componentType);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent
         {

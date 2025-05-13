@@ -442,10 +442,6 @@
                         case ECBCommand.Type.AddComponent:
                             if (archetype.Has(cmd.ComponentType))
                             {
-                                if (cmd.IsDisposable)
-                                {
-                                    world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                                }
                                 UnsafeUtility.Free(cmd.Component, Allocator.Temp);
                                 break;
                             }

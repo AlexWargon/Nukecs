@@ -30,15 +30,6 @@ namespace Wargon.Nukecs {
             };
         }
 
-        // public static GenericPool* CreatePtr<T>(int size, Allocator allocator) where T : unmanaged {
-        //     var ptr = Unsafe.MallocTracked<GenericPool>(
-        //         allocator);
-        //     *ptr = new GenericPool {
-        //         UnsafeBuffer = GenericPoolUnsafe.CreateBuffer<T>(size, allocator)
-        //     };
-        //     return ptr;
-        // }
-
         public T* GetBuffer<T>() where T : unmanaged, IComponent
         {
             return (T*)UnsafeBuffer->buffer;
@@ -199,9 +190,10 @@ namespace Wargon.Nukecs {
             if (UnsafeBuffer->ComponentType.isDisposable) {
                 DisposeComponent(index);
             }
-
-            if (!UnsafeBuffer->ComponentType.isTag) {
-                //SetPtr(index, UnsafeBuffer->ComponentType.defaultValue);
+            if (!UnsafeBuffer->ComponentType.isTag)
+            {
+                ref readonly var type = ref UnsafeBuffer->ComponentType;
+                UnsafeUtility.MemCpy(UnsafeBuffer->buffer + index * type.size, type.defaultValue, type.size);
             }
             UnsafeBuffer->count--;
         }

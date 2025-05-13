@@ -81,6 +81,10 @@ namespace Wargon.Nukecs {
         internal DynamicBitmask none;
         internal MemoryList<int> entities;
         internal MemoryList<int> entitiesMap;
+#if UNITY_EDITOR
+        internal MemoryList<int> withDebug;
+        internal MemoryList<int> noneDebug;
+#endif
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
@@ -120,6 +124,10 @@ namespace Wargon.Nukecs {
             this.world = world;
             this.with = DynamicBitmask.CreateForComponents(world);
             this.none = DynamicBitmask.CreateForComponents(world);
+#if UNITY_EDITOR
+            this.withDebug = new MemoryList<int>(16, ref world->AllocatorRef);
+            this.noneDebug = new MemoryList<int>(8, ref world->AllocatorRef);
+#endif
             this.count = 0;
             this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
             this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
@@ -127,6 +135,9 @@ namespace Wargon.Nukecs {
             this.self = self;
             if (withDefaultNoneTypes) {
                 foreach (var type in world->DefaultNoneTypes) {
+#if UNITY_EDITOR
+                    noneDebug.Add(type, ref world->AllocatorRef);
+#endif
                     none.Add(type);
                 }    
             }
@@ -147,17 +158,6 @@ namespace Wargon.Nukecs {
             entitiesMap[entity] = count;
         }
 
-        // internal void Remove(int entity) {
-        //     var index = entitiesMap[entity] - 1;
-        //     entitiesMap[entity] = 0;
-        //     count--;
-        //     if (count > index) {
-        //         
-        //         if(index < 0) return;
-        //         entities[index] = entities[count];
-        //         entitiesMap[entities[index]] = index + 1;
-        //     }
-        // }
         internal void Remove(int entity)
         {
             var index = entitiesMap[entity] - 1;
@@ -177,6 +177,9 @@ namespace Wargon.Nukecs {
         }
         public QueryUnsafe* With(int type) {
             with.Add(type);
+#if UNITY_EDITOR
+            withDebug.Add(type, ref world->AllocatorRef);
+#endif
             return self;
         }
 
@@ -190,6 +193,9 @@ namespace Wargon.Nukecs {
 
         public QueryUnsafe* None(int type) {
             none.Add(type);
+            #if UNITY_EDITOR
+            noneDebug.Add(type, ref world->AllocatorRef);
+            #endif
             return self;
         }
         [BurstDiscard]
