@@ -338,6 +338,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   WorldId: 0
+  netCubePrefab: {fileID: 0}
   serverIp: 127.0.0.1
   serverPort: 9050
   key: SomeConnectionKey
@@ -512,6 +513,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   WorldId: 0
+  netCubePrefab: {fileID: 0}
   port: 9050
 --- !u!4 &2102868647
 Transform:

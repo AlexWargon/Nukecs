@@ -12,7 +12,8 @@ namespace Wargon.Nukecs.Tests {
         public float4 uv;
         [SerializeField]
         private Shader shader;
-
+        [SerializeField] 
+        private bool renderShadow;
         private void OnValidate() {
             uv = SpriteUtility.GetTextureST(sprite);
         }
@@ -46,7 +47,7 @@ namespace Wargon.Nukecs.Tests {
             };
             entity.Add(in renderData);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world, renderShadow);
             archetype.AddInitial(ref entity);
             return renderData;
         }
@@ -55,7 +56,7 @@ namespace Wargon.Nukecs.Tests {
             AddToEntity(ref world, ref entity);
         }
 
-        public static void Convert(SpriteRenderer spriteRenderer, ref World world, ref Entity entity) {
+        public static void Convert(SpriteRenderer spriteRenderer, ref World world, ref Entity entity, bool shadow) {
             var sprite = spriteRenderer.sprite;
             var shader = spriteRenderer.sharedMaterial.shader;
             var d = spriteRenderer.color;
@@ -78,7 +79,7 @@ namespace Wargon.Nukecs.Tests {
                 )
             };
             entity.Add(in renderData);
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, shader, ref world, shadow);
             archetype.AddInitial(ref entity);
         }
     }

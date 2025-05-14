@@ -112,100 +112,100 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
         ENDCG
 
         // Pass render shadow
-        Pass
-        {
-            ZWrite Off
-            Blend SrcAlpha OneMinusSrcAlpha
-
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_instancing
-            #pragma instancing_options procedural:setup
-
-            struct appdata_t
-            {
-                float4 vertex : POSITION;
-                float2 uv : TEXCOORD0;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            struct v2f
-            {
-                float4 vertex : SV_POSITION;
-                float2 uv : TEXCOORD0;
-                fixed4 color : COLOR;
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-            };
-
-            sampler2D _MainTex;
-            fixed4 _ShadowColor;
-            float _ShadowAngle;
-            float _ShadowLength;
-            float _ShadowDistortion;
-            float3 _ShadowOffset;
-            v2f vert (appdata_t IN)
-            {
-                v2f OUT;
-                UNITY_SETUP_INSTANCE_ID(IN);
-                UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
-
-                float3 worldPos = mul(unity_ObjectToWorld, IN.vertex).xyz;
-
-                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-                SpriteRenderData data = _Properties[unity_InstanceID];
-                float4 localPosition = IN.vertex;
-                localPosition.xy *= data.SpriteSize;
-                localPosition.xy -= data.Pivot * data.SpriteSize;
-                localPosition.xy /= data.PixelsPerUnit;
-                worldPos = mul(unity_ObjectToWorld, localPosition);
-                const float shadowAngle = radians(data.ShadowAngle);
-                const float shadowLength = data.ShadowLength;
-                const float shadowDistortion = data.ShadowDistortion;
-                
-                #else
-                const float shadowAngle = radians(_ShadowAngle);
-                const float shadowLength = _ShadowLength;
-                const float shadowDistortion = _ShadowDistortion;
-                #endif
-            
-                const bool isBottomVertex = IN.vertex.y < 0.01;
-
-                if (!isBottomVertex)
-                {
-                    const float2 shadowOffset = float2(cos(shadowAngle), sin(shadowAngle)) * shadowLength;
-                    worldPos.xy += shadowOffset;
-                    
-                    const float verticalOffset = (1 - IN.vertex.y) * shadowDistortion;
-                    worldPos.y -= verticalOffset;
-                    
-                }
-                worldPos.x += _ShadowOffset.x;
-                worldPos.y += _ShadowOffset.y;
-                OUT.vertex = UnityWorldToClipPos(float4(worldPos, 1));
-                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
-                float2 uv = IN.uv;
-                uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
-                uv.y = data.FlipY < 0 ? 1 - uv.y : uv.y;
-                OUT.uv = uv * abs(data.SpriteTiling.zw) + data.SpriteTiling.xy;
-                #else
-                OUT.uv = IN.uv;
-                #endif
-
-                OUT.color = _ShadowColor;
-                return OUT;
-            }
-
-            fixed4 frag (v2f IN) : SV_Target
-            {
-                UNITY_SETUP_INSTANCE_ID(IN);
-                fixed4 c = tex2D(_MainTex, IN.uv);
-                c.rgb = _ShadowColor.rgb;
-                c.a *= _ShadowColor.a;
-                return c;
-            }
-            ENDCG
-        }
+//        Pass
+//        {
+//            ZWrite Off
+//            Blend SrcAlpha OneMinusSrcAlpha
+//
+//            CGPROGRAM
+//            #pragma vertex vert
+//            #pragma fragment frag
+//            #pragma multi_compile_instancing
+//            #pragma instancing_options procedural:setup
+//
+//            struct appdata_t
+//            {
+//                float4 vertex : POSITION;
+//                float2 uv : TEXCOORD0;
+//                UNITY_VERTEX_INPUT_INSTANCE_ID
+//            };
+//
+//            struct v2f
+//            {
+//                float4 vertex : SV_POSITION;
+//                float2 uv : TEXCOORD0;
+//                fixed4 color : COLOR;
+//                UNITY_VERTEX_INPUT_INSTANCE_ID
+//            };
+//
+//            sampler2D _MainTex;
+//            fixed4 _ShadowColor;
+//            float _ShadowAngle;
+//            float _ShadowLength;
+//            float _ShadowDistortion;
+//            float3 _ShadowOffset;
+//            v2f vert (appdata_t IN)
+//            {
+//                v2f OUT;
+//                UNITY_SETUP_INSTANCE_ID(IN);
+//                UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
+//
+//                float3 worldPos = mul(unity_ObjectToWorld, IN.vertex).xyz;
+//
+//                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+//                SpriteRenderData data = _Properties[unity_InstanceID];
+//                float4 localPosition = IN.vertex;
+//                localPosition.xy *= data.SpriteSize;
+//                localPosition.xy -= data.Pivot * data.SpriteSize;
+//                localPosition.xy /= data.PixelsPerUnit;
+//                worldPos = mul(unity_ObjectToWorld, localPosition);
+//                const float shadowAngle = radians(data.ShadowAngle);
+//                const float shadowLength = data.ShadowLength;
+//                const float shadowDistortion = data.ShadowDistortion;
+//                
+//                #else
+//                const float shadowAngle = radians(_ShadowAngle);
+//                const float shadowLength = _ShadowLength;
+//                const float shadowDistortion = _ShadowDistortion;
+//                #endif
+//            
+//                const bool isBottomVertex = IN.vertex.y < 0.01;
+//
+//                if (!isBottomVertex)
+//                {
+//                    const float2 shadowOffset = float2(cos(shadowAngle), sin(shadowAngle)) * shadowLength;
+//                    worldPos.xy += shadowOffset;
+//                    
+//                    const float verticalOffset = (1 - IN.vertex.y) * shadowDistortion;
+//                    worldPos.y -= verticalOffset;
+//                    
+//                }
+//                worldPos.x += _ShadowOffset.x;
+//                worldPos.y += _ShadowOffset.y;
+//                OUT.vertex = UnityWorldToClipPos(float4(worldPos, 1));
+//                #ifdef UNITY_PROCEDURAL_INSTANCING_ENABLED
+//                float2 uv = IN.uv;
+//                uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;
+//                uv.y = data.FlipY < 0 ? 1 - uv.y : uv.y;
+//                OUT.uv = uv * abs(data.SpriteTiling.zw) + data.SpriteTiling.xy;
+//                #else
+//                OUT.uv = IN.uv;
+//                #endif
+//
+//                OUT.color = _ShadowColor;
+//                return OUT;
+//            }
+//
+//            fixed4 frag (v2f IN) : SV_Target
+//            {
+//                UNITY_SETUP_INSTANCE_ID(IN);
+//                fixed4 c = tex2D(_MainTex, IN.uv);
+//                c.rgb = _ShadowColor.rgb;
+//                c.a *= _ShadowColor.a;
+//                return c;
+//            }
+//            ENDCG
+//        }
 
         // Pass render sprite
         Pass
@@ -249,7 +249,7 @@ Shader "Custom/SpriteShaderInstancedWithShadow"
                 localPosition.xy -= data.Pivot * data.SpriteSize;
                 localPosition.xy /= data.PixelsPerUnit;
                 float4 worldPosition = mul(unity_ObjectToWorld, localPosition);
-                worldPosition.z -= data.Layer * 0.0001;
+                //worldPosition.z -= data.Layer * 0.0001;
                 OUT.vertex = UnityWorldToClipPos(worldPosition);
                 float2 uv = IN.uv;
                 uv.x = data.FlipX < 0 ? 1 - uv.x : uv.x;

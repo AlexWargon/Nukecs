@@ -1,17 +1,12 @@
 ﻿namespace Wargon.Nukecs.Tests {
     using System;
-    using System.Runtime.CompilerServices;
-    using System.Threading;
-    using Unity.Collections;
-    using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
     using UnityEngine;
-    
-    using Transform = Transforms.Transform;
-    
+
     public static class ShaderNames {
         public const string Sprites = "Custom/SpriteShaderInstanced";
-        public const string SpritesWithShadow = "Custom/SpriteShaderInstancedWithShadow";
+        public const string SpritesWithShadow = "Custom/SpriteShaderInstancedWithShadowURP";
+        public const string ShadowShader = "URP2D/SpriteShadowInstancedURP";
     }
     public class SpriteArchetypesStorage : SingletonBase<SpriteArchetypesStorage> {
         internal SpriteArchetype[] archetypes = new SpriteArchetype[6];
@@ -34,7 +29,7 @@
         // {
         //     return archetypes[archetypeIndex].Chunk;
         // }
-        public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world) {
+        public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world, bool renderShadows = false) {
             Resize();
             var shaderID = shader.GetInstanceID();
             var instanceID = atlas.GetInstanceID();
@@ -47,13 +42,19 @@
             };
             var arch = new SpriteArchetype {
                 Material = material,
-                mesh = CreateQuadMesh(),
+                Mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
                 Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
                 camera = Camera.main,
-                index = count
+                index = count,
+                RenderShadow = renderShadows,
+                ShadowMaterial = renderShadows ? new Material(Shader.Find(ShaderNames.ShadowShader))
+                {
+                    mainTexture = atlas
+                } : null
             };
+            dbug.log($" added shader: {shaderID}, atlas: {(instanceID, atlas.name)}, shadow: {renderShadows}", Color.yellow);
             archetypes[count] = arch;
             count++;
             return ref archetypes[count-1];
@@ -73,7 +74,7 @@
             };
             var arch = new SpriteArchetype {
                 Material = material,
-                mesh = CreateQuadMesh(),
+                Mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
                 Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
@@ -96,7 +97,7 @@
         
         private void Resize() {
             if (count >= archetypes.Length) {
-                Array.Resize(ref archetypes, archetypes.Length*2);
+                Array.Resize(ref archetypes, archetypes.Length * 2);
             }
         }
         
@@ -124,294 +125,6 @@
                 triangles = new [] { 0, 2, 1, 0, 3, 2 }
             };
             return mesh;
-        }
-        
-        private static Mesh CreateQuad() {
-            Mesh mesh = new Mesh();
-            Vector3[] vertices = new Vector3[4];
-            vertices[0] = new Vector3(0, 0, 0);
-            vertices[1] = new Vector3(1, 0, 0);
-            vertices[2] = new Vector3(0, 1, 0);
-            vertices[3] = new Vector3(1, 1, 0);
-            mesh.vertices = vertices;
- 
-            int[] tri = new int[6];
-            tri[0] = 0;
-            tri[1] = 2;
-            tri[2] = 1;
-            tri[3] = 2;
-            tri[4] = 3;
-            tri[5] = 1;
-            mesh.triangles = tri;
- 
-            Vector3[] normals = new Vector3[4];
-            normals[0] = -Vector3.forward;
-            normals[1] = -Vector3.forward;
-            normals[2] = -Vector3.forward;
-            normals[3] = -Vector3.forward;
-            mesh.normals = normals;
- 
-            Vector2[] uv = new Vector2[4];
-            uv[0] = new Vector2(0, 0);
-            uv[1] = new Vector2(1, 0);
-            uv[2] = new Vector2(0, 1);
-            uv[3] = new Vector2(1, 1);
-            mesh.uv = uv;
- 
-            return mesh;
-        }
-    }
-    
-    public unsafe struct SpriteArchetype : IDisposable {
-        [NativeDisableUnsafePtrRestriction]
-        internal ptr<SpriteChunk> Chunk;
-        public int instanceID;
-        public int shaderID;
-        public int index;
-        internal Material Material;
-        internal Mesh mesh;
-        private ComputeBuffer transformsBuffer;
-        private ComputeBuffer propertiesBuffer;
-        private static readonly int matrices = Shader.PropertyToID("_Transforms");
-        private static readonly int properties = Shader.PropertyToID("_Properties");
-        public Camera camera;
-        public void AddInitial(ref Entity entity) {
-            Chunk.Ref.AddInitial(entity.id);
-            entity.Add(new SpriteChunkReference {
-                chunk = Chunk,
-                achetypeIndex = index
-            });
-        }
-        public void Add(ref Entity entity, ref SpriteChunkReference spriteChunkReference) {
-            Chunk.Ref.Add(in entity);
-        }
-
-        public void Remove(ref Entity entity, in SpriteChunkReference spriteChunkReference) {
-            Chunk.Ref.Remove(in entity);
-        }
-        
-        public void Clear() {
-            Chunk.Ref.Clear();
-        }
-        public void OnUpdate() {
-            var count = Chunk.Ref.count;
-
-            if(count == 0) return;
-            
-            var dataArray = RenderDataArray(count);
-            var matrixArray = MatrixArray(count);
-            
-            if (transformsBuffer == null || transformsBuffer.count != count)
-            {
-                transformsBuffer?.Release();
-                transformsBuffer = new ComputeBuffer(count, UnsafeUtility.SizeOf<Transform>());
-            }
-            
-            if (propertiesBuffer == null || propertiesBuffer.count != count)
-            {
-                propertiesBuffer?.Release();
-                propertiesBuffer = new ComputeBuffer(count, UnsafeUtility.SizeOf<SpriteRenderData>());
-            }
-            
-            transformsBuffer.SetData(matrixArray);
-            propertiesBuffer.SetData(dataArray);
-            
-            Material.SetBuffer(matrices, transformsBuffer);
-            Material.SetBuffer(properties, propertiesBuffer);
-    
-            var bounds = new Bounds(Vector3.zero, Vector3.one * 1000);
-            //Graphics.DrawMeshInstancedProcedural(mesh, 0, Material, bounds, count);
-            var r = new RenderParams();
-            r.material = Material;
-            r.worldBounds = bounds;
-            r.receiveShadows = false;
-            
-            Graphics.RenderMeshPrimitives(in r, mesh, 0, count);
-            matrixArray.Dispose();
-            dataArray.Dispose();
-        }
-
-        private NativeArray<SpriteRenderData> RenderDataArray(int count) 
-        {
-            var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(
-                Chunk.Ref.renderDataChunk, 
-                count, 
-                Allocator.None
-            );
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref array, AtomicSafetyHandle.Create());
-#endif
-            return array;
-        }
-
-        private NativeArray<Transform> MatrixArray(int count) 
-        {
-            var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Transform>(
-                Chunk.Ref.transforms, 
-                count, 
-                Allocator.None
-            );
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref array, AtomicSafetyHandle.Create());
-#endif
-            return array;
-        }
-
-        public void Dispose() {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var dataArray = RenderDataArray(Chunk.Ref.count);
-            if (dataArray.IsCreated)
-            {
-                AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(dataArray));
-            }
-
-            dataArray.Dispose();
-            var matrixArray = MatrixArray(Chunk.Ref.count);
-            if (matrixArray.IsCreated)
-            {
-                AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(matrixArray));
-            }
-
-            matrixArray.Dispose();
-#endif
-            SpriteChunk.Destroy(ref Chunk);
-            transformsBuffer?.Release();
-            propertiesBuffer?.Release();
-        }
-    }
-
-    public struct SpriteChunk {
-        [NativeDisableUnsafePtrRestriction] 
-        internal unsafe SpriteRenderData* renderDataChunk;
-        [NativeDisableUnsafePtrRestriction] 
-        internal unsafe Transform* transforms;
-        internal UnsafeList<int> entityToIndex;
-        internal UnsafeList<int> indexToEntity;
-        internal volatile int count;
-        internal int capacity;
-        internal int lastRemoved;
-
-        public static unsafe ptr<SpriteChunk> Create(int size, ref UnityAllocatorWrapper allocator) {
-            var ptr = allocator.Allocator.AllocatePtr<SpriteChunk>();
-            ptr.Ref = new SpriteChunk {
-                renderDataChunk = Unsafe.MallocTracked<SpriteRenderData>(size, Allocator.Persistent),
-                transforms = Unsafe.MallocTracked<Transform>(size, Allocator.Persistent),
-                entityToIndex = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
-                indexToEntity = UnsafeHelp.UnsafeListWithMaximumLenght<int>(size, Allocator.Persistent, NativeArrayOptions.ClearMemory),
-                count = 0,
-                capacity = size,
-                lastRemoved = 0
-            };
-            
-            return ptr;
-        }
-        public int AddInitial(int entity) {
-            var index = count;
-            if (entity >= entityToIndex.m_length) {
-                var newCapacity = entity * 2;
-                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                entityToIndex.m_length = entityToIndex.m_capacity;
-                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                indexToEntity.m_length = indexToEntity.m_capacity;
-                unsafe {
-                    UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
-                    UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
-                }
-                capacity = newCapacity;
-            }
-            indexToEntity[count] = entity;
-            entityToIndex[entity] = count;
-            //count++;
-            Interlocked.Increment(ref count);
-            return index;
-        }
-        public int Add(in Entity entity) {
-            var index = count;
-            if (entity.id >= entityToIndex.m_length) {
-                var newCapacity = entity.id * 2;
-                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                entityToIndex.m_length = entityToIndex.m_capacity;
-                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                indexToEntity.m_length = indexToEntity.m_capacity;
-                unsafe {
-                    UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
-                    UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
-                }
-                capacity = newCapacity;
-            }
-            indexToEntity[count] = entity.id;
-            entityToIndex[entity.id] = count;
-            Interlocked.Increment(ref count);
-            return index;
-        }
-
-        public unsafe int Add(in Entity entity, in Transform transform, in SpriteRenderData data) {
-            var index = count;
-            Interlocked.Increment(ref count);
-            if (entity.id >= entityToIndex.m_length) {
-                var newCapacity = entity.id * 2;
-                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                entityToIndex.m_length = entityToIndex.m_capacity;
-                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                indexToEntity.m_length = indexToEntity.m_capacity;
-                UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
-                UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
-                capacity = newCapacity;
-            }
-            indexToEntity[index] = entity.id;
-            entityToIndex[entity.id] = index;
-            transforms[index] = transform;
-            renderDataChunk[index] = data;
-            return index;
-        }
-
-        public unsafe void AddToFill(in Entity entity, in Transform transform, in SpriteRenderData data) {
-            var index = count;
-            Interlocked.Increment(ref count);
-            if (index >= capacity) {
-                var newCapacity = capacity * 2;
-                UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
-                UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
-                capacity = newCapacity;
-            }
-            transforms[index] = transform;
-            renderDataChunk[index] = data;
-        }
-        public unsafe void Remove(in Entity entity) {
-            if(count <= 0) return;
-            var lastIndex = count - 1;
-            var lastEntityID = indexToEntity[lastIndex];
-            var entityID = entity.id;
-            if (lastEntityID != entityID && count > 0) {
-                var entityIndex = entityToIndex[entityID];
-                entityToIndex[lastEntityID] = entityIndex;
-                indexToEntity[entityIndex] = lastEntityID;
-                renderDataChunk[lastIndex] = renderDataChunk[entityIndex];
-                transforms[lastIndex] = transforms[entityIndex];
-            }
-
-            Interlocked.Decrement(ref count);
-            //count--;
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void UpdateData(int entity, in SpriteRenderData data, in Transform transform) {
-            var index = entityToIndex[entity];
-            renderDataChunk[index] = data;
-            transforms[index] = transform;
-        }
-
-        public unsafe void Clear() {
-            indexToEntity.Clear();
-            indexToEntity.m_length = indexToEntity.m_capacity;
-            entityToIndex.Clear();
-            entityToIndex.m_length = entityToIndex.m_capacity;
-            count = 0;
-        }
-        public static unsafe void Destroy(ref ptr<SpriteChunk> chunk) {
-            Unsafe.FreeTracked(chunk.Ref.transforms, Allocator.Persistent);
-            Unsafe.FreeTracked(chunk.Ref.renderDataChunk, Allocator.Persistent);
-            chunk.Ref.indexToEntity.Dispose();
-            chunk.Ref.entityToIndex.Dispose();
         }
     }
 
