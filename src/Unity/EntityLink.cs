@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using TriInspector;
+﻿using TriInspector;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -17,12 +16,12 @@ namespace Wargon.Nukecs.Tests {
         private bool converted;
         private void Start() {
             if(!SelfConvert) return;
-             if(converted) return;
-             if (!EntityPrefabMap.TryGet(GetInstanceID(), out var entity)) {
-                 ref var w = ref World.Get(worldId);
-                 var e = w.Entity();
-                 Convert(ref w, ref e);
-             }
+            if(converted) return;
+            if (!EntityPrefabMap.TryGet(GetInstanceID(), out var entity)) {
+                ref var w = ref World.Get(worldId);
+                var e = w.Entity();
+                Convert(ref w, ref e);
+            }
         }
 
         public void Convert(ref World world, ref Entity entity) {
@@ -70,7 +69,8 @@ namespace Wargon.Nukecs.Tests {
             if (c == null) return;
             switch (c) {
                 case SpriteRenderer spriteRenderer:
-                    SpriteData.Convert(spriteRenderer, ref world, ref entity);
+                    if(!spriteRenderer.enabled) break;
+                    SpriteData.Convert(spriteRenderer, ref world, ref entity, false);
                     break;
             }
         }

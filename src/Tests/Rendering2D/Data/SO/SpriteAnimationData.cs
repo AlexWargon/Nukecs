@@ -52,6 +52,7 @@ namespace Wargon.Nukecs.Tests
 
         [SerializeField] private Shader shader;
         [SerializeField] private Material material;
+        [SerializeField] private bool renderShadow;
         private void OnValidate() {
             framesUV = new float4[sprites.Length];
             for (var index = 0; index < sprites.Length; index++) {
@@ -141,7 +142,7 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(animationComponent);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, material != null ? material.shader : shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, material != null ? material.shader : shader, ref world, renderShadow);
             archetype.AddInitial(ref entity);
             return entity;
         }
@@ -191,7 +192,7 @@ namespace Wargon.Nukecs.Tests
             };
             entity.Add(animationComponent);
 
-            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, material != null ? material.shader : shader, ref world);
+            ref var archetype = ref SpriteArchetypesStorage.Singleton.Add(sprite.texture, material != null ? material.shader : shader, ref world, renderShadow);
             archetype.AddInitial(ref entity);
         }
     }
