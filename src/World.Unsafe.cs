@@ -55,6 +55,7 @@ namespace Wargon.Nukecs
             internal WorldConfig config;
             internal EntityCommandBuffer EntityCommandBuffer;
             internal JobHandle systemsUpdateJobDependencies;
+            internal JobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
             internal MemoryList<int> DefaultNoneTypes;
             internal int entitiesAmount;
@@ -109,7 +110,7 @@ namespace Wargon.Nukecs
                 DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef);
                 config = worldConfig;
                 systemsUpdateJobDependencies = default;
-                
+                systemsFixedUpdateJobDependencies = default;
                 job_worker_count = JobsUtility.JobWorkerMaximumCount;
                 entitiesAmount = 0;
                 lastEntityIndex = FIRST_ENTITY_ID;
@@ -148,6 +149,7 @@ namespace Wargon.Nukecs
             private void SetDefaultNone() {
                 DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index, ref AllocatorRef);
                 DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index, ref AllocatorRef);
+                AddPool<DestroyEntity>();
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -189,6 +191,12 @@ namespace Wargon.Nukecs
                 return ref pool;
             }
 
+            private void AddPool<T>() where T : unmanaged
+            {
+                var poolIndex = ComponentType<T>.Index;
+                pools.ElementAt(poolIndex) = GenericPool.Create<T>(config.StartPoolSize, Self);
+                poolsCount++;
+            }
             private void AddPool<T>(ref GenericPool pool) where T : unmanaged
             {
                 spinner.Acquire();

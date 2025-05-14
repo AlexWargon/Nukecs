@@ -6,11 +6,27 @@ namespace Wargon.Nukecs {
         public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world)
         {
-            world.GetPool<DestroyEntity>();
             return world.Query(false).With<DestroyEntity>();
         }
         public void OnUpdate(ref Entity entity, ref State state) {
             entity.DestroyNow();
+        }
+    }
+
+    public struct EntityDestroyMTSystem : ISystem, IOnCreate
+    {
+        private Query query;
+        public void OnCreate(ref World world)
+        {
+            query = world.Query(false).With<DestroyEntity>();
+        }
+        public void OnUpdate(ref State state)
+        {
+            foreach (ref var entity in query)
+            {
+                ref var arch = ref entity.archetypeRef;
+                arch.Destroy(entity.id);
+            }
         }
     }
 }

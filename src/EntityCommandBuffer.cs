@@ -494,7 +494,6 @@
             }
         }
         internal void Playback(World.WorldUnsafe* world) {
-            //ecb->Playback(ref world);
 
             for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);

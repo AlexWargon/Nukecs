@@ -3,7 +3,8 @@ namespace Wargon.Nukecs
     using System.Collections.Generic;
 
     public class SystemsGroup {
-        internal System.Collections.Generic.List<ISystemRunner> runners = new System.Collections.Generic.List<ISystemRunner>();
+        internal List<ISystemRunner> runners = new ();
+        internal List<ISystemRunner> fixedRunners = new ();
         protected string name;
         public string Name => name;
         internal World world;
@@ -41,7 +42,15 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             runner.Query = runner.System.GetQuery(ref world).InternalPointer;
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
+
             return this;
         }
         
@@ -72,7 +81,35 @@ namespace Wargon.Nukecs
                 System = system,
                 EcbJob = default
             };
-            runners.Add(runner);
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
+            return this;
+        }
+        public SystemsGroup Add<T>(byte dymmy = 1) where T : class, ISystem, new() {
+            T system = new T();
+            if (system is IOnCreate s) {
+                s.OnCreate(ref world);
+                system = (T) s;
+            }
+            
+            var runner = new SystemMainThreadRunnerClass<T> {
+                System = system,
+                EcbJob = default
+            };
+            if (system is IFixed)
+            {
+                fixedRunners.Add(runner);
+            }
+            else
+            {
+                runners.Add(runner);
+            }
             return this;
         }
     }
