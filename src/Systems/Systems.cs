@@ -807,6 +807,20 @@ namespace Wargon.Nukecs
         }
     }
 
+    public class StartFixedECBSystem : ISystem, IOnCreate
+    {
+        private EntityCommandBuffer ecb;
+        public void OnCreate(ref World world)
+        {
+            ecb = new EntityCommandBuffer(512, world.Allocator);
+        }
+
+        public void OnUpdate(ref State state)
+        {
+            ecb.Playback(ref state.World);
+        }
+        public ref EntityCommandBuffer CommandBuffer => ref ecb;
+    }
     public delegate void Fn<T1, T2, T3>(UnsafeTuple<T1, T2, T3> query)
         where T1 : unmanaged where T2 : unmanaged where T3 : unmanaged;
 }
