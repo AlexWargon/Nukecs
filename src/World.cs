@@ -46,7 +46,7 @@ namespace Wargon.Nukecs
         }
 
         public ref JobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
-        public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
+        public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsFixedUpdateJobDependencies;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref GenericPool GetPool<T>() where T : unmanaged
