@@ -59,7 +59,7 @@ Create class inherited from ```WordInstaller``` and drop it on scene
                 collideWith = CollisionLayer.Enemy | CollisionLayer.Player
             });
         }
-	//if you need to cleare some data with world
+	//if you need to clear some data with world
 	protected override void OnDestroy()
         {
             base.OnDestroy(); world will be disposed here
