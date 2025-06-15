@@ -297,6 +297,30 @@ namespace Wargon.Nukecs
             world->OnDestroyEntity(entity);
         }
 
+        internal EntityData GetEntityData(Entity entity)
+        {
+            EntityData data;
+            data.Entity = entity.id;
+            data.Components = new byte[types.length][];
+            data.SizeInBytes = 0;
+            for (var i = 0; i < types.length; i++)
+            {
+                ref var pool = ref world->GetUntypedPool(types[i]);
+                data.Components[i] = pool.Serialize(entity.id);
+                data.SizeInBytes += pool.UnsafeBuffer->ComponentType.size;
+            }
+
+            return data;
+        }
+
+        internal void SetEntityData(EntityData data)
+        {
+            for (var i = 0; i < data.Components.Length; i++)
+            {
+                ref var pool = ref world->GetUntypedPool(types[i]);
+                pool.WriteBytes(data.Entity, data.Components[i]);
+            }
+        }
         internal void OnEntityFree(int entity)
         {
             for (var index = 0; index < types.length; index++)
@@ -472,7 +496,14 @@ namespace Wargon.Nukecs
             return archetype.mask.Has(type);
         }
     }
-
+    [Serializable]
+    public struct EntityData
+    {
+        public int Entity;
+        public byte[][] Components;
+        /// Size of Components
+        public int SizeInBytes;
+    }
     internal unsafe struct Edge
     {
         internal MemoryList<ptr<QueryUnsafe>> AddEntity;

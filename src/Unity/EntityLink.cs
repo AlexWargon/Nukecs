@@ -11,9 +11,13 @@ namespace Wargon.Nukecs.Tests {
         public bool SelfConvert = true;
         [SerializeField] private EntityLinkOption Option;
         [SerializeField] private int worldId;
-        [Title("Components")][HideLabel][GUIColor(0.6f, 0.9f, 1.0f)][SerializeReference] public System.Collections.Generic.List<IComponent> components;
-        [Title("Convertors")][HideLabel][GUIColor(1.0f, 1.0f, 0.0f)][SerializeField] protected System.Collections.Generic.List<Convertor> convertors = new ();
+
+        [Title("Components")][HideLabel]/*[GUIColor(0.6f, 0.9f, 1.0f)]*/[SerializeReference] public System.Collections.Generic.List<IComponent> components;
+        [Title("Convertors")][HideLabel]/*[GUIColor(1.0f, 1.0f, 0.0f)]*/[SerializeField] protected System.Collections.Generic.List<Convertor> convertors = new ();
         private bool converted;
+#if UNITY_EDITOR
+        private Entity linkedEntity;
+#endif
         private void Start() {
             if(!SelfConvert) return;
             if(converted) return;
@@ -50,7 +54,7 @@ namespace Wargon.Nukecs.Tests {
                     world.SpawnPrefab(in entity);
                     break;
                 case EntityLinkOption.Hybrid:
-                    entity.Add(new TransformRef{ Value = transform });
+                    entity.Add(new TransformRef { Value = transform });
                     entity.Add(new Transforms.Transform
                     {
                         Position = transform.position,
@@ -59,8 +63,11 @@ namespace Wargon.Nukecs.Tests {
                     });
                     break;
             }
+            #if UNITY_EDITOR
+            linkedEntity = entity;
+            #endif
             converted = true;
-            
+
         }
 
         private static void ConvertComponent<T>(Transform transform, ref World world, ref Entity entity) where T : UnityEngine.Component {
@@ -72,8 +79,37 @@ namespace Wargon.Nukecs.Tests {
                     if(!spriteRenderer.enabled) break;
                     SpriteData.Convert(spriteRenderer, ref world, ref entity, false);
                     break;
+                case BoxCollider2D boxCollider2D:
+                    if(!boxCollider2D.enabled) break;
+
+                    break;
+                case CircleCollider2D circleCollider2D:
+                    if(!circleCollider2D.enabled) break;
+
+                    break;
             }
         }
+#if UNITY_EDITOR
+        [Button("Destroy")]
+        private void DestroyEntity()
+        {
+            linkedEntity.Destroy();
+        }
+        private void Update()
+        {
+            if (Option == EntityLinkOption.Hybrid)
+            {
+                if (Selection.activeGameObject == this.gameObject)
+                {
+                    foreach (var component in components)
+                    {
+                        linkedEntity.SetObject(component);
+                    }
+                }
+
+            }
+        }
+#endif
     }
 
     public enum EntityLinkOption {

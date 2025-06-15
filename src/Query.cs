@@ -17,15 +17,17 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => InternalPointer->count;
         }
+
+        public bool IsEmpty
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => InternalPointer->count == 0;
+        }
         internal int CountMulti => InternalPointer->count / InternalPointer->world->job_worker_count;
         public bool IsValid
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => InternalPointer != null;
-        }
-        internal Query(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
-        {
-            InternalPointer = QueryUnsafe.Create(world, withDefaultNoneTypes);
         }
 
         internal Query(ptr<QueryUnsafe> query)
@@ -57,6 +59,17 @@ namespace Wargon.Nukecs {
             InternalPointer->None(componentIndex);
             return this;
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref Entity First()
+        {
+            if (Count > 0)
+            {
+                return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[0]];
+            }
+            throw new Exception("No entities found");
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
             return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[index]];

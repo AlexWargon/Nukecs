@@ -132,7 +132,7 @@ namespace Wargon.Nukecs {
     internal class TypeToComponentType {
         internal static Dictionary<Type, ComponentType> Map = new();
     }
-    internal struct ComponentTypeMap {
+    public struct ComponentTypeMap {
         private static ComponentsMapCache cache;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentType>> ComponentTypes;
         

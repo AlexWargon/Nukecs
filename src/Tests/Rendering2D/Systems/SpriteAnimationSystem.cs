@@ -42,7 +42,7 @@ namespace Wargon.Nukecs.Tests {
                 }
                 //renderData.FlipX = math.abs(flipX - renderData.FlipX) > 0.5f ? flipX : renderData.FlipX;
                 renderData.SpriteTiling = GetSpriteTiling(frameIndex, ref frames.List);
-                transform.Position.z = transform.Position.y*0.01f;
+                //transform.Position.z = transform.Position.y*0.01f;
             }
             //var frames = SpriteAnimationsStorage.Singleton.GetFrames(animation.Group, animation.AnimationID).List;
 

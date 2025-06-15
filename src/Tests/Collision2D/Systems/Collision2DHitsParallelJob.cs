@@ -104,7 +104,7 @@ namespace Wargon.Nukecs.Collision2D {
                             ref var t2 = ref Transforms.Get(e2);
                             if ((c1.collideWith & c2.layer) == c2.layer)
                             {
-                                var distance = math.distance(t1.Position, t2.Position);
+                                var distance = math.distance(t1.Position.xy, t2.Position.xy);
                                 if (c1.radius + c2.radius >= distance)
                                 {
                                     ulong collisionKey = GetCollisionKey(e1, e2);
@@ -493,10 +493,13 @@ namespace Wargon.Nukecs.Collision2D {
             var normal2d = new float2(normal.x, normal.y);
             if (!(circle1.trigger || circle2.trigger))
             {
+                var z = t1.Position.z;
                 t1.Position -= normal * depth * 0.5F;
                 t2.Position += normal * depth * 0.5f;
+                t1.Position.z = z;
+                t2.Position.z = z;
             }
-
+            
             hitInfo = new HitInfo
             {
                 Pos = circle1.position + normal2d * circle1.radius,

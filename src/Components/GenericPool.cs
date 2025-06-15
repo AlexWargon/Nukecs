@@ -175,7 +175,7 @@ namespace Wargon.Nukecs {
             UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetObject(int index, IComponent component) {
+        public void AddObject(int index, IComponent component) {
             if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
@@ -184,6 +184,15 @@ namespace Wargon.Nukecs {
                 ComponentHelpers.Write(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.size, UnsafeBuffer->ComponentType.index, component);
             }
             UnsafeBuffer->count++;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetObject(int index, IComponent component) {
+            if (!UnsafeBuffer->ComponentType.isTag) {
+                if (index < 0) {
+                    throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
+                }
+                ComponentHelpers.Write(UnsafeBuffer->buffer, index, UnsafeBuffer->ComponentType.size, UnsafeBuffer->ComponentType.index, component);
+            }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index) {
@@ -324,6 +333,10 @@ namespace Wargon.Nukecs {
             return new Span<byte>(UnsafeBuffer->buffer, UnsafeBuffer->ComponentType.size * UnsafeBuffer->capacity).ToArray();
         }
 
+        public byte[] Serialize(int entity)
+        {
+            return new Span<byte>(UnsafeGetPtr(entity), UnsafeBuffer->ComponentType.size).ToArray();
+        }
         public void Deserialize(byte[] data)
         {
             fixed (byte* ptr = data)
