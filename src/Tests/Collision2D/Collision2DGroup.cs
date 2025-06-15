@@ -5,7 +5,7 @@
         public Collision2DGroup(ref World world) : base(ref world){
 
             this.name = "Collision2D";
-                this
+            this
                 //.Add(new Collision2DOnRectangleOnConvertEntitySystem())
                 
             .Add<CollisionsClear>()

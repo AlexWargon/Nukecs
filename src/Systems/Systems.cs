@@ -12,16 +12,16 @@ namespace Wargon.Nukecs
 {
     public unsafe class Systems
     {
-        internal List<ISystemDestroyer> _systemDestroyers;
+        internal readonly List<ISystemDestroyer> SystemDestroyers;
         internal JobHandle dependencies;
-        private NativeList<JobHandle> dependenciesList;
-        internal List<ISystemRunner> fixedRunners;
-        internal List<ISystemRunner> runners;
-
+        internal readonly List<ISystemRunner> fixedRunners;
+        internal readonly List<ISystemRunner> runners;
+        internal readonly List<ISystemRunner> mainThreadFixedRunners;
+        internal readonly List<ISystemRunner> mainThreadRunners;
         private State state;
         private State stateFixed;
         internal SystemsDependencies systemsDependencies;
-
+        
         internal World world;
 
         //private ECBSystem _ecbSystem;
@@ -30,8 +30,9 @@ namespace Wargon.Nukecs
             dependencies = default;
             runners = new List<ISystemRunner>();
             fixedRunners = new List<ISystemRunner>();
-            _systemDestroyers = new List<ISystemDestroyer>();
-            dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
+            mainThreadRunners = new List<ISystemRunner>();
+            mainThreadFixedRunners = new List<ISystemRunner>();
+            SystemDestroyers = new List<ISystemDestroyer>();
             systemsDependencies = SystemsDependencies.Create();
             this.world = world;
             WorldSystems.Add(world.UnsafeWorld->Id, this);
@@ -150,7 +151,7 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            _systemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
+            SystemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
             runner.Query = runner.System.GetQuery(ref world).InternalPointer;
             if (system is IFixed)
                 fixedRunners.Add(runner);
@@ -198,9 +199,9 @@ namespace Wargon.Nukecs
             };
 
             if (system is IFixed)
-                fixedRunners.Add(runner);
+                mainThreadFixedRunners.Add(runner);
             else
-                runners.Add(runner);
+                mainThreadRunners.Add(runner);
             return this;
         }
 
@@ -219,10 +220,10 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             if (system is IFixed)
-                fixedRunners.Add(runner);
+                mainThreadFixedRunners.Add(runner);
             else
-                runners.Add(runner);
-            if (system is IOnDestroy onDestroySystem) _systemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
+                mainThreadRunners.Add(runner);
+            if (system is IOnDestroy onDestroySystem) SystemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
             return this;
         }
 
@@ -240,19 +241,21 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             if (system is IFixed)
-                fixedRunners.Add(runner);
+                mainThreadFixedRunners.Add(runner);
             else
-                runners.Add(runner);
+                mainThreadRunners.Add(runner);
 
-            if (system is IOnDestroy onDestroySystem) _systemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
+            if (system is IOnDestroy onDestroySystem) SystemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
             return this;
         }
 
         public Systems Add<T>(T group) where T : SystemsGroup
         {
             group.world = world;
-            for (var i = 0; i < group.runners.Count; i++) runners.Add(group.runners[i]);
-
+            runners.AddRange(group.runners);
+            fixedRunners.AddRange(group.fixedRunners);
+            mainThreadRunners.AddRange(group.mainThreadRunners);
+            mainThreadFixedRunners.AddRange(group.mainThreadFixedRunners);
             return this;
         } // ReSharper disable Unity.PerformanceAnalysis
         public void OnUpdate(float dt, float time)
@@ -264,12 +267,16 @@ namespace Wargon.Nukecs
             state.Time.Time = time;
             state.Time.ElapsedTime += dt;
             state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
+            for (var i = 0; i < mainThreadRunners.Count; i++)
+                state.Dependencies = mainThreadRunners[i].Schedule(UpdateContext.Update, ref state);
             for (var i = 0; i < runners.Count; i++)
                 state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref state);
 
             timeSinceLastFixedUpdate += dt;
             if (timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
             {
+                for (var i = 0; i < mainThreadFixedRunners.Count; i++)
+                    state.Dependencies = mainThreadFixedRunners[i].Schedule(UpdateContext.Update, ref state);
                 for (var i = 0; i < fixedRunners.Count; i++)
                     state.Dependencies = fixedRunners[i].Schedule(UpdateContext.Update, ref state);
                 timeSinceLastFixedUpdate = 0;
@@ -288,8 +295,7 @@ namespace Wargon.Nukecs
         internal void OnWorldDispose()
         {
             Complete();
-            dependenciesList.Dispose();
-            foreach (var systemDestroyer in _systemDestroyers) systemDestroyer.Destroy(ref world);
+            foreach (var systemDestroyer in SystemDestroyers) systemDestroyer.Destroy(ref world);
             systemsDependencies.Dispose();
         }
         // public void Run(float dt) {
