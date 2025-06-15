@@ -34,10 +34,6 @@ namespace Wargon.Nukecs
             dependenciesList = new NativeList<JobHandle>(12, AllocatorManager.Persistent);
             systemsDependencies = SystemsDependencies.Create();
             this.world = world;
-            //_ecbSystem = default;
-            //_ecbSystem.OnCreate(ref world);
-
-            //this.InitDisposeSystems();
             WorldSystems.Add(world.UnsafeWorld->Id, this);
         }
 

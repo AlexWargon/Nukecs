@@ -19,7 +19,7 @@ namespace Wargon.Nukecs
 
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
-
+        internal static Entity NullRef = Null;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer)
         {
@@ -212,11 +212,16 @@ namespace Wargon.Nukecs
         internal static void AddObject(this in Entity entity, IComponent component)
         {
             var componentIndex = ComponentTypeMap.Index(component.GetType());
-            entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
+            entity.worldPointer->GetUntypedPool(componentIndex).AddObject(entity.id, component);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add(entity.id, componentIndex);
         }
 
+        internal static void SetObject(this in Entity entity, IComponent component)
+        {
+            var componentIndex = ComponentTypeMap.Index(component.GetType());
+            entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Remove<T>(this in Entity entity) where T : unmanaged, IComponent
         {
@@ -245,6 +250,10 @@ namespace Wargon.Nukecs
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 
+        // public static unsafe T* GetPtr<T>(this ref Entity entity) where T : unmanaged, IComponent
+        // {
+        //     
+        // }
         public static ref T TryGet<T>(this in Entity entity, out bool exist) where T : unmanaged, IComponent
         {
             exist = entity.archetypeRef.Has(ComponentType<T>.Index);
@@ -473,6 +482,16 @@ namespace Wargon.Nukecs
             var aspect = entity.worldPointer->GetAspect<T>();
             aspect->Update(ref entity);
             return ref *aspect;
+        }
+
+        public static EntityData GetData(this ref Entity entity)
+        {
+            return entity.archetypeRef.GetEntityData(entity);
+        }
+
+        public static void SetData(this ref Entity entity, EntityData data)
+        {
+            entity.archetypeRef.SetEntityData(data);
         }
     }
 }
