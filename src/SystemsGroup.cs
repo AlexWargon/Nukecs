@@ -5,6 +5,8 @@ namespace Wargon.Nukecs
     public class SystemsGroup {
         internal List<ISystemRunner> runners = new ();
         internal List<ISystemRunner> fixedRunners = new ();
+        internal List<ISystemRunner> mainThreadRunners = new ();
+        internal List<ISystemRunner> mainThreadFixedRunners = new ();
         protected string name;
         public string Name => name;
         internal World world;
@@ -83,11 +85,11 @@ namespace Wargon.Nukecs
             };
             if (system is IFixed)
             {
-                fixedRunners.Add(runner);
+                mainThreadFixedRunners.Add(runner);
             }
             else
             {
-                runners.Add(runner);
+                mainThreadRunners.Add(runner);
             }
             return this;
         }
@@ -104,11 +106,11 @@ namespace Wargon.Nukecs
             };
             if (system is IFixed)
             {
-                fixedRunners.Add(runner);
+                mainThreadFixedRunners.Add(runner);
             }
             else
             {
-                runners.Add(runner);
+                mainThreadRunners.Add(runner);
             }
             return this;
         }
