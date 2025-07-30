@@ -89,7 +89,7 @@ namespace Wargon.Nukecs.Transforms {
             };
         }
     }
-
+    public struct NoneSyncTransform : IComponent { }
     public struct ClearTransformsSystem : ISystem, IOnCreate
     {
         private Query query;

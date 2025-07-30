@@ -55,7 +55,7 @@ namespace Wargon.Nukecs.Reactive
             var reactiveComponent = reactiveGenericPool.UnsafeGetPtr(entity.id);
             if(UnsafeUtility.MemCmp(component, reactiveComponent, sizeOfComponent) != 0)
             {
-                entity.AddByComponentIndex(componentChangedTagIndex);
+                entity.AddIndex(componentChangedTagIndex);
                 dbug.log("changed");
             }
             

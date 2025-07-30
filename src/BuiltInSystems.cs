@@ -34,4 +34,18 @@ namespace Wargon.Nukecs{
             }
         }
     }
+
+    public struct NRandom
+    {
+        private static SharedStatic<Unity.Mathematics.Random> _random;
+
+        static NRandom()
+        {
+            _random = SharedStatic<Unity.Mathematics.Random>.GetOrCreate<NRandom>();
+            _random.Data.InitState();
+        }
+        public static float Value => _random.Data.NextFloat();
+        public static int Range(int min, int max) => _random.Data.NextInt(min, max);
+        public static float Range(float min, float max) => _random.Data.NextFloat(min, max);
+    }
 }

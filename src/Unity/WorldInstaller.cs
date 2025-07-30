@@ -78,18 +78,18 @@ namespace Wargon.Nukecs
     }
     public struct SyncTransformsSystem : ISystem, IOnCreate
     {
-        private Query query;
+        private Query _query;
 
         public void OnCreate(ref World world)
         {
-            query = world.Query().With<Transforms.Transform>().With<TransformRef>();
+            _query = world.Query().With<Transform>().With<TransformRef>().None<NoneSyncTransform>();
         }
         public void OnUpdate(ref State state)
         {
-            foreach (ref var entity in query)
+            foreach (ref var entity in _query)
             {
                 var transformRef = entity.Get<TransformRef>().Value.Value;
-                ref var transform = ref entity.Get<Transforms.Transform>();
+                ref var transform = ref entity.Get<Transform>();
 
                 transformRef.position = transform.Position;
                 transformRef.rotation = transform.Rotation;

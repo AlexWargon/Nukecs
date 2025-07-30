@@ -102,7 +102,7 @@ namespace Wargon.Nukecs {
             return ref ((T*)UnsafeBuffer->buffer)[index];
             //return ref *(T*) (impl->buffer + index * impl->elementSize);
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte* UnsafeGetPtr(int index)
         {
             return UnsafeBuffer->buffer + index * UnsafeBuffer->ComponentType.size;
@@ -150,7 +150,7 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value) {
             if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
@@ -163,7 +163,7 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
             if (!UnsafeBuffer->ComponentType.isTag) {
                 if (index < 0) {
@@ -375,19 +375,6 @@ namespace Wargon.Nukecs {
         public static Span<T> AsSpan<T>(in this GenericPool genericPool) where T : unmanaged, IComponent
         {
             return new Span<T>(genericPool.UnsafeBuffer->buffer, genericPool.UnsafeBuffer->capacity);
-        }
-    }
-    public struct bbool {
-        internal byte value;
-
-        public static implicit operator bool(bbool v) {
-            return v.value == 1;
-        }
-
-        public static explicit operator bbool(bool value) {
-            return new bbool {
-                value = value ? (byte)1 : (byte)0
-            };
         }
     }
 }
