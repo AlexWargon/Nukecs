@@ -177,7 +177,7 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
 
-        internal static void AddByComponentIndex(this ref Entity entity, int component)
+        internal static void AddIndex(this ref Entity entity, int component)
         {
             if (entity.archetypeRef.Has(component)) return;
             entity.worldPointer->ECB.Add(entity.id, component);
@@ -230,7 +230,7 @@ namespace Wargon.Nukecs
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void RemoveUntyped(this in Entity entity, int componentType)
+        internal static void RemoveIndex(this in Entity entity, int componentType)
         {
             entity.worldPointer->ECB.Remove(entity.id, componentType);
         }
@@ -452,10 +452,30 @@ namespace Wargon.Nukecs
                 childrenNew.Add(new Child { Value = child });
             }
 
-            //entity.GetBuffer<Child>().Add(new Child(){Value = child});
             child.Add(new OnAddChildWithTransformEvent());
         }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetParent(this ref Entity entity, Entity newParent)
+        {
+            newParent.AddChild(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Entity GetRootParent(this ref Entity entity)
+        {
+            var current = entity;
+            if (current.Has<ChildOf>())
+            {
+                while (current.Has<ChildOf>())
+                {
+                    current = current.Get<ChildOf>().Value;
+                }
 
+                return current;
+            }
+            return Entity.Null;
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref Entity GetChild(this ref Entity entity, int index)
         {

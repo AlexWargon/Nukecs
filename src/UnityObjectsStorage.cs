@@ -205,7 +205,7 @@ namespace Wargon.Nukecs {
 
     internal static class StaticObjectRefStorage
     {
-        internal static AutoArray<object> Objects = new AutoArray<object>(32, 1);
+        internal static readonly AutoArray<object> Objects = new AutoArray<object>(32, 1);
 
         internal static int Add<T>(T item)
         {
@@ -226,80 +226,80 @@ namespace Wargon.Nukecs {
 
     internal class AutoArray<T>
     {
-        private int count;
-        private int freeCount;
-        private T[] array;
-        private int[] freeIndices;
+        private int _count;
+        private int _freeCount;
+        private T[] _array;
+        private int[] _freeIndices;
 
         public AutoArray(int capacity, int start = 0)
         {
-            count = start;
-            freeCount = 0;
-            array = new T[capacity];
-            freeIndices = new int[capacity];
+            _count = start;
+            _freeCount = 0;
+            _array = new T[capacity];
+            _freeIndices = new int[capacity];
         }
 
         public T this[int index]
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (index < 0 || index >= array.Length) throw new IndexOutOfRangeException();
-                return array[index];
+                if (index < 0 || index >= _array.Length) throw new IndexOutOfRangeException();
+                return _array[index];
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 if (index < 0) throw new IndexOutOfRangeException();
-                if (index >= array.Length)
+                if (index >= _array.Length)
                 {
-                    var newSize = Math.Max(array.Length * 2, index + 1);
-                    Array.Resize(ref array, newSize);
-                    Array.Resize(ref freeIndices, newSize);
+                    var newSize = Math.Max(_array.Length * 2, index + 1);
+                    Array.Resize(ref _array, newSize);
+                    Array.Resize(ref _freeIndices, newSize);
                 }
-                array[index] = value;
+                _array[index] = value;
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int Add(T value)
         {
             int index;
-            if (freeCount > 0)
+            if (_freeCount > 0)
             {
-                index = freeIndices[--freeCount];
+                index = _freeIndices[--_freeCount];
             }
             else
             {
-                index = count++;
+                index = _count++;
             }
             this[index] = value;
             return index;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index)
         {
-            if (index < 0 || index >= array.Length) throw new IndexOutOfRangeException();
-            array[index] = default; // Очищаем элемент
-            if (freeCount >= freeIndices.Length)
+            if (index < 0 || index >= _array.Length) throw new IndexOutOfRangeException();
+            _array[index] = default;
+            if (_freeCount >= _freeIndices.Length)
             {
-                Array.Resize(ref freeIndices, freeIndices.Length * 2);
+                Array.Resize(ref _freeIndices, _freeIndices.Length * 2);
             }
-            freeIndices[freeCount++] = index;
+            _freeIndices[_freeCount++] = index;
         }
 
         public void Clear()
         {
-            Array.Clear(array, 0, array.Length);
-            Array.Clear(freeIndices, 0, freeIndices.Length);
-            count = 0;
-            freeCount = 0;
+            Array.Clear(_array, 0, _array.Length);
+            Array.Clear(_freeIndices, 0, _freeIndices.Length);
+            _count = 0;
+            _freeCount = 0;
         }
     }
     [StructLayout(LayoutKind.Sequential)]
     public struct ObjectRef<T> : IEquatable<ObjectRef<T>>, IDisposable where T : class
     {
-        private int pointer; // Индекс в StaticObjectRefStorage.Objects
-
-        // Используем -1 как "неинициализирован", чтобы 0 был валидным индексом
-        private const int InvalidPointer = -1;
+        private int pointer;
+        private const int INVALID_POINTER = -1;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator ObjectRef<T>(T instance)
@@ -309,7 +309,7 @@ namespace Wargon.Nukecs {
 
         public ObjectRef(T instance)
         {
-            pointer = instance != null ? StaticObjectRefStorage.Add(instance) : InvalidPointer;
+            pointer = instance != null ? StaticObjectRefStorage.Add(instance) : INVALID_POINTER;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -321,15 +321,15 @@ namespace Wargon.Nukecs {
         public T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => pointer == InvalidPointer ? null : (T)StaticObjectRefStorage.Objects[pointer];
+            get => pointer == INVALID_POINTER ? null : (T)StaticObjectRefStorage.Objects[pointer];
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                if (pointer != InvalidPointer)
+                if (pointer != INVALID_POINTER)
                 {
                     StaticObjectRefStorage.Remove(pointer);
                 }
-                pointer = value != null ? StaticObjectRefStorage.Add(value) : InvalidPointer;
+                pointer = value != null ? StaticObjectRefStorage.Add(value) : INVALID_POINTER;
             }
         }
 
@@ -360,7 +360,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsValid()
         {
-            return pointer != InvalidPointer && StaticObjectRefStorage.Objects[pointer] != null;
+            return pointer != INVALID_POINTER && StaticObjectRefStorage.Objects[pointer] != null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -377,10 +377,10 @@ namespace Wargon.Nukecs {
 
         public void Dispose()
         {
-            if (pointer != InvalidPointer)
+            if (pointer != INVALID_POINTER)
             {
                 StaticObjectRefStorage.Remove(pointer);
-                pointer = InvalidPointer;
+                pointer = INVALID_POINTER;
             }
         }
     }

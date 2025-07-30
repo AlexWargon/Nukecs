@@ -113,7 +113,7 @@ namespace Wargon.Nukecs.Tests
             
             var renderData = new SpriteRenderData
             {
-                Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
+                Color = randomColor ? new float4(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
                 FlipX = 0f,
                 FlipY = 0f,
                 SpriteTiling = SpriteUtility.GetTextureST(sprite),
@@ -163,7 +163,7 @@ namespace Wargon.Nukecs.Tests
             if (!entity.Has<SpriteRenderData>()) {
                 var renderData = new SpriteRenderData
                 {
-                    Color = randomColor ? new float4(Random.value, Random.value, Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
+                    Color = randomColor ? new float4(UnityEngine.Random.value, UnityEngine.Random.value, UnityEngine.Random.value, 1) : new float4(d.r, d.g, d.b, d.a),
                     FlipX = 0f,
                     FlipY = 0f,
                     SpriteTiling = framesUV[0],
