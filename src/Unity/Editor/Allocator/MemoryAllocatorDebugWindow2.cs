@@ -19,7 +19,7 @@ namespace Wargon.Nukecs
 
     public unsafe class MemoryAllocatorDebugWindow2 : EditorWindow
     {
-        private SerializableMemoryAllocator allocator;
+        private MemAllocator allocator;
         private Label totalSizeLabel;
         private Label usedSizeLabel;
         private Label freeSizeLabel;
@@ -86,7 +86,7 @@ namespace Wargon.Nukecs
         }
 
         // Метод для передачи аллокатора в окно
-        public void SetAllocator(ref SerializableMemoryAllocator allocator)
+        public void SetAllocator(ref MemAllocator allocator)
         {
             this.allocator = allocator;
             UpdateUI();
@@ -223,7 +223,7 @@ namespace Wargon.Nukecs
                 // Цвет: красный для занятых, зеленый для свободных
                 Color blockColor = isUsed
                     ? new Color(1f, 0f, 0f,
-                        Mathf.Clamp01(size / (float)SerializableMemoryAllocator.BIG_MEMORY_BLOCK_SIZE))
+                        Mathf.Clamp01(size / (float)MemAllocator.BIG_MEMORY_BLOCK_SIZE))
                     : Color.green;
                 blockElement.style.backgroundColor = blockColor;
 

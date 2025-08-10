@@ -6,7 +6,7 @@ namespace Wargon.Nukecs
 {
     public unsafe class MemoryAllocatorDebugWindow : EditorWindow
     {
-        private SerializableMemoryAllocator* allocator;
+        private MemAllocator* allocator;
 
         // Configurable column widths
         private readonly float[] columnWidths = { 50f, 100f, 100f, 50f };
@@ -130,7 +130,7 @@ namespace Wargon.Nukecs
             }
         }
 
-        private void DrawColumnContent(int rowIndex, int columnIndex, SerializableMemoryAllocator.MemoryBlock block)
+        private void DrawColumnContent(int rowIndex, int columnIndex, MemAllocator.MemoryBlock block)
         {
             switch (columnIndex)
             {

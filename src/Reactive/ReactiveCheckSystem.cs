@@ -29,36 +29,35 @@ namespace Wargon.Nukecs.Reactive
     public unsafe struct ReactiveCheckSystemPointerReflectionSystem : IEntityJobSystem
     {
         public SystemMode Mode => SystemMode.Parallel;
-        private int componentIndex;
-        private int reactiveGenericIndex;
-        private int componentChangedTagIndex;
-        private long sizeOfComponent;
-        private GenericPool componentPool;
-        private GenericPool reactiveGenericPool;
+        private readonly int _componentIndex;
+        private readonly int _reactiveGenericIndex;
+        private readonly int _componentChangedTagIndex;
+        private readonly long _sizeOfComponent;
+        private GenericPool _componentPool;
+        private GenericPool _reactiveGenericPool;
         public ReactiveCheckSystemPointerReflectionSystem(int componentIndexToCheck, int reactiveGenericIndexToCheck, int componentChangedTag, long componentSize, ref World world)
         {
-            componentIndex = componentIndexToCheck;
-            reactiveGenericIndex = reactiveGenericIndexToCheck;
-            componentChangedTagIndex = componentChangedTag;
-            sizeOfComponent = componentSize;
-            componentPool = world.UnsafeWorld->GetUntypedPool(componentIndex);
-            reactiveGenericPool = world.UnsafeWorld->GetUntypedPool(reactiveGenericIndex);
+            _componentIndex = componentIndexToCheck;
+            _reactiveGenericIndex = reactiveGenericIndexToCheck;
+            _componentChangedTagIndex = componentChangedTag;
+            _sizeOfComponent = componentSize;
+            _componentPool = world.UnsafeWorld->GetUntypedPool(_componentIndex);
+            _reactiveGenericPool = world.UnsafeWorld->GetUntypedPool(_reactiveGenericIndex);
         }
         public Query GetQuery(ref World world)
         {
-            return world.Query().With(componentIndex).With(reactiveGenericIndex);
+            return world.Query().With(_componentIndex).With(_reactiveGenericIndex);
         }
 
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            var component = componentPool.UnsafeGetPtr(entity.id);
-            var reactiveComponent = reactiveGenericPool.UnsafeGetPtr(entity.id);
-            if(UnsafeUtility.MemCmp(component, reactiveComponent, sizeOfComponent) != 0)
+            var component = _componentPool.UnsafeGetPtr(entity.id);
+            var reactiveComponent = _reactiveGenericPool.UnsafeGetPtr(entity.id);
+            if(UnsafeUtility.MemCmp(component, reactiveComponent, _sizeOfComponent) != 0)
             {
-                entity.AddIndex(componentChangedTagIndex);
+                entity.AddIndex(_componentChangedTagIndex);
                 dbug.log("changed");
             }
-            
         }
     }
 

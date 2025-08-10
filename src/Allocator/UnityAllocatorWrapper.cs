@@ -7,7 +7,7 @@ namespace Wargon.Nukecs
     [BurstCompile(CompileSynchronously = true)]
     public unsafe struct UnityAllocatorWrapper : AllocatorManager.IAllocator
     {
-        public SerializableMemoryAllocator Allocator;
+        public MemAllocator Allocator;
         private AllocatorManager.AllocatorHandle m_handle;
         public AllocatorManager.TryFunction Function => AllocatorFunction;
 
@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
 
         public void Initialize(long capacity)
         {
-            Allocator = new SerializableMemoryAllocator(capacity);
+            Allocator = new MemAllocator(capacity);
         }
 
         public void Dispose()
@@ -74,9 +74,9 @@ namespace Wargon.Nukecs
             return ((UnityAllocatorWrapper*)allocatorState)->Try(ref block);
         }
 
-        public SerializableMemoryAllocator* GetAllocatorPtr()
+        public MemAllocator* GetAllocatorPtr()
         {
-            fixed (SerializableMemoryAllocator* ptr = &Allocator)
+            fixed (MemAllocator* ptr = &Allocator)
             {
                 return ptr;
             }

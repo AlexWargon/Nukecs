@@ -42,7 +42,7 @@ namespace Wargon.Nukecs
                 selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
             }
             internal const int FIRST_ENTITY_ID = 1;
-            internal int Id;
+            internal byte Id;
             internal MemoryList<Entity> entities;
             internal MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
@@ -66,7 +66,7 @@ namespace Wargon.Nukecs
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
             internal UnityAllocatorHandler AllocatorHandler;
-            internal ref SerializableMemoryAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
+            internal ref MemAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
             internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
             internal ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -75,7 +75,7 @@ namespace Wargon.Nukecs
             internal UpdateContext CurrentContext {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] get => UpdateContext.Update;
             }
-            internal static WorldUnsafe* Create(int id, WorldConfig config)
+            internal static WorldUnsafe* Create(byte id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
                 var sizeToAllocate = (long)(cSize) + 3 * 1024 * 1024;
@@ -85,7 +85,7 @@ namespace Wargon.Nukecs
                 ptr.Ptr->Initialize(id, config, ptr, ref allocator);
                 return ptr.Ptr;
             }
-            internal static ptr<WorldUnsafe> CreatePtr(int id, WorldConfig config)
+            internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
                 var sizeToAllocate = (long)(cSize) + 3 * 1024 * 1024;
@@ -95,7 +95,7 @@ namespace Wargon.Nukecs
                 ptr.Ref.Initialize(id, config, ptr, ref allocator);
                 return ptr;
             }
-            private void Initialize(int id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
+            private void Initialize(byte id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
                 Id = id;
                 config = worldConfig;
                 AllocatorHandler = allocatorHandler;
@@ -132,7 +132,7 @@ namespace Wargon.Nukecs
 
             internal ptr<QueryUnsafe> CreateQueryPtr(bool withDefaultNoneTypes = true)
             {
-                var ptr = QueryUnsafe.CreatePtrPtr(Self, withDefaultNoneTypes);
+                var ptr = QueryUnsafe.CreatePtrRef(Self, withDefaultNoneTypes);
                 queries.Add(ptr, ref AllocatorRef);
                 return ptr;
             }

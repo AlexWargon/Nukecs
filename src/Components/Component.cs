@@ -1,5 +1,7 @@
 ﻿
 
+using Wargon.Nukecs.Collections;
+
 namespace Wargon.Nukecs
 {
     using System;
@@ -42,6 +44,33 @@ namespace Wargon.Nukecs
     {
         public T oldValue;
     }
+
+    public unsafe struct Events<T> where T : unmanaged
+    {
+        private MemoryList<T> _list;
+        private readonly World.WorldUnsafe* _world;
+
+        public Events(int capacity, World.WorldUnsafe* world)
+        {
+            _list = new MemoryList<T>(capacity, ref world->AllocatorRef);
+            _world = world;
+        }
+        
+        public void Add(T item)
+        {
+            _list.Add(item, ref _world->AllocatorRef);
+        }
+
+        public void Clear()
+        {
+            _list.Clear();
+        }
+        public MemoryList<T>.Enumerator GetEnumerator()
+        {
+            return _list.GetEnumerator();
+        }
+    }
+    
     public struct DestroyEntity : IComponent { }
     public struct EntityCreated : IComponent { }
     public struct IsPrefab : IComponent { }
@@ -237,124 +266,12 @@ namespace Wargon.Nukecs
     public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
-            //*(T*) (buffer + index * sizeInBytes) = (T)component;
-            //UnsafeUtility.WriteArrayElement(buffer, index, (T)component);
             ((T*) buffer)[index] = (T)component;
         }
     }
     
     public unsafe interface IComponentDisposer {
         void Dispose(byte* buffer, int index);
-    }
-
-    public class ComponentDisposer<T> : IComponentDisposer where T : unmanaged {
-        private delegate void DisposeDelegate();
-
-        private readonly DisposeDelegate _disposeFunc;
-#if ENABLE_IL2CPP && !UNITY_EDITOR
-        T _fakeInstance;
-#endif
-        public ComponentDisposer() {
-            var dispose = typeof(T).GetMethod(nameof(IDisposable.Dispose));
-            if (dispose == null) {
-                throw new Exception (
-                    $"IDispose<{typeof (T)}> explicit implementation not supported, use implicit instead.");
-            }
-            _disposeFunc = (DisposeDelegate)Delegate.CreateDelegate(typeof(DisposeDelegate),
-#if ENABLE_IL2CPP && !UNITY_EDITOR
-                    _fakeInstance,
-#else
-                null,
-#endif
-                dispose);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Dispose(byte* buffer, int index) {
-            //ref var component  = ref ((T*)buffer)[index];
-            _disposeFunc.Invoke();
-        }
-    }
-
-
-    public unsafe struct ParallelNativeList<T> : IDisposable where T : unmanaged
-    {
-        private UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>* parallelList;
-
-        public ParallelNativeList(int capacity, Allocator allocator = Allocator.Persistent)
-        {
-            var threads = JobsUtility.ThreadIndexCount;
-            parallelList = UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>.Create(threads, allocator);
-            for (int i = 0; i < threads; i++)
-            {
-                parallelList->Add(Unity.Collections.LowLevel.Unsafe.UnsafeList<T>.Create(capacity, allocator));
-            }
-        }
-
-        public int Count()
-        {
-            int c = 0;
-            for (int i = 0; i < parallelList->m_length; i++)
-            {
-                ref var list = ref parallelList->ElementAt(i);
-                c += list->m_length;
-            }
-
-            return c;
-        }
-        public void Add(in T item, int thread)
-        {
-            parallelList->ElementAt(thread)->Add(item);
-        }
-
-        public Enumarator GetEnumerator()
-        {
-            ref var list = ref parallelList->ElementAt(0);
-            return new Enumarator
-            {
-                maxIndex = JobsUtility.MaxJobThreadCount,
-                index = 0,
-                thread = 0,
-                maxThread = list->m_length,
-                list = list
-            };
-        }
-        public struct Enumarator
-        {
-            internal int maxIndex;
-            internal int index;
-            internal int thread;
-            internal int maxThread;
-            internal UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>* parallelList;
-            internal Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* list;
-            private T current;
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public bool MoveNext()
-            {
-                index++;
-                if (index >= maxIndex)
-                {
-                    while (parallelList->ElementAt(thread)->m_length < 1)
-                    {
-                        thread++;
-                        if (thread == maxThread) return false;
-                    }
-                    list = parallelList->ElementAt(thread);
-                    index = 0;
-                }
-                current = list->Ptr[index];
-                return true;
-            }
-            public T Current => current;
-        }
-
-        public void Dispose()
-        {
-            for (int i = 0; i < parallelList->m_length; i++)
-            {
-                parallelList->ElementAt(i)->Dispose();
-            }
-            UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<T>>.Destroy(parallelList);
-        }
     }
 
     public struct TestDisposable : IDisposable, IComponent

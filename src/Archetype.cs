@@ -44,7 +44,7 @@ namespace Wargon.Nukecs
         internal readonly int id;
         internal bool IsCreated => world != null;
 
-        internal void OnDeserialize(ref SerializableMemoryAllocator allocator, Allocator unityAllocator)
+        internal void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator)
         {
             mask.OnDeserialize(ref allocator);
             queries.OnDeserialize(ref allocator);
@@ -508,10 +508,10 @@ namespace Wargon.Nukecs
     {
         internal MemoryList<ptr<QueryUnsafe>> AddEntity;
         internal MemoryList<ptr<QueryUnsafe>> RemoveEntity;
-        [NativeDisableUnsafePtrRestriction] internal ArchetypeUnsafe* ToMovePtr;
+        [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeUnsafe* ToMovePtr;
         internal readonly Archetype ToMove;
 
-        public Edge(ref Archetype archetype, ref SerializableMemoryAllocator allocator)
+        public Edge(ref Archetype archetype, ref MemAllocator allocator)
         {
             ToMovePtr = archetype.impl;
             ToMove = archetype;
@@ -519,7 +519,7 @@ namespace Wargon.Nukecs
             RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
         }
 
-        public Edge(ref SerializableMemoryAllocator allocator)
+        public Edge(ref MemAllocator allocator)
         {
             AddEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
             RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
@@ -535,7 +535,7 @@ namespace Wargon.Nukecs
             for (var i = 0; i < AddEntity.length; i++) AddEntity.ElementAt(i).Ref.Add(entity);
         }
 
-        public void OnDeserialize(ref SerializableMemoryAllocator allocator)
+        public void OnDeserialize(ref MemAllocator allocator)
         {
             foreach (ref var ptr in AddEntity)
             {

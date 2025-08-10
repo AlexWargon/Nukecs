@@ -1,32 +1,34 @@
-﻿using Wargon.Nukecs.Collections;
-
-namespace Wargon.Nukecs {
-    
+﻿namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using System.Text;
     using Unity.Burst;
-    using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Mathematics;
+    using Collections;
     
     public readonly unsafe struct Query {
         [NativeDisableUnsafePtrRestriction]
         internal readonly QueryUnsafe* InternalPointer;
         public int Count {
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             get => InternalPointer->count;
         }
 
         public bool IsEmpty
         {
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             get => InternalPointer->count == 0;
         }
         internal int CountMulti => InternalPointer->count / InternalPointer->world->job_worker_count;
         public bool IsValid
         {
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             get => InternalPointer != null;
         }
 
@@ -115,24 +117,13 @@ namespace Wargon.Nukecs {
             entitiesMap.Dispose();
         }
 
-        internal static QueryUnsafe* Create(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
-        {
-            var ptr = world->_allocate<QueryUnsafe>();
-            *ptr = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
-            return ptr;
-        }
-        internal static ptr<QueryUnsafe> CreatePtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        internal static ptr<QueryUnsafe> CreatePtrRef(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
         {
             var ptr = world->_allocate_ptr<QueryUnsafe>();
             ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);
             return ptr;
         }
-        internal static ptr<QueryUnsafe> CreatePtrPtr(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
-        {
-            var ptr = world->_allocate_ptr<QueryUnsafe>();
-            ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);
-            return ptr;
-        }
+        
         internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
             this.world = world;
             this.with = DynamicBitmask.CreateForComponents(world);
@@ -155,22 +146,30 @@ namespace Wargon.Nukecs {
                 }    
             }
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public ref Entity GetEntity(int index) {
             return ref world->entities[entities.ElementAt(index)];
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public int GetEntityID(int index)
         {
             return entities.ElementAt(index);
         }
-
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal void Add(int entity) 
         {
             entities.ElementAt(count++) = entity;
             entitiesMap[entity] = count;
         }
-
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal void Remove(int entity)
         {
             var index = entitiesMap[entity] - 1;
@@ -188,6 +187,7 @@ namespace Wargon.Nukecs {
                 entitiesMap[entities[index]] = index + 1;
             }
         }
+        
         public QueryUnsafe* With(int type) {
             with.Add(type);
 #if UNITY_EDITOR
@@ -206,9 +206,9 @@ namespace Wargon.Nukecs {
 
         public QueryUnsafe* None(int type) {
             none.Add(type);
-            #if UNITY_EDITOR
+#if UNITY_EDITOR
             noneDebug.Add(type, ref world->AllocatorRef);
-            #endif
+#endif
             return self;
         }
         [BurstDiscard]
@@ -232,12 +232,16 @@ namespace Wargon.Nukecs {
     public unsafe ref struct QueryEnumerator {
         private int _lastIndex;
         private readonly QueryUnsafe* _query;
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal QueryEnumerator(QueryUnsafe* queryUnsafe) {
             _query = queryUnsafe;
             _lastIndex = -1;
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public bool MoveNext() {
             _lastIndex++;
             return _query->count > _lastIndex;
@@ -248,81 +252,10 @@ namespace Wargon.Nukecs {
         }
 
         public ref Entity Current {
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             get => ref _query->GetEntity(_lastIndex);
-        }
-    }
-    public unsafe struct Bitmask1024 {
-        internal const int BitsPerElement = 64;
-        internal const int MaxBits = 1024;
-        public const int ArraySize = MaxBits / BitsPerElement;
-
-        internal fixed ulong bitmaskArray[ArraySize];
-        internal int count;
-
-        public int Count {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => count;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Add(int position) {
-            if (position < 0 || position >= MaxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {MaxBits - 1}.");
-            }
-
-            int index = position / BitsPerElement;
-            int bitPosition = position % BitsPerElement;
-
-            if (!Has(position)) {
-                bitmaskArray[index] |= 1UL << bitPosition;
-                count++;
-                return true;
-            }
-
-            return false;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Has(int position) {
-            if (position >= MaxBits) {
-                return false;
-            }
-
-            var index = position / BitsPerElement;
-            var bitMask = 1UL << (position % BitsPerElement);
-
-            return (bitmaskArray[index] & bitMask) != 0;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove(int position) {
-            if (position < 0 || position >= MaxBits) {
-                throw new ArgumentOutOfRangeException(nameof(position),
-                    $"Position must be between 0 and {MaxBits - 1}.");
-            }
-
-            int index = position / BitsPerElement;
-            int bitPosition = position % BitsPerElement;
-
-            if (Has(position)) {
-                bitmaskArray[index] &= ~(1UL << bitPosition);
-                count--;
-            }
-        }
-
-        public override string ToString() {
-            char[] bitChars = new char[ArraySize * BitsPerElement];
-            for (int i = 0; i < ArraySize; i++) {
-                string bits = Convert.ToString((long) bitmaskArray[i], 2).PadLeft(BitsPerElement, '0');
-                for (int j = 0; j < BitsPerElement; j++) {
-                    bitChars[i * BitsPerElement + j] = bits[j];
-                }
-            }
-
-            Array.Reverse(bitChars);
-            return new string(bitChars);
         }
     }
 

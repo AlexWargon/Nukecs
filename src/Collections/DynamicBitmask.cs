@@ -14,7 +14,7 @@ namespace Wargon.Nukecs
         private int maxBits;
         private int arraySize;
 
-        internal void OnDeserialize(ref SerializableMemoryAllocator allocator)
+        internal void OnDeserialize(ref MemAllocator allocator)
         {
             bitmaskArray.OnDeserialize(ref allocator);
         }

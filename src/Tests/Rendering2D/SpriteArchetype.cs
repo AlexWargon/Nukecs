@@ -73,13 +73,7 @@ namespace Wargon.Nukecs.Tests
             }
             
             Graphics.DrawMeshInstancedProcedural(Mesh, 0, Material, bounds, count);
-            
-            // var r = new RenderParams();
-            // r.material = Material;
-            // r.worldBounds = bounds;
-            // r.receiveShadows = false;
-            //
-            // Graphics.RenderMeshPrimitives(in r, mesh, 0, count);
+
             matrixArray.Dispose();
             dataArray.Dispose();
         }

@@ -27,7 +27,7 @@ namespace Wargon.Nukecs
         {
             return (T*)cached;
         }
-        public void OnDeserialize(ref SerializableMemoryAllocator allocator)
+        public void OnDeserialize(ref MemAllocator allocator)
         {
             cached = allocator.BasePtr + offset.Offset;
         }
@@ -47,12 +47,12 @@ namespace Wargon.Nukecs
             Offset = offset;
         }
         
-        public unsafe void* AsPtr(ref SerializableMemoryAllocator allocator)
+        public unsafe void* AsPtr(ref MemAllocator allocator)
         {
             return allocator.BasePtr + allocator.Blocks[BlockIndex].Pointer + Offset;
         }
         
-        public unsafe T* AsPtr<T>(ref SerializableMemoryAllocator allocator) where T : unmanaged
+        public unsafe T* AsPtr<T>(ref MemAllocator allocator) where T : unmanaged
         {
             return (T*)(allocator.BasePtr + Offset);
         }
@@ -82,7 +82,7 @@ namespace Wargon.Nukecs
         [NativeDisableUnsafePtrRestriction]
         private T* cached;
         public static readonly ptr<T> NULL = new (null, 0u);
-        public void OnDeserialize(ref SerializableMemoryAllocator allocator)
+        public void OnDeserialize(ref MemAllocator allocator)
         {
             cached = (T*)(allocator.BasePtr + offset.Offset);
         }
@@ -103,8 +103,14 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => cached;
         }
-
+        
         public ref T Ref
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *cached;
+        }
+
+        public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *cached;

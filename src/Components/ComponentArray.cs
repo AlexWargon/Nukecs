@@ -9,7 +9,7 @@ namespace Wargon.Nukecs
 {
     internal struct ComponentArray
     {
-        internal const int DEFAULT_MAX_CAPACITY = 16;
+        internal const int DEFAULT_MAX_CAPACITY = 8;
     }
 
     public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>> 
@@ -138,11 +138,12 @@ namespace Wargon.Nukecs
             if (_buffer != null)
             {
                 UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
-                w->_free(_buffer, _capacity);
+                w->_free(_buffer);
             }
 
             _buffer = newBuffer;
             _capacity = newCapacity;
+            dbug.log("resized");
         }
 
         public ref struct Enumerator

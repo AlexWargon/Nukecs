@@ -29,7 +29,6 @@ namespace Wargon.Nukecs.Tests
 
         private void OnEnable()
         {
-            // Инициализация: найдем World (предполагается, что он доступен глобально или через GameObject)
             world = FindWorld();
             if (!world.IsAlive)
             {
@@ -60,9 +59,7 @@ namespace Wargon.Nukecs.Tests
         }
         private World FindWorld()
         {
-            // Пример: найди World через глобальный доступ или GameObject
-            // Замени на свой способ получения World
-            return World.Get(0); // Предполагается, что World.Default возвращает твой World
+            return World.Get(0);
         }
 
         private void OnGUI()
@@ -74,18 +71,17 @@ namespace Wargon.Nukecs.Tests
                 return;
             }
 
-            // Обновление данных
             EditorGUILayout.LabelField($"World Entities: {world.EntitiesAmount}", EditorStyles.boldLabel);
             EditorGUILayout.Space();
 
-            // Фильтры и кнопки
+
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Refresh")) Repaint();
             GUILayout.Label("Filter:", GUILayout.Width(50));
             entitySearchQuery = EditorGUILayout.TextField(entitySearchQuery);
             EditorGUILayout.EndHorizontal();
 
-            // Секция сущностей
+            // entities
             showEntities = EditorGUILayout.Foldout(showEntities, $"Entities ({world.UnsafeWorld->entitiesAmount})", true);
             if (showEntities)
             {
@@ -96,7 +92,7 @@ namespace Wargon.Nukecs.Tests
 
             EditorGUILayout.Space();
 
-            // Секция архетипов
+            // acrhetypes
             showArchetypes = EditorGUILayout.Foldout(showArchetypes, $"Archetypes ({world.UnsafeWorld->archetypesList.Length})", true);
             if (showArchetypes)
             {
@@ -108,7 +104,7 @@ namespace Wargon.Nukecs.Tests
 
             EditorGUILayout.Space();
 
-            // Секция запросов
+            // queries
             showQueries = EditorGUILayout.Foldout(showQueries, $"Queries ({world.UnsafeWorld->queries.Length})", true);
             if (showQueries)
             {
@@ -134,7 +130,7 @@ namespace Wargon.Nukecs.Tests
 
                 EditorGUILayout.BeginHorizontal();
                 var archetype = archetypes.ElementAt(entity.id);
-                var archetypeInfo = archetype.IsCreated ? $"Archetype {archetype.ptr.Ref.id}" : "No Archetype";
+                var archetypeInfo = archetype.IsCreated ? $"Archetype ({archetype.ptr.Ref.id})" : "No Archetype";
                 EditorGUILayout.LabelField(entityName, GUILayout.Width(100));
                 EditorGUILayout.LabelField(archetypeInfo, GUILayout.Width(150));
 
@@ -191,15 +187,19 @@ namespace Wargon.Nukecs.Tests
                 var query = world.UnsafeWorld->queries.ElementAt(i).Ref;
                 if(!queryIdToName.ContainsKey(query.Id))
                 {
-                    stringBuilder.Append($"Query({query.Id}).");
+                    stringBuilder.Append($"Query(id:{query.Id}, count:{query.count}).");
                     foreach (var with in query.withDebug)
                     {
-                        stringBuilder.Append($"With: {string.Join(", ", ComponentTypeMap.GetType(with).Name)}");
+                        stringBuilder.Append($"With<{ComponentTypeMap.GetType(with).Name},");
                     }
+                    stringBuilder.Remove(stringBuilder.Length - 1, 1);
+                    stringBuilder.Append(">().");
                     foreach (var none in query.noneDebug)
                     {
-                        stringBuilder.Append($"None: {string.Join(", ", ComponentTypeMap.GetType(none).Name)}");
+                        stringBuilder.Append($"None<{ComponentTypeMap.GetType(none).Name},");
                     }
+                    stringBuilder.Remove(stringBuilder.Length - 1, 1);
+                    stringBuilder.Append(">()");
                     queryIdToName[query.Id] = stringBuilder.ToString();
                     stringBuilder.Clear();
                 }
@@ -216,11 +216,11 @@ namespace Wargon.Nukecs.Tests
                     EditorGUI.indentLevel++;
                     foreach (var with in query.withDebug)
                     {
-                        EditorGUILayout.LabelField($"With Components: {string.Join(", ", ComponentTypeMap.GetType(with).Name)}");
+                        EditorGUILayout.LabelField($"With: {string.Join(", ", ComponentTypeMap.GetType(with).Name)}");
                     }
                     foreach (var none in query.noneDebug)
                     {
-                        EditorGUILayout.LabelField($"None Components: {string.Join(", ", ComponentTypeMap.GetType(none).Name)}");
+                        EditorGUILayout.LabelField($"None: {string.Join(", ", ComponentTypeMap.GetType(none).Name)}");
                     }
                     
                     EditorGUILayout.LabelField($"Entities: {query.count}");
