@@ -24,7 +24,7 @@ namespace Wargon.Nukecs {
         {
             foreach (ref var entity in query)
             {
-                ref var arch = ref entity.archetypeRef;
+                ref var arch = ref entity.ArchetypeRef;
                 arch.Destroy(entity.id);
             }
         }

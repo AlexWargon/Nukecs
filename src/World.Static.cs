@@ -1,21 +1,33 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using Unity.Burst;
+using Unity.Collections;
 using UnityEngine;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
-        private static readonly World[] worlds = new World[4];
-        private static int lastFreeSlot;
+        private static MemAllocator _allocator;
+        private static SharedStatic<MemoryList<World>> _worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
+        //private static readonly World[] worlds = new World[4];
+        private static byte lastFreeSlot;
         private static int lastWorldID;
-        public static ref World Get(int index) => ref worlds[index];
+
+        static World()
+        {
+            _allocator = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4);
+            _worlds.Data = new MemoryList<World>(4, ref _allocator, true);
+        }
+        
+        public static ref World Get(int index) => ref _worlds.Data.ElementAt(index);
 
         public static bool HasActiveWorlds()
         {
-            for (var i = 0; i < worlds.Length; i++)
+            for (var i = 0; i < _worlds.Data.Length; i++)
             {
-                if (worlds[i].IsAlive) return true;
+                if (_worlds.Data[i].IsAlive) return true;
             }
 
             return false;
@@ -23,10 +35,7 @@ namespace Wargon.Nukecs
 
         internal static World* GetPtr(int index)
         {
-            fixed (World* world = worlds)
-            {
-                return world + index;
-            }
+            return _worlds.Data.ElementAtPtr(index);
         }
 
         public static ref World Default
@@ -66,7 +75,7 @@ namespace Wargon.Nukecs
             var id = lastFreeSlot++;
             lastWorldID = id;
             world.UnsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
-            worlds[id] = world;
+            _worlds.Data[id] = world;
 
             return world;
         }
@@ -79,20 +88,21 @@ namespace Wargon.Nukecs
             var id = lastFreeSlot++;
             lastWorldID = id;
             world.UnsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
-            worlds[id] = world;
+            _worlds.Data[id] = world;
             Debug.Log($"Created World {id}");
             return world;
         }
 
         public static void DisposeStatic()
         {
+            _allocator.Dispose();
             ComponentTypeMap.Dispose();
             StaticObjectRefStorage.Clear();
             //ComponentTypeMap.Save();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
-            //WorldSystems.Dispose();
+            dbug.log(nameof(DisposeStatic), Color.green);
         }
     }
 }

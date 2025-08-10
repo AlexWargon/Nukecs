@@ -12,42 +12,33 @@
         public int Capacity => ecb->Capacity;
         public int Count => ecb->count;
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
-        internal int ThreadIndex => JobsUtility.ThreadIndex;
-        internal Allocator Allocator;
-        public EntityCommandBuffer(int startSize)
-        {
-            Allocator = Allocator.Persistent;
-            ecb = (ECBInternal*) UnsafeUtility.Malloc(sizeof(ECBInternal), UnsafeUtility.AlignOf<ECBInternal>(),
-                Allocator);
-            *ecb = new ECBInternal();
-            //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
-            ecb->perThreadBuffer = Chains(startSize, Allocator);
-            ecb->isCreated = 1;
-        }
+        internal static int ThreadIndex => JobsUtility.ThreadIndex;
+        internal readonly Allocator allocator;
+
         public EntityCommandBuffer(int startSize, Allocator allocator)
         {
-            Allocator = allocator;
-            ecb = (ECBInternal*)AllocatorManager.Allocate(Allocator, sizeof(ECBInternal),
+            this.allocator = allocator;
+            ecb = (ECBInternal*)AllocatorManager.Allocate(this.allocator, sizeof(ECBInternal),
                 UnsafeUtility.AlignOf<ECBInternal>());
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
-            ecb->perThreadBuffer = Chains(startSize, Allocator);
+            ecb->perThreadBuffer = Chains(startSize, this.allocator);
             ecb->isCreated = 1;
         }
         internal EntityCommandBuffer(int startSize, World.WorldUnsafe* world) {
-            Allocator = world->Allocator;
+            allocator = world->Allocator;
             ecb = world->_allocate<ECBInternal>();
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
             ecb->perThreadBuffer = Chains(startSize, world->Allocator);
             ecb->isCreated = 1;
         }
-        private UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* Chains(int startSize, Allocator allocator) {
+        private UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* Chains(int startSize, Allocator alloc) {
             var threads = JobsUtility.ThreadIndexCount + 2;
-            UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* ptrList =
-                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>.Create(threads, allocator);
-            for (int i = 0; i < threads; i++) {
-                var list = Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>.Create(startSize, allocator);
+            var ptrList =
+                UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, alloc);
+            for (var i = 0; i < threads; i++) {
+                var list = UnsafeList<ECBCommand>.Create(startSize, alloc);
                 ptrList->Add(list);
             }
             return ptrList;
@@ -134,7 +125,7 @@
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T component, int thread) where T : unmanaged {
-                //if(IsCreated== false) return;
+
                 var size = UnsafeUtility.SizeOf<T>();
                 var ptr = (T*) UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
                 *ptr = component;
@@ -428,8 +419,6 @@
             buffer->Clear();
         }
         public void Playback(ref World world) {
-            //ecb->Playback(ref world);
-
             for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
                 if (buffer->IsEmpty) continue;
@@ -564,7 +553,7 @@
         }
         public void Dispose() {
             ecb->Dispose();
-            UnsafeUtility.Free(ecb, Allocator);
+            UnsafeUtility.Free(ecb, allocator);
         }
     }
 }

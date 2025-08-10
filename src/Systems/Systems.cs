@@ -36,7 +36,33 @@ namespace Wargon.Nukecs
             World = world;
             WorldSystems.Add(world.UnsafeWorld->Id, this);
         }
+        
+        public void OnUpdate(float dt, float time)
+        {
+            _state.Dependencies.Complete();
+            _state.Dependencies = World.DependenciesUpdate;
+            _state.World = World;
+            _state.Time.DeltaTime = dt;
+            _state.Time.Time = time;
+            _state.Time.ElapsedTime += dt;
+            _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
+            
+            for (var i = 0; i < MainThreadRunners.Count; i++)
+                _state.Dependencies = MainThreadRunners[i].Schedule(UpdateContext.Update, ref _state);
+            for (var i = 0; i < Runners.Count; i++)
+                _state.Dependencies = Runners[i].Schedule(UpdateContext.Update, ref _state);
 
+            _timeSinceLastFixedUpdate += dt;
+            if (_timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
+            {
+                for (var i = 0; i < MainThreadFixedRunners.Count; i++)
+                    _state.Dependencies = MainThreadFixedRunners[i].Schedule(UpdateContext.Update, ref _state);
+                for (var i = 0; i < FixedRunners.Count; i++)
+                    _state.Dependencies = FixedRunners[i].Schedule(UpdateContext.Update, ref _state);
+                _timeSinceLastFixedUpdate = 0;
+            }
+        }
+        
         public static Systems Default(ref World world)
         {
             return new Systems(ref world).AddDefaults();
@@ -226,28 +252,6 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        private Systems AddSystem<T>(T system) where T : class, ISystem, new()
-        {
-            if (system is IOnCreate s)
-            {
-                s.OnCreate(ref World);
-                system = (T)s;
-            }
-
-            var runner = new SystemMainThreadRunnerClass<T>
-            {
-                System = system,
-                EcbJob = default
-            };
-            if (system is IFixed)
-                MainThreadFixedRunners.Add(runner);
-            else
-                MainThreadRunners.Add(runner);
-
-            if (system is IOnDestroy onDestroySystem) SystemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
-            return this;
-        }
-
         public Systems Add<T>(T group) where T : SystemsGroup
         {
             group.world = World;
@@ -257,30 +261,7 @@ namespace Wargon.Nukecs
             MainThreadFixedRunners.AddRange(group.mainThreadFixedRunners);
             return this;
         } // ReSharper disable Unity.PerformanceAnalysis
-        public void OnUpdate(float dt, float time)
-        {
-            _state.Dependencies.Complete();
-            _state.Dependencies = World.DependenciesUpdate;
-            _state.World = World;
-            _state.Time.DeltaTime = dt;
-            _state.Time.Time = time;
-            _state.Time.ElapsedTime += dt;
-            _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
-            for (var i = 0; i < MainThreadRunners.Count; i++)
-                _state.Dependencies = MainThreadRunners[i].Schedule(UpdateContext.Update, ref _state);
-            for (var i = 0; i < Runners.Count; i++)
-                _state.Dependencies = Runners[i].Schedule(UpdateContext.Update, ref _state);
-
-            _timeSinceLastFixedUpdate += dt;
-            if (_timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
-            {
-                for (var i = 0; i < MainThreadFixedRunners.Count; i++)
-                    _state.Dependencies = MainThreadFixedRunners[i].Schedule(UpdateContext.Update, ref _state);
-                for (var i = 0; i < FixedRunners.Count; i++)
-                    _state.Dependencies = FixedRunners[i].Schedule(UpdateContext.Update, ref _state);
-                _timeSinceLastFixedUpdate = 0;
-            }
-        }
+        
 
 
         internal void Complete()

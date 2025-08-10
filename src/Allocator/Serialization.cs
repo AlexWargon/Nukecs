@@ -17,7 +17,7 @@ namespace Wargon.Nukecs
         public bool IsUsed;
     }
 
-    public partial struct SerializableMemoryAllocator
+    public partial struct MemAllocator
     {
         // Serialize entire memory to byte array
         public unsafe byte[] Serialize()
@@ -187,41 +187,6 @@ namespace Wargon.Nukecs
 
             FastDeserialize(Decompress(serializedAllocator));
             
-            spinner.Release();
-            return;
-            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            using var reader = new BinaryReader(stream);
-
-            // Загружаем метаданные
-            totalSize = reader.ReadInt64();
-            blockCount = reader.ReadInt32();
-
-            // Освобождаем существующую память (если есть) и выделяем новую
-            Dispose();
-            basePtr = (byte*)UnsafeUtility.MallocTracked(totalSize, ALIGNMENT, Allocator.Persistent, 0);
-            blocks = (MemoryBlock*)UnsafeUtility.MallocTracked(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent, 0);
-
-            // Загружаем блоки памяти
-            for (int i = 0; i < blockCount; i++)
-            {
-                blocks[i].Size = reader.ReadInt32();
-                blocks[i].IsUsed = reader.ReadBoolean();
-            }
-
-            // Загружаем данные памяти блоками с учётом выравнивания
-            var buffer = new byte[ALIGNMENT];
-            for (long i = 0; i < totalSize; i += ALIGNMENT)
-            {
-                int sizeToRead = (int)Math.Min(ALIGNMENT, totalSize - i);
-
-                reader.Read(buffer, 0, sizeToRead);
-
-                // Копируем данные из буфера вручную
-                for (int j = 0; j < sizeToRead; j++)
-                {
-                    basePtr[i + j] = buffer[j];
-                }
-            }
             spinner.Release();
         }
 

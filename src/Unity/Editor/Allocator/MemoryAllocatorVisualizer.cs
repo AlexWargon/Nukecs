@@ -8,7 +8,7 @@ namespace Wargon.Nukecs
 {
     public unsafe class MemoryAllocatorVisualizer : EditorWindow
     {
-        private SerializableMemoryAllocator* allocator;
+        private MemAllocator* allocator;
         private Vector2 scrollPosition;
         private int selectedBlockIndex = -1;
 
@@ -60,12 +60,12 @@ namespace Wargon.Nukecs
             if (memoryView.BlockCount > 0 && memoryView.Blocks != null)
             {
                 // Сортировка блоков по размеру: от больших к маленьким
-                var blocks = new SerializableMemoryAllocator.MemoryBlock[memoryView.BlockCount];
+                var blocks = new MemAllocator.MemoryBlock[memoryView.BlockCount];
 
                 fixed (void* ptr = blocks)
                 {
                     UnsafeUtility.MemCpy(ptr, memoryView.Blocks,
-                        memoryView.BlockCount * sizeof(SerializableMemoryAllocator.MemoryBlock));
+                        memoryView.BlockCount * sizeof(MemAllocator.MemoryBlock));
                 }
 
                 blocks = blocks.OrderByDescending(block => block.Size).ToArray();
@@ -115,7 +115,7 @@ namespace Wargon.Nukecs
             Repaint();
         }
         
-        private void DrawBlock(SerializableMemoryAllocator.MemoryBlock block, Rect blockRect, int index, int minBlockSize)
+        private void DrawBlock(MemAllocator.MemoryBlock block, Rect blockRect, int index, int minBlockSize)
         {
             // Определяем цвет блока
             var blockColor = block.IsUsed

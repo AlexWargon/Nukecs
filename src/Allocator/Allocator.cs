@@ -16,7 +16,7 @@ namespace Wargon.Nukecs
         public const int ERROR_ALLOCATOR_OUT_OF_MEMORY = -3;
     }
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe partial struct SerializableMemoryAllocator : IDisposable
+    public unsafe partial struct MemAllocator : IDisposable
     {
         private const int MAX_BLOCKS = 1024 * 16;
         private const int ALIGNMENT = 16;
@@ -62,7 +62,7 @@ namespace Wargon.Nukecs
         public bool IsDisposed => !IsActive;
         private int defragmentationCount;
         private Spinner spinner;
-        public SerializableMemoryAllocator(long sizeInBytes)
+        public MemAllocator(long sizeInBytes)
         {
             totalSize = sizeInBytes;
             basePtr = (byte*)UnsafeUtility.MallocTracked(totalSize, ALIGNMENT, Allocator.Persistent, 0);
@@ -84,21 +84,21 @@ namespace Wargon.Nukecs
             IsActive = true;
         }
         
-        public IntPtr AllocateRaw(long size, ref int error)
+        public IntPtr AllocateRaw(long sizeInBytes, ref int error)
         {
-            SizeWithAlign(ref size, ALIGNMENT);
+            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
             spinner.Acquire();
             DeFragment();
             for (var i = 0; i < blockCount; i++)
             {
                 ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= size)
+                if (!block.IsUsed && block.Size >= sizeInBytes)
                 {
                     // Split block if larger than requested size
-                    if (block.Size > size)
-                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false, ref error);
+                    if (block.Size > sizeInBytes)
+                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
 
-                    block.Size = (int)size;
+                    block.Size = (int)sizeInBytes;
                     block.IsUsed = true;
                     spinner.Release();
                     return (IntPtr)(basePtr + block.Pointer);
@@ -109,22 +109,22 @@ namespace Wargon.Nukecs
             
             return IntPtr.Zero;
         }
-        public ptr_offset AllocateRaw(long size)
+        public ptr_offset AllocateRaw(long sizeInBytes)
         {
             var error = 0;
-            SizeWithAlign(ref size, ALIGNMENT);
+            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
             spinner.Acquire();
             DeFragment();
             for (var i = 0; i < blockCount; i++)
             {
                 ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= size)
+                if (!block.IsUsed && block.Size >= sizeInBytes)
                 {
                     // Split block if larger than requested size
-                    if (block.Size > size)
-                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false, ref error);
+                    if (block.Size > sizeInBytes)
+                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
 
-                    block.Size = (int)size;
+                    block.Size = (int)sizeInBytes;
                     block.IsUsed = true;
                     spinner.Release();
                     return new ptr_offset( 0, (uint)block.Pointer);
@@ -139,22 +139,47 @@ namespace Wargon.Nukecs
         {
             return AllocatePtr<T>(sizeof(T));
         }
-        public ptr<T> AllocatePtr<T>(long size) where T : unmanaged
+
+        public void* Allocate(long sizeInBytes)
         {
             var error = 0;
-            SizeWithAlign(ref size, ALIGNMENT);
+            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
             spinner.Acquire();
             DeFragment();
             for (var i = 0; i < blockCount; i++)
             {
                 ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= size)
+                if (!block.IsUsed && block.Size >= sizeInBytes)
                 {
                     // Split block if larger than requested size
-                    if (block.Size > size)
-                        InsertBlock(i + 1, block.Pointer + size, block.Size - size, false, ref error);
+                    if (block.Size > sizeInBytes)
+                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
 
-                    block.Size = (int)size;
+                    block.Size = (int)sizeInBytes;
+                    block.IsUsed = true;
+                    spinner.Release();
+                    return basePtr + block.Pointer;
+                }
+            }
+            spinner.Release();
+            return null;
+        }
+        public ptr<T> AllocatePtr<T>(long sizeInBytes) where T : unmanaged
+        {
+            var error = 0;
+            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
+            spinner.Acquire();
+            DeFragment();
+            for (var i = 0; i < blockCount; i++)
+            {
+                ref var block = ref blocks[i];
+                if (!block.IsUsed && block.Size >= sizeInBytes)
+                {
+                    // Split block if larger than requested size
+                    if (block.Size > sizeInBytes)
+                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
+
+                    block.Size = (int)sizeInBytes;
                     block.IsUsed = true;
                     spinner.Release();
                     return new ptr<T>(basePtr,(uint)block.Pointer);
@@ -281,8 +306,9 @@ namespace Wargon.Nukecs
                 UnsafeUtility.FreeTracked(blocks, Allocator.Persistent);
                 blocks = null;
             }
-
+            
             IsActive = false;
+            dbug.log(nameof(MemAllocator) + " disposed");
         }
 
         // Get total allocated memory size
@@ -315,47 +341,18 @@ namespace Wargon.Nukecs
                 BlockCount = blockCount
             };
         }
-        
-        // public void DebugView()
-        // {
-        //     dbug.log("========== Memory Allocator Debug View ==========");
-        //     dbug.log($"Total Memory: {totalSize} bytes");
-        //     dbug.log($"Block Count: {blockCount}");
-        //     dbug.log($"Defragmentation Cycles: {defragmentationCount}");
-        //
-        //     long usedSize = 0;
-        //     long freeSize = totalSize;
-        //
-        //     for (int i = 0; i < blockCount; i++)
-        //     {
-        //         ref var block = ref blocks[i];
-        //         string status = block.IsUsed ? "Used" : "Free";
-        //         usedSize += block.IsUsed ? block.Size : 0;
-        //         freeSize -= block.IsUsed ? block.Size : 0;
-        //
-        //         dbug.log($"Block {i}:");
-        //         dbug.log($"  Offset: {block.Pointer}");
-        //         dbug.log($"  Size: {block.Size} bytes");
-        //         dbug.log($"  Status: {status}");
-        //     }
-        //
-        //     dbug.log("------------------------------------------------");
-        //     dbug.log($"Used Memory: {usedSize} bytes");
-        //     dbug.log($"Free Memory: {freeSize} bytes");
-        //     dbug.log("================================================");
-        // }
     }
 
     public class MemoryView
     {
-        public unsafe SerializableMemoryAllocator.MemoryBlock* Blocks;
+        public unsafe MemAllocator.MemoryBlock* Blocks;
         public int BlockCount;
     }
 
     
     public interface IOnDeserialize
     {
-        void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator);
+        void OnDeserialize(ref MemAllocator memoryAllocator);
     }
 
     namespace Allocators

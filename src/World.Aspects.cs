@@ -46,7 +46,7 @@ namespace Wargon.Nukecs
                 return aspect;
             }
             internal readonly World* world;
-            internal Aspects(ref SerializableMemoryAllocator allocator, int world)
+            internal Aspects(ref MemAllocator allocator, int world)
             {
                 this.aspects = new MemoryList<ptr>(64, ref allocator, true);
                 this.world = GetPtr(world);

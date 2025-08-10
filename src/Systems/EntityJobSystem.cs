@@ -68,7 +68,7 @@ namespace Wargon.Nukecs
             private delegate void ExecuteJobFunction(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
             
-            public static unsafe void Execute(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
+            public static void Execute(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 if(fullData.query->count == 0) return;
                 switch (fullData.JobData.Mode) {
@@ -80,7 +80,7 @@ namespace Wargon.Nukecs
                             for (var i = begin; i < end; i++) {
                                 ref var e = ref fullData.query->GetEntity(i);
                                 //if (e.IsValid()) {
-                                    fullData.JobData.OnUpdate(ref e, ref fullData.State);
+                                fullData.JobData.OnUpdate(ref e, ref fullData.State);
                                 //}
                             }
                         }
@@ -89,7 +89,7 @@ namespace Wargon.Nukecs
                         for (var i = 0; i < fullData.query->count; i++) {
                             ref var e = ref fullData.query->GetEntity(i);
                             //if (e.IsValid()) {
-                                fullData.JobData.OnUpdate(ref e, ref fullData.State);
+                            fullData.JobData.OnUpdate(ref e, ref fullData.State);
                             //}
                         }
                         break;

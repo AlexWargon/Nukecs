@@ -19,7 +19,7 @@ namespace Wargon.Nukecs.Collections
         internal int length;
         [NativeDisableUnsafePtrRestriction]
         internal T* Ptr;
-        public MemoryList(int capacity, ref SerializableMemoryAllocator allocator, bool lenAsCapacity = false)
+        public MemoryList(int capacity, ref MemAllocator allocator, bool lenAsCapacity = false)
         {
             PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity);
             Ptr = PtrOffset.AsPtr<T>(ref allocator);
@@ -34,16 +34,19 @@ namespace Wargon.Nukecs.Collections
         public static ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
             bool lenAsCapacity = false)
         {
+            //new list value
             var list = new MemoryList<T>
             {
                 PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity),
                 capacity = capacity
             };
+            //buffer in list
             list.Ptr = list.PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
             if (lenAsCapacity)
             {
                 list.length = capacity;
             }
+            //list ptr
             var ptr = allocatorHandler.Allocator.AllocatePtr<MemoryList<T>>(sizeof(MemoryList<T>));
             *ptr.Ptr = list;
             return ptr;
@@ -74,7 +77,7 @@ namespace Wargon.Nukecs.Collections
             get => ref Ptr[index];
         }
         
-        public void Add(in T value, ref SerializableMemoryAllocator allocatorHandler)
+        public void Add(in T value, ref MemAllocator allocatorHandler)
         {
             var idx = length;
             if (length < capacity)
@@ -97,9 +100,16 @@ namespace Wargon.Nukecs.Collections
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
             return ref Ptr[index];
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public T* ElementAtPtr(int index)
+        {
+            return Ptr + index;
         }
         
         public void Dispose()
@@ -107,24 +117,24 @@ namespace Wargon.Nukecs.Collections
             
         }
 
-        public void OnDeserialize(uint blockIndex, uint offset, ref SerializableMemoryAllocator memoryAllocator)
+        public void OnDeserialize(uint blockIndex, uint offset, ref MemAllocator memoryAllocator)
         {
             PtrOffset = new ptr_offset(blockIndex, offset);
             Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
         }
 
-        public void OnDeserialize(ref SerializableMemoryAllocator memoryAllocator)
+        public void OnDeserialize(ref MemAllocator memoryAllocator)
         {
             Ptr = PtrOffset.AsPtr<T>(ref memoryAllocator);
         }
 
-        public void CopyFrom(ref MemoryList<T> other, ref SerializableMemoryAllocator allocatorHandler)
+        public void CopyFrom(ref MemoryList<T> other, ref MemAllocator allocatorHandler)
         {
             Resize(other.Length, ref allocatorHandler);
             UnsafeUtility.MemCpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
         }
         
-        public void Resize(int len, ref SerializableMemoryAllocator allocatorHandler)
+        public void Resize(int len, ref MemAllocator allocatorHandler)
         {
             if (len > Capacity)
             {
@@ -137,7 +147,7 @@ namespace Wargon.Nukecs.Collections
             return new Enumerator { Length = length, Index = -1, Ptr = Ptr };
         }
 
-        private void SetCapacity(int size, ref SerializableMemoryAllocator allocator)
+        private void SetCapacity(int size, ref MemAllocator allocator)
         {
             Utils.CheckCapacityInRange(capacity, length);
 
@@ -153,7 +163,7 @@ namespace Wargon.Nukecs.Collections
             ResizeExact(ref allocator, newCapacity);
         }
         
-        private void ResizeExact(ref SerializableMemoryAllocator allocator, int newCapacity)
+        private void ResizeExact(ref MemAllocator allocator, int newCapacity)
         {
             newCapacity = math.max(0, newCapacity);
 

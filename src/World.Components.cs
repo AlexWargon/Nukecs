@@ -1,7 +1,5 @@
-﻿using System;
+﻿
 using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs {
@@ -27,15 +25,6 @@ namespace Wargon.Nukecs {
             internal void CreatePools(ref WorldConfig config, WorldUnsafe* world)
             {
                 ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, world, ref poolsCount);
-            }
-            public void Dispose() {
-                var poolsToDispose = ComponentAmount.Value.Data;
-                for (var index = 0; index < poolsToDispose; index++) {
-                    
-                    ref var pool = ref pools.Ptr[index];
-                    pool.Dispose();
-                }
-                pools.Dispose();
             }
         }
     }

@@ -18,18 +18,6 @@ namespace Wargon.Nukecs
             this.world = world;
             this.name = name;
         }
-        public SystemsGroup Add<T>() where T : struct, IJobSystem {
-            T system = default;
-            if (system is IOnCreate s) {
-                s.OnCreate(ref world);
-                system = (T) s;
-            }
-            runners.Add(new JobSystemRunner<T> {
-                System = system,
-                EcbJob = default
-            });
-            return this;
-        }
 
         public unsafe SystemsGroup Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
             T system = default;
@@ -55,22 +43,7 @@ namespace Wargon.Nukecs
 
             return this;
         }
-        
-        public SystemsGroup Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem {
-            T system = default;
-            if (system is IOnCreate s) {
-                s.OnCreate(ref world);
-                system = (T) s;
-            }
-            var runner = new QueryJobSystemRunner<T> {
-                System = system,
-                Mode = system.Mode,
-                EcbJob = default
-            };
-            runner.Query = runner.System.GetQuery(ref world);
-            runners.Add(runner);
-            return this;
-        }
+
 
         public SystemsGroup Add<T>(int dymmy = 1) where T : struct, ISystem {
             T system = default;
