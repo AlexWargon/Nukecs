@@ -227,6 +227,12 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
+
+        public object GetObject(int index)
+        {
+            return ComponentHelpers.Read(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->ComponentType.size,
+                unsafeBufferPtr.Ptr->ComponentType.index);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
             if (!UnsafeBuffer->ComponentType.isTag) {

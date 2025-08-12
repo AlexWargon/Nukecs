@@ -13,6 +13,7 @@ namespace Wargon.Nukecs
         {
             UnityEngine.Debug.Log(massage);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void log(string message, Color color)
         {
             hexColor = ColorUtility.ToHtmlStringRGB(color);

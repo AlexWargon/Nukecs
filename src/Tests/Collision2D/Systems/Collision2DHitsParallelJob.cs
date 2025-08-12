@@ -10,56 +10,56 @@ namespace Wargon.Nukecs.Collision2D {
     [BurstCompile]
     public struct Collision2DHitsParallelJobBatched : IJobParallelForBatch
     {
-        public UnsafeList<Grid2DCell> Cells;
-        public ComponentPool<Circle2D> Colliders;
-        public ComponentPool<Transform> Transforms;
-        public ComponentPool<Rectangle2D> Rectangles;
-        public ComponentPool<Body2D> Bodies;
-        public ComponentPool<ComponentArray<Collision2DData>> CollisionData;
-        [WriteOnly] public NativeQueue<HitInfo>.ParallelWriter CollisionEnterHits;
-        public float2 Offset, GridPosition;
-        public int W, H, CellSize;
-        public World World;
-        [WriteOnly] public NativeParallelHashSet<ulong>.ParallelWriter ProcessedCollisions;
-        [ReadOnly] public NativeList<int> CellIndexes;
+        public UnsafeList<Grid2DCell> cells;
+        public ComponentPool<Circle2D> colliders;
+        public ComponentPool<Transform> transforms;
+        public ComponentPool<Rectangle2D> rectangles;
+        public ComponentPool<Body2D> bodies;
+        public ComponentPool<ComponentArray<Collision2DData>> collisionData;
+        [WriteOnly] public NativeQueue<HitInfo>.ParallelWriter collisionEnterHits;
+        public float2 offset, gridPosition;
+        public int width, height, CellSize;
+        public World world;
+        [WriteOnly] public NativeParallelHashSet<ulong>.ParallelWriter processedCollisions;
+        [ReadOnly] public NativeList<int> cellIndexes;
         [BurstCompile]
         public void Execute(int startIndex, int count)
         {
             for (var idx = startIndex; idx < startIndex + count; idx++)
             {
-                var cellIndex = CellIndexes[idx];
-                var x = cellIndex % W;
-                var y = cellIndex / W;
+                var cellIndex = cellIndexes[idx];
+                var x = cellIndex % width;
+                var y = cellIndex / width;
                 
-                ref var cell1 = ref Cells.ElementAt(cellIndex);
-                cell1.Pos = new float2(x * CellSize, y * CellSize) + Offset + GridPosition;
+                ref var cell1 = ref cells.ElementAt(cellIndex);
+                cell1.Pos = new float2(x * CellSize, y * CellSize) + offset + gridPosition;
 
                 for (var dx = -1; dx <= 1; ++dx)
                 for (var dy = -1; dy <= 1; ++dy)
                 {
-                    var di = W * (y + dy) + x + dx;
-                    if (di < 0 || di >= Cells.m_length) continue;
+                    var di = width * (y + dy) + x + dx;
+                    if (di < 0 || di >= cells.m_length) continue;
 
-                    var cell2 = Cells[di];
+                    var cell2 = cells[di];
 
                     for (var i = 0; i < cell1.CollidersBuffer.Count; i++)
                     {
                         var e1 = cell1.CollidersBuffer[i];
-                        ref var c1 = ref Colliders.Get(e1);
-                        ref var t1 = ref Transforms.Get(e1);
-                        ref var b1 = ref Bodies.Get(e1);
+                        ref var c1 = ref colliders.Get(e1);
+                        ref var t1 = ref transforms.Get(e1);
+                        ref var b1 = ref bodies.Get(e1);
                         // circle vs rect
                         for (var j = 0; j < cell2.RectanglesBuffer.Count; j++)
                         {
                             var e2 = cell2.RectanglesBuffer[j];
                             if (e1 == e2) continue;
-                            ref var rect = ref Rectangles.Get(e2);
-                            ref var rectTransform = ref Transforms.Get(e2);
+                            ref var rect = ref rectangles.Get(e2);
+                            ref var rectTransform = ref transforms.Get(e2);
                             if ((c1.collideWith & rect.layer) == rect.layer &&
                                 CircleRectangleCollision(in c1, in t1, in rect, in rectTransform))
                             {
                                 ulong collisionKey = GetCollisionKey(e1, e2);
-                                if (!ProcessedCollisions.Add(collisionKey)) continue;
+                                if (!processedCollisions.Add(collisionKey)) continue;
 
                                 c1.collided = true;
                                 rect.index = e2;
@@ -68,7 +68,7 @@ namespace Wargon.Nukecs.Collision2D {
                                 ResolveCircleRectangleCollisionGpt4(ref c1, ref t1, ref b1, ref rect, ref rectTransform, ref hitInfo);
                                 hitInfo.From = e1;
                                 hitInfo.To = e2;
-                                CollisionEnterHits.Enqueue(hitInfo);
+                                collisionEnterHits.Enqueue(hitInfo);
                                 
                                 // ref var buffer1 = ref CollisionData.Get(e1);
                                 // ref var buffer2 = ref CollisionData.Get(e2);
@@ -100,21 +100,21 @@ namespace Wargon.Nukecs.Collision2D {
                             var e2 = cell2.CollidersBuffer[j];
                             if (e1 == e2) continue;
 
-                            ref var c2 = ref Colliders.Get(e2);
-                            ref var t2 = ref Transforms.Get(e2);
+                            ref var c2 = ref colliders.Get(e2);
+                            ref var t2 = ref transforms.Get(e2);
                             if ((c1.collideWith & c2.layer) == c2.layer)
                             {
                                 var distance = math.distance(t1.Position.xy, t2.Position.xy);
                                 if (c1.radius + c2.radius >= distance)
                                 {
                                     ulong collisionKey = GetCollisionKey(e1, e2);
-                                    if (!ProcessedCollisions.Add(collisionKey)) continue;
+                                    if (!processedCollisions.Add(collisionKey)) continue;
 
                                     c1.collided = true;
                                     c2.collided = true;
                                     c1.index = e1;
                                     c2.index = e2;
-                                    ref var b2 = ref Bodies.Get(e2);
+                                    ref var b2 = ref bodies.Get(e2);
                                     HitInfo hitInfo = default;
                                     ResolveCollisionInternal(ref c1, ref c2, distance, ref b1, ref b2, ref t1, ref t2,
                                         ref hitInfo);
@@ -122,7 +122,7 @@ namespace Wargon.Nukecs.Collision2D {
                                     hitInfo.To = e2;
                                     if (((c1.WriteHitsWithSameLayer || c2.WriteHitsWithSameLayer) && c1.layer == c2.layer) || c1.layer != c2.layer)
                                     {
-                                        CollisionEnterHits.Enqueue(hitInfo);
+                                        collisionEnterHits.Enqueue(hitInfo);
                                     }
 
 
@@ -160,21 +160,21 @@ namespace Wargon.Nukecs.Collision2D {
                     for (var i = 0; i < cell1.RectanglesBuffer.Count; i++)
                     {
                         var e1 = cell1.RectanglesBuffer[i];
-                        ref var r1 = ref Rectangles.Get(e1);
-                        ref var t1 = ref Transforms.Get(e1);
-                        ref var b1 = ref Bodies.Get(e1);
+                        ref var r1 = ref rectangles.Get(e1);
+                        ref var t1 = ref transforms.Get(e1);
+                        ref var b1 = ref bodies.Get(e1);
 
                         for (var j = 0; j < cell2.RectanglesBuffer.Count; j++)
                         {
                             var e2 = cell2.RectanglesBuffer[j];
                             if (e1 == e2) continue;
 
-                            ref var r2 = ref Rectangles.Get(e2);
-                            ref var t2 = ref Transforms.Get(e2);
+                            ref var r2 = ref rectangles.Get(e2);
+                            ref var t2 = ref transforms.Get(e2);
                             if ((r1.collideWith & r2.layer) == r2.layer)
                             {
                                 ulong collisionKey = GetCollisionKey(e1, e2);
-                                if (!ProcessedCollisions.Add(collisionKey)) continue;
+                                if (!processedCollisions.Add(collisionKey)) continue;
 
                                 r1.index = e1;
                                 r2.index = e2;
@@ -184,7 +184,7 @@ namespace Wargon.Nukecs.Collision2D {
                                 {
                                     hitInfo.From = e1;
                                     hitInfo.To = e2;
-                                    CollisionEnterHits.Enqueue(hitInfo);
+                                    collisionEnterHits.Enqueue(hitInfo);
                                     // ref var buffer1 = ref CollisionData.Get(e1);
                                     // ref var buffer2 = ref CollisionData.Get(e2);
                                     // ref var ent1 = ref World.GetEntity(e1);

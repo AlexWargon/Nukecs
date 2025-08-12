@@ -45,6 +45,15 @@ namespace Wargon.Nukecs
         public T oldValue;
     }
 
+    public struct Name : IComponent, IDisposable
+    {
+        public ObjectRef<string> value;
+        public void Dispose()
+        {
+            value.DisposeNotRemoving();
+        }
+    }
+    
     public unsafe struct Events<T> where T : unmanaged
     {
         private MemoryList<T> _list;
@@ -110,13 +119,6 @@ namespace Wargon.Nukecs
         public readonly static IReadOnlyList<Type> DefaultComponents = new System.Collections.Generic.List<Type>()
         {
             typeof(global::Wargon.Nukecs.ChildOf),
-            typeof(global::Wargon.Nukecs.ChildOf),
-            typeof(global::Wargon.Nukecs.ChildOf),
-            typeof(global::Wargon.Nukecs.ChildOf),
-            typeof(global::Wargon.Nukecs.ChildOf),
-            typeof(global::Wargon.Nukecs.ChildOf),
-            typeof(global::Wargon.Nukecs.ChildOf),
-
         };
     }
     public struct ComponentAmount {
@@ -249,14 +251,22 @@ namespace Wargon.Nukecs
     {
         static ComponentHelpers() {
             writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
+            readers = new IUnsafeBufferReader[ComponentAmount.Value.Data];
         }
         private static readonly IUnsafeBufferWriter[] writers;
+        private static readonly IUnsafeBufferReader[] readers;
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
             writers[typeIndex] = new UnsafeBufferWriter<T>();
+            readers[typeIndex] = new UnsafeBufferReader<T>();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
+        }
+
+        internal static unsafe object Read(void* buffer, int index, int sizeInBytes, int type)
+        {
+            return readers[type].Read(buffer, index, sizeInBytes);
         }
     }
 
@@ -267,6 +277,19 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
             ((T*) buffer)[index] = (T)component;
+        }
+    }
+
+    public unsafe interface IUnsafeBufferReader
+    {
+        object Read(void* buffer, int index, int sizeInBytes);
+    }
+
+    public class UnsafeBufferReader<T> : IUnsafeBufferReader  where T: unmanaged
+    {
+        public unsafe object Read(void* buffer, int index, int sizeInBytes)
+        {
+            return ((T*) buffer)[index];
         }
     }
     

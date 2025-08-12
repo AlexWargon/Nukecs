@@ -9,7 +9,7 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
-        private static MemAllocator _allocator;
+        private static readonly MemAllocator _allocator;
         private static SharedStatic<MemoryList<World>> _worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
         //private static readonly World[] worlds = new World[4];
         private static byte lastFreeSlot;

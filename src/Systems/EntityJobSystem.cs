@@ -18,7 +18,7 @@ namespace Wargon.Nukecs
         public QueryUnsafe* Query;
         public SystemMode Mode;
         public ECBJob EcbJob;
-
+        public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             ref var world = ref state.World;
@@ -79,9 +79,9 @@ namespace Wargon.Nukecs
                             //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                             for (var i = begin; i < end; i++) {
                                 ref var e = ref fullData.query->GetEntity(i);
-                                //if (e.IsValid()) {
-                                fullData.JobData.OnUpdate(ref e, ref fullData.State);
-                                //}
+                                if (e.IsValid()) {
+                                    fullData.JobData.OnUpdate(ref e, ref fullData.State);
+                                }
                             }
                         }
                         break;

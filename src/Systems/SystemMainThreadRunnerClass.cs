@@ -5,7 +5,7 @@ namespace Wargon.Nukecs
     internal class SystemMainThreadRunnerClass<TSystem> : ISystemRunner where TSystem : class, ISystem, new() {
         internal TSystem System;
         internal ECBJob EcbJob;
-
+        public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             ref var world = ref state.World;

@@ -22,24 +22,24 @@ namespace Wargon.Nukecs.Collision2D
 
         public NativeParallelHashMap<ulong, bool> collisionStates;
         public NativeParallelHashSet<ulong> ProcessedCollisions;
-        public int W, H, CellSize;
+        public int width, height, CellSize;
         private readonly World world;
 
-        public Grid2D(int w, int h, int cellSize, World world, Vector2 offset, Vector2 position = default) {
+        public Grid2D(int widthParam, int heightParam, int cellSize, World world, Vector2 offset, Vector2 position = default) {
             this.world = world;
             Position = position;
-            W = w;
-            H = h;
+            width = widthParam;
+            height = heightParam;
             Offset = offset;
             CellSize = cellSize;
-            cells = new UnsafeList<Grid2DCell>(W * H, Allocator.Persistent);
-            cells.Length = W * H;
+            cells = new UnsafeList<Grid2DCell>(width * height, Allocator.Persistent);
+            cells.Length = width * height;
 
             Hits = new NativeQueue<HitInfo>(Allocator.Persistent);
             collisionStates = new NativeParallelHashMap<ulong, bool>(world.Config.StartEntitiesAmount, Allocator.Persistent);
-            for (var x = 0; x < W; x++)
-            for (var y = 0; y < H; y++) {
-                var i = W * y + x;
+            for (var x = 0; x < width; x++)
+            for (var y = 0; y < height; y++) {
+                var i = width * y + x;
                 var cell = new Grid2DCell {
                     W = cellSize,
                     H = cellSize,
@@ -57,17 +57,17 @@ namespace Wargon.Nukecs.Collision2D
         //public unsafe Circle2D* Colliders => circleColliders;
 
         public void UpdateGrid(Vector2Int size, int cellSize) {
-            W = size.x;
-            H = size.y;
+            width = size.x;
+            height = size.y;
             CellSize = cellSize;
             Offset = new Vector2(-(size.x * CellSize / 2), -(size.y * CellSize / 2));
             cells.Dispose();
-            cells = new UnsafeList<Grid2DCell>(W * H, Allocator.Persistent);
-            cells.Length = W * H;
+            cells = new UnsafeList<Grid2DCell>(width * height, Allocator.Persistent);
+            cells.Length = width * height;
             
-            for (var x = 0; x < W; x++)
-            for (var y = 0; y < H; y++) {
-                var i = W * y + x;
+            for (var x = 0; x < width; x++)
+            for (var y = 0; y < height; y++) {
+                var i = width * y + x;
                 var cell = new Grid2DCell {
                     W = cellSize,
                     H = cellSize,

@@ -298,7 +298,11 @@ namespace Wargon.Nukecs {
         }
 
         public Type GetType(int index) => _typeByIndex[index];
-        public int Index(Type type) => _indexByType[type];
+
+        public int Index(Type type)
+        {
+            return _indexByType.GetValueOrDefault(type, -1);
+        }
 
         public int Index(string name) {
             return _indexByType[_nameToType[name]];

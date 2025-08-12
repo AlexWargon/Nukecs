@@ -16,87 +16,87 @@ namespace Wargon.Nukecs
         where T : unmanaged, IArrayComponent
     {
         internal const int DEFAULT_MAX_CAPACITY = ComponentArray.DEFAULT_MAX_CAPACITY;
-        internal T* _buffer;
-        internal int _length;
-        internal int _capacity;
-        internal Entity _entity;
-        public int Length => _length;
+        internal T* buffer;
+        internal int length;
+        internal int capacity;
+        internal Entity entity;
+        public int Length => length;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(int capacity)
         {
-            _buffer = (T*)UnsafeUtility.MallocTracked(capacity* sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent, 0);
-            _capacity = capacity;
-            _length = 0;
-            _entity = default;
+            buffer = (T*)UnsafeUtility.MallocTracked(capacity* sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent, 0);
+            this.capacity = capacity;
+            length = 0;
+            entity = default;
         }
         
         internal ComponentArray(ref GenericPool pool, Entity index)
         {
-            _buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DEFAULT_MAX_CAPACITY;
-            _length = 0;
-            _capacity = DEFAULT_MAX_CAPACITY;
-            _entity = index;
+            buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DEFAULT_MAX_CAPACITY;
+            length = 0;
+            capacity = DEFAULT_MAX_CAPACITY;
+            entity = index;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(ref ComponentArray<T> other, int index)
         {
-            _entity = other._entity.worldPointer->GetEntity(index);
+            entity = other.entity.worldPointer->GetEntity(index);
             var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
-            _buffer = (T*)other._entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + _entity.id * DEFAULT_MAX_CAPACITY;
-            _length = other._length;
-            _capacity = other._capacity;
-            UnsafeUtility.MemCpy(_buffer, other._buffer, _length * sizeof(T));
+            buffer = (T*)other.entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + entity.id * DEFAULT_MAX_CAPACITY;
+            length = other.length;
+            capacity = other.capacity;
+            UnsafeUtility.MemCpy(buffer, other.buffer, length * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
-            if (index < 0 || index >= _length)
+            if (index < 0 || index >= length)
                 throw new IndexOutOfRangeException();
-            return ref _buffer[index];
+            return ref buffer[index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item)
         {
-            if (_length >= _capacity - 1) return;
-            if (_length == _capacity) Resize(_capacity == 0 ? 4 : _capacity * 2);
-            _buffer[_length++] = item;
+            if (length >= capacity - 1) return;
+            if (length == capacity) Resize(capacity == 0 ? 4 : capacity * 2);
+            buffer[length++] = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(in T item)
         {
-            if (_length < _capacity) _buffer[_length++] = item;
+            if (length < capacity) buffer[length++] = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddParallel(in T item)
         {
-            var idx = _length;
-            if (idx < _capacity)
+            var idx = length;
+            if (idx < capacity)
             {
-                _buffer[idx] = item;
-                Interlocked.Increment(ref _length);
+                buffer[idx] = item;
+                Interlocked.Increment(ref length);
             }
             // Note: parallel expansion requires additional synchronization
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveRange(int index, int count)
         {
-            if (_length <= index + count - 1) return;
+            if (length <= index + count - 1) return;
 
             int elemSize = UnsafeUtility.SizeOf<T>();
 
-            UnsafeUtility.MemMove(_buffer + index * elemSize, _buffer + (index + count) * elemSize, (long)elemSize * (Length - count - index));
-            _length -= count;
+            UnsafeUtility.MemMove(buffer + index * elemSize, buffer + (index + count) * elemSize, (long)elemSize * (Length - count - index));
+            length -= count;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index)
         {
-            if (index < 0 || index >= _length)
+            if (index < 0 || index >= length)
                 throw new IndexOutOfRangeException();
             RemoveRange(index, 1);
         }
@@ -104,14 +104,14 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
-            _length = 0;
+            length = 0;
         }
 
         public void Dispose()
         {
-            _buffer = null;
-            _length = 0;
-            _capacity = 0;
+            buffer = null;
+            length = 0;
+            capacity = 0;
         }
 
         public ComponentArray<T> Copy(int to)
@@ -121,28 +121,28 @@ namespace Wargon.Nukecs
 
         public void Fill(T* buffer, int length)
         {
-            UnsafeUtility.MemCpy(_buffer, buffer, length * sizeof(T));
-            _length = length;
+            UnsafeUtility.MemCpy(this.buffer, buffer, length * sizeof(T));
+            this.length = length;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator()
         {
-            return new Enumerator(_buffer, _length);
+            return new Enumerator(buffer, length);
         }
 
         private void Resize(int newCapacity)
         {
-            var w = _entity.worldPointer;
+            var w = entity.worldPointer;
             var newBuffer = w->_allocate<T>(newCapacity);
-            if (_buffer != null)
+            if (buffer != null)
             {
-                UnsafeUtility.MemCpy(newBuffer, _buffer, _length * sizeof(T));
-                w->_free(_buffer);
+                UnsafeUtility.MemCpy(newBuffer, buffer, length * sizeof(T));
+                w->_free(buffer);
             }
 
-            _buffer = newBuffer;
-            _capacity = newCapacity;
+            buffer = newBuffer;
+            capacity = newCapacity;
             dbug.log("resized");
         }
 
@@ -190,8 +190,8 @@ namespace Wargon.Nukecs
             for (var i = 0; i < buffer.Length; i++)
                 if (item.Equals(buffer.ElementAt(i)))
                 {
-                    if (i != buffer.Length - 1) buffer._buffer[i] = buffer._buffer[buffer._length - 1];
-                    buffer._length--;
+                    if (i != buffer.Length - 1) buffer.buffer[i] = buffer.buffer[buffer.length - 1];
+                    buffer.length--;
                     break;
                 }
 

@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
@@ -12,7 +11,7 @@ namespace Wargon.Nukecs
     {
         public int id;
 
-        [NativeDisableUnsafePtrRestriction]
+        [NativeDisableUnsafePtrRestriction][NonSerialized]
         internal World.WorldUnsafe* worldPointer;
 
         public ref World world => ref World.Get(worldPointer->Id);
@@ -25,8 +24,7 @@ namespace Wargon.Nukecs
         {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
-                this.worldPointer->GetArchetype(0);
+            this.worldPointer->entitiesArchetypes.ElementAt(this.id) = this.worldPointer->GetArchetype(0);
         }
 
 #if !NUKECS_DEBUG
@@ -47,16 +45,20 @@ namespace Wargon.Nukecs
 #endif
             get
             {
+#if NUKECS_DEBUG
                 if(worldPointer == null) throw new Exception("World pointer is null");
+#endif
                 var arch = worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ptr;
+#if NUKECS_DEBUG
                 if (arch == null) throw new Exception("Archetype reference is null");
+#endif
                 return ref *arch;
             }
         }
 
         public override string ToString()
         {
-            return $"e:{id}, {ArchetypeRef.ToString()}";
+            return $"e:{id}";
         }
 
 
@@ -143,32 +145,6 @@ namespace Wargon.Nukecs
         {
             exist = entity.ArchetypeRef.Has(ComponentType<T>.Index);
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static Ref<T> GetRef<T>(this ref Entity entity) where T : unmanaged, IComponent
-        {
-            var componentType = ComponentType<T>.Index;
-            if (!entity.ArchetypeRef.Has(componentType))
-            {
-                ref var pool = ref entity.worldPointer->GetPool<T>();
-                pool.Set(entity.id);
-                entity.worldPointer->ECB.Add(entity.id, componentType);
-                return new Ref<T>
-                {
-                    index = entity.id,
-                    pool = pool.UnsafeBuffer
-                };
-            }
-
-            //todo switch to untyped pool
-            return new Ref<T>
-            {
-                index = entity.id,
-                pool = entity.worldPointer->GetPool<T>().UnsafeBuffer
-            };
         }
 
         [BurstDiscard]
@@ -267,7 +243,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        internal static void RemoveIndex(this in Entity entity, int componentType)
+        public static void RemoveIndex(this in Entity entity, int componentType)
         {
             entity.worldPointer->ECB.Remove(entity.id, componentType);
         }

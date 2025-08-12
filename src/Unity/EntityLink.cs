@@ -39,6 +39,7 @@ namespace Wargon.Nukecs.Tests {
             foreach (var customConvertor in convertors) {
                 customConvertor.Convert(ref world,ref entity);
             }
+            entity.Add(new Name{value = name});
             switch (Option) {
                 case EntityLinkOption.Pure:
                     ConvertComponent<SpriteRenderer>(transform, ref world, ref entity);
