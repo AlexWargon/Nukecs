@@ -1,235 +1,440 @@
 ﻿#if UNITY_EDITOR
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
-namespace Wargon.Nukecs.Tests
+namespace Wargon.Nukecs.Editor
 {
-    public unsafe class ECSDebugWindow : EditorWindow
+    public unsafe class ECSDebugWindowUI : EditorWindow
     {
-        private World world; // Твой ECS World
-        private Vector2 entitiesScrollPosition;
-        private Vector2 archetypesScrollPosition;
-        private Vector2 queriesScrollPosition;
-        private string entitySearchQuery = "";
-        private string archetypeSearchQuery = "";
-        private string querySearchQuery = "";
-        private bool showEntities = true;
-        private bool showArchetypes = true;
-        private bool showQueries = true;
-        private Dictionary<int, bool> archetypeFoldouts = new Dictionary<int, bool>();
-        private Dictionary<int, bool> queryFoldouts = new Dictionary<int, bool>();
-        private Dictionary<int, string> queryIdToName = new Dictionary<int, string>();
-        [MenuItem("Window/ECS Debug Window")]
+        private World world;
+
+        private ToolbarSearchField searchField;
+        private ListView listView;
+
+        private ScrollView inspectorView;
+        private Label inspectorTitle;
+
+        private enum Tab { Entities, Archetypes, Queries }
+        private Tab activeTab = Tab.Entities;
+
+        // Вместо List<string> — теперь список структурированных элементов
+        private readonly List<DebugListItem> items = new();
+        private readonly Dictionary<int, string> queryNames = new();
+        private readonly Dictionary<int, ComponentDrawerProxy> proxyCache = new();
+        private readonly Dictionary<int, UnityEditor.Editor> editorCache = new();
+        private int? lastEntityId;
+        private int lastEntitiesCount = -1;
+        private string lastSearchValue = "";
+        private int? selectedEntityId = null;
+
+        [MenuItem("Nuke.cs/ECS Debugger")]
         public static void ShowWindow()
         {
-            GetWindow<ECSDebugWindow>("ECS Debug");
+            var wnd = GetWindow<ECSDebugWindowUI>();
+            wnd.titleContent = new GUIContent("ECS Debugger");
+            wnd.minSize = new Vector2(800, 500);
         }
 
-        private void OnEnable()
+        // Класс элемента списка с типом и id
+        public class DebugListItem
         {
-            world = FindWorld();
-            if (!world.IsAlive)
+            public enum ItemType { Entity, Archetype, Query }
+
+            public ItemType Type;
+            public int Id;
+            public string DisplayName;
+
+            public DebugListItem(ItemType type, int id, string displayName)
             {
-                Debug.LogWarning("ECS World not found. Please ensure World is initialized.");
+                Type = type;
+                Id = id;
+                DisplayName = displayName;
             }
 
-            EditorApplication.playModeStateChanged += Enable;
-        }
-        
-        private void Enable(PlayModeStateChange playModeStateChange)
-        {
-            if (playModeStateChange == PlayModeStateChange.EnteredPlayMode)
-            {
-                NukecsDebugUpdater.Instance.OnUpdate += OnGameUpdate;
-            }
-            else
-            if (playModeStateChange == PlayModeStateChange.ExitingPlayMode)
-            {
-                NukecsDebugUpdater.Instance.OnUpdate -= OnGameUpdate;
-            }
-        }
-        private void OnGameUpdate()
-        {
-            if (EditorApplication.isPlaying && world.IsAlive)
-            {
-                Repaint();
-            }
-        }
-        private World FindWorld()
-        {
-            return World.Get(0);
+            public override string ToString() => DisplayName;
         }
 
-        private void OnGUI()
+        public void CreateGUI()
         {
-            world = FindWorld();
+            world = World.Get(0);
+
+            var root = rootVisualElement;
+            root.style.flexDirection = FlexDirection.Row;
+
+            // LEFT PANEL
+            var leftPanel = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1,
+                    flexDirection = FlexDirection.Column,
+                    minWidth = 250,
+                    maxWidth = 400
+                }
+            };
+
+            // Tabs
+            var tabs = new Toolbar();
+            var entitiesBtn = new ToolbarButton(() => SwitchTab(Tab.Entities)) { text = "Entities" };
+            var archetypesBtn = new ToolbarButton(() => SwitchTab(Tab.Archetypes)) { text = "Archetypes" };
+            var queriesBtn = new ToolbarButton(() => SwitchTab(Tab.Queries)) { text = "Queries" };
+            tabs.Add(entitiesBtn);
+            tabs.Add(archetypesBtn);
+            tabs.Add(queriesBtn);
+            leftPanel.Add(tabs);
+
+            // Search
+            searchField = new ToolbarSearchField();
+            searchField.RegisterValueChangedCallback(_ => RefreshList());
+            leftPanel.Add(searchField);
+
+            // ListView теперь для DebugListItem
+            listView = new ListView(items, 20, MakeListItem, BindListItem)
+            {
+                selectionType = SelectionType.Single,
+                style = { flexGrow = 1 }
+            };
+            listView.onSelectionChange += OnItemSelected;
+            leftPanel.Add(listView);
+
+            root.Add(leftPanel);
+
+            // RIGHT PANEL
+            var rightPanel = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 2,
+                    flexDirection = FlexDirection.Column,
+                    backgroundColor = new Color(0.2f, 0.2f, 0.2f),
+                    paddingLeft = 5,
+                    paddingTop = 5
+                }
+            };
+
+            inspectorTitle = new Label("Inspector")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 14,
+                    paddingBottom = 6
+                }
+            };
+            rightPanel.Add(inspectorTitle);
+
+            inspectorView = new ScrollView { style = { flexGrow = 1 } };
+            rightPanel.Add(inspectorView);
+
+            root.Add(rightPanel);
+
+            RefreshList();
+
+            root.schedule.Execute(() =>
+            {
+                if (!world.IsAlive || !EditorApplication.isPlaying)
+                    return;
+
+                // Обновлять список только если изменилась длина или фильтр
+                if (lastEntitiesCount != world.UnsafeWorld->entitiesAmount || lastSearchValue != searchField.value)
+                {
+                    lastEntitiesCount = world.UnsafeWorld->entitiesAmount;
+                    lastSearchValue = searchField.value;
+                    RefreshList();
+                }
+
+
+            }).Every(100);
+
+            root.schedule.Execute(() =>
+            {
+                if (!world.IsAlive || !EditorApplication.isPlaying)
+                {
+                    RefreshList();
+                    inspectorView.Clear();
+                    selectedEntityId = null;
+                }
+                if (selectedEntityId.HasValue)
+                {
+                    UpdateProxies(selectedEntityId.Value);
+                    inspectorView.MarkDirtyRepaint();
+                }
+
+            }).Every(33);
+        }
+
+        private VisualElement MakeListItem()
+        {
+            var row = new VisualElement { style = { flexDirection = FlexDirection.Row, alignItems = Align.Center } };
+
+            var icon = new Image
+            {
+                style =
+                {
+                    width = 16,
+                    height = 16,
+                    marginRight = 4
+                }
+            };
+            row.Add(icon);
+
+            var label = new Label
+            {
+                style = { flexGrow = 1, unityTextAlign = TextAnchor.MiddleLeft }
+            };
+            row.Add(label);
+
+            row.userData = (icon, label);
+            return row;
+        }
+
+        private void BindListItem(VisualElement element, int index)
+        {
+            if (index >= items.Count) return;
+            var (icon, label) = ((Image, Label))element.userData;
+            var item = items[index];
+            label.text = item.DisplayName;
+            icon.image = GetIconForTab(item.Type switch
+            {
+                DebugListItem.ItemType.Entity => Tab.Entities,
+                DebugListItem.ItemType.Archetype => Tab.Archetypes,
+                DebugListItem.ItemType.Query => Tab.Queries,
+                _ => Tab.Entities
+            });
+        }
+
+        private Texture2D GetIconForTab(Tab tab)
+        {
+            return tab switch
+            {
+                Tab.Entities => EditorGUIUtility.IconContent("GameObject Icon").image as Texture2D,
+                Tab.Archetypes => EditorGUIUtility.IconContent("Prefab Icon").image as Texture2D,
+                Tab.Queries => EditorGUIUtility.IconContent("Search Icon").image as Texture2D,
+                _ => null
+            };
+        }
+
+        private void SwitchTab(Tab tab)
+        {
+            activeTab = tab;
+            searchField.value = "";
+            selectedEntityId = null;
+            inspectorView.Clear();
+            inspectorTitle.text = "Inspector";
+            RefreshList();
+        }
+
+        private void RefreshList()
+        {
             if (!world.IsAlive || !EditorApplication.isPlaying)
             {
-                EditorGUILayout.LabelField($"No Active World");
+                items.Clear();
+                listView.Rebuild();
                 return;
             }
 
-            EditorGUILayout.LabelField($"World Entities: {world.EntitiesAmount}", EditorStyles.boldLabel);
-            EditorGUILayout.Space();
+            items.Clear();
 
+            string search = searchField.value?.ToLower();
 
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("Refresh")) Repaint();
-            GUILayout.Label("Filter:", GUILayout.Width(50));
-            entitySearchQuery = EditorGUILayout.TextField(entitySearchQuery);
-            EditorGUILayout.EndHorizontal();
-
-            // entities
-            showEntities = EditorGUILayout.Foldout(showEntities, $"Entities ({world.UnsafeWorld->entitiesAmount})", true);
-            if (showEntities)
+            switch (activeTab)
             {
-                entitiesScrollPosition = EditorGUILayout.BeginScrollView(entitiesScrollPosition, GUILayout.Height(200));
-                DisplayEntities();
-                EditorGUILayout.EndScrollView();
+                case Tab.Entities:
+                    var entities = world.UnsafeWorld->entities;
+                    for (int i = 0; i < world.UnsafeWorld->entitiesAmount; i++)
+                    {
+                        var e = entities.Ptr[i];
+                        
+                        if (!e.IsValid()) continue;
+                        string name;
+                        if (e.Has<Name>())
+                        {
+                            name = $"e:{e.id}|{e.Get<Name>().value.Value}";
+                        }
+                        else
+                        {
+                            name = $"e:{e.id}";
+                        }
+                        if (!string.IsNullOrEmpty(search) && !name.ToLower().Contains(search)) continue;
+                        items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, name));
+                    }
+                    break;
+
+                case Tab.Archetypes:
+                    for (int i = 0; i < world.UnsafeWorld->archetypesList.Length; i++)
+                    {
+                        var a = world.UnsafeWorld->archetypesList.ElementAt(i).Ref;
+                        var name = $"Archetype {a.id}";
+                        if (!string.IsNullOrEmpty(search) && !name.ToLower().Contains(search)) continue;
+                        items.Add(new DebugListItem(DebugListItem.ItemType.Archetype, a.id, name));
+                    }
+                    break;
+
+                case Tab.Queries:
+                    for (int i = 0; i < world.UnsafeWorld->queries.Length; i++)
+                    {
+                        var q = world.UnsafeWorld->queries.ElementAt(i).Ref;
+                        if (!queryNames.ContainsKey(q.Id))
+                            queryNames[q.Id] = $"Query {q.Id} ({q.count} entities)";
+                        var name = queryNames[q.Id];
+                        if (!string.IsNullOrEmpty(search) && !name.ToLower().Contains(search)) continue;
+                        items.Add(new DebugListItem(DebugListItem.ItemType.Query, q.Id, name));
+                    }
+                    break;
             }
 
-            EditorGUILayout.Space();
+            listView.Rebuild();
+        }
 
-            // acrhetypes
-            showArchetypes = EditorGUILayout.Foldout(showArchetypes, $"Archetypes ({world.UnsafeWorld->archetypesList.Length})", true);
-            if (showArchetypes)
+        private void OnItemSelected(IEnumerable<object> selection)
+        {
+            inspectorView.Clear();
+
+            var sel = selection.FirstOrDefault() as DebugListItem;
+            if (sel == null)
             {
-                archetypeSearchQuery = EditorGUILayout.TextField("Archetype Filter:", archetypeSearchQuery);
-                archetypesScrollPosition = EditorGUILayout.BeginScrollView(archetypesScrollPosition, GUILayout.Height(200));
-                DisplayArchetypes();
-                EditorGUILayout.EndScrollView();
+                inspectorTitle.text = "Inspector";
+                selectedEntityId = null;
+                return;
             }
 
-            EditorGUILayout.Space();
+            inspectorTitle.text = $"{sel.Type}: {sel.DisplayName}";
 
-            // queries
-            showQueries = EditorGUILayout.Foldout(showQueries, $"Queries ({world.UnsafeWorld->queries.Length})", true);
-            if (showQueries)
+            switch (sel.Type)
             {
-                querySearchQuery = EditorGUILayout.TextField("Query Filter:", querySearchQuery);
-                queriesScrollPosition = EditorGUILayout.BeginScrollView(queriesScrollPosition, GUILayout.Height(200));
-                DisplayQueries();
-                EditorGUILayout.EndScrollView();
+                case DebugListItem.ItemType.Entity:
+                    selectedEntityId = sel.Id;
+                    DrawEntityInspector(sel.Id);
+                    UpdateProxies(sel.Id); // <-- вызываем явно обновление прокси
+                    break;
+
+                case DebugListItem.ItemType.Archetype:
+                    inspectorView.Add(new Label("Archetype inspector not implemented yet"));
+                    selectedEntityId = null;
+                    break;
+
+                case DebugListItem.ItemType.Query:
+                    inspectorView.Add(new Label("Query inspector not implemented yet"));
+                    selectedEntityId = null;
+                    break;
             }
         }
 
-        private void DisplayEntities()
+        private ComponentDrawerProxy GetOrCreateProxy(int typeIndex, object boxedComponent)
         {
-            var entities = world.UnsafeWorld->entities;
-            var archetypes = world.UnsafeWorld->entitiesArchetypes;
-            for (int i = 0; i < entities.Capacity; i++)
+            if (!proxyCache.TryGetValue(typeIndex, out var proxy) || proxy == null)
             {
-                var entity = entities.Ptr[i];
-                if (!entity.IsValid()) continue;
+                proxy = ScriptableObject.CreateInstance<ComponentDrawerProxy>();
+                proxy.hideFlags = HideFlags.HideAndDontSave;
+                proxyCache[typeIndex] = proxy;
+            }
 
-                string entityName = $"Entity {entity.id}";
-                if (!string.IsNullOrEmpty(entitySearchQuery) && !entityName.Contains(entitySearchQuery, System.StringComparison.OrdinalIgnoreCase))
+            proxy.boxedComponent = boxedComponent;
+            return proxy;
+        }
+        
+        private UnityEditor.Editor GetOrCreateEditor(ComponentDrawerProxy proxy, int typeIndex)
+        {
+            if (!editorCache.TryGetValue(typeIndex, out var editor) || editor == null)
+            {
+                editor = UnityEditor.Editor.CreateEditor(proxy);
+                editorCache[typeIndex] = editor;
+            }
+            return editor;
+        }
+        
+        private void DrawEntityInspector(int entityId)
+        {
+            // Если выбрали ту же энтити — просто обновляем данные в прокси
+            if (lastEntityId == entityId)
+            {
+                
+                UpdateProxies(entityId);
+                return;
+            }
+            dbug.log("update proxies");
+            lastEntityId = entityId;
+            inspectorView.Clear();
+
+            ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+
+            foreach (var typeIndex in arch.types)
+            {
+                var boxedComponent = world.UnsafeWorldRef.GetUntypedPool(typeIndex).GetObject(entityId);
+                if (boxedComponent == null)
                     continue;
 
-                EditorGUILayout.BeginHorizontal();
-                var archetype = archetypes.ElementAt(entity.id);
-                var archetypeInfo = archetype.IsCreated ? $"Archetype ({archetype.ptr.Ref.id})" : "No Archetype";
-                EditorGUILayout.LabelField(entityName, GUILayout.Width(100));
-                EditorGUILayout.LabelField(archetypeInfo, GUILayout.Width(150));
+                var proxy = GetOrCreateProxy(typeIndex, boxedComponent);
+                var editor = GetOrCreateEditor(proxy, typeIndex);
 
-                // Компоненты
-                if (archetype.IsCreated)
+                var componentContainer = new VisualElement
                 {
-                    //var types = archetype.ptr.Ref.types;
-                    //string components = string.Join(", ", types.AsSpan().Select(t => ComponentTypeMap.GetType(t).Name));
-                    //EditorGUILayout.LabelField(components);
-                }
-                else
-                {
-                    EditorGUILayout.LabelField("No Components");
-                }
+                    style =
+                    {
+                        marginBottom = 4,
+                        borderTopWidth = 1,
+                        borderBottomWidth = 1,
+                        borderLeftWidth = 1,
+                        borderRightWidth = 1,
+                        borderTopColor = new Color(0.25f, 0.25f, 0.25f),
+                        borderBottomColor = new Color(0.25f, 0.25f, 0.25f),
+                        borderLeftColor = new Color(0.25f, 0.25f, 0.25f),
+                        borderRightColor = new Color(0.25f, 0.25f, 0.25f),
+                        backgroundColor = new Color(0.22f, 0.22f, 0.22f)
+                    }
+                };
 
-                EditorGUILayout.EndHorizontal();
+                var foldout = new Foldout
+                {
+                    text = boxedComponent.GetType().Name,
+                    value = true,
+                    style =
+                    {
+                        unityFontStyleAndWeight = FontStyle.Bold,
+                        fontSize = 12
+                    }
+                };
+
+                var imgui = new IMGUIContainer(() =>
+                {
+                    EditorGUI.BeginChangeCheck();
+                    editor.OnInspectorGUI();
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        // синхронизация в ECS при изменении
+                    }
+                });
+
+                foldout.Add(imgui);
+                componentContainer.Add(foldout);
+                inspectorView.Add(componentContainer);
             }
         }
 
-        private void DisplayArchetypes()
+        private void UpdateProxies(int entityId)
         {
-            // foreach (var kvp in world.UnsafeWorld->archetypes)
-            // {
-            //     var archetype = kvp.Value.ptr.Ref;
-            //     string archetypeName = $"Archetype {archetype.id}";
-            //     if (!string.IsNullOrEmpty(archetypeSearchQuery) && !archetypeName.Contains(archetypeSearchQuery, System.StringComparison.OrdinalIgnoreCase))
-            //         continue;
-            //
-            //     if (!archetypeFoldouts.ContainsKey(archetype.id))
-            //         archetypeFoldouts[archetype.id] = false;
-            //
-            //     archetypeFoldouts[archetype.id] = EditorGUILayout.Foldout(archetypeFoldouts[archetype.id], archetypeName, true);
-            //     if (archetypeFoldouts[archetype.id])
-            //     {
-            //         EditorGUI.indentLevel++;
-            //         EditorGUILayout.LabelField($"Components: {string.Join(", ", archetype.types.Select(t => ComponentTypeMap.GetType(t).Name))}");
-            //         EditorGUILayout.LabelField($"Queries: {string.Join(", ", archetype.queries.Select(q => $"Query {q}"))}");
-            //         EditorGUILayout.LabelField($"Transactions: {archetype.transactions.Count}");
-            //         foreach (var trans in archetype.transactions)
-            //         {
-            //             EditorGUILayout.LabelField($"  Component {ComponentTypeMap.GetType(math.abs(trans.Key)).Name} ({trans.Key}) -> Archetype {trans.Value.Ref.ToMove.ptr.Ref.id}");
-            //         }
-            //         EditorGUILayout.LabelField($"Entities: {world.UnsafeWorld->entities.Where(e => e.IsValid() && world.UnsafeWorld->entitiesArchetypes.ElementAt(e.id).ptr.Ref.id == archetype.id).Count()}");
-            //         EditorGUI.indentLevel--;
-            //     }
-            // }
-        }
-
-        private readonly StringBuilder stringBuilder = new StringBuilder();
-        private void DisplayQueries()
-        {
-            for (int i = 0; i < world.UnsafeWorld->queries.Length; i++)
+            ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+            foreach (var typeIndex in arch.types)
             {
-                var query = world.UnsafeWorld->queries.ElementAt(i).Ref;
-                if(!queryIdToName.ContainsKey(query.Id))
+                ref var pool = ref world.UnsafeWorldRef.GetUntypedPool(typeIndex);
+                var boxedComponentFromWorld = pool.GetObject(entityId);
+                if (boxedComponentFromWorld != null && proxyCache.TryGetValue(typeIndex, out var proxy))
                 {
-                    stringBuilder.Append($"Query(id:{query.Id}, count:{query.count}).");
-                    foreach (var with in query.withDebug)
+                    // Если пользователь не редактирует поле, обновляем данные прокси из ECS
+                    if (!EditorGUIUtility.editingTextField)
                     {
-                        stringBuilder.Append($"With<{ComponentTypeMap.GetType(with).Name},");
+                        // Копируем данные из мира в прокси, чтобы обновить отображение
+                        proxy.boxedComponent = pool.GetObject(entityId);
                     }
-                    stringBuilder.Remove(stringBuilder.Length - 1, 1);
-                    stringBuilder.Append(">().");
-                    foreach (var none in query.noneDebug)
-                    {
-                        stringBuilder.Append($"None<{ComponentTypeMap.GetType(none).Name},");
-                    }
-                    stringBuilder.Remove(stringBuilder.Length - 1, 1);
-                    stringBuilder.Append(">()");
-                    queryIdToName[query.Id] = stringBuilder.ToString();
-                    stringBuilder.Clear();
-                }
-                var queryName = queryIdToName[query.Id];
-                if (!string.IsNullOrEmpty(querySearchQuery) && !queryName.Contains(querySearchQuery, System.StringComparison.OrdinalIgnoreCase))
-                    continue;
 
-                if (!queryFoldouts.ContainsKey(query.Id))
-                    queryFoldouts[query.Id] = false;
-
-                queryFoldouts[query.Id] = EditorGUILayout.Foldout(queryFoldouts[query.Id], queryName, true);
-                if (queryFoldouts[query.Id])
-                {
-                    EditorGUI.indentLevel++;
-                    foreach (var with in query.withDebug)
-                    {
-                        EditorGUILayout.LabelField($"With: {string.Join(", ", ComponentTypeMap.GetType(with).Name)}");
-                    }
-                    foreach (var none in query.noneDebug)
-                    {
-                        EditorGUILayout.LabelField($"None: {string.Join(", ", ComponentTypeMap.GetType(none).Name)}");
-                    }
-                    
-                    EditorGUILayout.LabelField($"Entities: {query.count}");
-                    for (var j = 0; j < query.count; j++)
-                    {
-                        var entityId = query.entities.ElementAt(j);
-                        EditorGUILayout.LabelField($"  Entity {entityId}");
-                    }
-                    EditorGUI.indentLevel--;
+                    proxy.typeIndex = typeIndex;
+                    proxy.entity = entityId;
+                    proxy.world = world.UnsafeWorldRef.Id;
+                    editorCache[typeIndex].Repaint();
                 }
             }
         }

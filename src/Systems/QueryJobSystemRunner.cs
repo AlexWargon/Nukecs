@@ -7,7 +7,7 @@ namespace Wargon.Nukecs
         public Query Query;
         public SystemMode Mode;
         public ECBJob EcbJob;
-
+        public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             ref var world = ref state.World;

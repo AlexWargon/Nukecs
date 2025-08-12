@@ -4,11 +4,11 @@ using System.Collections.Generic;
 namespace Wargon.Nukecs
 {
     public static class StaticAllocations{
-        private static List<Action> Disposables = new List<Action>();
+        private static readonly List<Action> disposables = new List<Action>();
         public static void AddDisposable(Action action)
         {
 #if UNITY_EDITOR
-            Disposables.Add(action);
+            disposables.Add(action);
 #endif
         }
 #if UNITY_EDITOR
@@ -16,7 +16,7 @@ namespace Wargon.Nukecs
         static void Initialize()
         {
             UnityEditor.EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
-            AddDisposable(World.DisposeStatic);
+            //AddDisposable(World.DisposeStatic);
         }
         private static void OnPlayModeStateChanged(UnityEditor.PlayModeStateChange state)
         {
@@ -28,12 +28,12 @@ namespace Wargon.Nukecs
         }
         static void Clear()
         {
-            for (var i = 0; i < Disposables.Count; i++)
+            for (var i = 0; i < disposables.Count; i++)
             {
-                Disposables[i]?.Invoke();
+                disposables[i]?.Invoke();
             }
 
-            Disposables.Clear();
+            disposables.Clear();
         }
 #endif
     }

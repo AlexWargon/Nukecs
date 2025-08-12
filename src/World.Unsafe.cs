@@ -164,7 +164,7 @@ namespace Wargon.Nukecs
             }
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal ref GenericPool GetUntypedPool(int poolIndex) {
+            public ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
                 {
@@ -172,7 +172,15 @@ namespace Wargon.Nukecs
                 }
                 return ref pool;
             }
-            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public GenericPool* GetUntypedPoolPtr(int poolIndex) {
+                var pool = pools.Ptr + poolIndex;
+                if (!pool->IsCreated) 
+                {
+                    AddPool(ref *pool, poolIndex);
+                }
+                return pool;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetElementUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
@@ -226,31 +234,13 @@ namespace Wargon.Nukecs
                 }
             }
 
-            private void CreatePools()
-            {
-                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, Self, ref poolsCount);
-            }
-            
-            [BurstDiscard]
-            private void DebugPoolLog<T>(int poolIndex, int count)
-            {
-                Debug.Log($"pool {typeof(T)} created with index {poolIndex} and count {count}");
-            }
-            [BurstDiscard]
-            private void DebugPoolLog(int poolIndex, int count)
-            {
-                Debug.Log($"untyped pool {ComponentTypeMap.GetType(poolIndex)} created with index {poolIndex} and count {count}");
-            }
 
-            internal void EntityAddComponent<T>(int id, T componeet) where T : unmanaged { }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity() {
                 if (lastEntityIndex >= entities.Capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
-                    // UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
-                    // UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
                 }
                 Entity e;
                 entitiesAmount++;

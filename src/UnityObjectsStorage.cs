@@ -301,12 +301,6 @@ namespace Wargon.Nukecs {
         private int pointer;
         private const int INVALID_POINTER = -1;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator ObjectRef<T>(T instance)
-        {
-            return new ObjectRef<T>(instance);
-        }
-
         public ObjectRef(T instance)
         {
             pointer = instance != null ? StaticObjectRefStorage.Add(instance) : INVALID_POINTER;
@@ -318,6 +312,12 @@ namespace Wargon.Nukecs {
             return objectRef.Value;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator ObjectRef<T>(T instance)
+        {
+            return new ObjectRef<T>(instance);
+        }
+        
         public T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -366,13 +366,13 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(ObjectRef<T> left, ObjectRef<T> right)
         {
-            return left.Equals(right);
+            return left.pointer == right.pointer;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(ObjectRef<T> left, ObjectRef<T> right)
         {
-            return !left.Equals(right);
+            return left.pointer != right.pointer;
         }
 
         public void Dispose()
@@ -383,5 +383,11 @@ namespace Wargon.Nukecs {
                 pointer = INVALID_POINTER;
             }
         }
+
+        public void DisposeNotRemoving()
+        {
+            pointer = INVALID_POINTER;
+        }
+        
     }
 }

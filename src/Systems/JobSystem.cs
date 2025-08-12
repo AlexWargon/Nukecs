@@ -11,6 +11,7 @@ namespace Wargon.Nukecs
         public TSystem System;
         public ECBJob EcbJob;
         public bool isComplete;
+        public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
             System.Schedule(SystemMode.Single, updateContext, ref state);
             if(isComplete) state.Dependencies.Complete();

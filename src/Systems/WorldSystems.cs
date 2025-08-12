@@ -13,6 +13,10 @@ namespace Wargon.Nukecs
             systemsMap[id].Add(systems);
         }
 
+        public static Systems Get(int world, int index)
+        {
+            return systemsMap[world][index];
+        }
         internal static void CompleteAll(int id)
         {
             var list = systemsMap[id];

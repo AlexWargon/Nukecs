@@ -80,7 +80,6 @@ namespace Wargon.Nukecs
             defragmentationCount = 0;
             memoryUsed = 0;
             spinner = new Spinner();
-            
             IsActive = true;
         }
         

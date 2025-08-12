@@ -8,7 +8,7 @@ namespace Wargon.Nukecs.Collision2D {
     using UnityEngine;
     using Transform = Transforms.Transform;
 
-    public struct Collision2DPopulateCirclesSystem : ISystem, IOnCreate {
+    public struct Collision2DPopulateCirclesSystem : ISystem, IOnCreate, IJobRunner {
         private GenericPool colliders;
         public Query query;
         private GenericPool transforms;
@@ -32,8 +32,8 @@ namespace Wargon.Nukecs.Collision2D {
                 cellSizeY = grid2D.CellSize,
                 Offset = grid2D.Offset,
                 GridPosition = grid2D.Position,
-                gridWidth = grid2D.W,
-                gridHight = grid2D.H
+                gridWidth = grid2D.width,
+                gridHight = grid2D.height
             };
             state.Dependencies = populateJob.Schedule(query.Count, 64, state.Dependencies);
         }

@@ -224,9 +224,19 @@ namespace Wargon.Nukecs
             };
 
             if (system is IFixed)
+            {
                 MainThreadFixedRunners.Add(runner);
+            }
             else
+            if (system is IJobRunner)
+            {
+                Runners.Add(runner);
+            }
+            else
+            {
                 MainThreadRunners.Add(runner);
+            }
+            
             return this;
         }
 
@@ -245,10 +255,23 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             if (system is IFixed)
+            {
                 MainThreadFixedRunners.Add(runner);
+            }
             else
+            if (system is IJobRunner)
+            {
+                Runners.Add(runner);
+            }
+            else
+            {
                 MainThreadRunners.Add(runner);
-            if (system is IOnDestroy onDestroySystem) SystemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
+            }
+
+            if (system is IOnDestroy onDestroySystem)
+            {
+                SystemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
+            }
             return this;
         }
 
@@ -260,7 +283,7 @@ namespace Wargon.Nukecs
             MainThreadRunners.AddRange(group.mainThreadRunners);
             MainThreadFixedRunners.AddRange(group.mainThreadFixedRunners);
             return this;
-        } // ReSharper disable Unity.PerformanceAnalysis
+        }
         
 
 
@@ -318,10 +341,11 @@ namespace Wargon.Nukecs
         void Destroy(ref World world);
     }
 
-    internal interface ISystemRunner
+    public interface ISystemRunner
     {
         JobHandle Schedule(UpdateContext updateContext, ref State state);
         void Run(ref State state);
+        string Name { get; }
     }
 
 
@@ -329,7 +353,7 @@ namespace Wargon.Nukecs
     {
         internal ECBJob EcbJob;
         internal TSystem System;
-
+        public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             System.OnUpdate(ref state);
@@ -366,6 +390,11 @@ namespace Wargon.Nukecs
     {
     }
 
+    public interface IJobRunner
+    {
+        
+    }
+    
     public interface IOnDestroy
     {
         void OnDestroy(ref World world);

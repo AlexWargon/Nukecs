@@ -67,11 +67,11 @@ namespace Wargon.Nukecs
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world)
         {
-            return world.Query().With<Transforms.Transform>().With<TransformRef>().With<Cube>();
+            return world.Query().With<Transform>().With<TransformRef>().With<Cube>();
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            ref var transform = ref entity.Get<Transforms.Transform>();
+            ref var transform = ref entity.Get<Transform>();
             float angle = math.radians(30f * state.Time.DeltaTime);
             transform.Rotation = math.mul(transform.Rotation, quaternion.AxisAngle(math.up(), angle));
         }

@@ -4,7 +4,7 @@ namespace Wargon.Nukecs.Collision2D
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs;
 
-    public struct CollisionClearGridCellsSystem : ISystem {
+    public struct CollisionClearGridCellsSystem : ISystem, IJobRunner {
         public void OnUpdate(ref State state){
             var grind2d = Grid2D.Instance;
             state.Dependencies = new ClearJob {

@@ -61,6 +61,11 @@ namespace Wargon.Nukecs
                 mainThreadFixedRunners.Add(runner);
             }
             else
+            if (system is IJobRunner)
+            {
+                runners.Add(runner);
+            }
+            else
             {
                 mainThreadRunners.Add(runner);
             }
@@ -80,6 +85,11 @@ namespace Wargon.Nukecs
             if (system is IFixed)
             {
                 mainThreadFixedRunners.Add(runner);
+            }
+            else
+            if (system is IJobRunner)
+            {
+                runners.Add(runner);
             }
             else
             {

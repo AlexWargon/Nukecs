@@ -4,7 +4,7 @@ using Unity.Jobs;
 
 namespace Wargon.Nukecs.Collision2D
 {
-    public class WriteCollisionsEventsSystem : ISystem
+    public class WriteCollisionsEventsSystem : ISystem, IJobRunner
     {
         public void OnUpdate(ref State state)
         {
