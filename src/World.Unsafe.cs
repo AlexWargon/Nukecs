@@ -41,18 +41,23 @@ namespace Wargon.Nukecs
                 DefaultNoneTypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
             }
+            
+            internal WorldConfig config;
             internal const int FIRST_ENTITY_ID = 1;
             internal byte Id;
+#if NUKECS_DEBUG
+            internal AliveEntitiesSet entitiesDens;
+#endif
             internal MemoryList<Entity> entities;
             internal MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
+            internal Archetype rootArchetype;
             internal MemoryList<Archetype> entitiesArchetypes;
+            internal HashMap<int, Archetype> archetypesMap;
+            internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
             internal MemoryList<ptr<QueryUnsafe>> queries;
-            internal HashMap<int, Archetype> archetypesMap;
-            internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
-            internal WorldConfig config;
             internal EntityCommandBuffer EntityCommandBuffer;
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
@@ -62,6 +67,7 @@ namespace Wargon.Nukecs
             internal int lastEntityIndex;
             internal int lastDestroyedEntity;
             internal Spinner spinner;
+            internal TimeData timeData;
             internal ptr<WorldUnsafe> selfPtr;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
@@ -75,6 +81,7 @@ namespace Wargon.Nukecs
             internal UpdateContext CurrentContext {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] get => UpdateContext.Update;
             }
+
             internal static WorldUnsafe* Create(byte id, WorldConfig config)
             {
                 var cSize = ComponentType.GetSizeOfAllComponents(config.StartPoolSize);
@@ -127,9 +134,71 @@ namespace Wargon.Nukecs
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
                 //CreatePools();
-                CreateRootArchetype();
+               rootArchetype = CreateRootArchetype();
+
+#if NUKECS_DEBUG
+                CreateStoryLogList(1024);
+                entitiesDens = new AliveEntitiesSet(config.StartEntitiesAmount, ref AllocatorRef);
+#endif
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Entity CreateEntity() {
+                if (lastEntityIndex >= entities.Capacity) {
+                    var newCapacity = lastEntityIndex * 2;
+                    entities.Resize(newCapacity, ref AllocatorRef);
+                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                }
+                Entity e;
+                entitiesAmount++;
+                var last = lastEntityIndex;
+                if (reservedEntities.length > 0) {
+                    last = reservedEntities.ElementAt(reservedEntities.length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.length - 1);
+                    e = new Entity(last, Self);
+                    entitiesArchetypes.ElementAt(e.id) = rootArchetype;
+                    entities.ElementAt(last) = e;
+#if NUKECS_DEBUG
+                    entitiesDens.Add(e.id, ref AllocatorRef);
+#endif
+                    return e;
+                }
+                e = new Entity(last, Self);
+                entities.ElementAt(last) = e;
+                entitiesArchetypes.ElementAt(e.id) = rootArchetype;
+#if NUKECS_DEBUG
+                entitiesDens.Add(e.id, ref AllocatorRef);
+#endif
+                lastEntityIndex++;
+                return e;
+            }
+            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Entity CreateEntity(int archetype) {
+                if (lastEntityIndex >= entities.capacity) {
+                    var newCapacity = lastEntityIndex * 2;
+                    entities.Resize(newCapacity, ref AllocatorRef);
+                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                }
+
+                entitiesAmount++;
+                var last = lastEntityIndex;
+                if (reservedEntities.length > 0) {
+                    last = reservedEntities.ElementAt(reservedEntities.length - 1);
+                    reservedEntities.RemoveAt(reservedEntities.length - 1);
+                }
+                else
+                {
+                    lastEntityIndex++;
+                }
+                var e = new Entity(last, Self, archetype);
+                entities.ElementAt(last) = e;
+#if NUKECS_DEBUG
+                entitiesDens.Add(e.id, ref AllocatorRef);
+#endif
+                return e;
+            }
+            
             internal ptr<QueryUnsafe> CreateQueryPtr(bool withDefaultNoneTypes = true)
             {
                 var ptr = QueryUnsafe.CreatePtrRef(Self, withDefaultNoneTypes);
@@ -234,58 +303,16 @@ namespace Wargon.Nukecs
                 }
             }
 
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Entity CreateEntity() {
-                if (lastEntityIndex >= entities.Capacity) {
-                    var newCapacity = lastEntityIndex * 2;
-                    entities.Resize(newCapacity, ref AllocatorRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
-                }
-                Entity e;
-                entitiesAmount++;
-                var last = lastEntityIndex;
-                if (reservedEntities.length > 0) {
-                    last = reservedEntities.ElementAt(reservedEntities.length - 1);
-                    reservedEntities.RemoveAt(reservedEntities.length - 1);
-                    e = new Entity(last, Self);
-                    entities.ElementAt(last) = e;
-                    return e;
-                }
-                e = new Entity(last, Self);
-                entities.ElementAt(last) = e;
-                lastEntityIndex++;
-                return e;
-            }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Entity CreateEntity(int archetype) {
-                if (lastEntityIndex >= entities.capacity) {
-                    var newCapacity = lastEntityIndex * 2;
-                    entities.Resize(newCapacity, ref AllocatorRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
-                }
-
-                entitiesAmount++;
-                var last = lastEntityIndex;
-                if (reservedEntities.length > 0) {
-                    last = reservedEntities.ElementAt(reservedEntities.length - 1);
-                    reservedEntities.RemoveAt(reservedEntities.length - 1);
-                }
-                else
-                {
-                    lastEntityIndex++;
-                }
-                var e = new Entity(last, Self, archetype);
-                entities.ElementAt(last) = e;
-                
-                return e;
-            }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
                 entities.Ptr[entity] = Nukecs.Entity.Null;
                 reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
+#if NUKECS_DEBUG
+                entitiesDens.Remove(entity);
+#endif
+
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)

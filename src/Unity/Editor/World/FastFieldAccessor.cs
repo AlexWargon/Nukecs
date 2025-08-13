@@ -12,7 +12,6 @@ namespace Wargon.Nukecs.Editor
 
         private static string GetKey(Type type, string fieldName) => $"{type.FullName}.{fieldName}";
 
-        
         public static Func<object, object> GetGetter(Type type, string fieldName)
         {
             var key = GetKey(type, fieldName);

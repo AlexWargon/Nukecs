@@ -254,12 +254,16 @@ namespace Wargon.Nukecs {
             }
             unsafeBufferPtr.Ptr->count--;
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public void DisposeComponent(int index) {
             var fn = new FunctionPointer<DisposeDelegate>(unsafeBufferPtr.Ptr->ComponentType.disposeFn);
             fn.Invoke(unsafeBufferPtr.Ptr->buffer, index);
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public void Copy(int source, int destination) {
             if (!unsafeBufferPtr.Ptr->ComponentType.isTag) {
                 CheckResize(math.max(destination, source));
@@ -274,13 +278,17 @@ namespace Wargon.Nukecs {
             }
             UnsafeBuffer->count++;
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         private void CopyComponent(int from, int to) {
             unsafeBufferPtr.Ptr->ComponentType.CopyFn().Invoke(unsafeBufferPtr.Ptr->buffer, from, to);
             //ComponentHelpers.Copy(UnsafeBuffer->buffer, from, to, UnsafeBuffer->ComponentType.index);
         }
 
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         private void CheckResize<T>(int index) where T : unmanaged
         {
             return;

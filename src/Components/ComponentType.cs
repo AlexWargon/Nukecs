@@ -235,7 +235,7 @@ namespace Wargon.Nukecs {
             cache.Add(type, index);
         }
         
-        [BurstDiscard]
+
         public static Type GetType(int index) => cache.GetType(index);
         
         public static int Index(Type type) => cache.Index(type);
@@ -272,6 +272,7 @@ namespace Wargon.Nukecs {
         }
         internal static unsafe void Dispose() {
             if(!_initialized) return;
+            _initialized = false;
             foreach (var kvPair in ComponentTypes.Data) {
                 if(kvPair.Value.defaultValue != null)
                     UnsafeUtility.FreeTracked(kvPair.Value.defaultValue, Allocator.Persistent);
