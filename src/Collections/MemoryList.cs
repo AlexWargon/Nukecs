@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace Wargon.Nukecs.Collections
 {
@@ -142,6 +140,11 @@ namespace Wargon.Nukecs.Collections
             }
             length = len;
         }
+        
+        public void ResizeToSmall(int len)
+        {
+            length = len;
+        }
         public Enumerator GetEnumerator()
         {
             return new Enumerator { Length = length, Index = -1, Ptr = Ptr };
@@ -202,6 +205,10 @@ namespace Wargon.Nukecs.Collections
 
         public Span<T> AsSpan()
         {
+            if (length < 0)
+                throw new InvalidOperationException($"Length is negative: {length}");
+            if (Ptr == null)
+                throw new InvalidOperationException("Pointer is null");
             return new Span<T>(Ptr, length);
         }
         public struct Enumerator

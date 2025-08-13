@@ -7,6 +7,7 @@ namespace Wargon.Nukecs
         internal List<ISystemRunner> fixedRunners = new ();
         internal List<ISystemRunner> mainThreadRunners = new ();
         internal List<ISystemRunner> mainThreadFixedRunners = new ();
+        internal List<ISystemDestroyer> destroyRunners = new ();
         protected string name;
         public string Name => name;
         internal World world;
@@ -94,6 +95,11 @@ namespace Wargon.Nukecs
             else
             {
                 mainThreadRunners.Add(runner);
+            }
+            
+            if (system is IOnDestroy onDestroySystem)
+            {
+                destroyRunners.Add(new SystemClassDestroyer(onDestroySystem));
             }
             return this;
         }

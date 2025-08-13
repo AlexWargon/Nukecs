@@ -359,7 +359,15 @@
                 ref var cmd = ref buffer->ElementAt(cmdIndex);
 
                 ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
-                
+#if NUKECS_DEBUG
+                world.UnsafeWorld->AddComponentChange(new World.ComponentChange
+                {
+                    command = cmd.EcbCommandType,
+                    entityId = cmd.Entity,
+                    componentTypeIndex = cmd.ComponentType,
+                    timeStamp = world.UnsafeWorld->timeData.ElapsedTime
+                });
+#endif
                 switch (cmd.EcbCommandType) {
                     case ECBCommand.Type.AddComponent:
                         if (archetype.Has(cmd.ComponentType))
@@ -419,13 +427,23 @@
             buffer->Clear();
         }
         public void Playback(ref World world) {
+            
             for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
                 if (buffer->IsEmpty) continue;
 
                 for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-
+#if NUKECS_DEBUG
+                    world.UnsafeWorld->AddComponentChange(new World.ComponentChange
+                    {
+                        command = cmd.EcbCommandType,
+                        entityId = cmd.Entity,
+                        componentTypeIndex = cmd.ComponentType,
+                        timeStamp = world.UnsafeWorld->timeData.ElapsedTime
+                    });
+#endif
+                    
                     ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
@@ -472,7 +490,7 @@
                             archetype.Copy(cmd.Entity, cmd.AdditionalData);
                             break;
                         case ECBCommand.Type.RemoveAndDispose:
-                            if(archetype.Has(cmd.ComponentType) == false) break;
+                            if(!archetype.Has(cmd.ComponentType)) break;
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                             break;
@@ -541,7 +559,7 @@
                             archetype.Copy(cmd.Entity, cmd.AdditionalData);
                             break;
                         case ECBCommand.Type.RemoveAndDispose:
-                            if(archetype.Has(cmd.ComponentType) == false) break;
+                            if(!archetype.Has(cmd.ComponentType)) break;
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
                             break;

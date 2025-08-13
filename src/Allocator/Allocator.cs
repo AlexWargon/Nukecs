@@ -82,7 +82,21 @@ namespace Wargon.Nukecs
             spinner = new Spinner();
             IsActive = true;
         }
-        
+
+        public static MemAllocator* New(long sizeInBytes)
+        {
+            var ptr = (MemAllocator*)UnsafeUtility.MallocTracked(sizeof(MemAllocator), 
+                UnsafeUtility.AlignOf<MemAllocator>(),
+                Allocator.Persistent, 0);
+            *ptr = new MemAllocator(sizeInBytes);
+            return ptr;
+        }
+
+        public static void Destroy(MemAllocator* allocator)
+        {
+            allocator->Dispose();
+            UnsafeUtility.FreeTracked(allocator, Allocator.Persistent);
+        }
         public IntPtr AllocateRaw(long sizeInBytes, ref int error)
         {
             SizeWithAlign(ref sizeInBytes, ALIGNMENT);
@@ -307,7 +321,7 @@ namespace Wargon.Nukecs
             }
             
             IsActive = false;
-            dbug.log(nameof(MemAllocator) + " disposed");
+            //dbug.log(nameof(MemAllocator) + " disposed");
         }
 
         // Get total allocated memory size

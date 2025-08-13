@@ -205,7 +205,9 @@ namespace Wargon.Nukecs
             return edge;
         }
 
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal void Copy(in int from, in int to)
         {
             for (var i = 0; i < queries.Length; i++)
@@ -221,7 +223,9 @@ namespace Wargon.Nukecs
             }
         }
 
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal Entity Copy(in Entity entity)
         {
             var newEntity = world->CreateEntity(id);
@@ -256,7 +260,9 @@ namespace Wargon.Nukecs
             return newEntity;
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal void OnEntityChangeECB(int entity, int component)
         {
             {
@@ -274,8 +280,9 @@ namespace Wargon.Nukecs
                 }
             }
         }
-
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public void Destroy(int entity)
         {
             if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
@@ -321,6 +328,9 @@ namespace Wargon.Nukecs
                 pool.WriteBytes(data.Entity, data.Components[i]);
             }
         }
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal void OnEntityFree(int entity)
         {
             for (var index = 0; index < types.length; index++)
@@ -433,7 +443,9 @@ namespace Wargon.Nukecs
                 return hash;
             }
         }
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public static int GetHashCode(ref MemoryList<int> mask)
         {
             unchecked
@@ -483,14 +495,18 @@ namespace Wargon.Nukecs
     public static class ArchetypePointerExtensions
     {
         [BurstCompile]
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal static bool Has<T>(this ref ArchetypeUnsafe archetype) where T : unmanaged
         {
             return archetype.mask.Has(ComponentType<T>.Index);
         }
 
         [BurstCompile]
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         internal static bool Has(this ref ArchetypeUnsafe archetype, int type)
         {
             return archetype.mask.Has(type);

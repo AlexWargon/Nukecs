@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
@@ -24,7 +25,6 @@ namespace Wargon.Nukecs
         {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(this.id) = this.worldPointer->GetArchetype(0);
         }
 
 #if !NUKECS_DEBUG
@@ -402,6 +402,14 @@ namespace Wargon.Nukecs
         public static Entity Copy(this in Entity entity)
         {
             ref var arch = ref entity.ArchetypeRef;
+#if NUKECS_DEBUG
+            entity.worldPointer->AddComponentChange(new World.ComponentChange
+            {
+                command = EntityCommandBuffer.ECBCommand.Type.Copy,
+                entityId = entity.id,
+                timeStamp = entity.worldPointer->timeData.ElapsedTime
+            });
+#endif
             return arch.Copy(in entity);
         }
 

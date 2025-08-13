@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+﻿#if UNITY_EDITOR && NUKECS_DEBUG
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -30,7 +30,9 @@ namespace Wargon.Nukecs.Editor
         private int lastEntitiesCount = -1;
         private string lastSearchValue = "";
         private int? selectedEntityId = null;
-
+        private int selectedEntityArchetypeId;
+        private bool archetypeChanged = false;
+        
         [MenuItem("Nuke.cs/ECS Debugger")]
         public static void ShowWindow()
         {
@@ -92,7 +94,7 @@ namespace Wargon.Nukecs.Editor
             searchField.RegisterValueChangedCallback(_ => RefreshList());
             leftPanel.Add(searchField);
 
-            // ListView теперь для DebugListItem
+            // ListView for DebugListItem
             listView = new ListView(items, 20, MakeListItem, BindListItem)
             {
                 selectionType = SelectionType.Single,
@@ -139,7 +141,6 @@ namespace Wargon.Nukecs.Editor
                 if (!world.IsAlive || !EditorApplication.isPlaying)
                     return;
 
-                // Обновлять список только если изменилась длина или фильтр
                 if (lastEntitiesCount != world.UnsafeWorld->entitiesAmount || lastSearchValue != searchField.value)
                 {
                     lastEntitiesCount = world.UnsafeWorld->entitiesAmount;
@@ -160,8 +161,18 @@ namespace Wargon.Nukecs.Editor
                 }
                 if (selectedEntityId.HasValue)
                 {
-                    UpdateProxies(selectedEntityId.Value);
-                    inspectorView.MarkDirtyRepaint();
+                    archetypeChanged = NeedRepaintEntityInspector();
+                    if (archetypeChanged)
+                    {
+                        DrawEntityInspector(selectedEntityId.Value);
+                        archetypeChanged = false;
+                    }
+                    else
+                    {
+                        UpdateProxies(selectedEntityId.Value);
+                        inspectorView.MarkDirtyRepaint();
+                    }
+
                 }
 
             }).Every(33);
@@ -244,11 +255,11 @@ namespace Wargon.Nukecs.Editor
             switch (activeTab)
             {
                 case Tab.Entities:
-                    var entities = world.UnsafeWorld->entities;
-                    for (int i = 0; i < world.UnsafeWorld->entitiesAmount; i++)
+                    var entities = world.UnsafeWorld->entitiesDens.GetAliveEntities();
+                    for (var i = 0; i < entities.Length; i++)
                     {
-                        var e = entities.Ptr[i];
-                        
+                        var eId = entities[i];
+                        var e = world.GetEntity(eId);
                         if (!e.IsValid()) continue;
                         string name;
                         if (e.Has<Name>())
@@ -346,20 +357,24 @@ namespace Wargon.Nukecs.Editor
             }
             return editor;
         }
+
+        private bool NeedRepaintEntityInspector()
+        {
+            ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(selectedEntityId.Value).ptr.Ref;
+            var archChanged = arch.id != selectedEntityArchetypeId;
+            selectedEntityArchetypeId = arch.id;
+            return archChanged;
+        }
         
         private void DrawEntityInspector(int entityId)
         {
-            // Если выбрали ту же энтити — просто обновляем данные в прокси
-            if (lastEntityId == entityId)
+            if (lastEntityId == entityId && !archetypeChanged)
             {
-                
                 UpdateProxies(entityId);
                 return;
             }
-            dbug.log("update proxies");
             lastEntityId = entityId;
             inspectorView.Clear();
-
             ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
 
             foreach (var typeIndex in arch.types)
@@ -405,7 +420,7 @@ namespace Wargon.Nukecs.Editor
                     editor.OnInspectorGUI();
                     if (EditorGUI.EndChangeCheck())
                     {
-                        // синхронизация в ECS при изменении
+                        //sync ecs
                     }
                 });
 
@@ -418,16 +433,15 @@ namespace Wargon.Nukecs.Editor
         private void UpdateProxies(int entityId)
         {
             ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+            
             foreach (var typeIndex in arch.types)
             {
                 ref var pool = ref world.UnsafeWorldRef.GetUntypedPool(typeIndex);
                 var boxedComponentFromWorld = pool.GetObject(entityId);
                 if (boxedComponentFromWorld != null && proxyCache.TryGetValue(typeIndex, out var proxy))
                 {
-                    // Если пользователь не редактирует поле, обновляем данные прокси из ECS
                     if (!EditorGUIUtility.editingTextField)
                     {
-                        // Копируем данные из мира в прокси, чтобы обновить отображение
                         proxy.boxedComponent = pool.GetObject(entityId);
                     }
 

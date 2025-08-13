@@ -86,7 +86,9 @@ namespace Wargon.Nukecs
     public struct ChildOf : IComponent {
         public Entity Value;
     }
-
+#if NUKECS_DEBUG
+    public struct DebugView : IComponent {}
+#endif
     public sealed class UseWith : Attribute
     {
         public Type[] types;
@@ -116,7 +118,7 @@ namespace Wargon.Nukecs
     }
     internal static partial class ComponentList
     {
-        public readonly static IReadOnlyList<Type> DefaultComponents = new System.Collections.Generic.List<Type>()
+        public static readonly IReadOnlyList<Type> DefaultComponents = new System.Collections.Generic.List<Type>()
         {
             typeof(global::Wargon.Nukecs.ChildOf),
         };
@@ -141,8 +143,8 @@ namespace Wargon.Nukecs
         public static void Initialization() {
 
             if(_initialized) return;
-            ComponentTypeMap.Init();
-            var count = 0;
+            
+            var count = 1;
             var componentTypes = new System.Collections.Generic.List<(Type, int)>();
             var arrayElementTypes = new System.Collections.Generic.List<(Type,int)>();
             
@@ -163,7 +165,7 @@ namespace Wargon.Nukecs
             }
             
             ComponentAmount.Value.Data = count;
-
+            ComponentTypeMap.Init();
             foreach (var (type, index) in componentTypes)
             {
                 ComponentTypeMap.InitializeComponentTypeReflection(type, index);

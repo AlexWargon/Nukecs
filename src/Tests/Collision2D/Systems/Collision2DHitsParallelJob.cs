@@ -69,29 +69,6 @@ namespace Wargon.Nukecs.Collision2D {
                                 hitInfo.From = e1;
                                 hitInfo.To = e2;
                                 collisionEnterHits.Enqueue(hitInfo);
-                                
-                                // ref var buffer1 = ref CollisionData.Get(e1);
-                                // ref var buffer2 = ref CollisionData.Get(e2);
-                                // ref var ent1 = ref World.GetEntity(e1);
-                                // ref var ent2 = ref World.GetEntity(e2);
-                                // buffer1.AddParallel(new Collision2DData()
-                                // {
-                                //     Other = ent2,
-                                //     Type = hitInfo.Type,
-                                //     Position = hitInfo.Pos,
-                                //     Normal = hitInfo.Normal
-                                // });
-                                //
-                                // buffer2.AddParallel(new Collision2DData()
-                                // {
-                                //     Other = ent1,
-                                //     Type = hitInfo.Type,
-                                //     Position = hitInfo.Pos,
-                                //     Normal = hitInfo.Normal
-                                // });
-                                //
-                                // ent1.Add(new CollidedFlag());
-                                // ent2.Add(new CollidedFlag());
                             }
                         }
                         // circle vs circle
@@ -124,36 +101,9 @@ namespace Wargon.Nukecs.Collision2D {
                                     {
                                         collisionEnterHits.Enqueue(hitInfo);
                                     }
-
-
-
-                                    // ref var buffer1 = ref CollisionData.Get(e1);
-                                    // ref var buffer2 = ref CollisionData.Get(e2);
-                                    // ref var ent1 = ref World.GetEntity(e1);
-                                    // ref var ent2 = ref World.GetEntity(e2);
-                                    // buffer1.AddParallel(new Collision2DData
-                                    // {
-                                    //     Other = ent2,
-                                    //     Type = hitInfo.Type,
-                                    //     Position = hitInfo.Pos,
-                                    //     Normal = hitInfo.Normal
-                                    // });
-                                    //
-                                    // buffer2.AddParallel(new Collision2DData
-                                    // {
-                                    //     Other = ent1,
-                                    //     Type = hitInfo.Type,
-                                    //     Position = hitInfo.Pos,
-                                    //     Normal = hitInfo.Normal
-                                    // });
-                                    //
-                                    // ent1.Add(new CollidedFlag());
-                                    // ent2.Add(new CollidedFlag());
                                 }
                             }
                         }
-
-
                     }
 
                     // rect vs rect
@@ -185,28 +135,6 @@ namespace Wargon.Nukecs.Collision2D {
                                     hitInfo.From = e1;
                                     hitInfo.To = e2;
                                     collisionEnterHits.Enqueue(hitInfo);
-                                    // ref var buffer1 = ref CollisionData.Get(e1);
-                                    // ref var buffer2 = ref CollisionData.Get(e2);
-                                    // ref var ent1 = ref World.GetEntity(e1);
-                                    // ref var ent2 = ref World.GetEntity(e2);
-                                    // buffer1.AddParallel(new Collision2DData()
-                                    // {
-                                    //     Other = ent2,
-                                    //     Type = hitInfo.Type,
-                                    //     Position = hitInfo.Pos,
-                                    //     Normal = hitInfo.Normal
-                                    // });
-                                    //
-                                    // buffer2.AddParallel(new Collision2DData()
-                                    // {
-                                    //     Other = ent1,
-                                    //     Type = hitInfo.Type,
-                                    //     Position = hitInfo.Pos,
-                                    //     Normal = hitInfo.Normal
-                                    // });
-                                    //
-                                    // ent1.Add(new CollidedFlag());
-                                    // ent2.Add(new CollidedFlag());
                                 }
                             }
                         }
@@ -228,85 +156,6 @@ namespace Wargon.Nukecs.Collision2D {
 
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Default)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void ResolveCircleRectangleCollisionGpt3(
-            ref Circle2D circle,
-            ref Transform circleTransform,
-            ref Body2D circleBody,
-            ref Rectangle2D rectangle,
-            ref Transform rectangleTransform,
-            ref HitInfo hit)
-        {
-            var circlePos = circleTransform.Position;
-            var rectCenter = rectangleTransform.Position;
-            var invRotation = math.inverse(rectangleTransform.Rotation);
-
-            // Transform the circle position to the local space of the rectangle
-            var localCirclePos = math.mul(invRotation, new float3(circlePos - rectCenter)).xy;
-
-            var halfWidth = rectangle.w * 0.5f;
-            var halfHeight = rectangle.h * 0.5f;
-
-            // Find the closest point on the rectangle in local space
-            var clamped = math.clamp(localCirclePos, new float2(-halfWidth, -halfHeight),
-                new float2(halfWidth, halfHeight));
-            var localDelta = localCirclePos - clamped;
-            var distSqr = math.lengthsq(localDelta);
-            var radius = circle.radius;
-
-            // If there is no collision, exit
-            if (distSqr > radius * radius)
-                return;
-
-            var dist = math.sqrt(distSqr);
-            float2 localNormal;
-            float2 localMtv;
-            if (dist != 0f)
-            {
-                localNormal = localDelta / dist;
-                localMtv = localNormal * (radius - dist);
-            }
-            else
-            {
-                // The center of the circle inside the rectangle; looking for the nearest edge 
-                var distToLeft = -localCirclePos.x - halfWidth;
-                var distToRight = localCirclePos.x - halfWidth;
-                var distToBottom = -localCirclePos.y - halfHeight;
-                var distToTop = localCirclePos.y - halfHeight;
-
-                var minDist = math.min(math.min(distToLeft, distToRight), math.min(distToBottom, distToTop));
-
-                if (minDist == distToLeft) localNormal = new float2(-1, 0);
-                else if (minDist == distToRight) localNormal = new float2(1, 0);
-                else if (minDist == distToBottom) localNormal = new float2(0, -1);
-                else localNormal = new float2(0, 1);
-
-                localMtv = localNormal * radius;
-            }
-
-            // Transform the normal and MTV to world space
-            var worldMtv = math.mul(rectangleTransform.Rotation, new float3(localMtv, 0f));
-            var worldNormal = math.normalize(worldMtv);
-
-            // Transform the contact point to world space
-            var contactPointWorld = (rectCenter + math.mul(rectangleTransform.Rotation, new float3(clamped, 0f))).xy;
-
-            // Allow intersection by moving the circle
-            circleTransform.Position += worldMtv;
-            var worldNormal2 = worldNormal.xy;
-            // Adjust the velocity to prevent penetration
-            var projection = math.dot(circleBody.velocity, worldNormal2);
-            if (projection < 0f)
-                circleBody.velocity -= projection * worldNormal2;
-
-            circle.collided = true;
-
-            hit.Pos = contactPointWorld;
-            hit.Normal = worldNormal2;
-            hit.From = circle.index;
-            hit.To = rectangle.index;
-        }
-        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Default)]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void ResolveCircleRectangleCollisionGpt4(
             ref Circle2D circle,
             ref Transform circleTransform,
@@ -319,19 +168,19 @@ namespace Wargon.Nukecs.Collision2D {
             var rectCenter = rectangleTransform.Position.xy;
             var invRotation = math.inverse(rectangleTransform.Rotation);
 
-            // Преобразуем позицию круга в локальное пространство прямоугольника
+            // Transform the circle position into the rectangle's local space
             var localCirclePos = math.mul(invRotation, new float3(circlePos - rectCenter, 0f)).xy;
 
             var halfWidth = rectangle.w * 0.5f;
             var halfHeight = rectangle.h * 0.5f;
 
-            // Находим ближайшую точку на прямоугольнике в локальном пространстве
+            // Find the closest point on the rectangle in local space
             var clamped = math.clamp(localCirclePos, new float2(-halfWidth, -halfHeight), new float2(halfWidth, halfHeight));
             var localDelta = localCirclePos - clamped;
             var distSqr = math.lengthsq(localDelta);
             var radius = circle.radius;
 
-            // Проверяем наличие столкновения
+            // Check for collision
             if (distSqr > radius * radius)
                 return;
 
@@ -341,13 +190,13 @@ namespace Wargon.Nukecs.Collision2D {
 
             if (dist > 0f)
             {
-                // Круг снаружи: нормаль от круга к прямоугольнику
+                // Circle outside: normal from circle to rectangle
                 localNormal = localDelta / dist;
                 localMtv = localNormal * (radius - dist) * 1.05f; // Усиление для устранения проникновения
             }
             else
             {
-                // Круг внутри: ищем ближайшую грань
+                // Circle inside: looking for the closest edge
                 var distToLeft = halfWidth + localCirclePos.x;
                 var distToRight = halfWidth - localCirclePos.x;
                 var distToBottom = halfHeight + localCirclePos.y;
@@ -377,30 +226,30 @@ namespace Wargon.Nukecs.Collision2D {
                 }
             }
 
-            // Преобразуем нормаль и MTV в мировое пространство
+            // Transform normal and MTV to world space
             var worldMtv = math.mul(rectangleTransform.Rotation, new float3(localMtv, 0f)).xy;
             var worldNormal = math.mul(rectangleTransform.Rotation, new float3(localNormal, 0f)).xy;
             if (math.lengthsq(worldNormal) > 0f)
                 worldNormal = math.normalize(worldNormal);
 
-            // Точка контакта в мировом пространстве
+            // Point of contact in world space
             var contactPointWorld = rectCenter + math.mul(rectangleTransform.Rotation, new float3(clamped, 0f)).xy;
 
-            // Перемещаем круг наружу
+            // Move the circle outward
             circleTransform.Position += new float3(worldMtv, 0f);
 
-            // Корректируем скорость
+            // Adjust the speed
             var projection = math.dot(circleBody.velocity, worldNormal);
-            if (projection < 0f) // Только если круг движется к прямоугольнику
+            if (projection < 0f) // Only if the circle moves towards the rectangle
             {
                 const float friction = 0.7f;
-                circleBody.velocity -= projection * worldNormal; // Убираем нормальную составляющую
+                circleBody.velocity -= projection * worldNormal; // Remove the normal component
                 var tangent = new float2(-worldNormal.y, worldNormal.x);
                 var tangentProjection = math.dot(circleBody.velocity, tangent);
-                circleBody.velocity -= tangentProjection * friction * tangent; // Применяем трение
+                circleBody.velocity -= tangentProjection * friction * tangent; // Apply friction
             }
 
-            // Устанавливаем флаги и HitInfo
+            // Set flags and HitInfo
             circle.collided = true;
             hit.Pos = contactPointWorld;
             hit.Normal = worldNormal;
@@ -413,73 +262,28 @@ namespace Wargon.Nukecs.Collision2D {
             in Rectangle2D rectangle2D,
             in Transform rectTransform)
         {
-            // Преобразуем позицию круга в локальное пространство прямоугольника
-            float3 circlePos = circleTransform.Position;
-            float3 rectCenter = rectTransform.Position;
+            // Transform the circle position into the rectangle's local space
+            var circlePos = circleTransform.Position;
+            var rectCenter = rectTransform.Position;
 
-            // Вычисляем обратное вращение
-            quaternion inverseRotation = math.inverse(rectTransform.Rotation);
-            float2 localCirclePos = math.mul(inverseRotation, circlePos - rectCenter).xy;
+            // Calculate the reverse rotation
+            var inverseRotation = math.inverse(rectTransform.Rotation);
+            var localCirclePos = math.mul(inverseRotation, circlePos - rectCenter).xy;
 
-            // Проверяем столкновение в локальном пространстве (без вращения)
-            float halfW = rectangle2D.w * 0.5f;
-            float halfH = rectangle2D.h * 0.5f;
+            // Check for collision in local space (no rotation)
+            var halfW = rectangle2D.w * 0.5f;
+            var halfH = rectangle2D.h * 0.5f;
 
-            // Находим ближайшую точку на прямоугольнике в локальном пространстве
-            float closestX = math.clamp(localCirclePos.x, -halfW, halfW);
-            float closestY = math.clamp(localCirclePos.y, -halfH, halfH);
+            // Find the closest point on the rectangle in local space
+            var closestX = math.clamp(localCirclePos.x, -halfW, halfW);
+            var closestY = math.clamp(localCirclePos.y, -halfH, halfH);
 
-            // Вычисляем расстояние от центра круга до ближайшей точки
-            float deltaX = localCirclePos.x - closestX;
-            float deltaY = localCirclePos.y - closestY;
-            float distanceSquared = deltaX * deltaX + deltaY * deltaY;
+            // Calculate the distance from the center of the circle to the nearest point
+            var deltaX = localCirclePos.x - closestX;
+            var deltaY = localCirclePos.y - closestY;
+            var distanceSquared = deltaX * deltaX + deltaY * deltaY;
 
             return distanceSquared <= circle.radius * circle.radius;
-        }
-
-        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Default)]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ResolveCollisionInternal2(
-            ref Circle2D circle1, 
-            ref Circle2D circle2, 
-            float distance,
-            ref Body2D b1, 
-            ref Body2D b2, 
-            ref Transform t1, 
-            ref Transform t2, 
-            ref HitInfo hitInfo)
-        {
-            var delta = t2.Position - t1.Position;
-            var normal = math.normalize(delta);
-            var depth = circle1.radius + circle2.radius - distance;
-            var normal2d = new float2(normal.x, normal.y);
-
-            if (!(circle1.trigger || circle2.trigger))
-            {
-                // Разрешаем пересечение, двигая оба круга
-                var mtv = normal * (depth * 0.5f);
-                t1.Position -= mtv;
-                t2.Position += mtv;
-
-                // Корректируем скорости
-                var v1 = math.dot(b1.velocity, normal2d);
-                var v2 = math.dot(b2.velocity, normal2d);
-                if (v1 > v2) // Только если круги движутся навстречу
-                {
-                    var restitution = 0.0f; // Настрой, если нужна упругость (0 = неупругое, 1 = упругое)
-                    var impulse = -(1 + restitution) * (v1 - v2) * 0.5f;
-                    b1.velocity += impulse * normal2d;
-                    b2.velocity -= impulse * normal2d;
-                }
-            }
-
-            hitInfo = new HitInfo
-            {
-                Pos = circle1.position + normal2d * circle1.radius,
-                Normal = normal2d,
-                From = circle1.index,
-                To = circle2.index
-            };
         }
 
         [BurstCompile]
@@ -518,21 +322,21 @@ namespace Wargon.Nukecs.Collision2D {
             in Transform rect2Transform,
             ref Body2D rect1Body)
         {
-            // Получаем вершины обоих прямоугольников
+            // Get the vertices of both rectangles
             rect1.GetVertices(rect1Transform, out var r1V0, out var r1V1, out var r1V2, out var r1V3);
             rect2.GetVertices(rect2Transform, out var r2V0, out var r2V1, out var r2V2, out var r2V3);
 
-            // Оси для проверки (нормали сторон)
-            var axis0 = math.normalize(r1V1 - r1V0); // Нижняя грань rect1
-            var axis1 = math.normalize(r1V2 - r1V1); // Правая грань rect1
-            var axis2 = math.normalize(r2V1 - r2V0); // Нижняя грань rect2
-            var axis3 = math.normalize(r2V2 - r2V1); // Правая грань rect2
+            // Axes to check (side normals)
+            var axis0 = math.normalize(r1V1 - r1V0);// Bottom edge of rect1
+            var axis1 = math.normalize(r1V2 - r1V1);// Right edge of rect1
+            var axis2 = math.normalize(r2V1 - r2V0);// Bottom edge of rect2
+            var axis3 = math.normalize(r2V2 - r2V1);// Right edge of rect2
 
             var minOverlap = float.MaxValue;
             var collisionNormal = float2.zero;
             var collisionDetected = true;
 
-            // Проверяем все оси разделения
+            // Check all division axes
             for (int i = 0; i < 4; i++)
             {
                 float2 axis = i switch
@@ -543,7 +347,7 @@ namespace Wargon.Nukecs.Collision2D {
                     _ => axis3
                 };
 
-                // Проецируем вершины на ось
+                // Project the vertices onto the axis
                 var r1Min = math.min(math.min(math.dot(r1V0, axis), math.dot(r1V1, axis)),
                     math.min(math.dot(r1V2, axis), math.dot(r1V3, axis)));
                 var r1Max = math.max(math.max(math.dot(r1V0, axis), math.dot(r1V1, axis)),
@@ -553,21 +357,20 @@ namespace Wargon.Nukecs.Collision2D {
                 var r2Max = math.max(math.max(math.dot(r2V0, axis), math.dot(r2V1, axis)),
                     math.max(math.dot(r2V2, axis), math.dot(r2V3, axis)));
 
-                // Проверяем пересечение проекций
+                // Check the intersection of projections
                 if (r1Max <= r2Min || r2Max <= r1Min)
                 {
                     collisionDetected = false;
                     break;
                 }
 
-                // Вычисляем пересечение
+                // Calculate the intersection
                 var overlap = math.min(r1Max - r2Min, r2Max - r1Min);
                 if (overlap < minOverlap)
                 {
                     minOverlap = overlap;
                     collisionNormal = axis;
-
-                    // Корректируем направление нормали
+                    // Correct the direction of the normal
                     var center1 = rect1Transform.Position.xy;
                     var center2 = rect2Transform.Position.xy;
                     if (math.dot(center2 - center1, axis) < 0)
@@ -580,7 +383,7 @@ namespace Wargon.Nukecs.Collision2D {
                 return new HitInfo { From = rect1.index, To = rect2.index };
             }
 
-            // Если не триггер - применяем разрешение коллизии
+            // If not a trigger, apply collision resolution
             if (!rect1.trigger && !rect2.trigger && minOverlap > 0)
             {
                 rect1Body.velocity += collisionNormal * minOverlap;

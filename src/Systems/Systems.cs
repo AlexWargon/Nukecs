@@ -46,6 +46,7 @@ namespace Wargon.Nukecs
             _state.Time.Time = time;
             _state.Time.ElapsedTime += dt;
             _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
+            World.UnsafeWorld->timeData = _state.Time;
             
             for (var i = 0; i < MainThreadRunners.Count; i++)
                 _state.Dependencies = MainThreadRunners[i].Schedule(UpdateContext.Update, ref _state);
@@ -282,6 +283,7 @@ namespace Wargon.Nukecs
             FixedRunners.AddRange(group.fixedRunners);
             MainThreadRunners.AddRange(group.mainThreadRunners);
             MainThreadFixedRunners.AddRange(group.mainThreadFixedRunners);
+            SystemDestroyers.AddRange(group.destroyRunners);
             return this;
         }
         
