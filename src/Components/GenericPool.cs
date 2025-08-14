@@ -30,9 +30,9 @@ namespace Wargon.Nukecs {
             };
         }
 
-        internal static GenericPool Create(ComponentType type, int size, World.WorldUnsafe* world) {
+        internal static GenericPool Create(ComponentTypeData typeData, int size, World.WorldUnsafe* world) {
             return new GenericPool {
-                unsafeBufferPtr = GenericPoolUnsafe.CreateBufferPtr(type, size, world)
+                unsafeBufferPtr = GenericPoolUnsafe.CreateBufferPtr(typeData, size, world)
             };
         }
 
@@ -45,7 +45,7 @@ namespace Wargon.Nukecs {
             [NativeDisableUnsafePtrRestriction] internal byte* buffer;
             internal int count;
             internal int capacity;
-            internal ComponentType ComponentType;
+            internal ComponentTypeData componentTypeData;
             internal Allocator allocator;
             internal World.WorldUnsafe* worldPtr;
             internal ptr_offset bufferPtr;
@@ -60,7 +60,7 @@ namespace Wargon.Nukecs {
                     capacity = size,
                     count = 0,
                     allocator = world->Allocator,
-                    ComponentType = type,
+                    componentTypeData = type,
                     worldPtr = world
                 };
                 ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
@@ -79,7 +79,7 @@ namespace Wargon.Nukecs {
                     capacity = size,
                     count = 0,
                     allocator = world->Allocator,
-                    ComponentType = type,
+                    componentTypeData = type,
                     worldPtr = world
                 };
                 ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
@@ -88,41 +88,41 @@ namespace Wargon.Nukecs {
                 return ptrRef;
             }
             
-            internal static GenericPoolUnsafe* CreateBuffer(ComponentType type, int size, World.WorldUnsafe* world) {
+            internal static GenericPoolUnsafe* CreateBuffer(ComponentTypeData typeData, int size, World.WorldUnsafe* world) {
                 
                 ref var allocator = ref world->AllocatorRef;
                 var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
                 var ptr = ptrRef.Ptr;
-                size = type.isTag ? 1 : size;
+                size = typeData.isTag ? 1 : size;
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
                     allocator = world->Allocator,
-                    ComponentType = type,
+                    componentTypeData = typeData,
                     worldPtr = world
                 };
-                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
+                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * typeData.size);
                 ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
-                UnsafeUtility.MemClear(ptr->buffer, type.size * size);
+                UnsafeUtility.MemClear(ptr->buffer, typeData.size * size);
                 return ptr;
             }
             
-            internal static ptr<GenericPoolUnsafe> CreateBufferPtr(ComponentType type, int size, World.WorldUnsafe* world) {
+            internal static ptr<GenericPoolUnsafe> CreateBufferPtr(ComponentTypeData typeData, int size, World.WorldUnsafe* world) {
                 
                 ref var allocator = ref world->AllocatorRef;
                 var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
                 var ptr = ptrRef.Ptr;
-                size = type.isTag ? 1 : size;
+                size = typeData.isTag ? 1 : size;
                 *ptr = new GenericPoolUnsafe {
                     capacity = size,
                     count = 0,
                     allocator = world->Allocator,
-                    ComponentType = type,
+                    componentTypeData = typeData,
                     worldPtr = world
                 };
-                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
+                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * typeData.size);
                 ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
-                UnsafeUtility.MemClear(ptr->buffer, type.size * size);
+                UnsafeUtility.MemClear(ptr->buffer, typeData.size * size);
                 return ptrRef;
             }
             
@@ -136,7 +136,7 @@ namespace Wargon.Nukecs {
         {
             //if (UnsafeBuffer == null) throw new NullReferenceException("Buffer is null!");
             if (index < 0 || index >= UnsafeBuffer->capacity) {
-                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentTypeMap.GetType(UnsafeBuffer->ComponentType.index).Name}] with capacity {UnsafeBuffer->capacity}.");
+                throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool[{ComponentTypeMap.GetType(UnsafeBuffer->componentTypeData.index).Name}] with capacity {UnsafeBuffer->capacity}.");
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -149,7 +149,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte* UnsafeGetPtr(int index)
         {
-            return unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->ComponentType.size;
+            return unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->componentTypeData.size;
         }
 
         public ref T UnsafeGetRef<T>(int index, byte[] buffer) where T : unmanaged
@@ -160,7 +160,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
         {
-            if (!UnsafeBuffer->ComponentType.isTag) {
+            if (!UnsafeBuffer->componentTypeData.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
@@ -183,73 +183,73 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, void* value) {
-            if (!unsafeBufferPtr.Ptr->ComponentType.isTag) {
+            if (!unsafeBufferPtr.Ptr->componentTypeData.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
-                UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->ComponentType.size, value, unsafeBufferPtr.Ptr->ComponentType.size);
+                UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->componentTypeData.size, value, unsafeBufferPtr.Ptr->componentTypeData.size);
             }
             unsafeBufferPtr.Ptr->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value) {
-            if (!UnsafeBuffer->ComponentType.isTag) {
+            if (!UnsafeBuffer->componentTypeData.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
                 fixed (byte* ptr = value) {
-                    UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->ComponentType.size, ptr, unsafeBufferPtr.Ptr->ComponentType.size);
+                    UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->componentTypeData.size, ptr, unsafeBufferPtr.Ptr->componentTypeData.size);
                 }
             }
             UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes) {
-            if (!UnsafeBuffer->ComponentType.isTag) {
+            if (!UnsafeBuffer->componentTypeData.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
-                UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->ComponentType.size, value, sizeInBytes);
+                UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * unsafeBufferPtr.Ptr->componentTypeData.size, value, sizeInBytes);
             }
             UnsafeBuffer->count++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddObject(int index, IComponent component) {
-            if (!UnsafeBuffer->ComponentType.isTag) {
+            if (!UnsafeBuffer->componentTypeData.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {UnsafeBuffer->capacity}.");
                 }
                 CheckResize(index);
-                ComponentHelpers.Write(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->ComponentType.size, unsafeBufferPtr.Ptr->ComponentType.index, component);
+                ComponentHelpers.Write(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->componentTypeData.size, unsafeBufferPtr.Ptr->componentTypeData.index, component);
             }
             UnsafeBuffer->count++;
         }
 
         public object GetObject(int index)
         {
-            return ComponentHelpers.Read(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->ComponentType.size,
-                unsafeBufferPtr.Ptr->ComponentType.index);
+            return ComponentHelpers.Read(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->componentTypeData.size,
+                unsafeBufferPtr.Ptr->componentTypeData.index);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component) {
-            if (!UnsafeBuffer->ComponentType.isTag) {
+            if (!UnsafeBuffer->componentTypeData.isTag) {
                 if (index < 0) {
                     throw new IndexOutOfRangeException($"Index {index} is out of range for GenericPool with capacity {unsafeBufferPtr.Ptr->capacity}.");
                 }
-                ComponentHelpers.Write(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->ComponentType.size, unsafeBufferPtr.Ptr->ComponentType.index, component);
+                ComponentHelpers.Write(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->componentTypeData.size, unsafeBufferPtr.Ptr->componentTypeData.index, component);
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index) {
-            if (unsafeBufferPtr.Ptr->ComponentType.isDisposable) {
+            if (unsafeBufferPtr.Ptr->componentTypeData.isDisposable) {
                 DisposeComponent(index);
             }
-            if (!unsafeBufferPtr.Ptr->ComponentType.isTag)
+            if (!unsafeBufferPtr.Ptr->componentTypeData.isTag)
             {
-                ref readonly var type = ref unsafeBufferPtr.Ptr->ComponentType;
+                ref readonly var type = ref unsafeBufferPtr.Ptr->componentTypeData;
                 UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + index * type.size, type.defaultValue, type.size);
             }
             unsafeBufferPtr.Ptr->count--;
@@ -258,22 +258,22 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public void DisposeComponent(int index) {
-            var fn = new FunctionPointer<DisposeDelegate>(unsafeBufferPtr.Ptr->ComponentType.disposeFn);
+            var fn = new FunctionPointer<DisposeDelegate>(unsafeBufferPtr.Ptr->componentTypeData.disposeFn);
             fn.Invoke(unsafeBufferPtr.Ptr->buffer, index);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public void Copy(int source, int destination) {
-            if (!unsafeBufferPtr.Ptr->ComponentType.isTag) {
+            if (!unsafeBufferPtr.Ptr->componentTypeData.isTag) {
                 CheckResize(math.max(destination, source));
-                if (unsafeBufferPtr.Ptr->ComponentType.isCopyable) {
+                if (unsafeBufferPtr.Ptr->componentTypeData.isCopyable) {
                     CopyComponent(source, destination);
                 }
                 else {
-                    UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + destination * unsafeBufferPtr.Ptr->ComponentType.size, 
-                        unsafeBufferPtr.Ptr->buffer + source * unsafeBufferPtr.Ptr->ComponentType.size, 
-                        unsafeBufferPtr.Ptr->ComponentType.size);
+                    UnsafeUtility.MemCpy(unsafeBufferPtr.Ptr->buffer + destination * unsafeBufferPtr.Ptr->componentTypeData.size, 
+                        unsafeBufferPtr.Ptr->buffer + source * unsafeBufferPtr.Ptr->componentTypeData.size, 
+                        unsafeBufferPtr.Ptr->componentTypeData.size);
                 }
             }
             UnsafeBuffer->count++;
@@ -282,7 +282,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         private void CopyComponent(int from, int to) {
-            unsafeBufferPtr.Ptr->ComponentType.CopyFn().Invoke(unsafeBufferPtr.Ptr->buffer, from, to);
+            unsafeBufferPtr.Ptr->componentTypeData.CopyFn().Invoke(unsafeBufferPtr.Ptr->buffer, from, to);
             //ComponentHelpers.Copy(UnsafeBuffer->buffer, from, to, UnsafeBuffer->ComponentType.index);
         }
 
@@ -299,7 +299,7 @@ namespace Wargon.Nukecs {
 
                 // Allocate new buffer
                 byte* newBuffer = (byte*)UnsafeUtility.MallocTracked(
-                    newCapacity * UnsafeBuffer->ComponentType.size,
+                    newCapacity * UnsafeBuffer->componentTypeData.size,
                     UnsafeUtility.AlignOf<T>(),
                     UnsafeBuffer->allocator, 0
                 );
@@ -309,9 +309,9 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                UnsafeUtility.MemClear(newBuffer, newCapacity * UnsafeBuffer->ComponentType.size);
+                UnsafeUtility.MemClear(newBuffer, newCapacity * UnsafeBuffer->componentTypeData.size);
                 // Copy old data to new buffer
-                UnsafeUtility.MemCpy(newBuffer, UnsafeBuffer->buffer, UnsafeBuffer->capacity * UnsafeBuffer->ComponentType.size);
+                UnsafeUtility.MemCpy(newBuffer, UnsafeBuffer->buffer, UnsafeBuffer->capacity * UnsafeBuffer->componentTypeData.size);
 
                 // Free old buffer
                 UnsafeUtility.FreeTracked(UnsafeBuffer->buffer, UnsafeBuffer->allocator);
@@ -331,12 +331,12 @@ namespace Wargon.Nukecs {
 
         public byte[] Serialize()
         {
-            return new Span<byte>(UnsafeBuffer->buffer, UnsafeBuffer->ComponentType.size * UnsafeBuffer->capacity).ToArray();
+            return new Span<byte>(UnsafeBuffer->buffer, UnsafeBuffer->componentTypeData.size * UnsafeBuffer->capacity).ToArray();
         }
 
         public byte[] Serialize(int entity)
         {
-            return new Span<byte>(UnsafeGetPtr(entity), UnsafeBuffer->ComponentType.size).ToArray();
+            return new Span<byte>(UnsafeGetPtr(entity), UnsafeBuffer->componentTypeData.size).ToArray();
         }
         public void Deserialize(byte[] data)
         {

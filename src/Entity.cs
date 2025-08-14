@@ -294,7 +294,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent
+        public static ref readonly T Read<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }

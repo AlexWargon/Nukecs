@@ -3,7 +3,7 @@
     using Unity.Burst;
     using Transform = Transforms.Transform;
     
-    [BurstCompile]
+    //[BurstCompile]
     public struct FillRenderDataSystem : IEntityJobSystem {
         public SystemMode Mode => SystemMode.Single;
         public Query GetQuery(ref World world) {

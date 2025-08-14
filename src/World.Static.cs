@@ -9,17 +9,18 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
-        private static readonly MemAllocator* allocator;
+        private static MemAllocator* allocator;
         private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
         private static byte lastFreeSlot;
         private static int lastWorldID;
-
-        static World()
+        private static bool staticInited;
+        internal static void InitStatic()
         {
+            if(staticInited) return;
             allocator = MemAllocator.New(sizeof(MemoryList<World>) + sizeof(World) * 4);
             worlds.Data = new MemoryList<World>(4, ref *allocator, true);
+            staticInited = true;
         }
-        
         public static ref World Get(int index) => ref worlds.Data.ElementAt(index);
 
         public static bool HasActiveWorlds()
@@ -68,6 +69,7 @@ namespace Wargon.Nukecs
 
         public static World Create()
         {
+            InitStatic();
             OnWorldCreatingEvent?.Invoke();
             Component.Initialization();
             World world;
@@ -81,6 +83,7 @@ namespace Wargon.Nukecs
 
         public static World Create(WorldConfig config)
         {
+            InitStatic();
             OnWorldCreatingEvent?.Invoke();
             Component.Initialization();
             World world;
@@ -101,6 +104,7 @@ namespace Wargon.Nukecs
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
+            staticInited = false;
             dbug.log(nameof(DisposeStatic), Color.green);
         }
     }

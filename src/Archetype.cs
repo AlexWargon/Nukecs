@@ -314,7 +314,7 @@ namespace Wargon.Nukecs
             {
                 ref var pool = ref world->GetUntypedPool(types[i]);
                 data.Components[i] = pool.Serialize(entity.id);
-                data.SizeInBytes += pool.UnsafeBuffer->ComponentType.size;
+                data.SizeInBytes += pool.UnsafeBuffer->componentTypeData.size;
             }
 
             return data;

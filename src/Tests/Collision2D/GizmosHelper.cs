@@ -18,7 +18,9 @@ namespace Wargon.Nukecs.Collision2D
         {
             drawer = new GizmosDrawer();
             GizmosDrawer.Instance = drawer;
+#if UNITY_EDITOR
             drawer.AddRender(new Colliders2DRenders(green, red));
+#endif
         }
 
         private void Update()

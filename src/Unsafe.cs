@@ -74,8 +74,8 @@ namespace Wargon.Nukecs {
             list->m_length = size;
         }
 
-        public static int AlignOf(ComponentType type) {
-            return type.size + sizeof(byte) * 2 - type.size;
+        public static int AlignOf(ComponentTypeData typeData) {
+            return typeData.size + sizeof(byte) * 2 - typeData.size;
         }
         public static int AlignOf(Type type) {
             return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
