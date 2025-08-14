@@ -7,9 +7,9 @@ namespace Wargon.Nukecs
     {
         public unsafe partial struct WorldUnsafe
         {
-            internal unsafe void* _allocate_for_pool(int size, int alignment, ComponentType componentType, int items = 1)
+            internal unsafe void* _allocate_for_pool(int size, int alignment, ComponentTypeData componentTypeData, int items = 1)
             {
-                dbug.log($"allocated {size} bytes of {componentType.ManagedType.Name} with items {items}");
+                dbug.log($"allocated {size} bytes of {componentTypeData.ManagedType.Name} with items {items}");
                 return AllocatorHandler.AllocatorWrapper.Allocate(size, alignment, items);
             }
             

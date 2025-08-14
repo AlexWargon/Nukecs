@@ -17,7 +17,8 @@ namespace Wargon.Nukecs.Transforms
             var (cref, tref, ltref) = entity.Get<ChildOf, Transform, LocalTransform>();
             ref var transform = ref tref.Value;
             ref var localTransform = ref ltref.Value;
-            ref readonly var parentTransform = ref cref.Value.Value.Read<Transform>();
+            ref readonly var parentTransform =
+                ref state.World.GetPool<Transform>().GetRef<Transform>(cref.Value.Value.id);
 
             transform.Position = math.mul(parentTransform.Rotation, localTransform.Position * parentTransform.Scale) + parentTransform.Position;
 

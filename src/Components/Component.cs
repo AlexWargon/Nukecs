@@ -133,10 +133,10 @@ namespace Wargon.Nukecs
         /// <summary>
         /// Components count that are using right now
         /// </summary>
-        public static readonly SharedStatic<int> Count = SharedStatic<int>.GetOrCreate<Component>();
-        private static bool _initialized;
-        static Component() {
-            Count.Data = 0;
+        internal static bool _initialized;
+        static Component()
+        {
+            _initialized = false;
         }
         
         [BurstDiscard]
@@ -144,10 +144,10 @@ namespace Wargon.Nukecs
 
             if(_initialized) return;
             
-            var count = 1;
+            var count = 0;
             var componentTypes = new System.Collections.Generic.List<(Type, int)>();
             var arrayElementTypes = new System.Collections.Generic.List<(Type,int)>();
-            
+            ComponentTypeData.Init();
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();
             //dbug.log(components.ToList().Count.ToString());
@@ -185,11 +185,11 @@ namespace Wargon.Nukecs
             _initialized = true;
         }
 
-        internal static void LogComponent(ComponentType type)
+        internal static void LogComponent(ComponentTypeData typeData)
         {
             if (NukecsDebugData.Instance.showInitedComponents)
             {
-                Debug.Log(type.ToString());
+                Debug.Log(typeData.ToString());
             }
         }
         public static IEnumerable<Type> FindGenericUsages(Type genericTypeDefinition, Assembly assembly)

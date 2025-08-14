@@ -1,6 +1,7 @@
-﻿using UnityEditor;
+﻿#if UNITY_EDITOR
+using UnityEditor;
 using UnityEngine;
-using Wargon.Nukecs; // твой namespace
+using Wargon.Nukecs;
 
 public class SystemsViewer : EditorWindow
 {
@@ -58,3 +59,4 @@ public class SystemsViewer : EditorWindow
         EditorGUILayout.Space();
     }
 }
+#endif
