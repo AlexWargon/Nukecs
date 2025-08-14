@@ -108,20 +108,21 @@ namespace Wargon.Nukecs {
     public struct ComponentType<T> where T : unmanaged {
         private static readonly SharedStatic<ComponentTypeData> ID = SharedStatic<ComponentTypeData>.GetOrCreate<ComponentType<T>>();
 
-        public static readonly int Index;
-
-        internal static ref ComponentTypeData Data
-        {
+        public static unsafe int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref ID.Data;
+            get => (*(ComponentTypeData*) ID.UnsafeDataPointer).index;
+        }
+
+        internal static unsafe ref ComponentTypeData Data {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
         }
         
         static ComponentType() {
-            CreateData();
-            Index = ID.Data.index;
+            Init();
         }
         [BurstDiscard]
-        private static void CreateData() {
+        private static void Init() {
             ID.Data = ComponentTypeMap.GetComponentType<T>();
         }
     }
