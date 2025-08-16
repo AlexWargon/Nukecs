@@ -48,6 +48,11 @@ namespace Wargon.Nukecs
     public struct Name : IComponent, IDisposable
     {
         public ObjectRef<string> value;
+
+        public Name(string val)
+        {
+            value = val;
+        }
         public void Dispose()
         {
             value.DisposeNotRemoving();
