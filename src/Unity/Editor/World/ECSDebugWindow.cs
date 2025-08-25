@@ -1,69 +1,93 @@
 ﻿#if UNITY_EDITOR && NUKECS_DEBUG
-using System.Collections.Generic;
-using System.Linq;
-using UnityEditor;
-using UnityEditor.UIElements;
-using UnityEngine;
-using UnityEngine.UIElements;
-
 namespace Wargon.Nukecs.Editor
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using UnityEditor;
+    using UnityEditor.UIElements;
+    using UnityEngine;
+    using UnityEngine.UIElements;
+    
     public unsafe class ECSDebugWindowUI : EditorWindow
     {
-        private World world;
+        private const int BORDER_RADIUS = 6;
+        private static ECSDebugWindowUI _instance;
 
-        private ToolbarSearchField searchField;
-        private ListView listView;
+        internal static ECSDebugWindowUI Instance
+        {
+            get
+            {
+                if (_instance == null)
+                    _instance = GetWindow<ECSDebugWindowUI>();
+                return _instance;
+            }
+        }
+        private World _world;
 
-        private ScrollView inspectorView;
-        private Label inspectorTitle;
+        private ToolbarSearchField _searchField;
+        private ListView _listView;
+
+        private ScrollView _inspectorView;
+        private Label _inspectorTitle;
 
         private enum Tab { Entities, Archetypes, Queries }
-        private Tab activeTab = Tab.Entities;
+        private Tab _activeTab = Tab.Entities;
 
-        // Вместо List<string> — теперь список структурированных элементов
-        private readonly List<DebugListItem> items = new();
-        private readonly Dictionary<int, string> queryNames = new();
-        private readonly Dictionary<int, ComponentDrawerProxy> proxyCache = new();
-        private readonly Dictionary<int, UnityEditor.Editor> editorCache = new();
-        private int? lastEntityId;
-        private int lastEntitiesCount = -1;
-        private string lastSearchValue = "";
-        private int? selectedEntityId = null;
-        private int selectedEntityArchetypeId;
-        private bool archetypeChanged = false;
+        private readonly List<DebugListItem> _items = new();
+        private readonly Dictionary<int, string> _queryNames = new();
+        private readonly Dictionary<int, ComponentDrawerProxy> _proxyCache = new();
+        private readonly Dictionary<int, UnityEditor.Editor> _editorCache = new();
+        private static readonly Dictionary<string, bool> _foldoutStates = new();
+        private static bool GetFoldoutState(string key)
+        {
+            if (_foldoutStates.TryGetValue(key, out var state))
+            {
+                return state;
+            }
+            _foldoutStates[key] = true;
+            return true;
+        }
+        private int? _lastEntityId;
+        private const int ENTITY_NULL = -1;
+        private int _lastEntitiesCount = ENTITY_NULL;
+        private string _lastSearchValue = "";
+        private int? _selectedEntityId = null;
+        private int _selectedEntityArchetypeId;
+        private bool _archetypeChanged = false;
         
         [MenuItem("Nuke.cs/ECS Debugger")]
         public static void ShowWindow()
         {
             var wnd = GetWindow<ECSDebugWindowUI>();
             wnd.titleContent = new GUIContent("ECS Debugger");
+            _instance = wnd;
             wnd.minSize = new Vector2(800, 500);
         }
 
-        // Класс элемента списка с типом и id
         public class DebugListItem
         {
             public enum ItemType { Entity, Archetype, Query }
 
-            public ItemType Type;
-            public int Id;
-            public string DisplayName;
+            public readonly ItemType type;
+            public readonly int id;
+            public readonly string displayName;
 
             public DebugListItem(ItemType type, int id, string displayName)
             {
-                Type = type;
-                Id = id;
-                DisplayName = displayName;
+                this.type = type;
+                this.id = id;
+                this.displayName = displayName;
             }
 
-            public override string ToString() => DisplayName;
+            public override string ToString() => displayName;
         }
 
         public void CreateGUI()
         {
-            world = World.Get(0);
-
+            _world = World.Get(0);
+            if(!_world.IsAlive) return;
+            
             var root = rootVisualElement;
             root.style.flexDirection = FlexDirection.Row;
 
@@ -90,18 +114,18 @@ namespace Wargon.Nukecs.Editor
             leftPanel.Add(tabs);
 
             // Search
-            searchField = new ToolbarSearchField();
-            searchField.RegisterValueChangedCallback(_ => RefreshList());
-            leftPanel.Add(searchField);
+            _searchField = new ToolbarSearchField();
+            _searchField.RegisterValueChangedCallback(_ => RefreshList());
+            leftPanel.Add(_searchField);
 
             // ListView for DebugListItem
-            listView = new ListView(items, 20, MakeListItem, BindListItem)
+            _listView = new ListView(_items, 20, MakeListItem, BindListItem)
             {
                 selectionType = SelectionType.Single,
                 style = { flexGrow = 1 }
             };
-            listView.onSelectionChange += OnItemSelected;
-            leftPanel.Add(listView);
+            _listView.onSelectionChange += OnItemSelected;
+            leftPanel.Add(_listView);
 
             root.Add(leftPanel);
 
@@ -112,13 +136,13 @@ namespace Wargon.Nukecs.Editor
                 {
                     flexGrow = 2,
                     flexDirection = FlexDirection.Column,
-                    backgroundColor = new Color(0.2f, 0.2f, 0.2f),
+                    backgroundColor = new Color(0.14f, 0.14f, 0.14f),
                     paddingLeft = 5,
                     paddingTop = 5
                 }
             };
 
-            inspectorTitle = new Label("Inspector")
+            _inspectorTitle = new Label("Inspector")
             {
                 style =
                 {
@@ -127,10 +151,10 @@ namespace Wargon.Nukecs.Editor
                     paddingBottom = 6
                 }
             };
-            rightPanel.Add(inspectorTitle);
+            rightPanel.Add(_inspectorTitle);
 
-            inspectorView = new ScrollView { style = { flexGrow = 1 } };
-            rightPanel.Add(inspectorView);
+            _inspectorView = new ScrollView { style = { flexGrow = 1 } };
+            rightPanel.Add(_inspectorView);
 
             root.Add(rightPanel);
 
@@ -138,13 +162,13 @@ namespace Wargon.Nukecs.Editor
 
             root.schedule.Execute(() =>
             {
-                if (!world.IsAlive || !EditorApplication.isPlaying)
+                if (!_world.IsAlive || !EditorApplication.isPlaying)
                     return;
 
-                if (lastEntitiesCount != world.UnsafeWorld->entitiesAmount || lastSearchValue != searchField.value)
+                if (_lastEntitiesCount != _world.UnsafeWorld->entitiesAmount || _lastSearchValue != _searchField.value)
                 {
-                    lastEntitiesCount = world.UnsafeWorld->entitiesAmount;
-                    lastSearchValue = searchField.value;
+                    _lastEntitiesCount = _world.UnsafeWorld->entitiesAmount;
+                    _lastSearchValue = _searchField.value;
                     RefreshList();
                 }
 
@@ -153,24 +177,24 @@ namespace Wargon.Nukecs.Editor
 
             root.schedule.Execute(() =>
             {
-                if (!world.IsAlive || !EditorApplication.isPlaying)
+                if (!_world.IsAlive || !EditorApplication.isPlaying)
                 {
                     RefreshList();
-                    inspectorView.Clear();
-                    selectedEntityId = null;
+                    _inspectorView.Clear();
+                    _selectedEntityId = null;
                 }
-                if (selectedEntityId.HasValue)
+                if (_selectedEntityId.HasValue)
                 {
-                    archetypeChanged = NeedRepaintEntityInspector();
-                    if (archetypeChanged)
+                    _archetypeChanged = NeedRepaintEntityInspector();
+                    if (_archetypeChanged)
                     {
-                        DrawEntityInspector(selectedEntityId.Value);
-                        archetypeChanged = false;
+                        DrawEntityInspector(_selectedEntityId.Value);
+                        _archetypeChanged = false;
                     }
                     else
                     {
-                        UpdateProxies(selectedEntityId.Value);
-                        inspectorView.MarkDirtyRepaint();
+                        UpdateProxies(_selectedEntityId.Value);
+                        _inspectorView.MarkDirtyRepaint();
                     }
 
                 }
@@ -205,11 +229,11 @@ namespace Wargon.Nukecs.Editor
 
         private void BindListItem(VisualElement element, int index)
         {
-            if (index >= items.Count) return;
+            if (index >= _items.Count) return;
             var (icon, label) = ((Image, Label))element.userData;
-            var item = items[index];
-            label.text = item.DisplayName;
-            icon.image = GetIconForTab(item.Type switch
+            var item = _items[index];
+            label.text = item.displayName;
+            icon.image = GetIconForTab(item.type switch
             {
                 DebugListItem.ItemType.Entity => Tab.Entities,
                 DebugListItem.ItemType.Archetype => Tab.Archetypes,
@@ -222,7 +246,7 @@ namespace Wargon.Nukecs.Editor
         {
             return tab switch
             {
-                Tab.Entities => EditorGUIUtility.IconContent("GameObject Icon").image as Texture2D,
+                Tab.Entities => EditorGUIUtility.IconContent("greenLight").image as Texture2D,
                 Tab.Archetypes => EditorGUIUtility.IconContent("Prefab Icon").image as Texture2D,
                 Tab.Queries => EditorGUIUtility.IconContent("Search Icon").image as Texture2D,
                 _ => null
@@ -231,158 +255,171 @@ namespace Wargon.Nukecs.Editor
 
         private void SwitchTab(Tab tab)
         {
-            activeTab = tab;
-            searchField.value = "";
-            selectedEntityId = null;
-            inspectorView.Clear();
-            inspectorTitle.text = "Inspector";
+            _activeTab = tab;
+            _searchField.value = "";
+            _selectedEntityId = null;
+            _inspectorView.Clear();
+            _inspectorTitle.text = "Inspector";
             RefreshList();
         }
 
         private void RefreshList()
         {
-            if (!world.IsAlive || !EditorApplication.isPlaying)
+            if (!_world.IsAlive || !EditorApplication.isPlaying)
             {
-                items.Clear();
-                listView.Rebuild();
+                _items.Clear();
+                _listView.Rebuild();
                 return;
             }
 
-            items.Clear();
+            _items.Clear();
 
-            string search = searchField.value?.ToLower();
+            string search = _searchField.value?.ToLower();
 
-            switch (activeTab)
+            switch (_activeTab)
             {
                 case Tab.Entities:
-                    var entities = world.UnsafeWorld->entitiesDens.GetAliveEntities();
+                    var entities = _world.UnsafeWorld->entitiesDens.GetAliveEntities();
                     for (var i = 0; i < entities.Length; i++)
                     {
                         var eId = entities[i];
-                        var e = world.GetEntity(eId);
+                        var e = _world.GetEntity(eId);
                         if (!e.IsValid()) continue;
-                        string name;
+                        
+                        string displayName;
                         if (e.Has<Name>())
                         {
-                            name = $"e:{e.id}|{e.Get<Name>().value.Value}";
+                            displayName = $"(e:{e.id}) {e.Get<Name>().value.Value}";
                         }
                         else
                         {
-                            name = $"e:{e.id}";
+                            displayName = $"(e:{e.id})";
                         }
-                        if (!string.IsNullOrEmpty(search) && !name.ToLower().Contains(search)) continue;
-                        items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, name));
+                        if (!string.IsNullOrEmpty(search) && !displayName.ToLower().Contains(search)) continue;
+                        _items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, displayName));
                     }
                     break;
 
                 case Tab.Archetypes:
-                    for (int i = 0; i < world.UnsafeWorld->archetypesList.Length; i++)
+                    for (int i = 0; i < _world.UnsafeWorld->archetypesList.Length; i++)
                     {
-                        var a = world.UnsafeWorld->archetypesList.ElementAt(i).Ref;
-                        var name = $"Archetype {a.id}";
-                        if (!string.IsNullOrEmpty(search) && !name.ToLower().Contains(search)) continue;
-                        items.Add(new DebugListItem(DebugListItem.ItemType.Archetype, a.id, name));
+                        var a = _world.UnsafeWorld->archetypesList.ElementAt(i).Ref;
+                        var displayName = $"Archetype {a.id}";
+                        if (!string.IsNullOrEmpty(search) && !displayName.ToLower().Contains(search)) continue;
+                        _items.Add(new DebugListItem(DebugListItem.ItemType.Archetype, a.id, displayName));
                     }
                     break;
 
                 case Tab.Queries:
-                    for (int i = 0; i < world.UnsafeWorld->queries.Length; i++)
+                    for (int i = 0; i < _world.UnsafeWorld->queries.Length; i++)
                     {
-                        var q = world.UnsafeWorld->queries.ElementAt(i).Ref;
-                        if (!queryNames.ContainsKey(q.Id))
-                            queryNames[q.Id] = $"Query {q.Id} ({q.count} entities)";
-                        var name = queryNames[q.Id];
-                        if (!string.IsNullOrEmpty(search) && !name.ToLower().Contains(search)) continue;
-                        items.Add(new DebugListItem(DebugListItem.ItemType.Query, q.Id, name));
+                        var q = _world.UnsafeWorld->queries.ElementAt(i).Ref;
+                        if (!_queryNames.ContainsKey(q.Id))
+                            _queryNames[q.Id] = $"Query {q.Id} ({q.count} entities)";
+                        var queryName = _queryNames[q.Id];
+                        if (!string.IsNullOrEmpty(search) && !queryName.ToLower().Contains(search)) continue;
+                        _items.Add(new DebugListItem(DebugListItem.ItemType.Query, q.Id, queryName));
                     }
                     break;
             }
 
-            listView.Rebuild();
+            _listView.Rebuild();
         }
 
         private void OnItemSelected(IEnumerable<object> selection)
         {
-            inspectorView.Clear();
+            _inspectorView.Clear();
 
             var sel = selection.FirstOrDefault() as DebugListItem;
             if (sel == null)
             {
-                inspectorTitle.text = "Inspector";
-                selectedEntityId = null;
+                _inspectorTitle.text = "Inspector";
+                _selectedEntityId = null;
                 return;
             }
 
-            inspectorTitle.text = $"{sel.Type}: {sel.DisplayName}";
+            _inspectorTitle.text = $"{sel.displayName}";
 
-            switch (sel.Type)
+            switch (sel.type)
             {
                 case DebugListItem.ItemType.Entity:
-                    selectedEntityId = sel.Id;
-                    DrawEntityInspector(sel.Id);
-                    UpdateProxies(sel.Id); // <-- вызываем явно обновление прокси
+                    _selectedEntityId = sel.id;
+                    DrawEntityInspector(sel.id);
+                    UpdateProxies(sel.id);
                     break;
 
                 case DebugListItem.ItemType.Archetype:
-                    inspectorView.Add(new Label("Archetype inspector not implemented yet"));
-                    selectedEntityId = null;
+                    _inspectorView.Add(new Label("Archetype inspector not implemented yet"));
+                    _selectedEntityId = null;
                     break;
 
                 case DebugListItem.ItemType.Query:
-                    inspectorView.Add(new Label("Query inspector not implemented yet"));
-                    selectedEntityId = null;
+                    _inspectorView.Add(new Label("Query inspector not implemented yet"));
+                    _selectedEntityId = null;
                     break;
             }
         }
 
         private ComponentDrawerProxy GetOrCreateProxy(int typeIndex, object boxedComponent)
         {
-            if (!proxyCache.TryGetValue(typeIndex, out var proxy) || proxy == null)
+            if (!_proxyCache.TryGetValue(typeIndex, out var proxy) || proxy == null)
             {
-                proxy = ScriptableObject.CreateInstance<ComponentDrawerProxy>();
+                proxy = CreateInstance<ComponentDrawerProxy>();
                 proxy.hideFlags = HideFlags.HideAndDontSave;
-                proxyCache[typeIndex] = proxy;
+                _proxyCache[typeIndex] = proxy;
             }
 
             proxy.boxedComponent = boxedComponent;
             return proxy;
         }
         
-        private UnityEditor.Editor GetOrCreateEditor(ComponentDrawerProxy proxy, int typeIndex)
+        private Editor GetOrCreateEditor(ComponentDrawerProxy proxy, int typeIndex)
         {
-            if (!editorCache.TryGetValue(typeIndex, out var editor) || editor == null)
+            if (!_editorCache.TryGetValue(typeIndex, out var editor) || editor == null)
             {
-                editor = UnityEditor.Editor.CreateEditor(proxy);
-                editorCache[typeIndex] = editor;
+                editor = Editor.CreateEditor(proxy);
+                _editorCache[typeIndex] = editor;
             }
             return editor;
         }
 
         private bool NeedRepaintEntityInspector()
         {
-            ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(selectedEntityId.Value).ptr.Ref;
-            var archChanged = arch.id != selectedEntityArchetypeId;
-            selectedEntityArchetypeId = arch.id;
+            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(_selectedEntityId.Value).ptr.Ref;
+            var archChanged = arch.id != _selectedEntityArchetypeId;
+            _selectedEntityArchetypeId = arch.id;
             return archChanged;
         }
         
         private void DrawEntityInspector(int entityId)
         {
-            if (lastEntityId == entityId && !archetypeChanged)
+            var realE = _world.GetEntity(entityId);
+            if (realE == Entity.Null)
+            {
+                _selectedEntityId = null;
+                _lastEntityId = ENTITY_NULL;
+                _inspectorTitle.text = "Inspector";
+                _inspectorView.Clear();
+                _listView.ClearSelection();
+                return;
+            }
+            if (_lastEntityId == entityId && !_archetypeChanged)
             {
                 UpdateProxies(entityId);
                 return;
             }
-            lastEntityId = entityId;
-            inspectorView.Clear();
-            ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+            _lastEntityId = entityId;
+            _inspectorView.Clear();
+            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
 
             foreach (var typeIndex in arch.types)
             {
-                var boxedComponent = world.UnsafeWorldRef.GetUntypedPool(typeIndex).GetObject(entityId);
+                var boxedComponent = _world.UnsafeWorldRef.GetUntypedPool(typeIndex).GetObject(entityId);
                 if (boxedComponent == null)
                     continue;
-
+                if(TryDrawComponentArrayBox(boxedComponent))
+                    continue;
+                
                 var proxy = GetOrCreateProxy(typeIndex, boxedComponent);
                 var editor = GetOrCreateEditor(proxy, typeIndex);
 
@@ -399,21 +436,25 @@ namespace Wargon.Nukecs.Editor
                         borderBottomColor = new Color(0.25f, 0.25f, 0.25f),
                         borderLeftColor = new Color(0.25f, 0.25f, 0.25f),
                         borderRightColor = new Color(0.25f, 0.25f, 0.25f),
-                        backgroundColor = new Color(0.22f, 0.22f, 0.22f)
+                        backgroundColor = new Color(0.22f, 0.22f, 0.22f),
+                        borderTopLeftRadius = BORDER_RADIUS,
+                        borderTopRightRadius = BORDER_RADIUS,
+                        borderBottomLeftRadius = BORDER_RADIUS,
+                        borderBottomRightRadius = BORDER_RADIUS
                     }
                 };
-
+                var nm = boxedComponent.GetType().Name;
                 var foldout = new Foldout
                 {
-                    text = boxedComponent.GetType().Name,
-                    value = true,
+                    text = nm,
+                    value = GetFoldoutState(nm),
                     style =
                     {
                         unityFontStyleAndWeight = FontStyle.Bold,
                         fontSize = 12
                     }
                 };
-
+                foldout.RegisterValueChangedCallback(evt => _foldoutStates[nm] = evt.newValue);
                 var imgui = new IMGUIContainer(() =>
                 {
                     EditorGUI.BeginChangeCheck();
@@ -426,31 +467,145 @@ namespace Wargon.Nukecs.Editor
 
                 foldout.Add(imgui);
                 componentContainer.Add(foldout);
-                inspectorView.Add(componentContainer);
+                _inspectorView.Add(componentContainer);
             }
         }
 
-        private void UpdateProxies(int entityId)
+        private void UpdateProxies(int entityId, bool forceUpdate = false)
         {
-            ref var arch = ref world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
             
             foreach (var typeIndex in arch.types)
             {
-                ref var pool = ref world.UnsafeWorldRef.GetUntypedPool(typeIndex);
+                ref var pool = ref _world.UnsafeWorldRef.GetUntypedPool(typeIndex);
                 var boxedComponentFromWorld = pool.GetObject(entityId);
-                if (boxedComponentFromWorld != null && proxyCache.TryGetValue(typeIndex, out var proxy))
+                if (boxedComponentFromWorld != null && _proxyCache.TryGetValue(typeIndex, out var proxy))
                 {
-                    if (!EditorGUIUtility.editingTextField)
+                    if (!EditorGUIUtility.editingTextField && !forceUpdate)
                     {
                         proxy.boxedComponent = pool.GetObject(entityId);
                     }
 
                     proxy.typeIndex = typeIndex;
                     proxy.entity = entityId;
-                    proxy.world = world.UnsafeWorldRef.Id;
-                    editorCache[typeIndex].Repaint();
+                    proxy.world = _world.UnsafeWorldRef.Id;
+                    _editorCache[typeIndex].Repaint();
                 }
             }
+        }
+        internal void SelectEntityFromField(Entity entity)
+        {
+            if (!entity.IsValid()) return;
+            
+            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entity.id).ptr.Ref;
+            foreach (var typeIndex in arch.types)
+            {
+                ref var pool = ref _world.UnsafeWorldRef.GetUntypedPool(typeIndex);
+                var boxedComponent = pool.GetObject(entity.id);
+                if (boxedComponent == null) continue;
+
+                var proxy = GetOrCreateProxy(typeIndex, boxedComponent);
+
+                proxy.boxedComponent = boxedComponent;
+                proxy.entity = entity.id;
+                proxy.typeIndex = typeIndex;
+                proxy.world = _world.UnsafeWorldRef.Id;
+
+                var editor = GetOrCreateEditor(proxy, typeIndex);
+                editor.Repaint();
+            }
+
+            var sel = _items.FirstOrDefault(x => x.id == entity.id);
+            var idx = _items.IndexOf(sel);
+            if (idx >= 0)
+            {
+                _listView.SetSelection(idx);
+                _listView.ScrollToItem(idx);
+                _inspectorTitle.text = $"{sel.displayName}";
+            }
+
+            DrawEntityInspector(entity.id);
+        }
+        
+        private bool TryDrawComponentArrayBox(object boxedComponent)
+        {
+            var type = boxedComponent.GetType();
+            var typeData = type_db.get_type_data(type);
+            if (!typeData.is_generic || typeData.generic_type_definition != typeof(ComponentArray<>))
+                return false;
+
+            var elemType = typeData.generic_argument00;
+            var readAt = (Func<object, object[], object>)boxedComponent.GetMethodDelegate(type, nameof(ComponentArray<Child>.ReadAt), new []{typeof(int)}, elemType.val); // public ref T ElementAt(int index)
+            var length = (int)boxedComponent.GetPropertyValue(type, nameof(ComponentArray<Child>.Length));
+
+            var componentContainer = new VisualElement
+            {
+                style =
+                {
+                    marginBottom = 4,
+                    borderTopWidth = 1, borderBottomWidth = 1, borderLeftWidth = 1, borderRightWidth = 1,
+                    borderTopColor = new Color(0.25f, 0.25f, 0.25f),
+                    borderBottomColor = new Color(0.25f, 0.25f, 0.25f),
+                    borderLeftColor = new Color(0.25f, 0.25f, 0.25f),
+                    borderRightColor = new Color(0.25f, 0.25f, 0.25f),
+                    backgroundColor = new Color(0.22f, 0.22f, 0.22f),
+                    borderTopLeftRadius = BORDER_RADIUS,
+                    borderTopRightRadius = BORDER_RADIUS,
+                    borderBottomLeftRadius = BORDER_RADIUS,
+                    borderBottomRightRadius = BORDER_RADIUS
+                }
+            };
+            
+            var foldout = new Foldout
+            {
+                text = $"ComponentArray({elemType.name}) [{length}]",
+                value = true,
+                style = { unityFontStyleAndWeight = FontStyle.Bold, fontSize = 12 }
+            };
+            if (length > 0)
+            {
+                var container = new VisualElement
+                {
+                    style =
+                    {
+                        marginBottom = 4,
+                        borderTopWidth = 2,
+                        borderBottomWidth = 2,
+                        borderLeftWidth = 2,
+                        borderRightWidth = 2,
+                        borderTopColor = new Color(0.18f, 0.18f, 0.18f),
+                        borderBottomColor = new Color(0.18f, 0.18f, 0.18f),
+                        borderLeftColor = new Color(0.18f, 0.18f, 0.18f),
+                        borderRightColor = new Color(0.18f, 0.18f, 0.18f),
+                        backgroundColor = new Color(0.20f, 0.20f, 0.20f),
+                        borderTopLeftRadius = BORDER_RADIUS,
+                        borderTopRightRadius = BORDER_RADIUS,
+                        borderBottomLeftRadius = BORDER_RADIUS,
+                        borderBottomRightRadius = BORDER_RADIUS
+                    }
+                };
+                //draw readonly list of elements
+                var imgui = new IMGUIContainer(() =>
+                {
+                    // ElementAt via reflection returns ref, but we dont change it, so its ok.
+                    EditorGUI.indentLevel++;
+                    //using (new EditorGUI.DisabledScope(true))
+                    {
+                        for (var i = 0; i < length; i++)
+                        {
+                            var elem = readAt(boxedComponent, new object[] { i });
+                        
+                            ComponentDrawerProxyEditor.DrawField($"[{i}]", elemType, elem);
+                        }
+                    }
+                    EditorGUI.indentLevel--;
+                });
+                container.Add(imgui);
+                foldout.Add(container);
+            }
+            componentContainer.Add(foldout);
+            _inspectorView.Add(componentContainer);
+            return true;
         }
     }
 }

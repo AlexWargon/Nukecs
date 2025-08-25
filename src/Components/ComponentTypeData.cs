@@ -23,8 +23,8 @@ namespace Wargon.Nukecs {
         public bool isArray;
         
         public unsafe void* defaultValue;
-        internal IntPtr disposeFn;
-        internal IntPtr copyFn;
+        internal FunctionPointer<DisposeDelegate> disposeFn;
+        internal FunctionPointer<CopyDelegate> copyFn;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> elementTypes = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
 
         public static ref NativeHashMap<int, ComponentTypeData> ElementTypes
@@ -43,20 +43,20 @@ namespace Wargon.Nukecs {
         public Type ManagedType => ComponentTypeMap.GetType(index);
         public FunctionPointer<DisposeDelegate> DisposeFn()
         {
-            if (disposeFn == IntPtr.Zero)
+            if (disposeFn.Value == IntPtr.Zero)
             {
-                throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
+                throw new NullReferenceException($"disposeFn is null for type {ManagedType.Name}");
             }
-            return new FunctionPointer<DisposeDelegate>(disposeFn);
+            return disposeFn;
         }
         
         public FunctionPointer<CopyDelegate> CopyFn()
         {
-            if (copyFn == IntPtr.Zero)
+            if (copyFn.Value == IntPtr.Zero)
             {
                 throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
             }
-            return new FunctionPointer<CopyDelegate>(copyFn);
+            return copyFn;
         }
 
         internal static void Init()

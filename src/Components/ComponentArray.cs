@@ -57,7 +57,12 @@ namespace Wargon.Nukecs
                 throw new IndexOutOfRangeException();
             return ref buffer[index];
         }
-
+        public T ReadAt(int index)
+        {
+            if (index < 0 || index >= length)
+                throw new IndexOutOfRangeException();
+            return buffer is null ? default : buffer[index];
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item)
         {
