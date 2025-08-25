@@ -9,6 +9,7 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
+        private static World dummy;
         private static MemAllocator* allocator;
         private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
         private static byte lastFreeSlot;
@@ -21,7 +22,15 @@ namespace Wargon.Nukecs
             worlds.Data = new MemoryList<World>(4, ref *allocator, true);
             staticInited = true;
         }
-        public static ref World Get(int index) => ref worlds.Data.ElementAt(index);
+
+        public static ref World Get(int index)
+        {
+            if (allocator != null)
+            {
+                return ref worlds.Data.ElementAt(index);
+            }
+            return ref dummy;
+        }
 
         public static bool HasActiveWorlds()
         {

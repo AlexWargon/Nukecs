@@ -31,6 +31,11 @@ namespace Wargon.Nukecs
         {
             cached = allocator.BasePtr + offset.Offset;
         }
+
+        public override string ToString()
+        {
+            return new IntPtr(cached).ToString();
+        }
     }
     // ReSharper disable once InconsistentNaming
     [StructLayout(LayoutKind.Sequential)]
@@ -140,6 +145,11 @@ namespace Wargon.Nukecs
         public override bool Equals(object obj)
         {
             return base.Equals(obj);
+        }
+
+        public override string ToString()
+        {
+            return new IntPtr(cached).ToString();
         }
     }
 }

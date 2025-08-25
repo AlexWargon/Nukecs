@@ -1,8 +1,4 @@
-﻿
-
-using Wargon.Nukecs.Collections;
-
-namespace Wargon.Nukecs
+﻿namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -14,8 +10,16 @@ namespace Wargon.Nukecs
     using System.Linq;
     using System.Reflection;
     using Unity.Collections;
-    using Unity.Jobs.LowLevel.Unsafe;
+    using Collections;
     
+    public sealed class DrawAsAttribute : Attribute
+    {
+        public Type drawerType;
+        public DrawAsAttribute(Type drawerType)
+        {
+            this.drawerType = drawerType;
+        }
+    }
     public sealed class NoComponentException : Exception
     {
         public NoComponentException(string msg) : base(msg)

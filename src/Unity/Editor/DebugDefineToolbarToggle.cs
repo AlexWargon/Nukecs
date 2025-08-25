@@ -1,23 +1,16 @@
 #if UNITY_EDITOR
-
-
-using System;
-using System.Reflection;
-using UnityEditor;
-using UnityEditor.Build;
-using UnityEngine;
-using UnityEngine.UIElements;
-
 namespace Wargon.Nukecs.Editor
 {
     using UnityEditor;
     using UnityEngine;
     using System.Linq;
-
+    using UnityEditor.Build;
+    
     [InitializeOnLoad]
     public static class DebugDefineToolbarToggle
     {
         private const string DEBUG_SYMBOL = "NUKECS_DEBUG";
+        private const string MENU_PATH = "Nuke.cs/Debug Enabled";
         private static bool isDebugEnabled;
 
         static DebugDefineToolbarToggle()
@@ -25,7 +18,20 @@ namespace Wargon.Nukecs.Editor
             EditorApplication.update += Update;
             isDebugEnabled = HasDebugSymbol();
         }
-
+        [MenuItem(MENU_PATH)]
+        public static void EnableDebug()
+        {
+            isDebugEnabled = !isDebugEnabled;
+            SetDebugSymbol(isDebugEnabled);
+        }
+        
+        [MenuItem(MENU_PATH, true)]
+        private static bool ToggleFeatureValidate()
+        {
+            Menu.SetChecked(MENU_PATH, isDebugEnabled);
+            return true;
+        }
+        
         private static void Update()
         {
             SceneView.duringSceneGui -= OnGUI;

@@ -258,8 +258,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public void DisposeComponent(int index) {
-            var fn = new FunctionPointer<DisposeDelegate>(unsafeBufferPtr.Ptr->componentTypeData.disposeFn);
-            fn.Invoke(unsafeBufferPtr.Ptr->buffer, index);
+            unsafeBufferPtr.Ptr->componentTypeData.disposeFn.Invoke(unsafeBufferPtr.Ptr->buffer, index);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

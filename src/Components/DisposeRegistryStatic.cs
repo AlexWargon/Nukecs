@@ -15,7 +15,7 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.disposeFn = Marshal.GetFunctionPointerForDelegate(new DisposeDelegate(Dispose));
+            componentType.disposeFn = BurstCompiler.CompileFunctionPointer<DisposeDelegate>(Dispose);
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
@@ -35,7 +35,7 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.copyFn = Marshal.GetFunctionPointerForDelegate(new CopyDelegate(Copy));
+            componentType.copyFn = BurstCompiler.CompileFunctionPointer<CopyDelegate>(Copy);
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }

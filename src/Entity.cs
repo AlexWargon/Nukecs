@@ -160,7 +160,8 @@ namespace Wargon.Nukecs
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
-            entity.worldPointer->ECB.Add(entity.id, component);
+            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
+            entity.worldPointer->ECB.Add<T>(entity.id);
         }
 
 #if !NUKECS_DEBUG
