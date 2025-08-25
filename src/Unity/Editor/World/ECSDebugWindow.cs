@@ -436,7 +436,7 @@ namespace Wargon.Nukecs.Editor
                         borderBottomColor = new Color(0.25f, 0.25f, 0.25f),
                         borderLeftColor = new Color(0.25f, 0.25f, 0.25f),
                         borderRightColor = new Color(0.25f, 0.25f, 0.25f),
-                        backgroundColor = new Color(0.22f, 0.22f, 0.22f),
+                        backgroundColor = new Color(0.17f, 0.22f, 0.18f),
                         borderTopLeftRadius = BORDER_RADIUS,
                         borderTopRightRadius = BORDER_RADIUS,
                         borderBottomLeftRadius = BORDER_RADIUS,
@@ -464,7 +464,24 @@ namespace Wargon.Nukecs.Editor
                         //sync ecs
                     }
                 });
-
+                var btn = new Button(() =>
+                {
+                    _world.GetEntity(entityId).RemoveIndex(typeIndex);
+                    DrawEntityInspector(entityId);
+                })
+                {
+                    text = "  \u2715",
+                    style = {                         
+                        borderTopLeftRadius = BORDER_RADIUS,
+                        borderTopRightRadius = BORDER_RADIUS,
+                        borderBottomLeftRadius = BORDER_RADIUS,
+                        borderBottomRightRadius = BORDER_RADIUS 
+                    }
+                };
+                var header = foldout.Q<Toggle>();
+                header.style.flexDirection = FlexDirection.Row;
+                header.Q<Label>().style.flexGrow = 1;
+                header.Add(btn);
                 foldout.Add(imgui);
                 componentContainer.Add(foldout);
                 _inspectorView.Add(componentContainer);
