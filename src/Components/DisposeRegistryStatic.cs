@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs
+﻿using Unity.Collections.LowLevel.Unsafe;
+
+namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.InteropServices;
@@ -11,11 +13,10 @@
         public static void Dispose(byte* buffer, int index) {
             ((T*)buffer)[index].Dispose();
         }
-
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.disposeFn = BurstCompiler.CompileFunctionPointer<DisposeDelegate>(Dispose);
+            componentType.disposeFn = Marshal.GetFunctionPointerForDelegate(new DisposeDelegate(Dispose));
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
@@ -35,7 +36,7 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.copyFn = BurstCompiler.CompileFunctionPointer<CopyDelegate>(Copy);
+            componentType.copyFn = Marshal.GetFunctionPointerForDelegate(new CopyDelegate(Copy));
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }

@@ -228,7 +228,7 @@ namespace Wargon.Nukecs {
             UnsafeBuffer->count++;
         }
 
-        public object GetObject(int index)
+        public IComponent GetObject(int index)
         {
             return ComponentHelpers.Read(unsafeBufferPtr.Ptr->buffer, index, unsafeBufferPtr.Ptr->componentTypeData.size,
                 unsafeBufferPtr.Ptr->componentTypeData.index);
@@ -258,7 +258,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public void DisposeComponent(int index) {
-            unsafeBufferPtr.Ptr->componentTypeData.disposeFn.Invoke(unsafeBufferPtr.Ptr->buffer, index);
+            unsafeBufferPtr.Ptr->componentTypeData.DisposeFn().Invoke(unsafeBufferPtr.Ptr->buffer, index);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

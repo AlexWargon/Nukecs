@@ -360,7 +360,7 @@ namespace Wargon.Nukecs.Editor
             }
         }
 
-        private ComponentDrawerProxy GetOrCreateProxy(int typeIndex, object boxedComponent)
+        private ComponentDrawerProxy GetOrCreateProxy(int typeIndex, IComponent boxedComponent)
         {
             if (!_proxyCache.TryGetValue(typeIndex, out var proxy) || proxy == null)
             {
@@ -422,7 +422,7 @@ namespace Wargon.Nukecs.Editor
                 
                 var proxy = GetOrCreateProxy(typeIndex, boxedComponent);
                 var editor = GetOrCreateEditor(proxy, typeIndex);
-
+                
                 var componentContainer = new VisualElement
                 {
                     style =

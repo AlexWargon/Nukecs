@@ -275,7 +275,7 @@
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
 
-        internal static unsafe object Read(void* buffer, int index, int sizeInBytes, int type)
+        internal static unsafe IComponent Read(void* buffer, int index, int sizeInBytes, int type)
         {
             return readers[type].Read(buffer, index, sizeInBytes);
         }
@@ -293,14 +293,14 @@
 
     public unsafe interface IUnsafeBufferReader
     {
-        object Read(void* buffer, int index, int sizeInBytes);
+        IComponent Read(void* buffer, int index, int sizeInBytes);
     }
 
     public class UnsafeBufferReader<T> : IUnsafeBufferReader  where T: unmanaged
     {
-        public unsafe object Read(void* buffer, int index, int sizeInBytes)
+        public unsafe IComponent Read(void* buffer, int index, int sizeInBytes)
         {
-            return ((T*) buffer)[index];
+            return (IComponent)((T*) buffer)[index];
         }
     }
     

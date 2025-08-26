@@ -12,6 +12,7 @@ namespace Wargon.Nukecs.Collision2D
                 
             .Add<CollisionsClear>()
             .Add<AddCollision2DDataSystem>()
+            .Add<AddCollision2DDataRectSystem>()
             .Add<CollisionClearGridCellsSystem>()
             .Add<Collision2DPopulateRectsSystem>()
             .Add<Collision2DPopulateCirclesSystem>()

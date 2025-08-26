@@ -1,12 +1,12 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-
-namespace Wargon.Nukecs
+﻿namespace Wargon.Nukecs
 {
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    
     internal struct ComponentArray
     {
         internal const int DEFAULT_MAX_CAPACITY = 8;

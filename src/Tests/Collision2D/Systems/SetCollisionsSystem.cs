@@ -21,7 +21,20 @@ namespace Wargon.Nukecs.Collision2D {
             entity.AddArray<Collision2DData>();
         }
     }
-    
+    [BurstCompile]
+    public struct AddCollision2DDataRectSystem : IEntityJobSystem
+    {
+        public SystemMode Mode => SystemMode.Single;
+        public Query GetQuery(ref World world)
+        {
+            return world.Query().None<ComponentArray<Collision2DData>>().With<Rectangle2D>();
+        }
+
+        public void OnUpdate(ref Entity entity, ref State state)
+        {
+            entity.AddArray<Collision2DData>();
+        }
+    }
     public struct Collision2DData : IArrayComponent {
         public Entity Other;
         public float2 Position;

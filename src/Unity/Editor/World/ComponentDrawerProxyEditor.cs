@@ -11,7 +11,7 @@ namespace Wargon.Nukecs.Editor
 
     public class ComponentDrawerProxy : ScriptableObject
     {
-        public object boxedComponent;
+        public IComponent boxedComponent;
         public int typeIndex;
         public int entity;
         public byte world;
@@ -41,7 +41,7 @@ namespace Wargon.Nukecs.Editor
             fields = new FieldData[fieldInfos.Length];
             for (int i = 0; i < fieldInfos.Length; i++) {
                 var fi = fieldInfos[i];
-                var displayAs = fi.GetCustomAttributes(typeof(DrawAsAttribute), false).Length > 0;
+                var displayAs = fi.GetCustomAttributes(typeof(DrawAsAttribute), false).Length > 0; 
                 fields[i] = new FieldData {
                     name = fi.Name,
                     fieldType = fi.FieldType,
@@ -89,7 +89,6 @@ namespace Wargon.Nukecs.Editor
                 if (EditorGUI.EndChangeCheck())
                 {
                     field.fieldInfo.SetValue(proxy.boxedComponent, newValue);
-                    //setter(proxy.boxedComponent, newValue);
                     anyChanges = true;
                 }
             }
@@ -99,7 +98,7 @@ namespace Wargon.Nukecs.Editor
                 ref var pool = ref World.Get(proxy.world).UnsafeWorldRef
                     .GetUntypedPool(proxy.typeIndex);
 
-                pool.SetObject(proxy.entity, (IComponent)proxy.boxedComponent);
+                pool.SetObject(proxy.entity, proxy.boxedComponent);
             }
 
             _writeToWorld = true;
@@ -111,7 +110,7 @@ namespace Wargon.Nukecs.Editor
                 EditorGUILayout.LabelField(label, value.ToString());
                 return value;
             }
-            
+            //shiiiiiiiiiiiiiiit
             if (fieldType.index == type<bool>.index)
                 return EditorGUILayout.Toggle(label, (bool)value);
             if (fieldType.index == type<int>.index)
@@ -167,7 +166,6 @@ namespace Wargon.Nukecs.Editor
             if (fieldType.is_generic && fieldType.generic_type_definition == typeof(ObjectRef<>))
             {
                 var innerType = fieldType.generic_argument00;
-                //var getter = FastReflectionAccessor.GetPropertyGetter(fieldType.val, VALUE_FIELD);
                 var innerValue = value.GetPropertyValue(fieldType.val, VALUE_FIELD);
                 var newInnerValue = DrawField(label, innerType, innerValue);
                 if (!Equals(innerValue, newInnerValue))
@@ -178,7 +176,7 @@ namespace Wargon.Nukecs.Editor
             }
             
             if ((fieldType.is_value && !fieldType.is_primitive && !fieldType.is_enum) || 
-                (fieldType.is_class && fieldType.index != type<string>.index && !type<UnityEngine.Object>.is_assignable_from(fieldType)))
+                (fieldType.is_class && !type<UnityEngine.Object>.is_assignable_from(fieldType)))
             {
                 EditorGUILayout.LabelField($"{label} ({fieldType.name})");
                 EditorGUI.indentLevel++;
@@ -187,8 +185,7 @@ namespace Wargon.Nukecs.Editor
                 var fields = GetFieldData(fieldType.val);
                 foreach (var subField in fields)
                 {
-                    var getter = FastReflectionAccessor.GetGetter(fieldType.val, subField.name);
-                    var subValue = getter(value);
+                    var subValue = value.GetFieldValue(fieldType.val, subField.name);
                     var newSubValue = DrawField(subField.name, subField.typeData, subValue);
                     if (!Equals(subValue, newSubValue))
                         subField.fieldInfo.SetValue(value, newSubValue);
