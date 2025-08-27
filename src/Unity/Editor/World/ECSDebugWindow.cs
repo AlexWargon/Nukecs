@@ -478,6 +478,7 @@ namespace Wargon.Nukecs.Editor
                         borderBottomRightRadius = BORDER_RADIUS 
                     }
                 };
+                
                 var header = foldout.Q<Toggle>();
                 header.style.flexDirection = FlexDirection.Row;
                 header.Q<Label>().style.flexGrow = 1;

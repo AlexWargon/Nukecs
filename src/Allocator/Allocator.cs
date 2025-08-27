@@ -321,7 +321,8 @@ namespace Wargon.Nukecs
             }
             
             IsActive = false;
-            //dbug.log(nameof(MemAllocator) + " disposed");
+            
+            dbug.log(nameof(MemAllocator) + $" disposed bytes {totalSize}");
         }
 
         // Get total allocated memory size

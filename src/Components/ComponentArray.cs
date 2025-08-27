@@ -9,7 +9,7 @@
     
     internal struct ComponentArray
     {
-        internal const int DEFAULT_MAX_CAPACITY = 8;
+        internal const int DEFAULT_MAX_CAPACITY = 16;
     }
 
     public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>> 

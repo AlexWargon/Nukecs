@@ -27,10 +27,10 @@ namespace Wargon.Nukecs
         }
         private void DisposeAllocator()
         {
-            var allocator = AllocatorWrapper.ToAllocator;
+            //var allocator = AllocatorWrapper.ToAllocator;
             AllocatorWrapper.Dispose();
             allocatorHelper.Dispose();
-            dbug.log($"Allocator Disposed {(int)allocator}");
+            //dbug.log($"Allocator Disposed {(int)allocator}");
         }
         public UnityAllocatorHandler(long sizeInBytes)
         {

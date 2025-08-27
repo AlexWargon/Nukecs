@@ -173,10 +173,8 @@
         internal void Remove(int entity)
         {
             var index = entitiesMap[entity] - 1;
-            //dbug.log($"Removing entity {entity} from query {Id}, index = {index}, count = {count}");
             if (index < 0)
             {
-                //dbug.error($"Warning: Entity {entity} not found in query {Id}");
                 return;
             }
             entitiesMap[entity] = 0;
@@ -267,13 +265,7 @@
             get => ref pool->GetRef<TComponent>(index);
         }
     }
-    public readonly ref struct Read<TComponent> where TComponent : unmanaged, IComponent {
-        internal readonly TComponent Value;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Read(ref TComponent value){
-            this.Value = value;
-        }
-    }
+
     public readonly struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
         internal readonly int index;
         internal readonly GenericPool pool;
@@ -303,7 +295,7 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe static implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
+        public static unsafe implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
             var ref1 = new Ref<T1> {
                 pool = queryTuple.pool1.UnsafeBuffer,
                 index = queryTuple.entity

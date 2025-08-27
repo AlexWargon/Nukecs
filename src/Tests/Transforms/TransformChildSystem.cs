@@ -7,10 +7,11 @@ namespace Wargon.Nukecs.Transforms
     {
         public readonly SystemMode Mode => SystemMode.Parallel;
 
-        public Query GetQuery(ref World world)
-        {
-            return world.Query().With<ChildOf>().With<Transform>().With<LocalTransform>().None<OnAddChildWithTransformEvent>();
-        }
+        public Query GetQuery(ref World world) => world.Query()
+            .With<ChildOf>()
+            .With<Transform>()
+            .With<LocalTransform>()
+            .None<OnAddChildWithTransformEvent>();
 
         public void OnUpdate(ref Entity entity, ref State state)
         {
@@ -21,9 +22,7 @@ namespace Wargon.Nukecs.Transforms
                 ref state.World.GetPool<Transform>().GetRef<Transform>(cref.Value.Value.id);
 
             transform.Position = math.mul(parentTransform.Rotation, localTransform.Position * parentTransform.Scale) + parentTransform.Position;
-
             transform.Rotation = math.mul(parentTransform.Rotation, localTransform.Rotation);
-            
             transform.Scale = localTransform.Scale * parentTransform.Scale;
         }
     }
