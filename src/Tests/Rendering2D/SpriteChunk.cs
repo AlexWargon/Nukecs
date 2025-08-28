@@ -68,28 +68,9 @@ namespace Wargon.Nukecs.Tests
             indexToEntity[count] = entity.id;
             entityToIndex[entity.id] = count;
             Interlocked.Increment(ref count);
-            return index;
+            return index; 
         }
 
-        public unsafe int Add(in Entity entity, in Transform transform, in SpriteRenderData data) {
-            var index = count;
-            Interlocked.Increment(ref count);
-            if (entity.id >= entityToIndex.m_length) {
-                var newCapacity = entity.id * 2;
-                entityToIndex.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                entityToIndex.m_length = entityToIndex.m_capacity;
-                indexToEntity.Resize(newCapacity, NativeArrayOptions.ClearMemory);
-                indexToEntity.m_length = indexToEntity.m_capacity;
-                UnsafeHelp.Resize(capacity, newCapacity, ref transforms, Allocator.Persistent);
-                UnsafeHelp.Resize(capacity, newCapacity, ref renderDataChunk, Allocator.Persistent);
-                capacity = newCapacity;
-            }
-            indexToEntity[index] = entity.id;
-            entityToIndex[entity.id] = index;
-            transforms[index] = transform;
-            renderDataChunk[index] = data;
-            return index;
-        }
 
         public unsafe void AddToFill(in Entity entity, in Transform transform, in SpriteRenderData data) {
             var index = count;

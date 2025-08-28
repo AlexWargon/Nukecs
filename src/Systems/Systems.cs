@@ -665,14 +665,14 @@ namespace Wargon.Nukecs
     {
         private NativeList<JobHandle> list;
         private NativeArray<JobHandle> array;
-        private int lastDefault;
+        //private int lastDefault;
 
         public static SystemsDependencies Create()
         {
             var systemsDependencies = new SystemsDependencies
             {
                 list = new NativeList<JobHandle>(16, Allocator.Persistent),
-                lastDefault = 0
+                //lastDefault = 0
             };
             systemsDependencies.list.Add(new JobHandle());
             return systemsDependencies;

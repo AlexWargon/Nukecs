@@ -8,25 +8,25 @@ namespace Wargon.Nukecs.Tests
 {
     public unsafe struct SpriteArchetype : IDisposable {
         [NativeDisableUnsafePtrRestriction]
-        internal ptr<SpriteChunk> Chunk;
+        internal ptr<SpriteChunk> chunk;
         public int instanceID;
         public int shaderID;
         public int index;
-        internal Material Material;
-        internal Material ShadowMaterial;
-        internal Mesh Mesh;
-        private ComputeBuffer transformsBuffer;
-        private ComputeBuffer propertiesBuffer;
+        internal Material material;
+        internal Material shadowMaterial;
+        internal Mesh mesh;
+        private ComputeBuffer _transformsBuffer;
+        private ComputeBuffer _propertiesBuffer;
         private static readonly int matrices = Shader.PropertyToID("_Transforms");
         private static readonly int properties = Shader.PropertyToID("_Properties");
         public Camera camera;
-        public bool RenderShadow;
+        public bool renderShadow;
         public void AddInitial(ref Entity entity) {
-            Chunk.Ref.AddInitial(entity.id);
+            chunk.Ref.AddInitial(entity.id);
             entity.Add(new SpriteChunkReference {
-                chunk = Chunk,
+                chunk = chunk,
                 achetypeIndex = index
-            });
+            }); 
         }
         // public void Add(ref Entity entity, ref SpriteChunkReference spriteChunkReference) {
         //     Chunk.Ref.Add(in entity);
@@ -37,42 +37,42 @@ namespace Wargon.Nukecs.Tests
         // }
         
         public void Clear() {
-            Chunk.Ref.Clear();
+            chunk.Ref.Clear();
         }
         public void OnUpdate() {
-            var count = Chunk.Ref.count;
+            var count = chunk.Ref.count;
 
             if(count == 0) return;
             
             var dataArray = RenderDataArray(count);
             var matrixArray = MatrixArray(count);
             
-            if (transformsBuffer == null || transformsBuffer.count != count)
+            if (_transformsBuffer == null || _transformsBuffer.count != count)
             {
-                transformsBuffer?.Release();
-                transformsBuffer = new ComputeBuffer(count, UnsafeUtility.SizeOf<Transform>());
+                _transformsBuffer?.Release();
+                _transformsBuffer = new ComputeBuffer(count, UnsafeUtility.SizeOf<Transform>());
             }
             
-            if (propertiesBuffer == null || propertiesBuffer.count != count)
+            if (_propertiesBuffer == null || _propertiesBuffer.count != count)
             {
-                propertiesBuffer?.Release();
-                propertiesBuffer = new ComputeBuffer(count, UnsafeUtility.SizeOf<SpriteRenderData>());
+                _propertiesBuffer?.Release();
+                _propertiesBuffer = new ComputeBuffer(count, UnsafeUtility.SizeOf<SpriteRenderData>());
             }
             var bounds = new Bounds(Vector3.zero, Vector3.one * 1000);
             
-            transformsBuffer.SetData(matrixArray);
-            propertiesBuffer.SetData(dataArray);
+            _transformsBuffer.SetData(matrixArray);
+            _propertiesBuffer.SetData(dataArray);
             
-            Material.SetBuffer(matrices, transformsBuffer);
-            Material.SetBuffer(properties, propertiesBuffer);
-            if (RenderShadow)
+            material.SetBuffer(matrices, _transformsBuffer);
+            material.SetBuffer(properties, _propertiesBuffer);
+            if (renderShadow)
             {
-                ShadowMaterial.SetBuffer(matrices, transformsBuffer);
-                ShadowMaterial.SetBuffer(properties, propertiesBuffer);
-                Graphics.DrawMeshInstancedProcedural(Mesh, 0, ShadowMaterial, bounds, count);
+                shadowMaterial.SetBuffer(matrices, _transformsBuffer);
+                shadowMaterial.SetBuffer(properties, _propertiesBuffer);
+                Graphics.DrawMeshInstancedProcedural(mesh, 0, shadowMaterial, bounds, count);
             }
             
-            Graphics.DrawMeshInstancedProcedural(Mesh, 0, Material, bounds, count);
+            Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, count);
 
             matrixArray.Dispose();
             dataArray.Dispose();
@@ -81,7 +81,7 @@ namespace Wargon.Nukecs.Tests
         private NativeArray<SpriteRenderData> RenderDataArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<SpriteRenderData>(
-                Chunk.Ref.renderDataChunk, 
+                chunk.Ref.renderDataChunk, 
                 count, 
                 Allocator.None
             );
@@ -94,7 +94,7 @@ namespace Wargon.Nukecs.Tests
         private NativeArray<Transform> MatrixArray(int count) 
         {
             var array = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<Transform>(
-                Chunk.Ref.transforms, 
+                chunk.Ref.transforms, 
                 count, 
                 Allocator.None
             );
@@ -106,14 +106,14 @@ namespace Wargon.Nukecs.Tests
 
         public void Dispose() {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var dataArray = RenderDataArray(Chunk.Ref.count);
+            var dataArray = RenderDataArray(chunk.Ref.count);
             if (dataArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(dataArray));
             }
 
             dataArray.Dispose();
-            var matrixArray = MatrixArray(Chunk.Ref.count);
+            var matrixArray = MatrixArray(chunk.Ref.count);
             if (matrixArray.IsCreated)
             {
                 AtomicSafetyHandle.Release(NativeArrayUnsafeUtility.GetAtomicSafetyHandle(matrixArray));
@@ -121,9 +121,10 @@ namespace Wargon.Nukecs.Tests
 
             matrixArray.Dispose();
 #endif
-            SpriteChunk.Destroy(ref Chunk);
-            transformsBuffer?.Release();
-            propertiesBuffer?.Release();
+            SpriteChunk.Destroy(ref chunk);
+            _transformsBuffer?.Release();
+            _propertiesBuffer?.Release();
+            dbug.log("Sprite archetype disposed", Color.green);
         }
     }
 }

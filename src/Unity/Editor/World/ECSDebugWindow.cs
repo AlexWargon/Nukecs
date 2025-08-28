@@ -1,4 +1,5 @@
-﻿#if UNITY_EDITOR && NUKECS_DEBUG
+﻿#pragma warning disable CS0618 // Type or member is obsolete
+#if UNITY_EDITOR && NUKECS_DEBUG
 namespace Wargon.Nukecs.Editor
 {
     using System;

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
-using Unity.Collections;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
+using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs
 {
@@ -114,6 +114,7 @@ namespace Wargon.Nukecs
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
             staticInited = false;
+            SingletonRegistry.ResetAll();
             dbug.log(nameof(DisposeStatic), Color.green);
         }
     }

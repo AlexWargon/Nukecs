@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Burst;
 using Unity.Collections;
 
 namespace Wargon.Nukecs.Tests {
@@ -47,12 +48,13 @@ namespace Wargon.Nukecs.Tests {
         }
 
         public void Dispose() {
-            return;
+ //           return;
             
-            foreach (var kvPair in groups) {
-                kvPair.Value.Dispose();
-            }
-            groups.Dispose();
+            // foreach (var kvPair in groups) {
+            //     kvPair.Value.Dispose();
+            // }
+            // groups.Dispose();
+            
         }
 
         public void Init()

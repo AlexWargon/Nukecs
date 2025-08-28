@@ -47,9 +47,9 @@ namespace Wargon.Nukecs {
     public static class UnsafeHelp {
         public static Unity.Collections.LowLevel.Unsafe.UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
             NativeArrayOptions options) where T : unmanaged {
-            return new Unity.Collections.LowLevel.Unsafe.UnsafeList<T>(size, allocator, options) {
-                m_length = size
-            };
+            var list = new UnsafeList<T>(size, allocator, options);
+            list.Length = size;
+            return list;
         }
 
         public static unsafe Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
@@ -63,7 +63,7 @@ namespace Wargon.Nukecs {
             NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
         {
             list.Resize(size, options);
-            list.m_length = size;
+            list.Length = size;
             return ref list;
         }
 

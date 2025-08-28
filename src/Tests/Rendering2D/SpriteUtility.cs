@@ -41,11 +41,11 @@ namespace Wargon.Nukecs.Tests {
         public static float4 GetTextureST(UnityEngine.Sprite sprite)
         {
             return CalculateSpriteTiling(sprite);
-            
-            var ratio = new Vector2(1f / sprite.texture.width, 1f / sprite.texture.height);
-            var size = Vector2.Scale(sprite.textureRect.size, ratio);
-            var offset = Vector2.Scale(sprite.textureRect.position, ratio);
-            return new float4(offset.x, offset.y, size.x, size.y);
+            //
+            // var ratio = new Vector2(1f / sprite.texture.width, 1f / sprite.texture.height);
+            // var size = Vector2.Scale(sprite.textureRect.size, ratio);
+            // var offset = Vector2.Scale(sprite.textureRect.position, ratio);
+            // return new float4(offset.x, offset.y, size.x, size.y);
         }
     }
 }

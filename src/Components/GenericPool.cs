@@ -7,6 +7,7 @@ using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
 using static Wargon.Nukecs.UnsafeStatic;
+#pragma warning disable CS0162 // Unreachable code detected
 namespace Wargon.Nukecs {
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct GenericPool {

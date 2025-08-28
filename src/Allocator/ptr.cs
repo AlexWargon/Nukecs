@@ -1,10 +1,10 @@
-﻿using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Unity.Collections.LowLevel.Unsafe;
-
-namespace Wargon.Nukecs
+﻿namespace Wargon.Nukecs
 {
+    using System;
+    using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
+    using Unity.Collections.LowLevel.Unsafe;
+    
     [StructLayout(LayoutKind.Sequential)]
     // ReSharper disable once InconsistentNaming
     public unsafe struct ptr

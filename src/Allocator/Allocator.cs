@@ -1,13 +1,10 @@
-using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Wargon.Nukecs.Collections;
-
-
 namespace Wargon.Nukecs
 {
+    using System;
+    using System.Runtime.InteropServices;
+    using Unity.Collections;
+    using Unity.Collections.LowLevel.Unsafe;
+    
     public struct AllocatorError
     {
         public const int NO_ERRORS = 0;
@@ -140,7 +137,7 @@ namespace Wargon.Nukecs
                     block.Size = (int)sizeInBytes;
                     block.IsUsed = true;
                     spinner.Release();
-                    return new ptr_offset( 0, (uint)block.Pointer);
+                    return new ptr_offset(0, (uint)block.Pointer);
                 }
             }
             spinner.Release();

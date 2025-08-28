@@ -56,15 +56,15 @@ namespace Wargon.Nukecs
             public static void Execute(ref JobSystemWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 fullData.JobData.OnUpdate(ref fullData.State);
-                return;
-                while (true) {
-                    if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
-                        return;
-
-                    for (var i = begin; i < end; i++) {
-                        fullData.JobData.OnUpdate(ref fullData.State);
-                    }
-                }
+                // return;
+                // while (true) {
+                //     if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
+                //         return;
+                //
+                //     for (var i = begin; i < end; i++) {
+                //         fullData.JobData.OnUpdate(ref fullData.State);
+                //     }
+                // }
             }
         }
 
@@ -93,10 +93,10 @@ namespace Wargon.Nukecs
             switch (mode) {
                 case SystemMode.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
-                    throw new Exception($"{typeof(IJobSystem)} is not support Parallel for now. Use single");
-                    return state.Dependencies;
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, 1, 1);
+                // case SystemMode.Parallel:
+                //     throw new Exception($"{typeof(IJobSystem)} is not support Parallel for now. Use single");
+                //     return state.Dependencies;
+                //     return JobsUtility.ScheduleParallelFor(ref scheduleParams, 1, 1);
             }
             return state.Dependencies;
         }

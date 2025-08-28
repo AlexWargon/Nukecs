@@ -41,15 +41,15 @@
                 mainTexture = atlas
             };
             var arch = new SpriteArchetype {
-                Material = material,
-                Mesh = CreateQuadMesh(),
+                material = material,
+                mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
+                chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
                 camera = Camera.main,
                 index = count,
-                RenderShadow = renderShadows,
-                ShadowMaterial = renderShadows ? new Material(Shader.Find(ShaderNames.ShadowShader))
+                renderShadow = renderShadows,
+                shadowMaterial = renderShadows ? new Material(Shader.Find(ShaderNames.ShadowShader))
                 {
                     mainTexture = atlas
                 } : null
@@ -73,11 +73,11 @@
                 mainTexture = atlas
             };
             var arch = new SpriteArchetype {
-                Material = material,
-                Mesh = CreateQuadMesh(),
+                material = material,
+                mesh = CreateQuadMesh(),
                 instanceID = instanceID,
                 shaderID = shaderID,
-                Chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
+                chunk = SpriteChunk.Create(world.Config.StartEntitiesAmount, ref world.AllocatorHandler.AllocatorWrapper),
                 camera = Camera.main,
                 index = count
             };
@@ -204,7 +204,7 @@
     //     }
     // }
 
-    public struct CullingData : IInit {
+    public struct CullingData : IInit , IDisposable{
         public static ref CullingData instance => ref Singleton<CullingData>.Instance;
         public float2 CameraPositions;
         public float Width;
@@ -222,6 +222,11 @@
             yMax = CameraPositions.y + Height / 2;
             xMin = CameraPositions.x - Width / 2;
             yMin = CameraPositions.y - Height / 2;
+        }
+
+        public void Dispose()
+        {
+            
         }
     }
 
