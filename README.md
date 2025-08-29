@@ -17,19 +17,19 @@ Create class inherited from ```WordInstaller``` and drop it on scene
 ```cs
     public class TestRunner : WorldInstaller
     {
-	// if you wnat use other world config
-	protected override WorldConfig GetConfig() => new WorldConfig()
+		// if you wnat use other world config
+		protected override WorldConfig GetConfig() => new WorldConfig()
         {
             StartPoolSize = 100000, //start pool capacity
             StartEntitiesAmount = 100000 //start entities capacity
         };
 	
-	// use Udpate for exectuing all systems
+		// use Udpate for exectuing all systems
         private void Update()
         {
             Systems.OnUpdate(Time.deltaTime, Time.time);
         }
-	// add systems here
+		// add systems here
         protected override void OnWorldCreated(ref World world)
         {
             Systems
@@ -59,8 +59,8 @@ Create class inherited from ```WordInstaller``` and drop it on scene
                 collideWith = CollisionLayer.Enemy | CollisionLayer.Player
             });
         }
-	//if you need to clear some data with world
-	protected override void OnDestroy()
+		//if you need to clear some data with world
+		protected override void OnDestroy()
         {
             base.OnDestroy(); world will be disposed here
         }
@@ -79,15 +79,15 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     // System.IDisposable used to clear component data to avoid leak or something like that
     public struct MyDisposableComponent : IComponent, System.IDisposable
     {
-	//unmanaged data
+		//unmanaged data
         public float MyValue;
-	//unmanaged collections and etc
+		//unmanaged collections and etc
         public NativeArray<int> MyNativeArray;
-	//managed classes and etc
+		//managed classes and etc
         public ObjectRef<List<int>> MyManagedList;
-	//unity object reference
+		//unity object reference
         public UnityObjectRef<Transform> MyUnityTransform;
-	//Dispose will be called when this component is removed from the entity or Entity.Destroy is called
+		//Dispose will be called when this component is removed from the entity or Entity.Destroy is called
         public void Dispose()
         {
             MyNativeArray.Dispose();
