@@ -29,6 +29,7 @@ namespace Wargon.Nukecs
         public void Initialize(long capacity)
         {
             Allocator = new MemAllocator(capacity);
+            
         }
 
         public void Dispose()

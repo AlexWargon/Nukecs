@@ -29,7 +29,7 @@
         // {
         //     return archetypes[archetypeIndex].Chunk;
         // }
-        public unsafe ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world, bool renderShadows = false) {
+        public ref SpriteArchetype Add(Texture2D atlas, Shader shader, ref World world, bool renderShadows = false) {
             Resize();
             var shaderID = shader.GetInstanceID();
             var instanceID = atlas.GetInstanceID();
@@ -37,6 +37,7 @@
             if (h.has) {
                 return ref archetypes[h.index];
             };
+            dbug.log("NOT HAS CREATE NEW", Color.red);
             var material = new Material(shader) {
                 mainTexture = atlas
             };
@@ -104,7 +105,10 @@
         public void Dispose() {
             for (var i = 0; i < count; i++) {
                 archetypes[i].Dispose();
+                archetypes[i] = default;
             }
+
+            count = 0;
         }
         
         private static Mesh CreateQuadMesh()

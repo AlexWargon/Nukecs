@@ -106,6 +106,7 @@ namespace Wargon.Nukecs
 
         public static void DisposeStatic()
         {
+            if(!staticInited) return;
             MemAllocator.Destroy(allocator);
             ComponentTypeMap.Dispose();
             StaticObjectRefStorage.Clear();
@@ -115,6 +116,7 @@ namespace Wargon.Nukecs
             OnWorldCreatingEvent = null;
             staticInited = false;
             SingletonRegistry.ResetAll();
+            EntityPrefabMap.Dispose();
             dbug.log(nameof(DisposeStatic), Color.green);
         }
     }

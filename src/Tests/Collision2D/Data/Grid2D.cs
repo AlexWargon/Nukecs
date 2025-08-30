@@ -113,12 +113,14 @@ namespace Wargon.Nukecs.Collision2D
             distance = math.distance(circle2.position, circle1.position);
             return circle1.radius + circle2.radius > distance;
         }
-
-        public void Clear() {
+        public void Clear()
+        {
+            if(Instance == null) return;
             cells.Dispose();
             Hits.Dispose();
             collisionStates.Dispose();
             ProcessedCollisions.Dispose();
+            Instance = null;
         }
     }
     public static class Debug2D {

@@ -16,8 +16,8 @@ namespace Wargon.Nukecs.Tests
         internal volatile int count;
         internal int capacity;
         internal int lastRemoved;
-
-        public static unsafe ptr<SpriteChunk> Create(int size, ref UnityAllocatorWrapper allocator) {
+        public static unsafe ptr<SpriteChunk> Create(int size, ref UnityAllocatorWrapper allocator)
+        {
             var ptr = allocator.Allocator.AllocatePtr<SpriteChunk>();
             ptr.Ref = new SpriteChunk {
                 renderDataChunk = Unsafe.MallocTracked<SpriteRenderData>(size, Allocator.Persistent),
@@ -107,7 +107,7 @@ namespace Wargon.Nukecs.Tests
             transforms[index] = transform;
         }
 
-        public unsafe void Clear() {
+        public void Clear() {
             indexToEntity.Clear();
             indexToEntity.m_length = indexToEntity.m_capacity;
             entityToIndex.Clear();

@@ -12,6 +12,12 @@ namespace Wargon.Nukecs
         public const int ERROR_ALLOCATOR_MAX_BLOCKS_REACHED = -2;
         public const int ERROR_ALLOCATOR_OUT_OF_MEMORY = -3;
     }
+
+    public class Memory
+    {
+        public const int MEGABYTE = 1024 * 1024;
+        public const int KILOBYTE = 1024;
+    }
     [StructLayout(LayoutKind.Sequential)]
     public unsafe partial struct MemAllocator : IDisposable
     {

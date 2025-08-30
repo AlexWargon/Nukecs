@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using System.Collections;
+
+namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using System.Text;
@@ -87,6 +89,14 @@
 
         public QueryEnumerator GetEnumerator() {
             return new QueryEnumerator(InternalPointer);
+        }
+
+        public QueryIterator<T1, T2, T3> Iter<T1, T2, T3>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+        {
+            return new QueryIterator<T1, T2, T3>(0, Count, InternalPointer->world);
         }
     }
 
@@ -266,6 +276,15 @@
         }
     }
 
+    public unsafe ref struct Rf<TComponent> where TComponent : unmanaged, IComponent {
+        internal int index;
+        internal readonly GenericPool.GenericPoolUnsafe* pool;
+        public ref TComponent Value {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref pool->GetRef<TComponent>(index);
+        }
+    }
+    
     public readonly struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
         internal readonly int index;
         internal readonly GenericPool pool;
@@ -308,4 +327,58 @@
         }
     }
 
+    public unsafe ref struct QueryIterator<T1, T2, T3> 
+        where T1 : unmanaged, IComponent
+        where T2 : unmanaged, IComponent
+        where T3 : unmanaged, IComponent
+    {
+        private int _start;
+        private int _end;
+        private World.WorldUnsafe* wrld;
+        
+        
+        internal QueryIterator(int start, int end, World.WorldUnsafe* world) {
+            _start = start;
+            _end = end;
+            wrld = world;
+        }
+
+        public IterEnumerator GetEnumerator()
+        {
+            return new IterEnumerator(0, _end, wrld);
+        }
+
+        public ref struct IterEnumerator
+        {
+            private int _lastIndex;
+            private int _end;
+            private Ref<T1> c1;
+            private Ref<T2> c2;
+            private Ref<T3> c3;
+        
+            public IterEnumerator(int start, int end, World.WorldUnsafe* world) {
+                _lastIndex = start - 1;
+                _end = end;
+                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBuffer;
+                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBuffer;
+                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBuffer;
+            }
+            public bool MoveNext() {
+                _lastIndex++;
+                c1.index = _lastIndex;
+                c2.index = _lastIndex;
+                c3.index = _lastIndex;
+                return _end > _lastIndex;
+            }
+
+            public void Reset() {
+                _lastIndex = -1;
+            }
+
+            public (Ref<T1>, Ref<T2>, Ref<T3>) Current {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => (c1, c2, c3);
+            }
+        }
+    }
 }

@@ -686,8 +686,8 @@ namespace Wargon.Nukecs
 
         public void Dispose()
         {
-            list.Dispose();
-            array.Dispose();
+            if (list.IsCreated) list.Dispose();
+            if (array.IsCreated) array.Dispose();
         }
 
         public int GetIndex<T>()

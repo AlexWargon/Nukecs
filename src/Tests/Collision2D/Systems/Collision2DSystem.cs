@@ -13,7 +13,7 @@ namespace Wargon.Nukecs.Collision2D
         private NativeList<int> _notEmptyCellsIndexes;
         public void OnDestroy(ref World world)
         {
-            _notEmptyCellsIndexes.Dispose();
+            if(_notEmptyCellsIndexes.IsCreated) _notEmptyCellsIndexes.Dispose();
         }
         public void OnCreate(ref World world)
         {
