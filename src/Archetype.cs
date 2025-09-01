@@ -375,6 +375,15 @@ namespace Wargon.Nukecs
             transactions.TryAdd(component, ptr);
         }
 
+        internal System.Collections.Generic.List<IComponent> GetAllComponents(int entity, System.Collections.Generic.List<IComponent> buffer)
+        {
+            foreach (var type in types)
+            {
+                buffer.Add(world->GetUntypedPool(type).GetObject(entity));
+            }
+
+            return buffer;
+        }
         [BurstDiscard]
         public override string ToString()
         {

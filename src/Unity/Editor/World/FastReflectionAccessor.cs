@@ -61,17 +61,13 @@ namespace Wargon.Nukecs.Editor
         {
             var key = GetKey(type, fieldName);
             if (setters.TryGetValue(key, out var setter)) return setter;
-
             var instanceParam = Expression.Parameter(typeof(object), "instance");
             var valueParam = Expression.Parameter(typeof(object), "value");
-
             var castInstance = Expression.Convert(instanceParam, type);
             var field = Expression.Field(castInstance, fieldName);
             var castValue = Expression.Convert(valueParam, field.Type);
-
             var assign = Expression.Assign(field, castValue);
             var lambda = Expression.Lambda<Action<object, object>>(assign, instanceParam, valueParam);
-
             setter = lambda.Compile();
 
             setters[key] = setter;
@@ -106,6 +102,32 @@ namespace Wargon.Nukecs.Editor
 
             var lambda = Expression.Lambda<Func<object, object[], object>>(
                 body, instanceParameter, parametersParameter
+            );
+            del = lambda.Compile();
+            methods[key] = del;
+            return del;
+        }
+        public static Delegate GetMethodSingleParam<TParam>(Type targetType, string methodName, Type returnType)
+        {
+            var key = (targetType.FullName, methodName);
+            if (methods.TryGetValue(key, out var del)) return del;
+            var paramType = typeof(TParam);
+            var method = targetType.GetMethod(methodName, new []{paramType});
+            if (method == null)
+                throw new MissingMethodException(targetType.Name, methodName);
+            var paramName = method.GetParameters()[0].Name;
+            var instanceParameter = Expression.Parameter(typeof(object), "instance");
+            var param = Expression.Parameter(paramType, paramName);
+
+            var instanceCast = Expression.Convert(instanceParameter, targetType);
+            var call = Expression.Call(instanceCast, method, param);
+
+            var body = returnType == typeof(void)
+                ? (Expression)call
+                : Expression.Convert(call, typeof(object));
+
+            var lambda = Expression.Lambda<Func<object, TParam, object>>(
+                body, instanceParameter, param
             );
             del = lambda.Compile();
             methods[key] = del;
@@ -154,6 +176,10 @@ namespace Wargon.Nukecs.Editor
         public static Delegate GetMethodDelegate(this object obj, Type objType, string methodName, Type[] parameterTypes, Type returnType)
         {
             return FastReflectionAccessor.GetMethod(objType, methodName, parameterTypes, returnType);
+        }
+        public static Delegate GetMethodDelegate<TParam>(this object obj, Type objType, string methodName, Type returnType)
+        {
+            return FastReflectionAccessor.GetMethodSingleParam<TParam>(objType, methodName, returnType);
         }
     }
 

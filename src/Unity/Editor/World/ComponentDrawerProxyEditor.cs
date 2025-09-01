@@ -1,5 +1,4 @@
-﻿using System.Linq.Expressions;
-using UnityEngine.UIElements;
+﻿using UnityEngine.UIElements;
 
 #if UNITY_EDITOR && NUKECS_DEBUG
 
@@ -19,6 +18,8 @@ namespace Wargon.Nukecs.Editor
         public int entity;
         public byte world;
     }
+
+
     [CustomEditor(typeof(ComponentDrawerProxy))]
     public class ComponentDrawerProxyEditor : Editor
     {
@@ -160,6 +161,7 @@ namespace Wargon.Nukecs.Editor
                 if (GUILayout.Button(content, ObjectFieldStyle))
                 {
                     _writeToWorld = false;
+                    ECSDebugWindowUI.CanWriteToWorld = false;
                     ECSDebugWindowUI.Instance.SelectEntityFromField(e);
                 }
                 EditorGUILayout.EndHorizontal();
@@ -198,44 +200,6 @@ namespace Wargon.Nukecs.Editor
             }
             EditorGUILayout.LabelField($"{label} ({fieldType.name}) — unsupported");
             return value;
-        }
-    }
-    public delegate void DrawComponentDelegate(object component, VisualElement container);
-    public static class ComponentDrawerCache
-    {
-        private static readonly Dictionary<Type, DrawComponentDelegate> _drawers = new();
-
-        public static DrawComponentDelegate GetDrawer(Type type)
-        {
-            if (_drawers.TryGetValue(type, out var d)) return d;
-
-            var componentParam = Expression.Parameter(typeof(object), "comp");
-            var containerParam = Expression.Parameter(typeof(VisualElement), "container");
-            var castComp = Expression.Convert(componentParam, type);
-
-            var body = new List<Expression>();
-
-            foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
-            {
-                // container.Add(new Label($"{field.Name}: {value}"));
-                var getField = Expression.Field(castComp, field);
-                var toString = Expression.Call(getField, "ToString", null);
-
-                var text = Expression.Call(
-                    typeof(string).GetMethod("Concat", new[] { typeof(string), typeof(string) }),
-                    Expression.Constant(field.Name + ": "),
-                    toString
-                );
-
-                var newLabel = Expression.New(typeof(Label).GetConstructor(new[] { typeof(string) }), text);
-                var addMethod = typeof(VisualElement).GetMethod("Add");
-                body.Add(Expression.Call(containerParam, addMethod, newLabel));
-            }
-
-            var block = Expression.Block(body);
-            var lambda = Expression.Lambda<DrawComponentDelegate>(block, componentParam, containerParam).Compile();
-            _drawers[type] = lambda;
-            return lambda;
         }
     }
 }

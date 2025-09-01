@@ -12,6 +12,7 @@ namespace Wargon.Nukecs.Editor
     
     public unsafe class ECSDebugWindowUI : EditorWindow
     {
+        public static bool CanWriteToWorld = true;
         private const int BORDER_RADIUS = 6;
         private static ECSDebugWindowUI _instance;
 
@@ -37,16 +38,16 @@ namespace Wargon.Nukecs.Editor
 
         private readonly List<DebugListItem> _items = new();
         private readonly Dictionary<int, string> _queryNames = new();
-        private readonly Dictionary<int, ComponentDrawerProxy> _proxyCache = new();
-        private readonly Dictionary<int, UnityEditor.Editor> _editorCache = new();
-        private static readonly Dictionary<string, bool> _foldoutStates = new();
-        private static bool GetFoldoutState(string key)
+        // private readonly Dictionary<int, ComponentDrawerProxy> _proxyCache = new();
+        // private readonly Dictionary<int, UnityEditor.Editor> _editorCache = new();
+        private readonly Dictionary<string, bool> foldoutStates = new();
+        private bool GetFoldoutState(string key)
         {
-            if (_foldoutStates.TryGetValue(key, out var state))
+            if (foldoutStates.TryGetValue(key, out var state))
             {
                 return state;
             }
-            _foldoutStates[key] = true;
+            foldoutStates[key] = true;
             return true;
         }
         private int? _lastEntityId;
@@ -195,7 +196,7 @@ namespace Wargon.Nukecs.Editor
                     else
                     {
                         UpdateProxies(_selectedEntityId.Value);
-                        _inspectorView.MarkDirtyRepaint();
+                        //_inspectorView.MarkDirtyRepaint();
                     }
 
                 }
@@ -346,7 +347,7 @@ namespace Wargon.Nukecs.Editor
                 case DebugListItem.ItemType.Entity:
                     _selectedEntityId = sel.id;
                     DrawEntityInspector(sel.id);
-                    UpdateProxies(sel.id);
+                    //UpdateProxies(sel.id);
                     break;
 
                 case DebugListItem.ItemType.Archetype:
@@ -361,28 +362,28 @@ namespace Wargon.Nukecs.Editor
             }
         }
 
-        private ComponentDrawerProxy GetOrCreateProxy(int typeIndex, IComponent boxedComponent)
-        {
-            if (!_proxyCache.TryGetValue(typeIndex, out var proxy) || proxy == null)
-            {
-                proxy = CreateInstance<ComponentDrawerProxy>();
-                proxy.hideFlags = HideFlags.HideAndDontSave;
-                _proxyCache[typeIndex] = proxy;
-            }
-
-            proxy.boxedComponent = boxedComponent;
-            return proxy;
-        }
+        // private ComponentDrawerProxy GetOrCreateProxy(int typeIndex, IComponent boxedComponent)
+        // {
+        //     if (!_proxyCache.TryGetValue(typeIndex, out var proxy) || proxy == null)
+        //     {
+        //         proxy = CreateInstance<ComponentDrawerProxy>();
+        //         proxy.hideFlags = HideFlags.HideAndDontSave;
+        //         _proxyCache[typeIndex] = proxy;
+        //     }
+        //
+        //     proxy.boxedComponent = boxedComponent;
+        //     return proxy;
+        // }
         
-        private Editor GetOrCreateEditor(ComponentDrawerProxy proxy, int typeIndex)
-        {
-            if (!_editorCache.TryGetValue(typeIndex, out var editor) || editor == null)
-            {
-                editor = Editor.CreateEditor(proxy);
-                _editorCache[typeIndex] = editor;
-            }
-            return editor;
-        }
+        // private Editor GetOrCreateEditor(ComponentDrawerProxy proxy, int typeIndex)
+        // {
+        //     if (!_editorCache.TryGetValue(typeIndex, out var editor) || editor == null)
+        //     {
+        //         editor = Editor.CreateEditor(proxy);
+        //         _editorCache[typeIndex] = editor;
+        //     }
+        //     return editor;
+        // }
 
         private bool NeedRepaintEntityInspector()
         {
@@ -395,6 +396,8 @@ namespace Wargon.Nukecs.Editor
         private void DrawEntityInspector(int entityId)
         {
             var realE = _world.GetEntity(entityId);
+            
+            
             if (realE == Entity.Null)
             {
                 _selectedEntityId = null;
@@ -404,12 +407,18 @@ namespace Wargon.Nukecs.Editor
                 _listView.ClearSelection();
                 return;
             }
+            
+            
             if (_lastEntityId == entityId && !_archetypeChanged)
             {
                 UpdateProxies(entityId);
                 return;
             }
+            
+            
             _lastEntityId = entityId;
+            //dbug.log("redraw all inspector", Color.red);
+            
             _inspectorView.Clear();
             ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
 
@@ -418,12 +427,10 @@ namespace Wargon.Nukecs.Editor
                 var boxedComponent = _world.UnsafeWorldRef.GetUntypedPool(typeIndex).GetObject(entityId);
                 if (boxedComponent == null)
                     continue;
+                
                 if(TryDrawComponentArrayBox(boxedComponent))
                     continue;
-                
-                var proxy = GetOrCreateProxy(typeIndex, boxedComponent);
-                var editor = GetOrCreateEditor(proxy, typeIndex);
-                
+
                 var componentContainer = new VisualElement
                 {
                     style =
@@ -444,7 +451,9 @@ namespace Wargon.Nukecs.Editor
                         borderBottomRightRadius = BORDER_RADIUS
                     }
                 };
+                
                 var nm = boxedComponent.GetType().Name;
+                
                 var foldout = new Foldout
                 {
                     text = nm,
@@ -455,16 +464,13 @@ namespace Wargon.Nukecs.Editor
                         fontSize = 12
                     }
                 };
-                foldout.RegisterValueChangedCallback(evt => _foldoutStates[nm] = evt.newValue);
-                var imgui = new IMGUIContainer(() =>
-                {
-                    EditorGUI.BeginChangeCheck();
-                    editor.OnInspectorGUI();
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        //sync ecs
-                    }
-                });
+                
+                foldout.RegisterValueChangedCallback(evt => foldoutStates[nm] = evt.newValue);
+                
+                var proxy = GetOrCreateProxy(typeIndex);
+                proxy.entity = entityId;
+                proxy.boxedComponent = boxedComponent;
+                
                 var btn = new Button(() =>
                 {
                     _world.GetEntity(entityId).RemoveIndex(typeIndex);
@@ -483,8 +489,9 @@ namespace Wargon.Nukecs.Editor
                 var header = foldout.Q<Toggle>();
                 header.style.flexDirection = FlexDirection.Row;
                 header.Q<Label>().style.flexGrow = 1;
+                
                 header.Add(btn);
-                foldout.Add(imgui);
+                foldout.Add(proxy.imgui);
                 componentContainer.Add(foldout);
                 _inspectorView.Add(componentContainer);
             }
@@ -498,7 +505,7 @@ namespace Wargon.Nukecs.Editor
             {
                 ref var pool = ref _world.UnsafeWorldRef.GetUntypedPool(typeIndex);
                 var boxedComponentFromWorld = pool.GetObject(entityId);
-                if (boxedComponentFromWorld != null && _proxyCache.TryGetValue(typeIndex, out var proxy))
+                if (boxedComponentFromWorld != null && _componentProxies.TryGetValue(typeIndex, out var proxy))
                 {
                     if (!EditorGUIUtility.editingTextField && !forceUpdate)
                     {
@@ -507,10 +514,10 @@ namespace Wargon.Nukecs.Editor
 
                     proxy.typeIndex = typeIndex;
                     proxy.entity = entityId;
-                    proxy.world = _world.UnsafeWorldRef.Id;
-                    _editorCache[typeIndex].Repaint();
+                    proxy.imgui.MarkDirtyRepaint();
                 }
             }
+            
         }
         internal void SelectEntityFromField(Entity entity)
         {
@@ -523,15 +530,11 @@ namespace Wargon.Nukecs.Editor
                 var boxedComponent = pool.GetObject(entity.id);
                 if (boxedComponent == null) continue;
 
-                var proxy = GetOrCreateProxy(typeIndex, boxedComponent);
+                var proxy = GetOrCreateProxy(typeIndex);
 
                 proxy.boxedComponent = boxedComponent;
                 proxy.entity = entity.id;
                 proxy.typeIndex = typeIndex;
-                proxy.world = _world.UnsafeWorldRef.Id;
-
-                var editor = GetOrCreateEditor(proxy, typeIndex);
-                editor.Repaint();
             }
 
             var sel = _items.FirstOrDefault(x => x.id == entity.id);
@@ -554,7 +557,7 @@ namespace Wargon.Nukecs.Editor
                 return false;
 
             var elemType = typeData.generic_argument00;
-            var readAt = (Func<object, object[], object>)boxedComponent.GetMethodDelegate(type, nameof(ComponentArray<Child>.ReadAt), new []{typeof(int)}, elemType.val); // public ref T ElementAt(int index)
+            var readAt = (Func<object, int, object>)boxedComponent.GetMethodDelegate<int>(type, nameof(ComponentArray<Child>.ReadAt), elemType.val); // public ref T ElementAt(int index)
             var length = (int)boxedComponent.GetPropertyValue(type, nameof(ComponentArray<Child>.Length));
 
             var componentContainer = new VisualElement
@@ -603,17 +606,17 @@ namespace Wargon.Nukecs.Editor
                         borderBottomRightRadius = BORDER_RADIUS
                     }
                 };
+
                 //draw readonly list of elements
                 var imgui = new IMGUIContainer(() =>
                 {
                     // ElementAt via reflection returns ref, but we dont change it, so its ok.
                     EditorGUI.indentLevel++;
-                    //using (new EditorGUI.DisabledScope(true))
+                    using (new EditorGUI.DisabledScope(true))
                     {
                         for (var i = 0; i < length; i++)
                         {
-                            var elem = readAt(boxedComponent, new object[] { i });
-                        
+                            var elem = readAt(boxedComponent, i);
                             ComponentDrawerProxyEditor.DrawField($"[{i}]", elemType, elem);
                         }
                     }
@@ -626,6 +629,52 @@ namespace Wargon.Nukecs.Editor
             _inspectorView.Add(componentContainer);
             return true;
         }
+
+        private Dictionary<int, ComponentProxy> _componentProxies = new();
+
+        private ComponentProxy GetOrCreateProxy(int typeIndex)
+        {
+            if (_componentProxies.TryGetValue(typeIndex, out var proxy))
+                return proxy;
+
+            var type = ComponentTypeMap.GetType(typeIndex);
+            var drawer = ComponentDrawerGenerator.GetDrawer(type);
+            proxy = new ComponentProxy
+            {
+                drawer = drawer,
+                typeIndex = typeIndex,
+                entity = ENTITY_NULL
+            };
+            proxy.imgui = new IMGUIContainer(() => ComponentInspector(proxy));
+
+            _componentProxies[typeIndex] = proxy;
+            return proxy;
+        }
+
+        private void ComponentInspector(ComponentProxy proxy)
+        {
+            if (proxy.boxedComponent != null)
+            {
+                EditorGUI.BeginChangeCheck();
+                proxy.boxedComponent = (IComponent)proxy.drawer.Invoke(proxy.boxedComponent);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    if (proxy.entity != ENTITY_NULL && CanWriteToWorld)
+                    {
+                        _world.UnsafeWorldPtr.Ref.GetUntypedPool(proxy.typeIndex).SetObject(proxy.entity, proxy.boxedComponent);
+                    }
+                }
+            }
+            ECSDebugWindowUI.CanWriteToWorld = true;
+        }
+    }
+    public class ComponentProxy
+    {
+        public IComponent boxedComponent;
+        public IMGUIContainer imgui;
+        public Func<object, object> drawer;
+        public int typeIndex;
+        public int entity;
     }
 }
 #endif
