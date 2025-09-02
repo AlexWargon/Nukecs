@@ -44,12 +44,12 @@ namespace Wargon.Nukecs
             
             internal WorldConfig config;
             internal const int FIRST_ENTITY_ID = 1;
-            internal byte Id;
+            public byte Id;
 #if NUKECS_DEBUG
             internal AliveEntitiesSet entitiesDens;
 #endif
             internal MemoryList<Entity> entities;
-            internal MemoryList<Entity> prefabsToSpawn;
+            public MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
             internal Archetype rootArchetype;
             internal MemoryList<Archetype> entitiesArchetypes;
@@ -143,7 +143,7 @@ namespace Wargon.Nukecs
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Entity CreateEntity() {
+            public Entity CreateEntity() {
                 if (lastEntityIndex >= entities.Capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);

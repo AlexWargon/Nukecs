@@ -11,18 +11,6 @@ namespace Wargon.Nukecs.Tests {
         public static void Add(int id, Entity entity) {
             if (Map.ContainsKey(id)) return;
             Map[id] = entity;
-            // if (Map.TryAdd(id, entity))
-            // {
-            //     entity.Add(new IsPrefab());
-            //     ref var children = ref entity.TryGet<ComponentArray<Child>>(out var exist);
-            //     if (exist)
-            //     {
-            //         foreach (ref var child in children)
-            //         {
-            //             child.Value.Add(new IsPrefab());
-            //         }
-            //     }
-            // }
         }
 
         public static Entity Spawn(int id) {

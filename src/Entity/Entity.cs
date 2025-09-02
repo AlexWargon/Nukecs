@@ -218,7 +218,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        internal static void AddObject(this in Entity entity, IComponent component)
+        public static void AddObject(this in Entity entity, IComponent component)
         {
             var componentIndex = ComponentTypeMap.Index(component.GetType());
             entity.worldPointer->GetUntypedPool(componentIndex).AddObject(entity.id, component);
@@ -226,7 +226,7 @@ namespace Wargon.Nukecs
             ecb.Add(entity.id, componentIndex);
         }
 
-        internal static void SetObject(this in Entity entity, IComponent component)
+        public static void SetObject(this in Entity entity, IComponent component)
         {
             var componentIndex = ComponentTypeMap.Index(component.GetType());
             entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);

@@ -12,11 +12,11 @@ namespace Wargon.Nukecs.Collections
     public unsafe struct MemoryList<T> where T : unmanaged 
     {
         public bool IsCreated => Ptr != null;
-        internal ptr_offset PtrOffset;
+        public ptr_offset PtrOffset;
         internal int capacity;
         internal int length;
         [NativeDisableUnsafePtrRestriction]
-        internal T* Ptr;
+        public T* Ptr;
         public MemoryList(int capacity, ref MemAllocator allocator, bool lenAsCapacity = false)
         {
             PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity);
@@ -50,9 +50,9 @@ namespace Wargon.Nukecs.Collections
             return ptr;
         }
         
-        internal int Capacity => capacity;
+        public int Capacity => capacity;
 
-        internal int Length
+        public int Length
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => length;

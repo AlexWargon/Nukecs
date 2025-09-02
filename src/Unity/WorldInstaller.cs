@@ -29,7 +29,7 @@ namespace Wargon.Nukecs
                 ref var archetype = ref world.UnsafeWorld->archetypesList[i];
                 archetype.Ptr->Refresh();
             }
-            ConvertEntities();
+            //ConvertEntities();
             CreateEntities(ref world);
             world.Update();
             WorldId = world.UnsafeWorld->Id;
@@ -45,15 +45,15 @@ namespace Wargon.Nukecs
         {
             
         }
-        protected virtual void ConvertEntities()
-        {
-            var children = transform.GetComponentsInChildren<EntityLink>();
-            for (int i = 0; i < transform.childCount; i++)
-            {
-                var e = world.Entity();
-                children[i].Convert(ref world, ref e);
-            }
-        }
+        // protected virtual void ConvertEntities()
+        // {
+        //     var children = transform.GetComponentsInChildren<EntityLink>();
+        //     for (int i = 0; i < transform.childCount; i++)
+        //     {
+        //         var e = world.Entity();
+        //         children[i].Convert(ref world, ref e);
+        //     }
+        // }
 
         protected virtual void OnDestroy()
         {
