@@ -6,7 +6,7 @@
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    
+    using static UnsafeStatic;
     internal struct ComponentArray
     {
         internal const int DEFAULT_MAX_CAPACITY = 16;

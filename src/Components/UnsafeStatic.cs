@@ -1,5 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
+// ReSharper disable InconsistentNaming
+// ReSharper disable UnusedMember.Global
 
 namespace Wargon.Nukecs
 {
@@ -42,9 +44,21 @@ namespace Wargon.Nukecs
         }
         
         [MethodImpl(inline.YES)] 
-        public static unsafe void memmove(void* dest, void* src, long length)
+        public static unsafe void mem_move(void* dest, void* src, long length)
         {
             UnsafeUtility.MemMove(dest, src, length);
+        }
+        
+        [MethodImpl(inline.YES)] 
+        public static unsafe T* cast<T>(void* ptr) where T : unmanaged
+        {
+            return (T*)ptr;
+        }
+        
+        [MethodImpl(inline.YES)] 
+        public static TTo cast<TFrom, TTo>(ref TFrom u) where TTo : struct where TFrom : struct
+        {
+            return UnsafeUtility.As<TFrom, TTo>(ref u);
         }
     }
     public static class inline

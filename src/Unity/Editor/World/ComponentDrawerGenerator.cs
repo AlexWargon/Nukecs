@@ -12,7 +12,6 @@ namespace Wargon.Nukecs.Editor
 {
     public static class ComponentDrawerGenerator
     {
-        // Кэш скомпилированных делегатов на тип
         private static readonly Dictionary<Type, Func<object, object>> cache = new();
 
         public static Func<object, object> GetDrawer(Type componentType)
@@ -41,6 +40,7 @@ namespace Wargon.Nukecs.Editor
             var body = Expression.Block(new[] { typedVar }, bodyExpressions.Concat(new[] { ret }));
 
             var lambda = Expression.Lambda<Func<object, object>>(body, objParam);
+            Debug.Log(lambda.Body.ToString());
             return lambda.Compile();
         }
 
@@ -81,6 +81,56 @@ namespace Wargon.Nukecs.Editor
                 var call = Expression.Call(mi!, label, asEnum, emptyOpts);
                 var castBack = Expression.Convert(call, ft);
                 return Expression.Assign(fieldExpr, castBack);
+            }
+            // ObjectRef<T>
+            if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(ObjectRef<>))
+            {
+                var valueProp = ft.GetProperty("Value");
+                if (valueProp == null || !valueProp.CanRead || !valueProp.CanWrite)
+                    return null;
+
+                var valueExpr = Expression.Property(fieldExpr, valueProp);
+                var genericArg = ft.GetGenericArguments()[0];
+                var labelExpr = Expression.Constant(field.Name);
+
+                // EditorGUILayout.ObjectField(label, obj, type, allowSceneObjects, options)
+                var method = typeof(EditorGUILayout).GetMethod(
+                    nameof(EditorGUILayout.ObjectField),
+                    new[] { typeof(string), typeof(UnityEngine.Object), typeof(Type), typeof(bool), typeof(GUILayoutOption[]) }
+                );
+
+                if (typeof(UnityEngine.Object).IsAssignableFrom(genericArg))
+                {
+                    // EditorGUILayout.ObjectField(label, value, typeof(T), true, null)
+                    var call = Expression.Call(
+                        method!,
+                        labelExpr,
+                        Expression.Convert(valueExpr, typeof(UnityEngine.Object)),
+                        Expression.Constant(genericArg, typeof(Type)),
+                        Expression.Constant(true, typeof(bool)),
+                        Expression.Constant(null, typeof(GUILayoutOption[]))
+                    );
+
+                    return Expression.Assign(valueExpr, Expression.Convert(call, genericArg));
+                }
+                else
+                {
+                    var toStringMethod = typeof(object).GetMethod(nameof(ToString));
+                    var valueToString = Expression.Call(valueExpr, toStringMethod!);
+
+                    var labelM = typeof(EditorGUILayout).GetMethod(
+                        nameof(EditorGUILayout.LabelField),
+                        new[] { typeof(string), typeof(string), typeof(GUILayoutOption[]) }
+                    );
+
+                    var call = Expression.Call(
+                        labelM!,
+                        labelExpr,
+                        valueToString,
+                        Expression.Constant(null, typeof(GUILayoutOption[]))
+                    );
+                    return call;
+                }
             }
 
             // -------- UnityEngine.Object refs --------
@@ -225,15 +275,17 @@ namespace Wargon.Nukecs.Editor
             );
         }
     }
-    
+
     public static class CustomDrawers
     {
         private static GUIStyle _goStyle;
+
         private static GUIStyle ObjectFieldStyle =>
             _goStyle ??= new GUIStyle(GUI.skin.GetStyle("ObjectField"))
             {
                 fixedHeight = EditorGUIUtility.singleLineHeight
             };
+
         public static float2 DrawFloat2(string label, float2 value)
         {
             return EditorGUILayout.Vector2Field(label, value);
@@ -264,8 +316,44 @@ namespace Wargon.Nukecs.Editor
                 ECSDebugWindowUI.CanWriteToWorld = false;
                 ECSDebugWindowUI.Instance.SelectEntityFromField(value);
             }
+
             EditorGUILayout.EndHorizontal();
             return value;
+        }
+
+
+
+        
+    }
+
+    public class Expressions
+    {
+        private static readonly MethodInfo objectFieldMethod = typeof(EditorGUILayout).GetMethod(
+            nameof(EditorGUILayout.ObjectField),
+            new[] { typeof(string), typeof(UnityEngine.Object), typeof(Type), typeof(bool)}
+        );
+        public static Expression GetObjectCall(FieldInfo field, Expression fieldExpr)
+        {
+            EditorGUILayout.ObjectField("", null, typeof(Transform), true);
+            var fieldType = field.FieldType;
+            var valueField = fieldType.GetProperty("Value");
+            var valueExpr = Expression.Property(fieldExpr, valueField!);
+            var objType = fieldType.GetGenericArguments()[0];
+            var objTypeConst = Expression.Constant(objType, typeof(Type));
+            var labelExpr = Expression.Constant(field.Name);
+            var allowSceneObj = Expression.Constant(true, typeof(bool));
+
+            // EditorGUILayout.ObjectField(label, value, objType, true)
+            var call = Expression.Call(
+                objectFieldMethod,
+                labelExpr,
+                Expression.Convert(valueExpr, typeof(UnityEngine.Object)),
+                objTypeConst,
+                allowSceneObj
+            );
+
+            var assignValue = Expression.Assign(valueExpr, Expression.Convert(call, objType));
+            return assignValue;
         }
     }
 }

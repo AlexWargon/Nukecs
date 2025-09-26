@@ -145,7 +145,6 @@
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, int thread) where T : unmanaged {
-                //dbug.log($"Adding component {entity} to thread {thread}");
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
@@ -211,7 +210,9 @@
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetViewPosition(int entity, float3 pos, int thread) {
                 var cmd = new ECBCommand
-                    {Entity = entity, EcbCommandType = ECBCommand.Type.ChangeTransformRefPosition, Position = pos};
+                {
+                    Entity = entity, EcbCommandType = ECBCommand.Type.ChangeTransformRefPosition, Position = pos
+                };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
                 count++;
@@ -274,10 +275,10 @@
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Dispose() {
                 for (var i = 0; i < perThreadBuffer->Length; i++) {
-                    Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>.Destroy(perThreadBuffer->ElementAt(i));
+                    UnsafeList<ECBCommand>.Destroy(perThreadBuffer->ElementAt(i));
                 }
 
-                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>.Destroy(perThreadBuffer);
+                UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadBuffer);
                 //UnsafeList<ECBCommand>.Destroy(internalBuffer);
                 isCreated = 0;
             }
@@ -311,23 +312,27 @@
         public void Add<T>(int entity) where T : unmanaged {
             ecb->Add<T>(entity, JobsUtility.ThreadIndex);
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(int entity, int component) {
             ecb->Add(entity, JobsUtility.ThreadIndex, component);
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove<T>(int entity) where T : unmanaged {
             ecb->Remove<T>(entity, JobsUtility.ThreadIndex);
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Remove(int entity, int component)
-        {
+        public void Remove(int entity, int component) {
             ecb->Remove(entity, component, JobsUtility.ThreadIndex);
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAndDispose<T>(int entity) where T : unmanaged {
             ecb->RemoveAndDispose<T>(entity, JobsUtility.ThreadIndex);
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnableGameObject(int entity, bool value) {
             ecb->EnableGameObject(entity, value, ThreadIndex);
@@ -346,6 +351,7 @@
         public void Copy(int from, int to) {
             ecb->Copy(from, to, ThreadIndex);
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void PlayParticleReference(int entity, bool value) {
             ecb->PlayParticleReference(entity, value, ThreadIndex);
@@ -500,17 +506,20 @@
                 buffer->Clear();
             }
         }
-        internal void Playback(World.WorldUnsafe* world) {
-
-            for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
+        internal void Playback(World.WorldUnsafe* world) 
+        {
+            for (var i = 0; i < ecb->perThreadBuffer->Length; i++) 
+            {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
                 if (buffer->IsEmpty) continue;
 
-                for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
+                for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) 
+                {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
 
                     ref var archetype = ref *world->entitiesArchetypes.ElementAt(cmd.Entity).impl;
-                    switch (cmd.EcbCommandType) {
+                    switch (cmd.EcbCommandType) 
+                    {
                         case ECBCommand.Type.AddComponent:
                             if (archetype.Has(cmd.ComponentType))
                             {
@@ -545,7 +554,7 @@
                             archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                             break;
                         case ECBCommand.Type.RemoveComponent:
-                            if(archetype.Has(cmd.ComponentType) == false) break;
+                            if(!archetype.Has(cmd.ComponentType)) break;
                             world->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
                             archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
                             break;
@@ -569,7 +578,8 @@
                 buffer->Clear();
             }
         }
-        public void Dispose() {
+        public void Dispose() 
+        {
             ecb->Dispose();
             UnsafeUtility.Free(ecb, allocator);
         }

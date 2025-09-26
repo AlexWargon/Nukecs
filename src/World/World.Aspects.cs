@@ -21,6 +21,7 @@ namespace Wargon.Nukecs
                     aspect = ptr.Ptr;
                     aspects.aspects.Ptr[index] = ptr.UntypedPointer;
                 }
+                
                 return aspect;
             }
         }

@@ -84,7 +84,7 @@ namespace Wargon.Nukecs
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.UnsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
+            world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
             worlds.Data[id] = world;
 
             return world;
@@ -98,7 +98,7 @@ namespace Wargon.Nukecs
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
-            world.UnsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
+            world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
             Debug.Log($"Created World {id}");
             return world;

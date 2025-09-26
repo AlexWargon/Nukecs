@@ -85,7 +85,7 @@ namespace Wargon.Nukecs
         }
         private void Resize(int newCapacity)
         {
-            Entity* newDense = (Entity*)UnsafeUtility.Malloc(newCapacity * sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), Allocator.Persistent);
+            var newDense = (Entity*)UnsafeUtility.Malloc(newCapacity * sizeof(Entity), UnsafeUtility.AlignOf<Entity>(), Allocator.Persistent);
             UnsafeUtility.MemCpy(newDense, _dense, _count * sizeof(Entity));
             UnsafeUtility.Free(_dense, Allocator.Persistent);
             _dense = newDense;

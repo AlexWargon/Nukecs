@@ -86,7 +86,7 @@ namespace Wargon.Nukecs {
         public override string ToString() {
             return InternalPointer->ToString();
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryEnumerator GetEnumerator() {
             return new QueryEnumerator(InternalPointer);
         }
@@ -100,8 +100,8 @@ namespace Wargon.Nukecs {
         }
     }
 
-
-    internal unsafe struct QueryUnsafe {
+    
+    public unsafe struct QueryUnsafe {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
         internal MemoryList<int> entities;

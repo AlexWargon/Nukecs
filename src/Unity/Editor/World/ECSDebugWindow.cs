@@ -661,7 +661,7 @@ namespace Wargon.Nukecs.Editor
                 {
                     if (proxy.entity != ENTITY_NULL && CanWriteToWorld)
                     {
-                        _world.UnsafeWorldPtr.Ref.GetUntypedPool(proxy.typeIndex).SetObject(proxy.entity, proxy.boxedComponent);
+                        _world.unsafeWorldPtr.Ref.GetUntypedPool(proxy.typeIndex).SetObject(proxy.entity, proxy.boxedComponent);
                     }
                 }
             }
