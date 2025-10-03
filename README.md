@@ -163,8 +163,8 @@ System for main thread. Can be struct or class
         public void OnCreate(ref World world)
         {
             query = world.Query(withDefaultNoneTypes : false)	// by default Query() use some default types for excluding from filtring,
-		.With<DestroyEntity>()  			// but can this can be turned of just setting parametr to false
-		.With<TransformRef>();
+			.With<DestroyEntity>()  			// but can this can be turned of just setting parametr to false
+			.With<TransformRef>();
         }
 
         public void OnUpdate(ref State state)
