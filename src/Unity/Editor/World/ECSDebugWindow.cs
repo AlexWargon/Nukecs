@@ -25,6 +25,8 @@ namespace Wargon.Nukecs.Editor
                 return _instance;
             }
         }
+
+        private byte worldId = 0;
         private World _world;
 
         private ToolbarSearchField _searchField;
@@ -74,12 +76,13 @@ namespace Wargon.Nukecs.Editor
             public readonly ItemType type;
             public readonly int id;
             public readonly string displayName;
-
-            public DebugListItem(ItemType type, int id, string displayName)
+            public bool isPrefab;
+            public DebugListItem(ItemType type, int id, string displayName, bool isPrefab = false)
             {
                 this.type = type;
                 this.id = id;
                 this.displayName = displayName;
+                this.isPrefab = isPrefab;
             }
 
             public override string ToString() => displayName;
@@ -87,8 +90,7 @@ namespace Wargon.Nukecs.Editor
 
         public void CreateGUI()
         {
-            _world = World.Get(0);
-            if(!_world.IsAlive) return;
+            _world = World.Get(worldId);
             
             var root = rootVisualElement;
             root.style.flexDirection = FlexDirection.Row;
@@ -164,6 +166,7 @@ namespace Wargon.Nukecs.Editor
 
             root.schedule.Execute(() =>
             {
+                _world = World.Get(worldId);
                 if (!_world.IsAlive || !EditorApplication.isPlaying)
                     return;
 
@@ -179,6 +182,7 @@ namespace Wargon.Nukecs.Editor
 
             root.schedule.Execute(() =>
             {
+                _world = World.Get(worldId);
                 if (!_world.IsAlive || !EditorApplication.isPlaying)
                 {
                     RefreshList();
@@ -235,6 +239,9 @@ namespace Wargon.Nukecs.Editor
             var (icon, label) = ((Image, Label))element.userData;
             var item = _items[index];
             label.text = item.displayName;
+            if(item.isPrefab)
+                label.style.color = new Color(0f, 0.56f, 0.78f);
+            
             icon.image = GetIconForTab(item.type switch
             {
                 DebugListItem.ItemType.Entity => Tab.Entities,
@@ -298,7 +305,8 @@ namespace Wargon.Nukecs.Editor
                             displayName = $"(e:{e.id})";
                         }
                         if (!string.IsNullOrEmpty(search) && !displayName.ToLower().Contains(search)) continue;
-                        _items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, displayName));
+                        _items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, displayName, e.Has<IsPrefab>()));
+                            
                     }
                     break;
 
