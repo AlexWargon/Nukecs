@@ -66,6 +66,17 @@ Create class inherited from ```WordInstaller``` and drop it on scene
         }
     }
 ```
+### Entity:
+```cs
+	var e = world.Entity(); // create new entity. not available in job systems for now
+	e.Add(new Health(100)); // add component. available in job systems
+	e.Has<Health>(); // check for component presence. return true or false. available in job systems
+	e.Remove<Health>(); // remove component. available in job systems
+	e.IsValide(); // e != null check. return true or false. available in job systems
+	e.Destroy(); // kill entity on start of next loop
+```
+
+
 ### Components:
     Components are just unmanaged structs with IComponent interface
 ```cs
