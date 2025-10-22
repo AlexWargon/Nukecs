@@ -269,10 +269,11 @@ namespace Wargon.Nukecs {
 
     public unsafe struct Ref<TComponent> where TComponent : unmanaged, IComponent {
         internal int index;
-        internal GenericPool.GenericPoolUnsafe* pool;
-        public ref TComponent Value {
+        internal Chunk* pool;
+        public ref TComponent Value
+        {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref pool->GetRef<TComponent>(index);
+            get => ref Chunk.GetRef<TComponent>(pool, index);
         }
     }
 
@@ -285,17 +286,17 @@ namespace Wargon.Nukecs {
         }
     }
     
-    public readonly struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
+    public readonly unsafe struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
         internal readonly int index;
-        internal readonly GenericPool pool;
+        internal readonly Chunk* pool;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadRef(int index, ref GenericPool pool){
             this.index = index;
-            this.pool = pool;
+            this.pool = pool.unsafeBufferPtr.Ref.chunks.Ptr;
         }
         public unsafe ref readonly TComponent Value {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref ((TComponent*) pool.UnsafeBuffer->buffer)[index];
+            get => ref Chunk.GetRef<TComponent>(pool, index);
         }
     }
     
@@ -316,11 +317,11 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
             var ref1 = new Ref<T1> {
-                pool = queryTuple.pool1.UnsafeBuffer,
+                pool = queryTuple.pool1.UnsafeBuffer->chunks.Ptr,
                 index = queryTuple.entity
             };
             var ref2 = new Ref<T2> {
-                pool = queryTuple.pool2.UnsafeBuffer,
+                pool = queryTuple.pool2.UnsafeBuffer->chunks.Ptr,
                 index = queryTuple.entity
             };
             return (ref1, ref2);
@@ -359,9 +360,9 @@ namespace Wargon.Nukecs {
             public IterEnumerator(int start, int end, World.WorldUnsafe* world) {
                 _lastIndex = start - 1;
                 _end = end;
-                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBuffer;
-                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBuffer;
-                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBuffer;
+                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBuffer->chunks.Ptr;
+                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBuffer->chunks.Ptr;
+                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBuffer->chunks.Ptr;
             }
             public bool MoveNext() {
                 _lastIndex++;

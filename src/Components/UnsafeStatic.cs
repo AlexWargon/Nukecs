@@ -7,17 +7,30 @@ namespace Wargon.Nukecs
 {
     public static class UnsafeStatic
     {
+
         [MethodImpl(inline.YES)]
-        public static unsafe void write_element<T>(void* ptr, int index, T value) where T : unmanaged
+        public static unsafe void write_element<T>(void* ptr, int index, in T value) where T : unmanaged
         {
             *((T*)ptr + index) = value;
         }
         
         [MethodImpl(inline.YES)]
-        public static unsafe ref T get_element<T>(void* ptr, int index) where T : unmanaged
+        public static unsafe ref T get_ref_element<T>(void* ptr, int index) where T : unmanaged
         {
             return ref *((T*)ptr + index);
         }
+        
+        [MethodImpl(inline.YES)]
+        public static unsafe ref T get_ref_element<T>(byte* ptr, int index) where T : unmanaged
+        {
+            return ref *((T*)ptr + index);
+        }
+        
+        [MethodImpl(inline.YES)]
+        public static unsafe T get_element<T>(byte* ptr, int index) where T : unmanaged
+        {
+            return *((T*)ptr + index);
+        } 
         
         [MethodImpl(inline.YES)]
         public static unsafe ref T get_ref<T>(void* ptr) where T : unmanaged
@@ -48,7 +61,11 @@ namespace Wargon.Nukecs
         {
             UnsafeUtility.MemMove(dest, src, length);
         }
-        
+        [MethodImpl(inline.YES)] 
+        public static unsafe void mem_clear(void* dest, long size)
+        {
+            UnsafeUtility.MemClear(dest, size);
+        }
         [MethodImpl(inline.YES)] 
         public static unsafe T* cast<T>(void* ptr) where T : unmanaged
         {

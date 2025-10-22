@@ -1,4 +1,5 @@
 ﻿#if UNITY_EDITOR
+using System;
 using System.Linq;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
@@ -31,6 +32,11 @@ namespace Wargon.Nukecs
 
             DrawVisualizationArea(visualizationArea);
             DrawDetailsArea(detailsArea);
+        }
+
+        protected void Update()
+        {
+            Repaint();
         }
 
         private void DrawVisualizationArea(Rect area)

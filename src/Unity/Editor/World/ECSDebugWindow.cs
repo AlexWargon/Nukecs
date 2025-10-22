@@ -622,6 +622,8 @@ namespace Wargon.Nukecs.Editor
                     EditorGUI.indentLevel++;
                     using (new EditorGUI.DisabledScope(true))
                     {
+                        type = boxedComponent.GetType();
+                        length = (int)boxedComponent.GetPropertyValue(type, nameof(ComponentArray<Child>.Length));
                         for (var i = 0; i < length; i++)
                         {
                             var elem = readAt(boxedComponent, i);

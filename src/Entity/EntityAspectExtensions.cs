@@ -13,10 +13,10 @@ namespace Wargon.Nukecs
             return ref *aspect;
         }
 
-        public static EntityData GetData(this ref Entity entity)
-        {
-            return entity.ArchetypeRef.GetEntityData(entity);
-        }
+        // public static EntityData GetData(this ref Entity entity)
+        // {
+        //     return entity.ArchetypeRef.GetEntityData(entity);
+        // }
 
         public static void SetData(this ref Entity entity, EntityData data)
         {

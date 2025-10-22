@@ -58,7 +58,8 @@ namespace Wargon.Nukecs
                 isTag = false,
                 isDisposable = false,
                 isCopyable = false,
-                isArray = false
+                isArray = false,
+                IsArrayElement = true
             };
             ComponentTypeData.AddElementType(data, index);
             AddComponentType<T>(index);
@@ -78,6 +79,7 @@ namespace Wargon.Nukecs
                 isCopyable = typeof(T).GetInterfaces()
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>)),
                 isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>),
+                IsArrayElement = typeof(T).GetInterfaces().Any(i => i == typeof(IArrayComponent)),
             };
 
 
@@ -132,15 +134,15 @@ namespace Wargon.Nukecs
                 ref var pool = ref pools.Ptr[type.index];
                 if (!type.isArray)
                 {
-                    pool = GenericPool.Create(type, size, world);
+                    pool = GenericPool.Create(type, size, ref world->selfPtr);
                     poolsCount += 1;
                 }
                 else
                 {
-                    pool = GenericPool.Create(type, size, world);
+                    pool = GenericPool.Create(type, size, ref world->selfPtr);
                     var elementType = ComponentTypeData.ElementTypes[type.index];
                     ref var elementsPool = ref pools.Ptr[elementType.index + 1];
-                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DEFAULT_MAX_CAPACITY, world);
+                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DEFAULT_MAX_CAPACITY, ref world->selfPtr);
                     poolsCount += 2;
                 }
                 //Component.LogComponent(kvPair.Value);

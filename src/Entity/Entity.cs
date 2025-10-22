@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
@@ -12,12 +11,18 @@ namespace Wargon.Nukecs
     {
         public int id;
 
-        [NativeDisableUnsafePtrRestriction][NonSerialized]
-        internal World.WorldUnsafe* worldPointer;
+        [NativeDisableUnsafePtrRestriction] [NonSerialized]
+        public World.WorldUnsafe* worldPointer;
 
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
-        
+
+        public EntityIndex Index => new()
+        {
+            component = id % Chunk.MAX_CHUNK_SIZE,
+            chunk = id / Chunk.MAX_CHUNK_SIZE
+        };
+
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -34,7 +39,7 @@ namespace Wargon.Nukecs
         {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
+            this.worldPointer->entitiesArchetypes.ElementAt(id) =
                 this.worldPointer->GetArchetype(archetype);
         }
 
@@ -45,14 +50,11 @@ namespace Wargon.Nukecs
 #endif
             get
             {
-#if NUKECS_DEBUG
-                if(worldPointer == null) throw new Exception("World pointer is null");
-#endif
-                var arch = worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ptr;
-#if NUKECS_DEBUG
-                if (arch == null) throw new Exception("Archetype reference is null");
-#endif
-                return ref *arch;
+                //if(worldPointer == null) throw new Exception("World pointer is null");
+                //if(this == Null) throw new Exception("Entity is null");
+                //if(!worldPointer->entitiesArchetypes.IsCreated) throw new Exception("Entities archetype is null");
+                ref var arch = ref worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ref;
+                return ref arch;
             }
         }
 
@@ -106,14 +108,13 @@ namespace Wargon.Nukecs
 #endif
         public bool IsValid()
         {
-            return worldPointer != null && worldPointer->EntityIsValid(id);
+            return worldPointer != null && id != 0;
         }
     }
 
     [BurstCompile]
     public static unsafe class EntityExtensions
     {
-
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -125,13 +126,14 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        [BurstCompile]
         public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType))
             {
                 ref var pool = ref entity.worldPointer->GetPool<T>();
-                pool.Set(entity.id);
+                pool.Set(entity.id, default(T));
                 entity.worldPointer->ECB.Add(entity.id, componentType);
                 return ref pool.GetRef<T>(entity.id);
             }
@@ -174,7 +176,7 @@ namespace Wargon.Nukecs
             entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
-        
+
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -221,6 +223,7 @@ namespace Wargon.Nukecs
         public static void AddObject(this in Entity entity, IComponent component)
         {
             var componentIndex = ComponentTypeMap.Index(component.GetType());
+            if (entity.ArchetypeRef.Has(componentIndex)) return;
             entity.worldPointer->GetUntypedPool(componentIndex).AddObject(entity.id, component);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add(entity.id, componentIndex);
@@ -258,8 +261,8 @@ namespace Wargon.Nukecs
             where T2 : unmanaged, IComponent
         {
             return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer });
+                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->chunks.Ptr },
+                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
@@ -271,9 +274,9 @@ namespace Wargon.Nukecs
             where T3 : unmanaged, IComponent
         {
             return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer },
-                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer });
+                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->chunks.Ptr },
+                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->chunks.Ptr },
+                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer->chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
@@ -286,10 +289,10 @@ namespace Wargon.Nukecs
             where T4 : unmanaged, IComponent
         {
             return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer },
-                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer },
-                new Ref<T4> { index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBuffer });
+                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->chunks.Ptr },
+                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->chunks.Ptr },
+                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer->chunks.Ptr },
+                new Ref<T4> { index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBuffer->chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
@@ -316,28 +319,28 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ValueTuple<T1, T2> Read<T1, T2>(this in Entity entity)
+        public static ValueTuple<T1, T2> Read<T1, T2>(this ref Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
         {
             return (
-                entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
-                entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id)
+                entity.Get<T1>(),
+                entity.Get<T2>()
             );
         }
 
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ComponentTupleRO<T1, T2, T3> Read<T1, T2, T3>(this in Entity entity)
+        public static ComponentTupleRO<T1, T2, T3> Read<T1, T2, T3>(this ref Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
             where T3 : unmanaged, IComponent
         {
             return new ComponentTupleRO<T1, T2, T3>(
-                in entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
-                in entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
-                in entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id));
+                in entity.Get<T1>(),
+                in entity.Get<T2>(),
+                in entity.Get<T3>());
         }
 
 #if !NUKECS_DEBUG
@@ -389,7 +392,7 @@ namespace Wargon.Nukecs
             if (entity.ArchetypeRef.Has<T>())
             {
                 component.index = entity.id;
-                component.pool = entity.worldPointer->GetPool<T>().UnsafeBuffer;
+                component.pool = entity.worldPointer->GetPool<T>().UnsafeBuffer->chunks.Ptr;
                 return true;
             }
 
@@ -423,5 +426,11 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Copy(entity.id, e.id);
             return e;
         }
+    }
+
+    public ref struct EntityIndex
+    {
+        public int chunk;
+        public int component;
     }
 }

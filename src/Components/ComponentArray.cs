@@ -12,96 +12,109 @@
         internal const int DEFAULT_MAX_CAPACITY = 16;
     }
 
+    internal unsafe struct ComponentArrayData
+    {
+        internal ptr Data;
+        internal ptr<World.WorldUnsafe> world;
+        internal ref MemAllocator Allocator => ref world.Ref.AllocatorRef;
+        internal int length;
+        internal int capacity;
+
+        internal ref T ElementAt<T>(int index) where T : unmanaged
+        {
+            return ref Data.As<T>()[index];
+        }
+    }
     public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>> 
         where T : unmanaged, IArrayComponent
     {
         internal const int DEFAULT_MAX_CAPACITY = ComponentArray.DEFAULT_MAX_CAPACITY;
-        internal T* buffer;
-        internal int length;
-        internal int capacity;
-        internal Entity entity;
-        public int Length => length;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ComponentArray(int capacity)
-        {
-            buffer = (T*)UnsafeUtility.MallocTracked(capacity* sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent, 0);
-            this.capacity = capacity;
-            length = 0;
-            entity = default;
-        }
+        public int Length => data.Ref.length;
+        internal ptr<ComponentArrayData> data;
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // private ComponentArray(int capacity)
+        // {
+        //     buffer = (T*)UnsafeUtility.MallocTracked(capacity* sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent, 0);
+        //     this.capacity = capacity;
+        //     length = 0;
+        //     entity = default;
+        // }
         
         internal ComponentArray(ref GenericPool pool, Entity index)
         {
-            buffer = (T*)pool.UnsafeBuffer->buffer + index.id * DEFAULT_MAX_CAPACITY;
-            length = 0;
-            capacity = DEFAULT_MAX_CAPACITY;
-            entity = index;
+            data = index.worldPointer->AllocatorRef.AllocatePtr<ComponentArrayData>();
+            data.Ref.Data = index.worldPointer->AllocatorRef.AllocatePtr(sizeof(T) * DEFAULT_MAX_CAPACITY);
+            data.Ref.length = 0;
+            data.Ref.capacity = DEFAULT_MAX_CAPACITY;
+            data.Ref.world = index.worldPointer->selfPtr;
+            mem_clear(data.Ref.Data.cached, DEFAULT_MAX_CAPACITY * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ComponentArray(ref ComponentArray<T> other, int index)
         {
-            entity = other.entity.worldPointer->GetEntity(index);
-            var elementTypeIndex = ComponentType<ComponentArray<T>>.Index + 1;
-            buffer = (T*)other.entity.worldPointer->GetUntypedPool(elementTypeIndex).UnsafeBuffer->buffer + entity.id * DEFAULT_MAX_CAPACITY;
-            length = other.length;
-            capacity = other.capacity;
-            UnsafeUtility.MemCpy(buffer, other.buffer, length * sizeof(T));
+            ref var w = ref other.data.Ref.world.Ref;
+            data = w.AllocatorRef.AllocatePtr<ComponentArrayData>();
+            data.Ref.Data = w.AllocatorRef.AllocatePtr(sizeof(T) * DEFAULT_MAX_CAPACITY);
+            data.Ref.length = other.data.Ref.length;
+            data.Ref.capacity = other.data.Ref.capacity;
+            data.Ref.world = other.data.Ref.world;
+            mem_clear(data.Ref.Data.cached, DEFAULT_MAX_CAPACITY * sizeof(T));
+            memcpy(data.Ref.Data.cached, other.data.Ref.Data.cached, other.data.Ref.length * sizeof(T));
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
-            if (index < 0 || index >= length)
+            if (index < 0 || index >= data.Ref.length)
                 throw new IndexOutOfRangeException();
-            return ref buffer[index];
+            return ref data.Ref.ElementAt<T>(index);
         }
         public T ReadAt(int index)
         {
-            if (index < 0 || index >= length)
-                throw new IndexOutOfRangeException();
-            return buffer is null ? default : buffer[index];
+            if (index < 0 || index >= data.Ref.length)
+                throw new IndexOutOfRangeException($"Index {index} is out of range");
+            return data.IsNull ? default(T) : data.Ref.ElementAt<T>(index);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(in T item)
         {
-            if (length >= capacity - 1) return;
-            if (length == capacity) Resize(capacity == 0 ? 4 : capacity * 2);
-            buffer[length++] = item;
+            if (data.Ref.length >= data.Ref.capacity - 1) return;
+            if (data.Ref.length == data.Ref.capacity) Resize(data.Ref.capacity == 0 ? 4 : data.Ref.capacity * 2);
+            data.Ref.ElementAt<T>(data.Ref.length++) = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddNoResize(in T item)
         {
-            if (length < capacity) buffer[length++] = item;
+            if (data.Ref.length < data.Ref.capacity) data.Ref.ElementAt<T>(data.Ref.length++) = item;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddParallel(in T item)
         {
-            var idx = length;
-            if (idx < capacity)
+            var idx = data.Ref.length;
+            if (idx < data.Ref.capacity)
             {
-                buffer[idx] = item;
-                Interlocked.Increment(ref length);
+                data.Ref.ElementAt<T>(idx) = item;
+                Interlocked.Increment(ref data.Ref.length);
             }
             // Note: parallel expansion requires additional synchronization
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveRange(int index, int count)
         {
-            if (length <= index + count - 1) return;
+            if (data.Ref.length <= index + count - 1) return;
 
             int elemSize = UnsafeUtility.SizeOf<T>();
 
-            UnsafeUtility.MemMove(buffer + index * elemSize, buffer + (index + count) * elemSize, (long)elemSize * (Length - count - index));
-            length -= count;
+            mem_move(data.Ref.Data.cached + index * elemSize, data.Ref.Data.cached + (index + count) * elemSize, (long)elemSize * (Length - count - index));
+            data.Ref.length -= count;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RemoveAt(int index)
         {
-            if (index < 0 || index >= length)
+            if (index < 0 || index >= data.Ref.length)
                 throw new IndexOutOfRangeException();
             RemoveRange(index, 1);
         }
@@ -109,14 +122,18 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
-            length = 0;
+            data.Ref.length = 0;
         }
 
         public void Dispose()
         {
-            buffer = null;
-            length = 0;
-            capacity = 0;
+            var w = data.Ref.world.Ptr;
+            data.Ref.length = 0;
+            data.Ref.capacity = 0;
+            w->AllocatorRef.Free(data.Ref.Data);
+            w->AllocatorRef.Free(data);
+            data.Ref.Data = default;
+            data = default;
         }
 
         public ComponentArray<T> Copy(int to)
@@ -126,28 +143,28 @@
 
         public void Fill(T* buffer, int length)
         {
-            UnsafeUtility.MemCpy(this.buffer, buffer, length * sizeof(T));
-            this.length = length;
+            memcpy(data.Ref.Data.As<T>(), buffer, length * sizeof(T));
+            data.Ref.length = length;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Enumerator GetEnumerator()
         {
-            return new Enumerator(buffer, length);
+            return new Enumerator(data.Ref.Data.As<T>(), data.Ref.length);
         }
 
         private void Resize(int newCapacity)
         {
-            var w = entity.worldPointer;
-            var newBuffer = w->_allocate<T>(newCapacity);
-            if (buffer != null)
+            var w = data.Ref.world.Ptr;
+            var newBuffer = w->AllocatorRef.AllocatePtr(newCapacity * sizeof(T));
+            if (!data.Ref.Data.IsNull)
             {
-                UnsafeUtility.MemCpy(newBuffer, buffer, length * sizeof(T));
-                w->_free(buffer);
+                memcpy(newBuffer.As<T>(), data.Ref.Data.As<T>(), data.Ref.length * sizeof(T));
+                w->AllocatorRef.Free(data.Ref.Data);
             }
 
-            buffer = newBuffer;
-            capacity = newCapacity;
+            data.Ref.Data = newBuffer;
+            data.Ref.capacity = newCapacity;
             dbug.log("resized");
         }
 
@@ -195,12 +212,19 @@
             for (var i = 0; i < buffer.Length; i++)
                 if (item.Equals(buffer.ElementAt(i)))
                 {
-                    if (i != buffer.Length - 1) buffer.buffer[i] = buffer.buffer[buffer.length - 1];
-                    buffer.length--;
+                    if (i != buffer.Length - 1) buffer.data.Ref.ElementAt<T>(i) = buffer.data.Ref.ElementAt<T>(buffer.data.Ref.length - 1);
+                    buffer.data.Ref.length--;
                     break;
                 }
 
             return buffer.Length - 1;
+        }
+        [BurstCompile]
+        public static void RemoveAtSwapBack<T>(this ref ComponentArray<T> buffer, int index)
+            where T : unmanaged, IArrayComponent, IEquatable<T>
+        {
+            if (index != buffer.Length - 1) buffer.data.Ref.ElementAt<T>(index) = buffer.data.Ref.ElementAt<T>(buffer.data.Ref.length - 1);
+            buffer.data.Ref.length--;
         }
     }
 }

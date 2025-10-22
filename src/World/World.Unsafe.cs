@@ -106,15 +106,15 @@ namespace Wargon.Nukecs
                 Id = id;
                 config = worldConfig;
                 AllocatorHandler = allocatorHandler;
-                entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true);
-                prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef);
-                reservedEntities = new MemoryList<int>(128, ref AllocatorRef);
-                entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorRef);
-                pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef);
-                queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef);
-                archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef);
+                entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
+                prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
+                reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
+                entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
+                pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef, clear:true);
+                queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
+                archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
-                DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef);
+                DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef, clear:true);
                 config = worldConfig;
                 systemsUpdateJobDependencies = default;
                 systemsFixedUpdateJobDependencies = default;
@@ -222,7 +222,7 @@ namespace Wargon.Nukecs
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal ref GenericPool GetPool<T>() where T : unmanaged {
+            internal ref GenericPool GetPool<T>() where T : unmanaged, IComponent {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
@@ -260,7 +260,7 @@ namespace Wargon.Nukecs
                         pool = GenericPool.Create(
                                     ComponentTypeMap.GetComponentType(poolIndex, true), 
                                     config.StartPoolSize * ComponentArray.DEFAULT_MAX_CAPACITY, 
-                                    Self);
+                                    ref selfPtr);
                         poolsCount++;
                     }
                     spinner.Release();
@@ -268,19 +268,19 @@ namespace Wargon.Nukecs
                 return ref pool;
             }
 
-            private void AddPool<T>() where T : unmanaged
+            private void AddPool<T>() where T : unmanaged, IComponent
             {
                 var poolIndex = ComponentType<T>.Index;
-                pools.ElementAt(poolIndex) = GenericPool.Create<T>(config.StartPoolSize, Self);
+                pools.ElementAt(poolIndex) = GenericPool.Create<T>(config.StartPoolSize, ref selfPtr);
                 poolsCount++;
             }
-            private void AddPool<T>(ref GenericPool pool) where T : unmanaged
+            private void AddPool<T>(ref GenericPool pool) where T : unmanaged, IComponent
             {
                 spinner.Acquire();
                 try {
                     if (!pool.IsCreated)
                     {
-                        pool = GenericPool.Create<T>(config.StartPoolSize, Self);
+                        pool = GenericPool.Create<T>(config.StartPoolSize, ref selfPtr);
                         poolsCount++;
                     }
                 }
@@ -294,7 +294,7 @@ namespace Wargon.Nukecs
                 spinner.Acquire();
                 try {
                     if (!pool.IsCreated) {
-                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize, Self);
+                        pool = GenericPool.Create(ComponentTypeMap.GetComponentType(index), config.StartPoolSize, ref selfPtr);
                         poolsCount++;
                     }
                 }
@@ -305,19 +305,18 @@ namespace Wargon.Nukecs
 
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void OnDestroyEntity(int entity) {
-                entities.Ptr[entity] = Nukecs.Entity.Null;
+                entities.ElementAt(entity) = Nukecs.Entity.Null;
                 reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
 #if NUKECS_DEBUG
                 entitiesDens.Remove(entity);
 #endif
-
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)
             {
-                return entities.Ptr[entity].id != 0;
+                return entities.ElementAt(entity).id != 0;
             }
             // [MethodImpl(MethodImplOptions.AggressiveInlining)]
             // internal Entity CreateEntityWithEvent(int archetype) {

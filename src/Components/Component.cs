@@ -11,6 +11,7 @@
     using System.Reflection;
     using Unity.Collections;
     using Collections;
+    using static Wargon.Nukecs.UnsafeStatic;
     
     public sealed class DrawAsAttribute : Attribute
     {
@@ -419,17 +420,23 @@
     {
         internal int index;
         [NativeDisableUnsafePtrRestriction]
-        private readonly GenericPool.GenericPoolUnsafe* buffer;
+        private readonly Chunk* buffer;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal GetRef(ref GenericPool pool)
         {
             index = 0;
-            buffer = pool.UnsafeBuffer;
+            buffer = pool.unsafeBufferPtr.Ptr->chunks.Ptr;
         }
         public readonly ref TComponent Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref buffer->GetRef<TComponent>(index);
+            get
+            {
+                var chunkIndex = index / Chunk.MAX_CHUNK_SIZE;
+                var componentIndex = index % Chunk.MAX_CHUNK_SIZE;
+                ref var page = ref buffer[chunkIndex];
+                return ref get_ref_element<TComponent>(page.buffer.Ptr, componentIndex);
+            }
         }
         public static implicit operator TComponent(in GetRef<TComponent> getRef)
         {
@@ -481,10 +488,20 @@
     // }
     public unsafe struct AspectData<T> where T : unmanaged, IComponent
     {
-        internal T* Buffer;
+        internal Chunk* Buffer;
         private int _entity;
-        public ref T Value => ref Buffer[_entity];
-        public ref readonly T Read => ref Buffer[_entity];
+        public ref T Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                var chunkIndex = _entity / Chunk.MAX_CHUNK_SIZE;
+                var componentIndex = _entity % Chunk.MAX_CHUNK_SIZE;
+                ref var page = ref Buffer[chunkIndex];
+                return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
+            }
+        }
+        public ref readonly T Read => ref Value;
         public static implicit operator T(in AspectData<T> getRef)
         {
             return getRef.Value;

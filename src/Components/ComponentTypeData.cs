@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using UnityEngine.Serialization;
 
 namespace Wargon.Nukecs {
     using System;
@@ -21,14 +22,18 @@ namespace Wargon.Nukecs {
         public bool isDisposable;
         public bool isCopyable;
         public bool isArray;
-        
+        public bool IsArrayElement;
+        [NativeDisableUnsafePtrRestriction]
         public unsafe void* defaultValue;
+        [NativeDisableUnsafePtrRestriction]
         internal IntPtr disposeFn;
+        [NativeDisableUnsafePtrRestriction]
         internal IntPtr copyFn;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> elementTypes = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
 
         public static ref NativeHashMap<int, ComponentTypeData> ElementTypes
         {
+            [MethodImpl(256)]
             get
             {
                 if (!elementTypes.Data.IsCreated)
@@ -41,6 +46,7 @@ namespace Wargon.Nukecs {
         }
         
         public Type ManagedType => ComponentTypeMap.GetType(index);
+        [MethodImpl(256)]
         public FunctionPointer<DisposeDelegate> DisposeFn()
         {
             if (disposeFn == IntPtr.Zero)

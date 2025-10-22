@@ -17,7 +17,7 @@ namespace Wargon.Nukecs.Collections
         internal int length;
         [NativeDisableUnsafePtrRestriction]
         public T* Ptr;
-        public MemoryList(int capacity, ref MemAllocator allocator, bool lenAsCapacity = false)
+        public MemoryList(int capacity, ref MemAllocator allocator, bool lenAsCapacity = false, bool clear = false)
         {
             PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity);
             Ptr = PtrOffset.AsPtr<T>(ref allocator);
@@ -27,8 +27,13 @@ namespace Wargon.Nukecs.Collections
             {
                 length = capacity;
             }
+
+            if (clear)
+            {
+                UnsafeUtility.MemClear(Ptr, sizeof(T) * capacity);
+            }
         }
-        
+
         public static ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
             bool lenAsCapacity = false)
         {
@@ -98,7 +103,7 @@ namespace Wargon.Nukecs.Collections
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
             return ref Ptr[index];
@@ -231,6 +236,16 @@ namespace Wargon.Nukecs.Collections
             }
         }
 
+        public MemoryList<T2> AsMemoryList<T2>() where T2 : unmanaged
+        {
+            return new MemoryList<T2>
+            {
+                capacity = this.capacity,
+                length = this.length / sizeof(T2),
+                Ptr = this.PtrOffset.AsPtr<T2>(Ptr),
+                PtrOffset = this.PtrOffset
+            };
+        }
     }
 
     public static unsafe class Extensions

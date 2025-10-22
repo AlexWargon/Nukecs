@@ -304,21 +304,21 @@ namespace Wargon.Nukecs
             world->OnDestroyEntity(entity);
         }
 
-        internal EntityData GetEntityData(Entity entity)
-        {
-            EntityData data;
-            data.Entity = entity.id;
-            data.Components = new byte[types.length][];
-            data.SizeInBytes = 0;
-            for (var i = 0; i < types.length; i++)
-            {
-                ref var pool = ref world->GetUntypedPool(types[i]);
-                data.Components[i] = pool.Serialize(entity.id);
-                data.SizeInBytes += pool.UnsafeBuffer->componentTypeData.size;
-            }
-
-            return data;
-        }
+        // internal EntityData GetEntityData(Entity entity)
+        // {
+        //     EntityData data;
+        //     data.Entity = entity.id;
+        //     data.Components = new byte[types.length][];
+        //     data.SizeInBytes = 0;
+        //     for (var i = 0; i < types.length; i++)
+        //     {
+        //         ref var pool = ref world->GetUntypedPool(types[i]);
+        //         data.Components[i] = pool.Serialize(entity.id);
+        //         data.SizeInBytes += pool.UnsafeBuffer->componentTypeData.size;
+        //     }
+        //
+        //     return data;
+        // }
 
         internal void SetEntityData(EntityData data)
         {

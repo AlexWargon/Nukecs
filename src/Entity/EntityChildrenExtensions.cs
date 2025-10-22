@@ -5,7 +5,7 @@ namespace Wargon.Nukecs
 {
     public static class EntityChildrenExtensions
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AddChild(this ref Entity entity, Entity child)
         {
             if (child.Has<ChildOf>())

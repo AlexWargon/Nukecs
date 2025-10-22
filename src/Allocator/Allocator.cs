@@ -21,7 +21,7 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe partial struct MemAllocator : IDisposable
     {
-        private const int MAX_BLOCKS = 1024 * 16;
+        private const int MAX_BLOCKS = 1024 * 1024;
         private const int ALIGNMENT = 16;
         public const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
         [StructLayout(LayoutKind.Sequential)]
@@ -204,15 +204,44 @@ namespace Wargon.Nukecs
             spinner.Release();
             return ptr<T>.NULL;
         }
+        
+        public ptr AllocatePtr(long sizeInBytes)
+        {
+            var error = 0;
+            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
+            spinner.Acquire();
+            DeFragment();
+            for (var i = 0; i < blockCount; i++)
+            {
+                ref var block = ref blocks[i];
+                if (!block.IsUsed && block.Size >= sizeInBytes)
+                {
+                    // Split block if larger than requested size
+                    if (block.Size > sizeInBytes)
+                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
+
+                    block.Size = (int)sizeInBytes;
+                    block.IsUsed = true;
+                    spinner.Release();
+                    return new ptr(basePtr,(uint)block.Pointer);
+                }
+            }
+            spinner.Release();
+            return ptr.NULL;
+        }
         private void SizeWithAlign(ref long size, int align)
         {
             size = (size + align - 1) / align * align;
         }
-
+        public void Free(ptr ptr)
+        {
+            var error = 0;
+            Free(ptr.offset, ref error);
+        }
         public void Free<T>(ptr<T> ptr) where T : unmanaged
         {
-            var p = (byte*)ptr.Ptr;
-            Free(p);
+            var error = 0;
+            Free(ptr.offset, ref error);
         }
         public void Free(void* ptr)
         {
@@ -224,6 +253,25 @@ namespace Wargon.Nukecs
         {
             var error = 0;
             Free(ptr, ref error);
+        }
+        public void Free(ptr_offset ptr, ref int error)
+        {
+            spinner.Acquire();
+            var offset = ptr.Offset;
+            for (var i = 0; i < blockCount; i++)
+            {
+                ref var block = ref blocks[i];
+                
+                if (block.Pointer == offset)
+                {
+                    block.IsUsed = false;
+                    spinner.Release();
+                    return;
+                }
+            }
+            spinner.Release();
+            
+            error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
         }
         public void Free(byte* ptr, ref int error)
         {
@@ -304,6 +352,7 @@ namespace Wargon.Nukecs
             for (var i = index; i < blockCount - 1; i++)
             {
                 blocks[i] = blocks[i + 1];
+                blocks[i + 1].IsUsed = false;
             }
             blockCount--;
         }
@@ -355,7 +404,8 @@ namespace Wargon.Nukecs
             return new MemoryView
             {
                 Blocks = blocks,
-                BlockCount = blockCount
+                BlockCount = blockCount,
+                memoryUsed = memoryUsed
             };
         }
     }
@@ -364,6 +414,7 @@ namespace Wargon.Nukecs
     {
         public unsafe MemAllocator.MemoryBlock* Blocks;
         public int BlockCount;
+        public long memoryUsed;
     }
 
     

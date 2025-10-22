@@ -40,7 +40,7 @@ namespace Wargon.Nukecs.Editor
             var body = Expression.Block(new[] { typedVar }, bodyExpressions.Concat(new[] { ret }));
 
             var lambda = Expression.Lambda<Func<object, object>>(body, objParam);
-            Debug.Log(lambda.Body.ToString());
+            //Debug.Log(lambda.Body.ToString());
             return lambda.Compile();
         }
 
