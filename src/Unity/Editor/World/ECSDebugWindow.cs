@@ -129,6 +129,7 @@ namespace Wargon.Nukecs.Editor
                 style = { flexGrow = 1 }
             };
             _listView.onSelectionChange += OnItemSelected;
+            
             leftPanel.Add(_listView);
 
             root.Add(leftPanel);
@@ -249,8 +250,42 @@ namespace Wargon.Nukecs.Editor
                 DebugListItem.ItemType.Query => Tab.Queries,
                 _ => Tab.Entities
             });
+            
+            element.RegisterCallback<MouseDownEvent>(evn => {
+                switch (item.type) {
+                    case DebugListItem.ItemType.Entity: {
+                        if (evn.button == 1) {
+                            ShowContextMenuEntity(element, World.Get(worldId).GetEntity(item.id));
+                            evn.StopPropagation();
+                        }
+                        break;
+                    }
+                    case DebugListItem.ItemType.Archetype:
+                        break;
+                    case DebugListItem.ItemType.Query:
+                        break;
+                }
+            });
         }
+        
+        private static void ShowContextMenuEntity(VisualElement targetElement, Entity e)
+        {
+            var menu = new ContextualMenuManipulator(evt =>
+            {
+                evt.menu.AppendAction("Copy", action =>
+                {
+                    e.Copy();
+                });
+                
+                evt.menu.AppendAction("Destroy", action =>
+                {
+                    e.Destroy();
+                });
 
+            });
+            targetElement.AddManipulator(menu);
+        }
+        
         private Texture2D GetIconForTab(Tab tab)
         {
             return tab switch

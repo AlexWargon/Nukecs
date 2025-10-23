@@ -39,7 +39,7 @@ namespace Wargon.Nukecs {
             InternalPointer = query.Ptr;
         }
 
-        public Query With<T>() where T :  unmanaged, IComponent {
+        public Query With<T>(ReadWrite readWrite = ReadWrite.ReadWrite) where T :  unmanaged, IComponent {
             InternalPointer->With(ComponentType<T>.Index);
             return this;
         }
@@ -74,6 +74,10 @@ namespace Wargon.Nukecs {
             throw new Exception("No entities found");
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public (Entity entity, bool ok) FirstOk() {
+            return Count > 0 ? (InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[0]], true) : (Entity.Null, false);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index) {
             return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[index]];
@@ -381,5 +385,11 @@ namespace Wargon.Nukecs {
                 get => (c1, c2, c3);
             }
         }
+    }
+
+    public enum ReadWrite {
+        Read,
+        Write,
+        ReadWrite,
     }
 }
