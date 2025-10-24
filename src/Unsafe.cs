@@ -190,4 +190,43 @@ namespace Wargon.Nukecs {
             return map;
         }
     }
+    [BurstCompile]
+    public struct random
+    {
+        private uint state;
+
+        public random(uint seed)
+        {
+            state = seed != 0 ? seed : 1; // ноль не допускается
+        }
+
+        [BurstCompile]
+        public uint NextUInt()
+        {
+            uint x = state;
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            state = x;
+            return x;
+        }
+
+        [BurstCompile]
+        public float NextFloat()
+        {
+            return (NextUInt() & 0x00FFFFFF) / (float)0x01000000;
+        }
+
+        [BurstCompile]
+        public int NextInt(int min, int max)
+        {
+            return min + (int)(NextUInt() % (uint)(max - min));
+        }
+
+        [BurstCompile]
+        public float NextFloat(float min, float max)
+        {
+            return math.lerp(min, max, NextFloat());
+        }
+    }
 }

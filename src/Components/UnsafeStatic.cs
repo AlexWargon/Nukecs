@@ -77,6 +77,15 @@ namespace Wargon.Nukecs
         {
             return UnsafeUtility.As<TFrom, TTo>(ref u);
         }
+
+        public static unsafe T* malloc<T>(Unity.Collections.Allocator allocator) where T : unmanaged
+        {
+            return (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
+        }
+        public static unsafe T* malloc_t<T>(Unity.Collections.Allocator allocator) where T : unmanaged
+        {
+            return (T*)UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
+        }
     }
     public static class inline
     {
