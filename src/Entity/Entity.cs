@@ -1,3 +1,6 @@
+#if !NUKECS_DEBUG
+using System.Runtime.CompilerServices;
+#endif
 using System;
 using System.Runtime.InteropServices;
 using Unity.Burst;

@@ -37,7 +37,7 @@ namespace Wargon.Nukecs
             WorldSystems.Add(world.UnsafeWorld->Id, this);
         }
 
-        private static Marker _allSystems = new("NUKECS.AllSystems");
+        private static Marker _allSystems = new("ALL SYSTEMS");
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
