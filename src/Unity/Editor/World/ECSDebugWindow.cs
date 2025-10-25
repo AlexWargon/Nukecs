@@ -37,7 +37,7 @@ namespace Wargon.Nukecs.Editor
 
         private enum Tab { Entities, Archetypes, Queries }
         private Tab _activeTab = Tab.Entities;
-
+        private ToolbarButton entitiesBtn;
         private readonly List<DebugListItem> _items = new();
         private readonly Dictionary<int, string> _queryNames = new();
         // private readonly Dictionary<int, ComponentDrawerProxy> _proxyCache = new();
@@ -109,7 +109,7 @@ namespace Wargon.Nukecs.Editor
 
             // Tabs
             var tabs = new Toolbar();
-            var entitiesBtn = new ToolbarButton(() => SwitchTab(Tab.Entities)) { text = "Entities" };
+            entitiesBtn = new ToolbarButton(() => SwitchTab(Tab.Entities)) { text = "Entities" };
             var archetypesBtn = new ToolbarButton(() => SwitchTab(Tab.Archetypes)) { text = "Archetypes" };
             var queriesBtn = new ToolbarButton(() => SwitchTab(Tab.Queries)) { text = "Queries" };
             tabs.Add(entitiesBtn);
@@ -206,6 +206,7 @@ namespace Wargon.Nukecs.Editor
 
                 }
 
+                entitiesBtn.text = $"[{_world.EntitiesAmount}]Entities";
             }).Every(33);
         }
 

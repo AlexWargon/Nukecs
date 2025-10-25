@@ -19,8 +19,14 @@ namespace Wargon.Nukecs
         public SystemMode Mode;
         public ECBJob EcbJob;
         public string Name => System.GetType().Name;
+#if NUKECS_DEBUG
+        Marker _marker;
+#endif
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
+#if NUKECS_DEBUG
+            _marker.Autostart(System);
+#endif
             ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
                 for (var i = 0; i < Query->count; i++) {
@@ -29,11 +35,17 @@ namespace Wargon.Nukecs
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.ECB.PlaybackMainThread(ref world);
+#if NUKECS_DEBUG
+                _marker.End();
+#endif
                 return state.Dependencies;
             }
             state.Dependencies = System.Schedule(Query, Mode, updateContext, ref state);
             EcbJob.ECB = world.GetEcbVieContext(updateContext);
             EcbJob.world = world;
+#if NUKECS_DEBUG
+            _marker.End();
+#endif
             return EcbJob.Schedule(state.Dependencies);
         }
 

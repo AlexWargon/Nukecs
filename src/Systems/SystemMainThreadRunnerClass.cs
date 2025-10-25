@@ -6,12 +6,22 @@ namespace Wargon.Nukecs
         internal TSystem System;
         internal ECBJob EcbJob;
         public string Name => System.GetType().Name;
+#if NUKECS_DEBUG
+        private Marker _marker;
+#endif
+        
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
+#if NUKECS_DEBUG
+            _marker.Autostart(System);
+#endif
             ref var world = ref state.World;
             System.OnUpdate(ref state);
             EcbJob.ECB = world.GetEcbVieContext(updateContext);
             EcbJob.ECB.PlaybackMainThread(ref world);
+#if NUKECS_DEBUG
+            _marker.End();
+#endif
             return state.Dependencies;
         }
 

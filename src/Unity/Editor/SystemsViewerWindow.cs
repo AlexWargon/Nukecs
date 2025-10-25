@@ -34,16 +34,16 @@ public class SystemsViewer : EditorWindow
         scroll = EditorGUILayout.BeginScrollView(scroll);
 
         EditorGUILayout.LabelField("MainThreadRunners (Update)", EditorStyles.boldLabel);
-        DrawRunnerList(targetSystems.MainThreadRunners);
+        DrawRunnerList(targetSystems.mtRunners);
 
         EditorGUILayout.LabelField("Runners (Update)", EditorStyles.boldLabel);
-        DrawRunnerList(targetSystems.Runners);
+        DrawRunnerList(targetSystems.runners);
 
         EditorGUILayout.LabelField("MainThreadFixedRunners (FixedUpdate)", EditorStyles.boldLabel);
-        DrawRunnerList(targetSystems.MainThreadFixedRunners);
+        DrawRunnerList(targetSystems.mtFixedRunners);
 
         EditorGUILayout.LabelField("FixedRunners (FixedUpdate)", EditorStyles.boldLabel);
-        DrawRunnerList(targetSystems.FixedRunners);
+        DrawRunnerList(targetSystems.fixedRunners);
 
         EditorGUILayout.EndScrollView();
     }
