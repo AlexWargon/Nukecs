@@ -531,9 +531,9 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CopyComponent(int from, int to, byte* fromBuffer, byte* toBuffer)
+        private void CopyComponent(int fromEnt, int toEntity, byte* fromBuffer, byte* toBuffer, int fromC, int toC)
         {
-            componentTypeData.CopyFn().Invoke(fromBuffer, toBuffer, from, to);
+            componentTypeData.CopyFn().Invoke(fromBuffer, toBuffer, fromEnt, toEntity, fromC, toC);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -541,19 +541,22 @@ namespace Wargon.Nukecs
         {
             if (!componentTypeData.isTag)
             {
-                ref var srcChunk = ref GetChunk(source);
                 var srcIndex = source % Chunk.MAX_CHUNK_SIZE;
-                
-                ref var destChunk = ref GetChunk(destination);
                 var destIndex = destination % Chunk.MAX_CHUNK_SIZE;
+                ref var srcChunk = ref GetChunk(source);
+                ref var destChunk = ref GetChunk(destination);
+                
                 
                 if (componentTypeData.isCopyable)
                     CopyComponent(source, destination,
-                        srcChunk.buffer.cached, destChunk.buffer.cached);
+                        srcChunk.buffer.cached, destChunk.buffer.cached, srcIndex, destIndex);
                 else
+                {
+
                     memcpy(destChunk.buffer.cached + destIndex * componentTypeData.size,
                         srcChunk.buffer.cached + srcIndex * componentTypeData.size,
                         componentTypeData.size);
+                }
             }
         }
 

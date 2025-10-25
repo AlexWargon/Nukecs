@@ -208,7 +208,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        internal void Copy(in int from, in int to)
+        internal void Copy(int from, int to)
         {
             for (var i = 0; i < queries.Length; i++)
             {
