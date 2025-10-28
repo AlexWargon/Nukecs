@@ -21,6 +21,7 @@ namespace Wargon.Nukecs
         internal SystemsDependencies SystemsDependencies;
         internal World World;
         private State _state;
+        internal ref State State => ref _state;
         private State _stateFixed;
         private const float FIXED_UPDATE_INTERVAL = 0.016f;
         private float _timeSinceLastFixedUpdate;
@@ -391,6 +392,9 @@ namespace Wargon.Nukecs
         void OnCreate(ref World world);
     }
 
+    public interface IOnUpdate {
+        void OnUpdate(ref State state);
+    }
     public interface IFixed
     {
     }

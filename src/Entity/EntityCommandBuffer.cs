@@ -8,7 +8,7 @@
     using Unity.Mathematics;
 
     public unsafe struct EntityCommandBuffer : IDisposable {
-        [NativeDisableUnsafePtrRestriction] private readonly ECBInternal* ecb;
+        [NativeDisableUnsafePtrRestriction] private ECBInternal* ecb;
         public int Capacity => ecb->Capacity;
         public int Count => ecb->count;
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
@@ -575,6 +575,7 @@
         {
             ecb->Dispose();
             UnsafeUtility.Free(ecb, allocator);
+            dbug.log("ECB DISPOSED");
         }
     }
 }

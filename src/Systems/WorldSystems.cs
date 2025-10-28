@@ -19,6 +19,7 @@ namespace Wargon.Nukecs
         }
         internal static void CompleteAll(int id)
         {
+            if(!systemsMap.ContainsKey(id)) return;
             var list = systemsMap[id];
             foreach (var systems in list)
             {
