@@ -42,6 +42,7 @@ namespace Wargon.Nukecs
         internal HashMap<int, ptr<Edge>> transactions;
         internal Edge destroyEdge;
         internal readonly int id;
+        internal int index;
         internal bool IsCreated => world != null;
 
         internal void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator, World.WorldUnsafe* worldPtr)
@@ -50,6 +51,7 @@ namespace Wargon.Nukecs
             queries.OnDeserialize(ref allocator);
             transactions.OnDeserialize(ref allocator, unityAllocator);
             destroyEdge.OnDeserialize(ref allocator, unityAllocator, worldPtr);
+            types.OnDeserialize(ref allocator);
             foreach (var kvPair in transactions)
             {
                 kvPair.Value.OnDeserialize(ref allocator);
@@ -80,27 +82,28 @@ namespace Wargon.Nukecs
             archetype->world = null;
         }
 
-        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int[] typesSpan = null)
+        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int index, int[] typesSpan = null)
         {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
-            *ptr.Ptr = new ArchetypeUnsafe(world, typesSpan);
+            *ptr.Ptr = new ArchetypeUnsafe(world, index, typesSpan);
             return ptr;
         }
 
-        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref MemoryList<int> typesSpan,
+        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, int index,
             bool copyList = false)
         {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
-            *ptr.Ptr = new ArchetypeUnsafe(world, ref typesSpan, copyList);
+            *ptr.Ptr = new ArchetypeUnsafe(world, ref typesSpan, index, copyList);
             return ptr;
         }
 
-        internal ArchetypeUnsafe(World.WorldUnsafe* world, int[] typesSpan = null)
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, int[] typesSpan = null)
         {
             spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
             id = 0;
+            this.index = index;
             if (typesSpan != null)
             {
                 types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
@@ -124,10 +127,11 @@ namespace Wargon.Nukecs
             destroyEdge = CreateDestroyEdge();
         }
 
-        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, bool copyList = false)
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, int index, bool copyList = false)
         {
             spinner = new Spinner();
             this.world = world;
+            this.index = index;
             mask = DynamicBitmask.CreateForComponents(world);
             if (typesSpan.IsCreated)
             {
@@ -354,7 +358,7 @@ namespace Wargon.Nukecs
 
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
             var otherArchetype = otherArchetypeStruct.impl;
-            var otherEdge = new Edge(ref otherArchetypeStruct, ref world->AllocatorRef);
+            var otherEdge = new Edge(otherArchetypeStruct.ptr.Ref.index, ref world->AllocatorRef);
 
             for (var index = 0; index < queries.Length; index++)
             {
@@ -535,12 +539,10 @@ namespace Wargon.Nukecs
     {
         internal MemoryList<ptr<QueryUnsafe>> AddEntity;
         internal MemoryList<ptr<QueryUnsafe>> RemoveEntity;
-        [NativeDisableUnsafePtrRestriction] internal ArchetypeUnsafe* ToMovePtr;
-        internal Archetype ToMove;
 
-        public Edge(ref Archetype archetype, ref MemAllocator allocator)
-        {
-            ToMovePtr = archetype.impl;
+        internal int ToMove;
+
+        public Edge(int archetype, ref MemAllocator allocator) {
             ToMove = archetype;
             AddEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
             RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
@@ -550,8 +552,7 @@ namespace Wargon.Nukecs
         {
             AddEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
             RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            ToMovePtr = default;
-            ToMove = default;
+            ToMove = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -564,13 +565,6 @@ namespace Wargon.Nukecs
 
         public void OnDeserialize(ref MemAllocator alloc, Allocator allocator, World.WorldUnsafe* w)
         {
-            if (!ToMove.ptr.IsDefault)
-            {
-                ToMove.ptr.OnDeserialize(ref alloc);
-                ToMove.ptr.Ref.OnDeserialize(ref alloc, allocator, w);
-                ToMovePtr = ToMove.ptr.Ptr;
-            }
-
             AddEntity.OnDeserialize(ref alloc);
             foreach (ref var ptr in AddEntity)
             {

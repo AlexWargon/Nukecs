@@ -93,8 +93,16 @@
         [NativeDisableUnsafePtrRestriction]
         public T* cached;
         public static readonly ptr<T> NULL = new (null, 0u);
-        public bool IsNull => cached == null;
-        public bool IsDefault => offset.Offset == 0;
+
+        public bool IsNull {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get=>cached == null;
+        }
+
+        public bool IsDefault {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]    
+            get => offset.Offset == 0u;
+        }
         public void OnDeserialize(ref MemAllocator allocator)
         {
             cached = (T*)(allocator.BasePtr + offset.Offset);

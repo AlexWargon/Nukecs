@@ -27,21 +27,13 @@ namespace Wargon.Nukecs
                 rootArchetype.ptr.OnDeserialize(ref allocator);
                 rootArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
                 entitiesArchetypes.OnDeserialize(ref allocator);
-                foreach (ref var entitiesArchetype in entitiesArchetypes)
-                {
-                    if (!entitiesArchetype.ptr.IsDefault)
-                    {
-                        entitiesArchetype.ptr.OnDeserialize(ref allocator);
-                        entitiesArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
-                    }
-                }
+
                 pools.OnDeserialize(ref allocator);
+
                 foreach (ref var genericPool in pools)
                 {
-                    if (genericPool.IsCreated)
-                    {
+                    if(genericPool.IsCreated)
                         genericPool.OnDeserialize(ref allocator);
-                    }
                 }
                 queries.OnDeserialize(ref allocator);
                 foreach (ref var query in queries)
@@ -61,7 +53,6 @@ namespace Wargon.Nukecs
                     kvPair.Value.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
                 }
 
-                //ArchetypeHashCache.OnDeserialize(ref AllocatorWrapperRef.Allocator);
                 DefaultNoneTypes.OnDeserialize(ref allocator);
             }
             
@@ -75,7 +66,7 @@ namespace Wargon.Nukecs
             public MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
             internal Archetype rootArchetype;
-            internal MemoryList<Archetype> entitiesArchetypes;
+            internal MemoryList<int> entitiesArchetypes;
             internal HashMap<int, Archetype> archetypesMap;
             internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<GenericPool> pools;
@@ -133,8 +124,8 @@ namespace Wargon.Nukecs
                 entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
-                entitiesArchetypes = new MemoryList<Archetype>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
-                pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef, clear:true);
+                entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
+                pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
@@ -180,7 +171,7 @@ namespace Wargon.Nukecs
                     last = reservedEntities.ElementAt(reservedEntities.length - 1);
                     reservedEntities.RemoveAt(reservedEntities.length - 1);
                     e = new Entity(last, Self);
-                    entitiesArchetypes.ElementAt(e.id) = rootArchetype;
+                    entitiesArchetypes.ElementAt(e.id) = 0;
                     entities.ElementAt(last) = e;
 #if NUKECS_DEBUG
                     entitiesDens.Add(e.id, ref AllocatorRef);
@@ -189,7 +180,7 @@ namespace Wargon.Nukecs
                 }
                 e = new Entity(last, Self);
                 entities.ElementAt(last) = e;
-                entitiesArchetypes.ElementAt(e.id) = rootArchetype;
+                entitiesArchetypes.ElementAt(e.id) = 0;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
@@ -333,6 +324,7 @@ namespace Wargon.Nukecs
                 reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
+                entitiesArchetypes.Ptr[entity] = 0;
 #if NUKECS_DEBUG
                 entitiesDens.Remove(entity);
 #endif
@@ -386,11 +378,12 @@ namespace Wargon.Nukecs
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref Entity GetEntity(int id) {
-                return ref entities.Ptr[id];
+                return ref entities.ElementAt(id);
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public Archetype CreateArchetype(params int[] types) {
-                var ptr = ArchetypeUnsafe.CreatePtr(Self, types);
+                var idx = archetypesList.length;
+                var ptr = ArchetypeUnsafe.CreatePtr(Self, idx, types);
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
@@ -399,7 +392,8 @@ namespace Wargon.Nukecs
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false) {
-                var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, copyList);
+                var idx = archetypesList.length;
+                var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx, copyList);
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
@@ -408,7 +402,8 @@ namespace Wargon.Nukecs
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
             internal void CreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
-                var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types);
+                var idx = archetypesList.length;
+                var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx);
                 archetype = new Archetype();
                 archetype.ptr = archetypePtr;
                 archetypesList.Add(in archetypePtr, ref AllocatorRef);
@@ -416,8 +411,13 @@ namespace Wargon.Nukecs
                 //return archetype;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
+                return archetypesList.Ptr[entitiesArchetypes.Ptr[ent]];
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private Archetype CreateRootArchetype() {
-                var ptr = ArchetypeUnsafe.CreatePtr(Self);
+                var idx = archetypesList.length;
+                var ptr = ArchetypeUnsafe.CreatePtr(Self, idx);
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);

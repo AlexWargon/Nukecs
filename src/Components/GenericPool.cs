@@ -15,7 +15,7 @@ namespace Wargon.Nukecs
         public bool IsCreated
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (IntPtr)UnsafeBuffer != IntPtr.Zero;
+            get => !unsafeBufferPtr.IsDefault;
         }
 
         internal ComponentPoolUntyped* UnsafeBuffer
@@ -365,8 +365,9 @@ namespace Wargon.Nukecs
         public int componentSize;
         public ComponentTypeData componentTypeData;
 
-        public void OnDeserialization(ref MemAllocator allocator)
-        {
+        public void OnDeserialization(ref MemAllocator allocator) {
+            var idx = componentTypeData.index;
+            componentTypeData = ComponentTypeMap.GetComponentType(idx);
             chunks.OnDeserialize(ref allocator);
             foreach (ref var chunk in chunks)
             {
@@ -383,7 +384,7 @@ namespace Wargon.Nukecs
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
             ptr.Ref.chunks =
-                new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true);
+                new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true, lenAsCapacity:true);
             ptr.Ref.componentTypeData = ComponentType<T>.Data;
             ptr.Ref.componentSize = ptr.Ref.componentTypeData.size;
             ptr.Ref.world = world;

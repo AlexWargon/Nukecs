@@ -357,7 +357,7 @@
             for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                 ref var cmd = ref buffer->ElementAt(cmdIndex);
 
-                ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
+                ref var archetype = ref world.UnsafeWorld->GetEntityArchetypePtr(cmd.Entity).Ref;
 #if NUKECS_DEBUG
                 world.UnsafeWorld->AddComponentChange(new World.ComponentChange
                 {
@@ -443,7 +443,7 @@
                     });
 #endif
                     
-                    ref var archetype = ref *world.UnsafeWorld->entitiesArchetypes.ElementAt(cmd.Entity).impl;
+                    ref var archetype = ref world.UnsafeWorld->GetEntityArchetypePtr(cmd.Entity).Ref;
                     switch (cmd.EcbCommandType) {
                         case ECBCommand.Type.AddComponent:
                             if (archetype.Has(cmd.ComponentType))
@@ -510,7 +510,7 @@
                 {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
 
-                    ref var archetype = ref *world->entitiesArchetypes.ElementAt(cmd.Entity).impl;
+                    ref var archetype = ref world->GetEntityArchetypePtr(cmd.Entity).Ref;
                     switch (cmd.EcbCommandType) 
                     {
                         case ECBCommand.Type.AddComponent:

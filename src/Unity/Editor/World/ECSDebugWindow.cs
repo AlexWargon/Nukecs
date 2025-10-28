@@ -432,7 +432,8 @@ namespace Wargon.Nukecs.Editor
 
         private bool NeedRepaintEntityInspector()
         {
-            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(_selectedEntityId.Value).ptr.Ref;
+            _world = World.Get(worldId);
+            ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(_selectedEntityId.Value).Ref;
             var archChanged = arch.id != _selectedEntityArchetypeId;
             _selectedEntityArchetypeId = arch.id;
             return archChanged;
@@ -465,7 +466,7 @@ namespace Wargon.Nukecs.Editor
             //dbug.log("redraw all inspector", Color.red);
             
             _inspectorView.Clear();
-            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+            ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entityId).Ref;
 
             foreach (var typeIndex in arch.types)
             {
@@ -544,7 +545,7 @@ namespace Wargon.Nukecs.Editor
 
         private void UpdateProxies(int entityId, bool forceUpdate = false)
         {
-            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entityId).ptr.Ref;
+            ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entityId).Ref;
             
             foreach (var typeIndex in arch.types)
             {
@@ -568,7 +569,7 @@ namespace Wargon.Nukecs.Editor
         {
             if (!entity.IsValid()) return;
             
-            ref var arch = ref _world.UnsafeWorldRef.entitiesArchetypes.ElementAt(entity.id).ptr.Ref;
+            ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entity.id).Ref;
             foreach (var typeIndex in arch.types)
             {
                 ref var pool = ref _world.UnsafeWorldRef.GetUntypedPool(typeIndex);

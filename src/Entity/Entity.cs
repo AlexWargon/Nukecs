@@ -42,8 +42,7 @@ namespace Wargon.Nukecs
         {
             this.id = id;
             this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(id) =
-                this.worldPointer->GetArchetype(archetype);
+            this.worldPointer->entitiesArchetypes.ElementAt(id) = archetype;
         }
 
         internal ref ArchetypeUnsafe ArchetypeRef
@@ -53,12 +52,11 @@ namespace Wargon.Nukecs
 #endif
             get
             {
-                if(worldPointer == null) throw new Exception("World pointer is null");
-                if(this == Null) throw new Exception("Entity is null");
-                if(!worldPointer->entitiesArchetypes.IsCreated) throw new Exception("Entities archetype is null");
-                if(!worldPointer->entitiesArchetypes.ElementAt(id).IsCreated) throw new Exception("Entities archetype is null");
-                ref var arch = ref worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ref;
-                return ref arch;
+                // if(worldPointer == null) throw new Exception("World pointer is null");
+                // if(this == Null) throw new Exception("Entity is null");
+                // if(!worldPointer->entitiesArchetypes.IsCreated) throw new Exception("Entities archetype is null");
+                // ref var arch = ref worldPointer->archetypesList.ElementAt(worldPointer->entitiesArchetypes.ElementAt(id));
+                return ref worldPointer->GetEntityArchetypePtr(id).Ref;
             }
         }
 

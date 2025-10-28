@@ -76,23 +76,25 @@ namespace Wargon.Nukecs
             var data = new byte[fs.Length];
 
             _ = fs.Read(data, 0, data.Length);
-            var allocatorHandler = world.unsafeWorldPtr.Ref.AllocatorHandler;
-            var ecb = world.unsafeWorldPtr.Ref.EntityCommandBuffer;
-            var a = world.unsafeWorldPtr.Ref.AllocatorRef;
+            var w = world.unsafeWorldPtr;
+            var allocatorHandler = w.Ref.AllocatorHandler;
+            var ecb = w.Ref.EntityCommandBuffer;
+            var a = w.Ref.AllocatorRef;
             world.unsafeWorldPtr.Ref.systemsUpdateJobDependencies.Complete();
 
             a.FastDeserialize(Decompress(data));
             allocatorHandler.AllocatorWrapper.Allocator = a;
-            world.unsafeWorldPtr.Ref.AllocatorHandler = allocatorHandler;
-            world.unsafeWorldPtr.Ref.EntityCommandBuffer = ecb;
-            world.unsafeWorldPtr.OnDeserialize(ref a);
-            world.unsafeWorldPtr.Ref.OnDeserialize(ref a);
-            for (var index = 0; index < world.unsafeWorldPtr.Ref.entities.Length; index++)
+            w.Ref.AllocatorHandler = allocatorHandler;
+            w.Ref.EntityCommandBuffer = ecb;
+            w.OnDeserialize(ref a);
+            w.Ref.OnDeserialize(ref a);
+            for (var index = 0; index < w.Ref.entities.Length; index++)
             {
-                ref var entity = ref world.UnsafeWorld->entities.Ptr[index];
+                ref var entity = ref w.Ref.entities.Ptr[index];
                 entity.worldPointer = world.UnsafeWorld;
             }
 
+            world.unsafeWorldPtr = w;
             Get(id) = world;
             dbug.log("loaded");
         }
