@@ -14,32 +14,55 @@ namespace Wargon.Nukecs
     {
         [StructLayout(LayoutKind.Sequential)]
         public partial struct WorldUnsafe {
-            internal void OnDeserialize()
+            internal void OnDeserialize(ref MemAllocator allocator)
             {
-                entities.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                prefabsToSpawn.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                reservedEntities.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                entitiesArchetypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                pools.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                queries.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                selfPtr.OnDeserialize(ref allocator);
+#if NUKECS_DEBUG
+                entitiesDens.OnDeserialize(ref allocator);
+                storyLog.OnDeserialize(ref allocator);
+#endif
+                entities.OnDeserialize(ref allocator);
+                prefabsToSpawn.OnDeserialize(ref allocator);
+                reservedEntities.OnDeserialize(ref allocator);
+                rootArchetype.ptr.OnDeserialize(ref allocator);
+                rootArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                entitiesArchetypes.OnDeserialize(ref allocator);
+                foreach (ref var entitiesArchetype in entitiesArchetypes)
+                {
+                    if (!entitiesArchetype.ptr.IsDefault)
+                    {
+                        entitiesArchetype.ptr.OnDeserialize(ref allocator);
+                        entitiesArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                    }
+                }
+                pools.OnDeserialize(ref allocator);
+                foreach (ref var genericPool in pools)
+                {
+                    if (genericPool.IsCreated)
+                    {
+                        genericPool.OnDeserialize(ref allocator);
+                    }
+                }
+                queries.OnDeserialize(ref allocator);
                 foreach (ref var query in queries)
                 {
-                    query.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                    query.OnDeserialize(ref allocator);
                 }
-                archetypesMap.OnDeserialize(ref AllocatorRef, Allocator);
-                foreach (var kvPair in archetypesMap)
-                {
-                    kvPair.Value.ptr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                    kvPair.Value.ptr.Ref.OnDeserialize(ref AllocatorRef, Allocator);
-                }
-                archetypesList.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                archetypesList.OnDeserialize(ref allocator);
                 foreach (ref var ptr in archetypesList)
                 {
-                    ptr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                    ptr.OnDeserialize(ref allocator);
+                    ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
                 }
+                archetypesMap.OnDeserialize(ref allocator, Allocator);
+                foreach (var kvPair in archetypesMap)
+                {
+                    kvPair.Value.ptr.OnDeserialize(ref allocator);
+                    kvPair.Value.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                }
+
                 //ArchetypeHashCache.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                DefaultNoneTypes.OnDeserialize(ref AllocatorWrapperRef.Allocator);
-                selfPtr.OnDeserialize(ref AllocatorWrapperRef.Allocator);
+                DefaultNoneTypes.OnDeserialize(ref allocator);
             }
             
             internal WorldConfig config;
@@ -92,6 +115,7 @@ namespace Wargon.Nukecs
                 ptr.Ptr->Initialize(id, config, ptr, ref allocator);
                 return ptr.Ptr;
             }
+            
             internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
@@ -123,7 +147,7 @@ namespace Wargon.Nukecs
                 lastEntityIndex = FIRST_ENTITY_ID;
                 poolsCount = 0;
                 lastDestroyedEntity = 0;
-                EntityCommandBuffer = new EntityCommandBuffer(256, Allocator);
+                EntityCommandBuffer = new EntityCommandBuffer(256, Allocator.Persistent);
                 spinner = new Spinner();
                 aspects = new Aspects(ref AllocatorRef, id);
                 

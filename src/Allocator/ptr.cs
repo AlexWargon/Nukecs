@@ -94,6 +94,7 @@
         public T* cached;
         public static readonly ptr<T> NULL = new (null, 0u);
         public bool IsNull => cached == null;
+        public bool IsDefault => offset.Offset == 0;
         public void OnDeserialize(ref MemAllocator allocator)
         {
             cached = (T*)(allocator.BasePtr + offset.Offset);
@@ -108,18 +109,23 @@
         public ptr UntypedPointer
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => new ptr(cached, offset);
+            get => new (cached, offset);
         }
         public T* Ptr
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => cached;
         }
-        
         public ref T Ref
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *cached;
+            get
+            {
+                if (cached == null)
+                {
+                    throw new NullReferenceException("cached ptr is null.");
+                }
+                return ref *cached;
+            }
         }
 
         public ref T this[int index]

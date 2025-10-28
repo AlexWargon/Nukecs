@@ -106,6 +106,10 @@ namespace Wargon.Nukecs.Collections
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
+            if (Ptr == null)
+            {
+                throw new Exception("PTR NULL");
+            }
             return ref Ptr[index];
         }
         

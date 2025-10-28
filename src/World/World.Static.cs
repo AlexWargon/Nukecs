@@ -103,7 +103,19 @@ namespace Wargon.Nukecs
             Debug.Log($"Created World {id}");
             return world;
         }
-
+        public static World Load(WorldConfig config, byte[] data)
+        {
+            InitStatic();
+            OnWorldCreatingEvent?.Invoke();
+            Component.Initialization();
+            World world;
+            var id = lastFreeSlot++;
+            lastWorldID = id;
+            world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
+            worlds.Data[id] = world;
+            Debug.Log($"Created World {id}");
+            return world;
+        }
         public static void DisposeStatic()
         {
             if(!staticInited) return;

@@ -25,15 +25,8 @@
             ecb->perThreadBuffer = Chains(startSize, this.allocator);
             ecb->isCreated = 1;
         }
-        internal EntityCommandBuffer(int startSize, World.WorldUnsafe* world) {
-            allocator = world->Allocator;
-            ecb = world->_allocate<ECBInternal>();
-            *ecb = new ECBInternal();
-            //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
-            ecb->perThreadBuffer = Chains(startSize, world->Allocator);
-            ecb->isCreated = 1;
-        }
-        private UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<ECBCommand>>* Chains(int startSize, Allocator alloc) {
+
+        private UnsafePtrList<UnsafeList<ECBCommand>>* Chains(int startSize, Allocator alloc) {
             var threads = JobsUtility.ThreadIndexCount + 2;
             var ptrList =
                 UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, alloc);

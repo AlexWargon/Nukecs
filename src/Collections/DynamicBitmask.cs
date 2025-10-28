@@ -13,7 +13,7 @@ namespace Wargon.Nukecs
         private ptr<ulong> bitmaskArray;
         private int maxBits;
         private int arraySize;
-
+        public bool IsCreated => bitmaskArray.cached != null;
         internal void OnDeserialize(ref MemAllocator allocator)
         {
             bitmaskArray.OnDeserialize(ref allocator);
@@ -66,7 +66,7 @@ namespace Wargon.Nukecs
         }
 
         // Method to check if an element is present (a specific bit is set)
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int position)
         {
             if (position < 0 || position >= maxBits)

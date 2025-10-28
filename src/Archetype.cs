@@ -44,18 +44,19 @@ namespace Wargon.Nukecs
         internal readonly int id;
         internal bool IsCreated => world != null;
 
-        internal void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator)
+        internal void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator, World.WorldUnsafe* worldPtr)
         {
-            mask.OnDeserialize(ref allocator);
+            world = worldPtr;
             queries.OnDeserialize(ref allocator);
             transactions.OnDeserialize(ref allocator, unityAllocator);
+            destroyEdge.OnDeserialize(ref allocator, unityAllocator, worldPtr);
             foreach (var kvPair in transactions)
             {
                 kvPair.Value.OnDeserialize(ref allocator);
                 ref var edge = ref kvPair.Value.Ref;
-                edge.RemoveEntity.OnDeserialize(ref allocator);
-                edge.AddEntity.OnDeserialize(ref allocator);
+                edge.OnDeserialize(ref allocator, unityAllocator, worldPtr);
             }
+            mask.OnDeserialize(ref allocator);
         }
 
         private ref QueryUnsafe IdToQueryRef(int qId)
@@ -509,6 +510,7 @@ namespace Wargon.Nukecs
 #endif
         internal static bool Has<T>(this ref ArchetypeUnsafe archetype) where T : unmanaged
         {
+            if(!archetype.mask.IsCreated) throw new Exception("Archetype mask is not created");
             return archetype.mask.Has(ComponentType<T>.Index);
         }
 
@@ -533,8 +535,8 @@ namespace Wargon.Nukecs
     {
         internal MemoryList<ptr<QueryUnsafe>> AddEntity;
         internal MemoryList<ptr<QueryUnsafe>> RemoveEntity;
-        [NativeDisableUnsafePtrRestriction] internal readonly ArchetypeUnsafe* ToMovePtr;
-        internal readonly Archetype ToMove;
+        [NativeDisableUnsafePtrRestriction] internal ArchetypeUnsafe* ToMovePtr;
+        internal Archetype ToMove;
 
         public Edge(ref Archetype archetype, ref MemAllocator allocator)
         {
@@ -560,16 +562,24 @@ namespace Wargon.Nukecs
             for (var i = 0; i < AddEntity.length; i++) AddEntity.ElementAt(i).Ref.Add(entity);
         }
 
-        public void OnDeserialize(ref MemAllocator allocator)
+        public void OnDeserialize(ref MemAllocator alloc, Allocator allocator, World.WorldUnsafe* w)
         {
-            foreach (ref var ptr in AddEntity)
+            if (!ToMove.ptr.IsDefault)
             {
-                ptr.OnDeserialize(ref allocator);
+                ToMove.ptr.OnDeserialize(ref alloc);
+                ToMove.ptr.Ref.OnDeserialize(ref alloc, allocator, w);
+                ToMovePtr = ToMove.ptr.Ptr;
             }
 
+            AddEntity.OnDeserialize(ref alloc);
+            foreach (ref var ptr in AddEntity)
+            {
+                ptr.OnDeserialize(ref alloc);
+            }
+            RemoveEntity.OnDeserialize(ref alloc);
             foreach (ref var ptr in RemoveEntity)
             {
-                ptr.OnDeserialize(ref allocator);
+                ptr.OnDeserialize(ref alloc);
             }
         }
     }

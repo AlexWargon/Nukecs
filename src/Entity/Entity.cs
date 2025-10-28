@@ -53,9 +53,10 @@ namespace Wargon.Nukecs
 #endif
             get
             {
-                //if(worldPointer == null) throw new Exception("World pointer is null");
-                //if(this == Null) throw new Exception("Entity is null");
-                //if(!worldPointer->entitiesArchetypes.IsCreated) throw new Exception("Entities archetype is null");
+                if(worldPointer == null) throw new Exception("World pointer is null");
+                if(this == Null) throw new Exception("Entity is null");
+                if(!worldPointer->entitiesArchetypes.IsCreated) throw new Exception("Entities archetype is null");
+                if(!worldPointer->entitiesArchetypes.ElementAt(id).IsCreated) throw new Exception("Entities archetype is null");
                 ref var arch = ref worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ref;
                 return ref arch;
             }
@@ -123,6 +124,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent
         {
+            //return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).ptr.Ptr->Has<T>();
             return entity.ArchetypeRef.Has<T>();
         }
 

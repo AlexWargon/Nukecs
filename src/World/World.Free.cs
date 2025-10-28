@@ -10,6 +10,7 @@ public unsafe partial struct World
         {
             public void Free()
             {
+                ECB.Dispose();
                 // var info = AllocatorHandler.AllocatorWrapper.Allocator.GetMemoryInfo();
                 // var sb = new System.Text.StringBuilder();
                 // sb.Append($"Allocator on free: Total memory: {info.totalSize} . Free: {info.freeSize} bytes. Used {info.usedSize} bytes. Defragmentation Cycles: {info.defragmentationCycles}. Blocks: {info.blockCount}");

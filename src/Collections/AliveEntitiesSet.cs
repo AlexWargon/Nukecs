@@ -9,6 +9,12 @@ namespace Wargon.Nukecs.Collections
     {
         private MemoryList<int> dense;
         private MemoryList<int> sparse;
+
+        public void OnDeserialize(ref MemAllocator allocator)
+        {
+            dense.OnDeserialize(ref allocator);
+            sparse.OnDeserialize(ref allocator);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public AliveEntitiesSet(int maxEntities, ref MemAllocator allocator)
         {

@@ -27,6 +27,11 @@ namespace Wargon.Nukecs
         internal ptr<ComponentPoolUntyped> unsafeBufferPtr;
         public int Count => 0;
 
+        public void OnDeserialize(ref MemAllocator allocator)
+        {
+            unsafeBufferPtr.OnDeserialize(ref allocator);
+            unsafeBufferPtr.Ref.OnDeserialization(ref allocator);
+        }
         internal static GenericPool Create<T>(int size, ref ptr<World.WorldUnsafe> world)
             where T : unmanaged, IComponent
         {
@@ -340,6 +345,11 @@ namespace Wargon.Nukecs
 
             return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
         }
+
+        public void OnDeserialize(ref MemAllocator allocator)
+        {
+            buffer.OnDeserialize(ref allocator);
+        }
     }
 
     public struct EntityChunkInfo
@@ -358,6 +368,13 @@ namespace Wargon.Nukecs
         public void OnDeserialization(ref MemAllocator allocator)
         {
             chunks.OnDeserialize(ref allocator);
+            foreach (ref var chunk in chunks)
+            {
+                if (chunk.isCreated == 1)
+                {
+                    chunk.OnDeserialize(ref allocator);
+                }
+            }
             world.OnDeserialize(ref allocator);
         }
 

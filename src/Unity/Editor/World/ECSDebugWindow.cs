@@ -164,7 +164,6 @@ namespace Wargon.Nukecs.Editor
             root.Add(rightPanel);
 
             RefreshList();
-
             root.schedule.Execute(() =>
             {
                 _world = World.Get(worldId);
@@ -177,7 +176,7 @@ namespace Wargon.Nukecs.Editor
                     _lastSearchValue = _searchField.value;
                     RefreshList();
                 }
-
+                entitiesBtn.text = $"[{_world.EntitiesAmount}]Entities";
 
             }).Every(100);
 
@@ -188,6 +187,7 @@ namespace Wargon.Nukecs.Editor
                 {
                     RefreshList();
                     _inspectorView.Clear();
+                    
                     _selectedEntityId = null;
                 }
                 if (_selectedEntityId.HasValue)
@@ -203,10 +203,10 @@ namespace Wargon.Nukecs.Editor
                         UpdateProxies(_selectedEntityId.Value);
                         //_inspectorView.MarkDirtyRepaint();
                     }
-
+                    
                 }
 
-                entitiesBtn.text = $"[{_world.EntitiesAmount}]Entities";
+                
             }).Every(33);
         }
 
@@ -310,6 +310,7 @@ namespace Wargon.Nukecs.Editor
 
         private void RefreshList()
         {
+            _world = World.Get(worldId);
             if (!_world.IsAlive || !EditorApplication.isPlaying)
             {
                 _items.Clear();

@@ -37,6 +37,8 @@ namespace Wargon.Nukecs
         private MemoryBlock* blocks;
         private int blockCount;
         private long memoryUsed;
+        private int defragmentationCount;
+        private Spinner spinner;
         public long MemoryLeft => totalSize - memoryUsed;
         public byte* BasePtr
         {
@@ -63,13 +65,12 @@ namespace Wargon.Nukecs
         }
         public bool IsActive { get; private set; }
         public bool IsDisposed => !IsActive;
-        private int defragmentationCount;
-        private Spinner spinner;
+        
         public MemAllocator(long sizeInBytes)
         {
             totalSize = sizeInBytes;
-            basePtr = (byte*)UnsafeUtility.MallocTracked(totalSize, ALIGNMENT, Allocator.Persistent, 0);
-            blocks = (MemoryBlock*)UnsafeUtility.MallocTracked(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent, 0);
+            basePtr = (byte*)UnsafeUtility.Malloc(totalSize, ALIGNMENT, Allocator.Persistent);
+            blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent);
             // Initialize first block covering entire memory
             UnsafeUtility.MemClear(basePtr, totalSize);
             UnsafeUtility.MemClear(blocks, sizeof(MemoryBlock) * MAX_BLOCKS);
@@ -362,19 +363,19 @@ namespace Wargon.Nukecs
             spinner.Release();
             if (basePtr != null)
             {
-                UnsafeUtility.FreeTracked(basePtr, Allocator.Persistent);
+                UnsafeUtility.Free(basePtr, Allocator.Persistent);
                 basePtr = null;
             }
 
             if (blocks != null)
             {
-                UnsafeUtility.FreeTracked(blocks, Allocator.Persistent);
+                UnsafeUtility.Free(blocks, Allocator.Persistent);
                 blocks = null;
             }
             
             IsActive = false;
             
-            dbug.log(nameof(MemAllocator) + $" disposed bytes {totalSize}");
+            dbug.log(nameof(MemAllocator) + $" disposed {totalSize}b, {totalSize/1024/1024}mb ");
         }
 
         // Get total allocated memory size

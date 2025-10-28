@@ -152,7 +152,7 @@ namespace Wargon.Nukecs
             await gzip.CopyToAsync(output);
             return output.ToArray();
         }
-        private static byte[] Compress(byte[] data)
+        public static byte[] Compress(byte[] data)
         {
             using var memoryStream = new MemoryStream();
             using var gzip = new GZipStream(memoryStream, CompressionLevel.Optimal);
@@ -160,7 +160,7 @@ namespace Wargon.Nukecs
             gzip.Close();
             return memoryStream.ToArray();
         }
-        private static byte[] Decompress(byte[] inputData)
+        public static byte[] Decompress(byte[] inputData)
         {
             using var input = new MemoryStream(inputData);
             using var gzip = new GZipStream(input, CompressionMode.Decompress);

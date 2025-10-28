@@ -12,7 +12,7 @@ namespace Wargon.Nukecs
 
         public ref UnityAllocatorWrapper AllocatorWrapper
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref allocatorHelper.Allocator;
         }
 
