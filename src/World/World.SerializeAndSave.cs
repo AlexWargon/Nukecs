@@ -49,7 +49,7 @@ namespace Wargon.Nukecs {
             UpdateEntitiesWorld();
         }
 
-        public async void SaveToFileAsync(string path) {
+        public async Task SaveToFileAsync(string path) {
             UnsafeWorldRef.systemsUpdateJobDependencies.Complete();
             await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.SaveToFileAsync(path);
         }

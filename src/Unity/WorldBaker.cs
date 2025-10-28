@@ -1,13 +1,10 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
 using TriInspector;
-using Unity.Mathematics;
 using UnityEngine;
-using Random = UnityEngine.Random;
-using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs {
-    public abstract class WorldLink : MonoBehaviour {
+    public abstract class WorldBaker : MonoBehaviour {
         public string path;
         private IOnUpdate _onUpdate;
         private World _runtimeWorld;
@@ -30,31 +27,10 @@ namespace Wargon.Nukecs {
             }
         }
 
-        private float range(float a, float b) {
-            return Random.Range(a, b);
-        }
-
-        private void FakeLoad() {
-            _runtimeWorld = World.Create(WorldConfig.Default16384);
-            _systems = new Systems(ref _runtimeWorld);
-            _systems.AddDefaults()
-                ;
-            for (var i = 0; i < 1000; i++) {
-                var scale = range(1f, 2f);
-                var e = _runtimeWorld.Entity();
-                e.Add(new Transform {
-                    Position = new float3(range(-55f, 55f), 0, range(-55f, 55f)),
-                    Rotation = quaternion.RotateY(range(0, 360f)),
-                    Scale = new float3(scale, scale, scale)
-                });
-            }
-        }
-
         [Button]
         private void Load() {
             _runtimeWorld = World.Create(WorldConfig.Default16384);
             ;
-            dbug.log("Loading world...");
 
             World.Load(FullPath, ref _runtimeWorld);
             _systems = new Systems(ref _runtimeWorld);
@@ -85,16 +61,20 @@ namespace Wargon.Nukecs {
 
         protected abstract void AddSystems(Systems systems);
 
+
         [Button]
-        public void BakeInternal() {
+        private async void BakeInternal() {
             var world = World.Create(WorldConfig.Default16384);
             Bake(ref world);
             world.Update();
-            world.SaveToFileAsync(FullPath);
+            await world.SaveToFileAsync(FullPath);
             world.Dispose();
             World.DisposeStatic();
         }
-
+        /// <summary>
+        /// Bake all world data to file.
+        /// It will be loaded on awake
+        /// </summary>
         public abstract void Bake(ref World world);
 
         private void Cleanup() { }

@@ -3,10 +3,7 @@ using Wargon.Nukecs.Transforms;
 using Random = UnityEngine.Random;
 
 namespace Wargon.Nukecs {
-    public class TestWorldLink : WorldLink, IOnCreate, IOnUpdate {
-        public void OnCreate(ref World world) { }
-
-        public void OnUpdate(ref State state) { }
+    public class TestWorldBaker : WorldBaker {
 
         public override void Bake(ref World world) {
             var e = world.Entity();

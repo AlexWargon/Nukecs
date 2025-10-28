@@ -159,7 +159,7 @@ namespace Wargon.Nukecs
 
         internal Entity CreateEntity()
         {
-            var e = world->CreateEntity(id);
+            var e = world->CreateEntity(index);
             for (var i = 0; i < queries.Length; i++) IdToQueryRef(queries.Ptr[i]).Add(e.id);
             return e;
         }
@@ -233,7 +233,7 @@ namespace Wargon.Nukecs
 #endif
         internal Entity Copy(in Entity entity)
         {
-            var newEntity = world->CreateEntity(id);
+            var newEntity = world->CreateEntity(index);
             for (var i = 0; i < queries.Length; i++)
             {
                 var queryId = queries.ElementAt(i);
@@ -261,7 +261,6 @@ namespace Wargon.Nukecs
                 }
             }
 
-            //newEntity.Add<EntityCreated>();
             return newEntity;
         }
 
