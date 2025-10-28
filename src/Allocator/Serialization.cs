@@ -91,7 +91,7 @@ namespace Wargon.Nukecs
             }
             spinner.Release();
         }
-
+        
         public void SaveToFile(string filePath)
         {
             spinner.Acquire();

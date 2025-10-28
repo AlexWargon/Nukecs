@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using TriInspector;
 using UnityEngine;
@@ -52,11 +53,12 @@ namespace Wargon.Nukecs {
             AddSystems(_systems);
             if (this is IOnCreate onCreate) onCreate.OnCreate(ref _runtimeWorld);
             if (this is IOnUpdate onUpdate) _onUpdate = onUpdate;
+            dbug.log("World loaded!");
         }
 
         [Button]
         private void Save() {
-            _runtimeWorld.SaveToFileAsync(FullPath);
+            _ = _runtimeWorld.SaveToFileAsync(FullPath);
         }
 
         protected abstract void AddSystems(Systems systems);

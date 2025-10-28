@@ -119,6 +119,18 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
         internal int Id;
         public bool IsCreated => world != null;
+
+        internal void OnDeserialize(ref MemAllocator allocator)
+        {
+            with.OnDeserialize(ref allocator);
+            none.OnDeserialize(ref allocator);
+            entities.OnDeserialize(ref allocator);
+            entitiesMap.OnDeserialize(ref allocator);
+#if UNITY_EDITOR
+            withDebug.OnDeserialize(ref allocator);
+            noneDebug.OnDeserialize(ref allocator);
+#endif
+        }
         internal static void Free(QueryUnsafe* queryImpl) {
             queryImpl->Free();
             queryImpl->world->_free(queryImpl);

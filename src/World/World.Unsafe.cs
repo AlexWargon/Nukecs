@@ -29,17 +29,19 @@ namespace Wargon.Nukecs
                 entitiesArchetypes.OnDeserialize(ref allocator);
 
                 pools.OnDeserialize(ref allocator);
-
                 foreach (ref var genericPool in pools)
                 {
                     if(genericPool.IsCreated)
                         genericPool.OnDeserialize(ref allocator);
                 }
+                
                 queries.OnDeserialize(ref allocator);
                 foreach (ref var query in queries)
                 {
                     query.OnDeserialize(ref allocator);
+                    query.Ref.OnDeserialize(ref allocator);
                 }
+
                 archetypesList.OnDeserialize(ref allocator);
                 foreach (ref var ptr in archetypesList)
                 {
@@ -110,7 +112,8 @@ namespace Wargon.Nukecs
             internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize) + Memory.MEGABYTE*3 + Memory.MEGABYTE*4;
+                var sizeToAllocate = (long)(cSize);
+                sizeToAllocate = Memory.MEGABYTE * 10;
                 var allocator = new UnityAllocatorHandler(sizeToAllocate);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();

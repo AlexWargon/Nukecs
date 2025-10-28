@@ -69,13 +69,14 @@ namespace Wargon.Nukecs {
                 await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 var data = new byte[fs.Length];
 
-                await fs.ReadAsync(data, 0, data.Length);
+                var readAsync = await fs.ReadAsync(data, 0, data.Length);
                 var w = world.unsafeWorldPtr;
                 var allocatorHandler = w.Ref.AllocatorHandler;
                 var a = w.Ref.AllocatorRef;
                 w.Ref.systemsUpdateJobDependencies.Complete();
                 var ecb = w.Ref.EntityCommandBuffer;
-                a.FastDeserialize(Decompress(data));
+                var decompressed = await DecompressAsync(data);
+                a.FastDeserialize(decompressed);
                 allocatorHandler.AllocatorWrapper.Allocator = a;
                 w.OnDeserialize(ref a);
                 w.Ref.EntityCommandBuffer = ecb;
@@ -154,7 +155,17 @@ namespace Wargon.Nukecs {
             using var input = new MemoryStream(inputData);
             using var gzip = new GZipStream(input, CompressionMode.Decompress);
             using var output = new MemoryStream();
+            
             gzip.CopyTo(output);
+            return output.ToArray();
+        }
+
+        private static async Task<byte[]> DecompressAsync(byte[] inputData)
+        {
+            await using var input = new MemoryStream(inputData);
+            await using var gzip = new GZipStream(input, CompressionMode.Decompress);
+            await using var output = new MemoryStream();
+            await gzip.CopyToAsync(output);
             return output.ToArray();
         }
     }
