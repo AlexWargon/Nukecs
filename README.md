@@ -131,12 +131,12 @@ Create class inherited from ```WordInstaller``` and drop it on scene
     {
         public SystemMode Mode => SystemMode.Parallel;
         public Query GetQuery(ref World world)
-	{
+		{
             return world.Query().With<Bullet>().With<Transform>().With<Body2D>().With<Speed>().None<StaticTag>();
         }
 
         public void OnUpdate(ref Entity entity, ref State state)
-	{
+		{
             ref var t = ref entity.Get<Transform>();
             ref var b = ref entity.Get<Body2D>();
             ref readonly var s = ref entity.Read<Speed>();
@@ -158,9 +158,9 @@ Create class inherited from ```WordInstaller``` and drop it on scene
 		public void OnUpdate(ref State state)
 		{
 			foreach (ref var entity in _query)
-	                {
-	                    ref var c = ref entity.Get<Component2>();
-	                }
+				{
+					ref var c = ref entity.Get<Component2>();
+				}
 		}
 	}
 ```
