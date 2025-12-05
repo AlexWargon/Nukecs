@@ -283,24 +283,16 @@ namespace Wargon.Nukecs {
         }
     }
 
-    public unsafe struct Ref<TComponent> where TComponent : unmanaged, IComponent {
+    public unsafe struct Rf<TComponent> where TComponent : unmanaged {
         internal int index;
         internal Chunk* pool;
-        public ref TComponent Value
+        public ref TComponent Ref
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref Chunk.GetRef<TComponent>(pool, index);
         }
     }
 
-    public unsafe ref struct Rf<TComponent> where TComponent : unmanaged, IComponent {
-        internal int index;
-        internal readonly GenericPool.GenericPoolUnsafe* pool;
-        public ref TComponent Value {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref pool->GetRef<TComponent>(index);
-        }
-    }
     
     public readonly unsafe struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
         internal readonly int index;
@@ -308,7 +300,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadRef(int index, ref GenericPool pool){
             this.index = index;
-            this.pool = pool.unsafeBufferPtr.Ref.chunks.Ptr;
+            this.pool = pool.UnsafeBufferPtr.Ref.Chunks.Ptr;
         }
         public unsafe ref readonly TComponent Value {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -325,19 +317,19 @@ namespace Wargon.Nukecs {
         public GenericPool pool2;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator QueryTuple<T1,T2>((Ref<T1>,Ref<T2>) instance)
+        public static implicit operator QueryTuple<T1,T2>((Rf<T1>,Rf<T2>) instance)
         {
             return new QueryTuple<T1, T2>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
-            var ref1 = new Ref<T1> {
-                pool = queryTuple.pool1.UnsafeBuffer->chunks.Ptr,
+        public static unsafe implicit operator (Rf<T1>,Rf<T2>)(QueryTuple<T1,T2> queryTuple) {
+            var ref1 = new Rf<T1> {
+                pool = queryTuple.pool1.UnsafeBuffer->Chunks.Ptr,
                 index = queryTuple.entity
             };
-            var ref2 = new Ref<T2> {
-                pool = queryTuple.pool2.UnsafeBuffer->chunks.Ptr,
+            var ref2 = new Rf<T2> {
+                pool = queryTuple.pool2.UnsafeBuffer->Chunks.Ptr,
                 index = queryTuple.entity
             };
             return (ref1, ref2);
@@ -369,16 +361,16 @@ namespace Wargon.Nukecs {
         {
             private int _lastIndex;
             private int _end;
-            private Ref<T1> c1;
-            private Ref<T2> c2;
-            private Ref<T3> c3;
+            private Rf<T1> c1;
+            private Rf<T2> c2;
+            private Rf<T3> c3;
         
             public IterEnumerator(int start, int end, World.WorldUnsafe* world) {
                 _lastIndex = start - 1;
                 _end = end;
-                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBuffer->chunks.Ptr;
-                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBuffer->chunks.Ptr;
-                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBuffer->chunks.Ptr;
+                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBuffer->Chunks.Ptr;
+                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBuffer->Chunks.Ptr;
+                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBuffer->Chunks.Ptr;
             }
             public bool MoveNext() {
                 _lastIndex++;
@@ -392,7 +384,7 @@ namespace Wargon.Nukecs {
                 _lastIndex = -1;
             }
 
-            public (Ref<T1>, Ref<T2>, Ref<T3>) Current {
+            public (Rf<T1>, Rf<T2>, Rf<T3>) Current {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => (c1, c2, c3);
             }

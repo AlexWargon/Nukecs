@@ -15,29 +15,29 @@ namespace Wargon.Nukecs
         public bool IsCreated
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => !unsafeBufferPtr.IsDefault;
+            get => !UnsafeBufferPtr.IsDefault;
         }
 
         internal ComponentPoolUntyped* UnsafeBuffer
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => unsafeBufferPtr.Ptr;
+            get => UnsafeBufferPtr.Ptr;
         }
 
-        internal ptr<ComponentPoolUntyped> unsafeBufferPtr;
+        internal ptr<ComponentPoolUntyped> UnsafeBufferPtr;
         public int Count => 0;
 
         public void OnDeserialize(ref MemAllocator allocator)
         {
-            unsafeBufferPtr.OnDeserialize(ref allocator);
-            unsafeBufferPtr.Ref.OnDeserialization(ref allocator);
+            UnsafeBufferPtr.OnDeserialize(ref allocator);
+            UnsafeBufferPtr.Ref.OnDeserialization(ref allocator);
         }
         internal static GenericPool Create<T>(int size, ref ptr<World.WorldUnsafe> world)
             where T : unmanaged, IComponent
         {
             return new GenericPool
             {
-                unsafeBufferPtr = ComponentPoolUntyped.Create<T>(size, ref world)
+                UnsafeBufferPtr = ComponentPoolUntyped.Create<T>(size, ref world)
             };
         }
 
@@ -45,7 +45,7 @@ namespace Wargon.Nukecs
         {
             return new GenericPool
             {
-                unsafeBufferPtr = ComponentPoolUntyped.Create(size, ref world, in typeData)
+                UnsafeBufferPtr = ComponentPoolUntyped.Create(size, ref world, in typeData)
             };
         }
 
@@ -153,19 +153,19 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef<T>(int index) where T : unmanaged
         {
-            return ref unsafeBufferPtr.Ref.Get<T>(index);
+            return ref UnsafeBufferPtr.Ref.Get<T>(index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte* UnsafeGetPtr(int index)
         {
-            return unsafeBufferPtr.Ref.GetPtr(index);
+            return UnsafeBufferPtr.Ref.GetPtr(index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set<T>(int index, in T value) where T : unmanaged
         {
-            unsafeBufferPtr.Ref.Add(index, in value);
+            UnsafeBufferPtr.Ref.Add(index, in value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -175,62 +175,62 @@ namespace Wargon.Nukecs
 
         public ref T GetSingleton<T>() where T : unmanaged
         {
-            return ref unsafeBufferPtr.Ref.Get<T>(0);
+            return ref UnsafeBufferPtr.Ref.Get<T>(0);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetPtr(int index, byte* value)
         {
-            unsafeBufferPtr.Ref.AddPtr(index, value);
+            UnsafeBufferPtr.Ref.AddPtr(index, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value)
         {
-            unsafeBufferPtr.Ref.WriteBytes(index, value);
+            UnsafeBufferPtr.Ref.WriteBytes(index, value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytesUnsafe(int index, byte* value, int sizeInBytes)
         {
-            unsafeBufferPtr.Ref.WriteBytesUnsafe(index, value, sizeInBytes);
+            UnsafeBufferPtr.Ref.WriteBytesUnsafe(index, value, sizeInBytes);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddObject(int index, IComponent component)
         {
-            unsafeBufferPtr.Ref.AddObject(index, component);
+            UnsafeBufferPtr.Ref.AddObject(index, component);
         }
 
         public IComponent GetObject(int index)
         {
-            return unsafeBufferPtr.Ref.GetObject(index);
+            return UnsafeBufferPtr.Ref.GetObject(index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetObject(int index, IComponent component)
         {
-            unsafeBufferPtr.Ref.SetObject(index, component);
+            UnsafeBufferPtr.Ref.SetObject(index, component);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index)
         {
-            unsafeBufferPtr.Ref.Remove(index);
+            UnsafeBufferPtr.Ref.Remove(index);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public void DisposeComponent(int index)
         {
-            unsafeBufferPtr.Ref.DisposeComponent(index);
+            UnsafeBufferPtr.Ref.DisposeComponent(index);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public void Copy(int source, int destination)
         {
-            unsafeBufferPtr.Ref.Copy(source, destination);
+            UnsafeBufferPtr.Ref.Copy(source, destination);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -278,14 +278,14 @@ namespace Wargon.Nukecs
     {
         public static ComponentPool<T> AsComponentPool<T>(in this GenericPool genericPool) where T : unmanaged
         {
-            return new ComponentPool<T>(ref genericPool.unsafeBufferPtr.Ref);
+            return new ComponentPool<T>(ref genericPool.UnsafeBufferPtr.Ref);
         }
 
         public static AspectData<T> AsAspectData<T>(in this GenericPool genericPool) where T : unmanaged, IComponent
         {
             return new AspectData<T>
             {
-                Buffer = genericPool.UnsafeBuffer->chunks.Ptr
+                Buffer = genericPool.UnsafeBuffer->Chunks.Ptr
             };
         }
     }
@@ -298,7 +298,7 @@ namespace Wargon.Nukecs
 
         internal ComponentPool(ref ComponentPoolUntyped pool)
         {
-            chunks = pool.chunks;
+            chunks = pool.Chunks;
             world = pool.world;
             data = pool.componentTypeData;
         }
@@ -337,7 +337,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe ref T GetRef<T>(Chunk* chunks, int index) where T : unmanaged, IComponent
+        public static unsafe ref T GetRef<T>(Chunk* chunks, int index) where T : unmanaged
         {
             var chunkIndex = index / MAX_CHUNK_SIZE;
             var componentIndex = index % MAX_CHUNK_SIZE;
@@ -360,7 +360,7 @@ namespace Wargon.Nukecs
 
     public unsafe struct ComponentPoolUntyped
     {
-        public MemoryList<Chunk> chunks;
+        public MemoryList<Chunk> Chunks;
         public ptr<World.WorldUnsafe> world;
         public int componentSize;
         public ComponentTypeData componentTypeData;
@@ -368,8 +368,8 @@ namespace Wargon.Nukecs
         public void OnDeserialization(ref MemAllocator allocator) {
             var idx = componentTypeData.index;
             componentTypeData = ComponentTypeMap.GetComponentType(idx);
-            chunks.OnDeserialize(ref allocator);
-            foreach (ref var chunk in chunks)
+            Chunks.OnDeserialize(ref allocator);
+            foreach (ref var chunk in Chunks)
             {
                 if (chunk.isCreated == 1)
                 {
@@ -383,7 +383,7 @@ namespace Wargon.Nukecs
             where T : unmanaged, IComponent
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
-            ptr.Ref.chunks =
+            ptr.Ref.Chunks =
                 new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true, lenAsCapacity:true);
             ptr.Ref.componentTypeData = ComponentType<T>.Data;
             ptr.Ref.componentSize = ptr.Ref.componentTypeData.size;
@@ -395,7 +395,7 @@ namespace Wargon.Nukecs
             in ComponentTypeData data)
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
-            ptr.Ref.chunks =
+            ptr.Ref.Chunks =
                 new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true);
             ptr.Ref.componentSize = data.size;
             ptr.Ref.componentTypeData = data;
@@ -408,8 +408,8 @@ namespace Wargon.Nukecs
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
 
-            if (chunkIndex > chunks.capacity) chunks.Resize(chunks.capacity * 2, ref world.Ref.AllocatorRef);
-            ref var chunk = ref chunks.ElementAt(chunkIndex);
+            if (chunkIndex > Chunks.capacity) Chunks.Resize(Chunks.capacity * 2, ref world.Ref.AllocatorRef);
+            ref var chunk = ref Chunks.ElementAt(chunkIndex);
             if (chunk.isCreated == 0)
             {
                 //dbug.log($"is array element : {componentTypeData.IsArrayElement}", Color.yellow);
@@ -450,7 +450,7 @@ namespace Wargon.Nukecs
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
-            ref var page = ref chunks[chunkIndex];
+            ref var page = ref Chunks[chunkIndex];
             return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
         }
 
@@ -459,7 +459,7 @@ namespace Wargon.Nukecs
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
-            ref var page = ref chunks[chunkIndex];
+            ref var page = ref Chunks[chunkIndex];
             return page.buffer.Ptr + componentIndex * componentTypeData.size;
         }
 

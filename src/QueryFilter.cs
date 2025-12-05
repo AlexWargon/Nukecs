@@ -1,4 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
+using Unity.Burst;
+using Unity.Jobs;
+using Wargon.Nukecs.Transforms;
 
 namespace Wargon.Nukecs
 {
@@ -16,14 +20,14 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
     {
-        (Ref<T1>, Ref<T2>) Get(int e);
+        (Rf<T1>, Rf<T2>) Get(int e);
     }
     public interface IFilterWith<T1, T2, T3>  : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
     {
-        (Ref<T1>, Ref<T2>, Ref<T3>) Get(int e);
+        (Rf<T1>, Rf<T2>, Rf<T3>) Get(int e);
     }
     public interface IFilterWith<T1, T2, T3, T4>  : IFilter
         where T1 : unmanaged, IComponent
@@ -31,7 +35,7 @@ namespace Wargon.Nukecs
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
     {
-        (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>) Get(int e);
+        (Rf<T1>, Rf<T2>, Rf<T3>, Rf<T4>) Get(int e);
     }
     
     public interface IFilterWith<T1, T2, T3, T4, T5>  : IFilter
@@ -41,7 +45,7 @@ namespace Wargon.Nukecs
         where T4 : unmanaged, IComponent
         where T5 : unmanaged, IComponent
     {
-        (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>, Ref<T5>) Get(int e);
+        (Rf<T1>, Rf<T2>, Rf<T3>, Rf<T4>, Rf<T5>) Get(int e);
     }
     
     public struct With<T1> : IFilter where T1 : unmanaged, IComponent
@@ -189,52 +193,59 @@ namespace Wargon.Nukecs
         }
     }
 
-    public unsafe struct Query<TWith, TNone> 
-        where TWith : unmanaged, IFilter
-        where TNone : unmanaged, IFilter
-    {
-        internal QueryUnsafe* internalPointer;
-        public static Query<TWith, TNone>  New(QueryUnsafe* q)
-        {
-            var query = new Query<TWith, TNone> 
-            {
-                internalPointer = q
-            };
-            TWith with = default;
-            with.Setup(query.internalPointer);
-            TNone none = default;
-            none.Setup(query.internalPointer);
-            return query;
+    public struct Empty : IFilter {
+        public unsafe void Setup(QueryUnsafe* query) {
+            
         }
-        
-        public QueryEnumerator GetEnumerator() {
-            return new QueryEnumerator(internalPointer);
+    }
+    public struct Nothing{}
+
+
+    public interface IService { }
+    public delegate void System1<TQuery>(ref TQuery q) where TQuery : unmanaged, IQuery;
+    public delegate void System2<TQuery>(ref TQuery q1, ref TQuery q2) where TQuery : unmanaged, IQuery;
+    public delegate void System1AndService<TQuery, TService>(ref TQuery q1, ref TService service)
+        where TQuery : unmanaged, IQuery, IService;
+
+    internal class DelegateSystem1Runner<TQuery> : ISystemRunner
+        where TQuery : unmanaged, IQuery {
+        private IntPtr _fn;
+        private TQuery _query;
+
+        public DelegateSystem1Runner(IntPtr fn, TQuery q, string name) {
+            _fn = fn;
+            _query = q;
+            Name = name;
         }
+        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
+            new FunctionPointer<System1<TQuery>>(_fn).Invoke(ref _query);
+            return state.Dependencies;
+        }
+
+        public void Run(ref State state) {
+            new FunctionPointer<System1<TQuery>>(_fn).Invoke(ref _query);
+        }
+
+        public string Name { get; }
+    }
+
+
+
+    [AttributeUsage((AttributeTargets.Method))]
+    public class SystemAttribute : Attribute {
         
     }
-    // public ref struct Enumerator {
-    //     private int _lastIndex;
-    //     private readonly QueryUnsafe* _query;
-    //     private readonly GenericPool.GenericPoolUnsafe* _pool;
-    //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //     internal Enumerator(QueryUnsafe* queryUnsafe) {
-    //         _query = queryUnsafe;
-    //         _lastIndex = -1;
-    //         _pool = queryUnsafe->world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer;
-    //     }
-    //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //     public bool MoveNext() {
-    //         _lastIndex++;
-    //         return _query->count > _lastIndex;
-    //     }
-    //     
-    //     public void Reset() {
-    //         _lastIndex = -1;
-    //     }
-    //     
-    //     public ref T1 Current {
-    //         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //         get => ref _pool->GetRef<T1>(_query->GetEntityID(_lastIndex));
-    //     }
-    // }
+    public delegate void SystemAction<in T>(T t)
+        where T : ISystemParam, new();
+    public delegate void SystemAction<T1, T2>(ref T1 t1, ref T2 t2)
+        where T1 : struct, ISystemParam where T2 : struct, ISystemParam;
+    public delegate void SystemAction<T1, T2, T3>(ref T1 t1, ref T2 t2, ref T3 t3) 
+        where T1 : struct, ISystemParam 
+        where T2 : struct, ISystemParam
+        where T3 : struct, ISystemParam;
+    public delegate void SystemAction<T1, T2, T3, T4>(ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4) 
+        where T1 : struct, ISystemParam 
+        where T2 : struct, ISystemParam
+        where T3 : struct, ISystemParam
+        where T4 : struct, ISystemParam;
 }

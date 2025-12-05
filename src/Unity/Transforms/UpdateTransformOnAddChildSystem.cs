@@ -16,9 +16,9 @@ namespace Wargon.Nukecs.Transforms {
         public void OnUpdate(ref Entity child, ref State state)
         {
             var (cref, tref) = child.Get<ChildOf, Transform>();
-            ref var childTransform = ref tref.Value;
+            ref var childTransform = ref tref.Ref;
             
-            ref readonly var parentTransform = ref cref.Value.Value.Read<Transform>();
+            ref readonly var parentTransform = ref cref.Ref.Value.Read<Transform>();
             // Get local transform values relevent to parent
             var localPosition = math.mul(math.inverse(parentTransform.Rotation), childTransform.Position - parentTransform.Position) / parentTransform.Scale;
             var localRotation = math.mul(math.inverse(parentTransform.Rotation), childTransform.Rotation);

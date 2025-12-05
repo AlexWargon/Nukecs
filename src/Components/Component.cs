@@ -425,7 +425,7 @@
         internal GetRef(ref GenericPool pool)
         {
             index = 0;
-            buffer = pool.unsafeBufferPtr.Ptr->chunks.Ptr;
+            buffer = pool.UnsafeBufferPtr.Ptr->Chunks.Ptr;
         }
         public readonly ref TComponent Value
         {
