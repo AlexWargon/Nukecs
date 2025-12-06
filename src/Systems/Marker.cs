@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using System;
+
+namespace Wargon.Nukecs {
     public struct Marker {
         private Unity.Profiling.ProfilerMarker _marker;
         public bool isCreated;
@@ -6,10 +8,17 @@
             _marker = new Unity.Profiling.ProfilerMarker($"NUKECS.{name}");
             isCreated = true;
         }
-
+        public void Autostart(string ctx) {
+            if (isCreated == false) {
+                _marker = new Unity.Profiling.ProfilerMarker($"NUKECS.{ctx}");
+                isCreated = true;
+            }
+            _marker.Begin();
+        }
         public void Autostart<TContext>(TContext ctx) {
             if (isCreated == false) {
                 _marker = new Unity.Profiling.ProfilerMarker($"NUKECS.{ctx.GetType().Name}");
+                isCreated = true;
             }
             _marker.Begin();
         }

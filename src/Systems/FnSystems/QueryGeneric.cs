@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using static Wargon.Nukecs.UnsafeStatic;
 namespace Wargon.Nukecs {
     public interface IQuery {
@@ -37,6 +38,8 @@ namespace Wargon.Nukecs {
         void Init(ref ptr<World.WorldUnsafe> world);
         void Update(ref World world, IntPtr data);
         IntPtr GetData();
+        bool TryGetQuery(out ptr<QueryUnsafe> query);
+        public Type ParamType => GetType();
     }
     public readonly struct Range {
         public readonly int start;
@@ -49,7 +52,9 @@ namespace Wargon.Nukecs {
     }
     
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1> : IQuery, ISystemParam where T1 : unmanaged, IComponent {
+    public unsafe struct Query<T1> : IQuery, ISystemParam 
+        where T1 : unmanaged, IComponent 
+    {
         private Ref<T1> _t1;
         private ptr<QueryUnsafe> _query;
         private Range _range;
@@ -75,15 +80,19 @@ namespace Wargon.Nukecs {
         }
 
         public void Update(ref World world, IntPtr data) {
-            _range = *(Range*)(void*)data;
+            _range = *(Range*)data;
             _current = _range.start - 1;
         }
 
         public IntPtr GetData()
         {
-            var r = malloc<Range>(Allocator.Temp);
-            *r = new Range(0, _query.Ref.count);
-            return (IntPtr)r;
+            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+        }
+
+        public bool TryGetQuery(out ptr<QueryUnsafe> query)
+        {
+            query = _query;
+            return true;
         }
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
@@ -118,16 +127,22 @@ namespace Wargon.Nukecs {
             }
             public IntPtr GetData()
             {
-                var r = malloc<Range>(Allocator.Temp);
-                *r = new Range(0, _query.Ref.count);
-                return (IntPtr)r;
+                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            }
+
+            public bool TryGetQuery(out ptr<QueryUnsafe> query)
+            {
+                query = _query;
+                return true;
             }
         }
     }
+    
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, TOption> : ISystemParam 
         where T1 : unmanaged, IComponent 
-        where TOption : unmanaged{
+        where TOption : unmanaged 
+    {
         private Ref<T1> _t1;
         private Ref<TOption> _tOption;
         private ptr<QueryUnsafe> _query;
@@ -159,6 +174,7 @@ namespace Wargon.Nukecs {
             switch (option) {
                 case IComponent c:
                     _query.Ref.With(ComponentType<TOption>.Index);
+                    _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBufferPtr.Ref.Chunks.Ptr;
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -182,10 +198,15 @@ namespace Wargon.Nukecs {
         }
         public IntPtr GetData()
         {
-            var r = malloc<Range>(Allocator.Temp);
-            *r = new Range(0, _query.Ref.count);
-            return (IntPtr)r;
+            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
         }
+
+        public bool TryGetQuery(out ptr<QueryUnsafe> query)
+        {
+            query = _query;
+            return true;
+        }
+
         public struct WithEntity : ISystemParam {
             private Ref<T1> _t1;
             private Ref<TOption> _tOption;
@@ -213,26 +234,29 @@ namespace Wargon.Nukecs {
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world) {
-                var q = world.Ref.CreateQueryPtr();
-                q.Ref.With(ComponentType<T1>.Index);
+                _query = world.Ref.CreateQueryPtr();
+                _query.Ref.With(ComponentType<T1>.Index);
+                _t1.pool = world.Ref.GetPool<T1>().UnsafeBufferPtr.Ref.Chunks.Ptr;
                 TOption option = default;
                 switch (option) {
                     case IComponent c:
-                        q.Ref.With(ComponentType<TOption>.Index);
+                        _query.Ref.With(ComponentType<TOption>.Index);
+                        _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBufferPtr.Ref.Chunks.Ptr;
                         break;
                     case IFilter filter:
-                        filter.Setup(q.Ptr);
+                        filter.Setup(_query.Ptr);
                         break;
                     case ITuple tuple: {
                         for (var i = 0; i < tuple.Length; i++) {
                             var type = tuple[i];
                             if (type is IFilter f) {
-                                f.Setup(q.Ptr);
+                                f.Setup(_query.Ptr);
                             }
                         }
                         break;
                     }
                 }
+                
             }
 
             public void Update(ref World world, IntPtr data)
@@ -242,9 +266,13 @@ namespace Wargon.Nukecs {
             }
             public IntPtr GetData()
             {
-                var r = malloc<Range>(Allocator.Temp);
-                *r = new Range(0, _query.Ref.count);
-                return (IntPtr)r;
+                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            }
+
+            public bool TryGetQuery(out ptr<QueryUnsafe> query)
+            {
+                query = _query;
+                return true;
             }
         }
 

@@ -231,22 +231,24 @@ namespace Wargon.Nukecs
 
 
 
-    [AttributeUsage((AttributeTargets.Method))]
-    public class SystemAttribute : Attribute {
-        
-    }
+
 
     public delegate void SystemAction<T>(T t)
         where T : unmanaged, ISystemParam;
+
+    public delegate void SystemActionNotGeneric1(IntPtr param0);
     public delegate void SystemAction<T1, T2>(T1 t1, T2 t2)
         where T1 : unmanaged, ISystemParam where T2 : unmanaged, ISystemParam;
+    public delegate void SystemActionNotGeneric2(IntPtr param0, IntPtr param1);
     public delegate void SystemAction<T1, T2, T3>(ref T1 t1, ref T2 t2, ref T3 t3) 
         where T1 : unmanaged, ISystemParam 
         where T2 : unmanaged, ISystemParam
         where T3 : unmanaged, ISystemParam;
+    public delegate void SystemActionNotGeneric3(IntPtr param0, IntPtr param1, IntPtr param2);
     public delegate void SystemAction<T1, T2, T3, T4>(T1 t1, T2 t2, T3 t3, T4 t4) 
         where T1 : unmanaged, ISystemParam 
         where T2 : unmanaged, ISystemParam
         where T3 : unmanaged, ISystemParam
         where T4 : unmanaged, ISystemParam;
+    public delegate void SystemActionNotGeneric4(IntPtr param0, IntPtr param1, IntPtr param2, IntPtr param3);
 }

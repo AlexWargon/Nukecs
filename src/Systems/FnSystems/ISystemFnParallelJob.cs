@@ -4,70 +4,51 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
-    public interface ISystemFnParallelJob {
-        
-        void Execute(SystemParams systemParams);
-    }
+    public delegate void SystemFnDelegate(ref World world, ref SystemParams systemParams, ref Range range);
     
-    public delegate void SystemFnDelegate(ref World world, ref SystemParams systemParams);
-
-    public static class SystemFnRegistry<TParam0>  
+    public static unsafe class SystemFnRegistry<TParam0>  
         where TParam0 : unmanaged, ISystemParam
     {
+        private static delegate* <TParam0, void> _fnPtr;
+        public delegate void SystemAction(TParam0 query);
+
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(SystemFnDelegate))]
-        public static unsafe void Execute(ref World world, ref SystemParams systemParams)
+        public static void Execute(ref World world, ref SystemParams systemParams, ref Range range)
         {
-            ref var param0 = ref systemParams.list.ElementAt(0);
-            var rangeFromQuery = (Range*)param0.Ptr<TParam0>()->GetData();
-            switch (systemParams.mode)
-            {
-                case SystemMode.Main:
-                    *rangeFromQuery = new Range(0, rangeFromQuery->end);
-                    break;
-                case SystemMode.Parallel:
-                    *rangeFromQuery = new Range(0, rangeFromQuery->end);
-                    break;
-                case SystemMode.Single:
-                    *rangeFromQuery = new Range(0, rangeFromQuery->end);
-                    break;
-            }
+            ref var param0 = ref systemParams.FirstRef;
+            var param0Copy = *param0.Ptr<TParam0>();
+            var rangeFromQuery = (Range*)param0Copy.GetData();
+            *rangeFromQuery = range;
             param0.data = (IntPtr)rangeFromQuery;
             param0.Ptr<TParam0>()->Update(ref world, param0.data);
-
-            new FunctionPointer<SystemAction<TParam0>>(systemParams.system).Invoke(*param0.Ptr<TParam0>());
+            if (_fnPtr == null)
+            {
+                _fnPtr = (delegate* <TParam0, void>)systemParams.system;
+            }
+            _fnPtr(param0Copy);
         }
-
         public static IntPtr Create()
         {
             return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
         }
     }
+    
     public static class SystemFnRegistry<TParam0, TParam1>  
         where TParam0 : unmanaged, ISystemParam
         where TParam1 : unmanaged, ISystemParam
     {
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(SystemFnDelegate))]
-        public static unsafe void Execute(ref World world, ref SystemParams systemParams)
+        public static unsafe void Execute(ref World world, ref SystemParams systemParams, ref Range range)
         {
             ref var param0 = ref systemParams.list.ElementAt(0);
-            var range = (Range*)param0.Ptr<TParam0>()->GetData();
-            switch (systemParams.mode)
-            {
-                case SystemMode.Main:
-                    *range = new Range(0, range->end);
-                    break;
-                case SystemMode.Parallel:
-                    *range = new Range(0, range->end);
-                    break;
-                case SystemMode.Single:
-                    *range = new Range(0, range->end);
-                    break;
-            }
-            param0.data = (IntPtr)range;
+            var rangeFromQuery = (Range*)param0.Ptr<TParam0>()->GetData();
+            *rangeFromQuery = range;
+            param0.data = (IntPtr)rangeFromQuery;
             param0.Ptr<TParam0>()->Update(ref world, param0.data);
             ref var param1 = ref systemParams.list.ElementAt(1);
             param1.Ptr<TParam1>()->Update(ref world, param1.data);
@@ -77,34 +58,35 @@ namespace Wargon.Nukecs {
         {
             return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
         }
+
     }
 
-    public struct SystemFnJob
+    public unsafe struct DelegateJob : IDelegateJobSystem
     {
         public FunctionPointer<SystemFnDelegate> fn;
-        public SystemFnDelegate fnManaged;
-        public SystemParams systemParams;
+        [NativeDisableUnsafePtrRestriction]
+        public SystemParams* systemParams;
         public World world;
-        public void Execute()
+        public void OnUpdate(Range range)
         {
-            fnManaged.Invoke(ref world, ref systemParams);
-            //fn.Invoke(ref world, ref systemParams);
+            fn.Invoke(ref world, ref *systemParams, ref range);
         }
     }
 
     public unsafe struct SystemParams
     {
         public UnsafeList<SystemParam> list;
+        [NativeDisableUnsafePtrRestriction]
         public IntPtr system;
         public SystemMode mode;
         public ref SystemParam FirstRef => ref list.ElementAt(0);
-        public static SystemParams New<TParam0>(World.WorldUnsafe* world, SystemAction<TParam0> systemAction)
+        public static SystemParams New<TParam0>(World.WorldUnsafe* world, delegate*<TParam0, void> systemAction)
             where TParam0 : unmanaged, ISystemParam
         {
             var systemParams = new SystemParams
             {
                 list = new UnsafeList<SystemParam>(1, Allocator.Persistent),
-                system = Marshal.GetFunctionPointerForDelegate(systemAction)
+                system = (IntPtr)systemAction
             };
             var param0 = new SystemParam
             {
@@ -115,6 +97,7 @@ namespace Wargon.Nukecs {
             systemParams.list.Add(param0);
             return systemParams;
         }
+
         public static SystemParams New<TParam0, TParam1>(World.WorldUnsafe* world, SystemAction<TParam0, TParam1> systemAction) 
             where TParam0 : unmanaged, ISystemParam
             where TParam1 : unmanaged, ISystemParam
@@ -170,14 +153,11 @@ namespace Wargon.Nukecs {
             return systemParams;
         }
     }
-    public struct SystemParams1
-    {
-        public SystemParam element0;
-    }
 
     public struct SystemParam : IDisposable
     {
         public ptr value;
+        [NativeDisableUnsafePtrRestriction]
         public IntPtr data;
         public unsafe T* Ptr<T>() where T : unmanaged, ISystemParam
         {
@@ -186,7 +166,107 @@ namespace Wargon.Nukecs {
 
         public unsafe void Dispose()
         {
-            UnsafeStatic.free_t((void*)data, Allocator.Persistent);
+            UnsafeStatic.free_t((void*)data, Allocator.Domain);
+        }
+    }
+    
+    [JobProducerType(typeof(DelegateJobSystemExtensions.DelegateJobWrapper<>))]
+    public interface IDelegateJobSystem {
+        void OnUpdate(Range range);
+    }
+    public static class DelegateJobSystemExtensions {
+        [StructLayout(LayoutKind.Sequential)]
+        internal unsafe struct DelegateJobWrapper<TJob> where TJob : struct, IDelegateJobSystem {
+            public TJob JobData;
+            public SystemMode mode;
+            [NativeDisableUnsafePtrRestriction]
+            public QueryUnsafe* query;
+            public State State;
+            internal static readonly SharedStatic<IntPtr> JobReflectionData =
+                SharedStatic<IntPtr>.GetOrCreate<DelegateJobWrapper<TJob>>();
+
+            [BurstDiscard]
+            internal static void Initialize() {
+                if (JobReflectionData.Data == IntPtr.Zero) {
+                    JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(DelegateJobWrapper<TJob>),
+                        typeof(TJob), (ExecuteJobFunction)Execute);
+                }
+            }
+
+            private delegate void ExecuteJobFunction(ref DelegateJobWrapper<TJob> fullData, IntPtr additionalPtr,
+                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
+            
+            public static void Execute(ref DelegateJobWrapper<TJob> fullData, IntPtr additionalPtr,
+                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
+                if(fullData.query->count == 0) return;
+                Range range;
+                switch (fullData.mode) {
+                    case SystemMode.Parallel:
+                        while (true) {
+                            if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
+                                break;
+                            dbug.log($"PER THREAD {(thead : jobIndex, from : begin, to : end)}");
+                            range = new Range(begin, end);
+                            fullData.JobData.OnUpdate(range);
+                        }
+                        break;
+                    case SystemMode.Single:
+                        range = new Range(0, fullData.query->count);
+                        dbug.log($"SINGLE {(0, fullData.query->count)}");
+                        fullData.JobData.OnUpdate(range);
+                        break;
+                }
+            }
+        }
+
+
+        public static void EarlyJobInit<T>() where T : struct, IDelegateJobSystem {
+            DelegateJobWrapper<T>.Initialize();
+        }
+
+        private static IntPtr GetReflectionData<T>() where T : struct, IDelegateJobSystem {
+            DelegateJobWrapper<T>.Initialize();
+            return DelegateJobWrapper<T>.JobReflectionData.Data;
+        }
+
+        internal static unsafe JobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
+            SystemMode mode, ref State state)
+            where TJob : struct, IDelegateJobSystem {
+            var fullData = new DelegateJobWrapper<TJob> {
+                JobData = jobData,
+                query = query,
+                State = state,
+                mode = mode
+            };
+            
+            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+                GetReflectionData<TJob>(), state.Dependencies,
+                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+            var workers = JobsUtility.JobWorkerCount;
+            var batchCount = query->count > workers ? query->count / workers : 1;
+            switch (mode) {
+                case SystemMode.Single:
+                    return JobsUtility.Schedule(ref scheduleParams);
+                case SystemMode.Parallel:
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query->count, batchCount);
+            }
+
+            return state.Dependencies;
+        }
+        
+        public static unsafe void Run<TJob>(this TJob jobData, ref Query query, float deltaTime) where TJob : struct, IDelegateJobSystem
+        {
+            var fullData = new DelegateJobWrapper<TJob> {
+                JobData = jobData,
+                //query = query,
+                //deltaTime = deltaTime
+            };
+            JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(
+                UnsafeUtility.AddressOf(ref fullData),
+                GetReflectionData<TJob>(),
+            new JobHandle(), 
+                ScheduleMode.Run);
+            JobsUtility.Schedule(ref parameters);
         }
     }
 }

@@ -115,9 +115,11 @@ namespace Wargon.Nukecs
             internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize) ;
+                dbug.log($"Components size {Memory.BytesToMegabytes(cSize)} MB");
+                var sizeToAllocate = cSize;
                 sizeToAllocate += Memory.MEGABYTE * 10;
-                var allocator = new UnityAllocatorHandler(sizeToAllocate);
+                dbug.log($"Try Allocate {Memory.BytesToMegabytes(sizeToAllocate/2)} MB");
+                var allocator = new UnityAllocatorHandler(sizeToAllocate/2);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
                 ptr.Ref.Initialize(id, config, ptr, ref allocator);
@@ -493,6 +495,7 @@ namespace Wargon.Nukecs
                 var param = AllocatorRef.AllocatePtr<TParam0>();
                 param.Ref.Init(ref selfPtr);
                 type = param.Ref.MetaType;
+                dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {type}");
                 return param.UntypedPointer;
             }
         }

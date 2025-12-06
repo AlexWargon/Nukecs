@@ -13,6 +13,7 @@ namespace Wargon.Nukecs
     public unsafe struct ptr
     {
         public ptr_offset offset;
+        [NativeDisableUnsafePtrRestriction]
         public byte* cached;
         public static readonly ptr NULL = new (null, 0u);
         public bool IsNull => cached == null;
@@ -202,6 +203,7 @@ namespace Wargon.Nukecs
     // ReSharper disable once InconsistentNaming
     public unsafe struct safe_ptr<T> where T : unmanaged
     {
+        [NativeDisableUnsafePtrRestriction]
         private T* _ptr;
         public ref T Ref => ref *_ptr;
 
