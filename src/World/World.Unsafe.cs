@@ -115,8 +115,8 @@ namespace Wargon.Nukecs
             internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize);
-                sizeToAllocate = Memory.MEGABYTE * 10;
+                var sizeToAllocate = (long)(cSize) ;
+                sizeToAllocate += Memory.MEGABYTE * 10;
                 var allocator = new UnityAllocatorHandler(sizeToAllocate);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
@@ -310,7 +310,7 @@ namespace Wargon.Nukecs
                     if (!pool.IsCreated)
                     {
                         pool = GenericPool.Create<T>(config.StartPoolSize, ref selfPtr);
-                        dbug.log($"pool<{typeof(T).Name}> created at {poolsCount}");
+                        //dbug.log($"pool<{typeof(T).Name}> created at {poolsCount}");
                         poolsCount++;
                     }
                 }
