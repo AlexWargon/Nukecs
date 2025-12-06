@@ -49,106 +49,7 @@ namespace Wargon.Nukecs
             };
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct GenericPoolUnsafe
-        {
-            [NativeDisableUnsafePtrRestriction] internal byte* buffer;
-            internal int count;
-            internal int capacity;
-            internal ComponentTypeData componentTypeData;
-            internal Allocator allocator;
-            internal World.WorldUnsafe* worldPtr;
-            internal ptr_offset bufferPtr;
 
-            internal static GenericPoolUnsafe* CreateBuffer<T>(int size, World.WorldUnsafe* world) where T : unmanaged
-            {
-                ref var allocator = ref world->AllocatorRef;
-                var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
-                var ptr = ptrRef.Ptr;
-                var type = ComponentType<T>.Data;
-                *ptr = new GenericPoolUnsafe
-                {
-                    capacity = size,
-                    count = 0,
-                    allocator = world->Allocator,
-                    componentTypeData = type,
-                    worldPtr = world
-                };
-                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
-                ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
-                UnsafeUtility.MemClear(ptr->buffer, size * type.size);
-                return ptr;
-            }
-
-            internal static ptr<GenericPoolUnsafe> CreateBufferPtr<T>(int size, World.WorldUnsafe* world)
-                where T : unmanaged
-            {
-                ref var allocator = ref world->AllocatorRef;
-                var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
-                var ptr = ptrRef.Ptr;
-                var type = ComponentType<T>.Data;
-                *ptr = new GenericPoolUnsafe
-                {
-                    capacity = size,
-                    count = 0,
-                    allocator = world->Allocator,
-                    componentTypeData = type,
-                    worldPtr = world
-                };
-                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * type.size);
-                ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
-                UnsafeUtility.MemClear(ptr->buffer, size * type.size);
-                return ptrRef;
-            }
-
-            internal static GenericPoolUnsafe* CreateBuffer(ComponentTypeData typeData, int size,
-                World.WorldUnsafe* world)
-            {
-                ref var allocator = ref world->AllocatorRef;
-                var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
-                var ptr = ptrRef.Ptr;
-                size = typeData.isTag ? 1 : size;
-                *ptr = new GenericPoolUnsafe
-                {
-                    capacity = size,
-                    count = 0,
-                    allocator = world->Allocator,
-                    componentTypeData = typeData,
-                    worldPtr = world
-                };
-                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * typeData.size);
-                ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
-                UnsafeUtility.MemClear(ptr->buffer, typeData.size * size);
-                return ptr;
-            }
-
-            internal static ptr<GenericPoolUnsafe> CreateBufferPtr(ComponentTypeData typeData, int size,
-                World.WorldUnsafe* world)
-            {
-                ref var allocator = ref world->AllocatorRef;
-                var ptrRef = allocator.AllocatePtr<GenericPoolUnsafe>();
-                var ptr = ptrRef.Ptr;
-                size = typeData.isTag ? 1 : size;
-                *ptr = new GenericPoolUnsafe
-                {
-                    capacity = size,
-                    count = 0,
-                    allocator = world->Allocator,
-                    componentTypeData = typeData,
-                    worldPtr = world
-                };
-                ptr->bufferPtr = world->AllocatorRef.AllocateRaw(size * typeData.size);
-                ptr->buffer = ptr->bufferPtr.AsPtr<byte>(ref world->AllocatorRef);
-                UnsafeUtility.MemClear(ptr->buffer, typeData.size * size);
-                return ptrRef;
-            }
-
-
-            public readonly ref T GetRef<T>(int index) where T : unmanaged
-            {
-                return ref ((T*)buffer)[index];
-            }
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T GetRef<T>(int index) where T : unmanaged
@@ -162,7 +63,9 @@ namespace Wargon.Nukecs
             return UnsafeBufferPtr.Ref.GetPtr(index);
         }
 
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public void Set<T>(int index, in T value) where T : unmanaged
         {
             UnsafeBufferPtr.Ref.Add(index, in value);
@@ -383,8 +286,12 @@ namespace Wargon.Nukecs
             where T : unmanaged, IComponent
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
-            ptr.Ref.Chunks =
-                new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true, lenAsCapacity:true);
+            ptr.Ref.Chunks = new MemoryList<Chunk>(
+                capacity:size / Chunk.MAX_CHUNK_SIZE, 
+                allocator:ref world.Ref.AllocatorRef, 
+                clear:true, 
+                lenAsCapacity:true);
+            
             ptr.Ref.componentTypeData = ComponentType<T>.Data;
             ptr.Ref.componentSize = ptr.Ref.componentTypeData.size;
             ptr.Ref.world = world;
@@ -396,14 +303,17 @@ namespace Wargon.Nukecs
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
             ptr.Ref.Chunks =
-                new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true);
+                new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true, 
+                    lenAsCapacity:true);
             ptr.Ref.componentSize = data.size;
             ptr.Ref.componentTypeData = data;
             ptr.Ref.world = world;
             return ptr;
         }
 
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public ref Chunk GetChunk(int entity)
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
@@ -416,7 +326,15 @@ namespace Wargon.Nukecs
                 var size = componentTypeData.IsArrayElement
                     ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
                     : componentTypeData.size;
+                if (world.cached == null)
+                {
+                    dbug.error("WORLD NULL");
+                }
                 chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
+                if (chunk.buffer.cached == null)
+                {
+                    dbug.error("CHUNK BUFFER NULL");
+                }
                 mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
                 chunk.isCreated = 1;
             }
@@ -429,7 +347,9 @@ namespace Wargon.Nukecs
             return entity % Chunk.MAX_CHUNK_SIZE;
         }
 
+#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         public void Add<T>(int entity, in T data) where T : unmanaged
         {
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;

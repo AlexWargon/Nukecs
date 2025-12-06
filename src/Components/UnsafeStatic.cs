@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 // ReSharper disable InconsistentNaming
 // ReSharper disable UnusedMember.Global
@@ -61,12 +62,16 @@ namespace Wargon.Nukecs
         {
             UnsafeUtility.MemMove(dest, src, length);
         }
-        [MethodImpl(inline.YES)] 
+#if !NUKECS_DEBUG
+        [MethodImpl(inline.YES)]
+#endif
         public static unsafe void mem_clear(void* dest, long size)
         {
             UnsafeUtility.MemClear(dest, size);
         }
-        [MethodImpl(inline.YES)] 
+#if !NUKECS_DEBUG
+        [MethodImpl(inline.YES)]
+#endif
         public static unsafe T* cast<T>(void* ptr) where T : unmanaged
         {
             return (T*)ptr;
@@ -77,14 +82,25 @@ namespace Wargon.Nukecs
         {
             return UnsafeUtility.As<TFrom, TTo>(ref u);
         }
-
+        [MethodImpl(inline.YES)] 
         public static unsafe T* malloc<T>(Unity.Collections.Allocator allocator) where T : unmanaged
         {
             return (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
         }
+        [MethodImpl(inline.YES)] 
         public static unsafe T* malloc_t<T>(Unity.Collections.Allocator allocator) where T : unmanaged
         {
             return (T*)UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
+        }
+        [MethodImpl(inline.YES)] 
+        public static unsafe void free(void* ptr, Unity.Collections.Allocator allocator)
+        {
+            UnsafeUtility.Free(ptr, allocator);
+        }
+        [MethodImpl(inline.YES)] 
+        public static unsafe void free_t(void* ptr, Unity.Collections.Allocator allocator)
+        {
+            UnsafeUtility.FreeTracked(ptr, allocator);
         }
     }
     public static class inline

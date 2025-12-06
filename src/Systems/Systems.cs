@@ -711,98 +711,39 @@ namespace Wargon.Nukecs
 
     }
     public static class DelegateSystemsExtensions {
-        public static Systems AddSystem<TQuery>(this Systems systems, System1<TQuery> system1) where TQuery : unmanaged, IQuery {
-            TQuery query = default;
-            if (query is IOnCreate onCreate) {
-                onCreate.OnCreate(ref systems.World);
-                query = (TQuery)onCreate;
+        public static Systems AddSystem<T>(this Systems systems, SystemAction<T> systemFn) where T : unmanaged, ISystemParam{
+
+            unsafe
+            {
+                var systemParams = SystemParams.New(systems.World.UnsafeWorld, systemFn);
+                var fn = new FunctionPointer<SystemFnDelegate>(SystemFnRegistry<T>.Create());
+                var runner = new DelegateSystemRunner
+                {
+                    _job = new SystemFnJob
+                    {
+                        systemParams = systemParams,
+                        fn = fn,
+                        world = systems.World,
+                        fnManaged = Marshal.GetDelegateForFunctionPointer<SystemFnDelegate>(fn.Value)
+                    }
+                };
+                systems.runners.Add(runner);
             }
-
-            var ptr = Marshal.GetFunctionPointerForDelegate(system1);
-            //var ptr = BurstCompiler.CompileFunctionPointer<System1<TQuery>>(system1);
-            var runner = new DelegateSystem1Runner<TQuery>(ptr, query, system1.Method.Name);
-            systems.runners.Add(runner);
             return systems;
         }
-        public static unsafe Systems AddSystem2<TDelegate>(this Systems systems, TDelegate @delegate) where TDelegate : Delegate{
-            
-            //TQuery query = default;
-            // if (query is IOnCreate onCreate) {
-            //     onCreate.OnCreate(ref systems.World);
-            //     query = (TQuery)onCreate;
-            // }
-            //
-            //var ptr = Marshal.GetFunctionPointerForDelegate(system1);
-            // //var ptr = BurstCompiler.CompileFunctionPointer<System1<TQuery>>(system1);
-            //var runner = new DelegateSystem1Runner<TQuery>(ptr, query, system1.Method.Name);
-            //systems.runners.Add(runner);
-            return systems;
-        }
-        public static Systems AddSystem3(this Systems systems, Delegate @delegate){
-            
-            //TQuery query = default;
-            // if (query is IOnCreate onCreate) {
-            //     onCreate.OnCreate(ref systems.World);
-            //     query = (TQuery)onCreate;
-            // }
-            //
-            //var ptr = Marshal.GetFunctionPointerForDelegate(system1);
-            // //var ptr = BurstCompiler.CompileFunctionPointer<System1<TQuery>>(system1);
-            //var runner = new DelegateSystem1Runner<TQuery>(ptr, query, system1.Method.Name);
-            //systems.runners.Add(runner);
-            return systems;
-        }
-
-        public static Systems AddSystem<T>(this Systems systems, Action<T> systemFn) {
-            
-            return systems;
-        }
-    }
-
-    public struct DelegateParallelJob<TParam1> : IJobParallelFor where TParam1 : struct, ISystemParam {
-        public TParam1 param;
-        public FunctionPointer<SystemAction<TParam1>> fn; 
-        public void Execute(int index) {
-            fn.Invoke.Invoke(param);
-        }
-    }
-    [BurstCompile(CompileSynchronously = true)]
-    public struct DelegateJob<TParam1> : IJob where TParam1 : struct, ISystemParam {
-        public TParam1 param;
-        public FunctionPointer<SystemAction<TParam1>> fn; 
-        public void Execute() {
-            fn.Invoke.Invoke(param);
-        }
-    }
-    [BurstCompile(CompileSynchronously = true)]
-    public struct DelegateJob<TParam1, TParam2> : IJob
-        where TParam1 : struct, ISystemParam
-        where TParam2 : struct, ISystemParam
-    {
-        public TParam1 param1;
-        public TParam2 param2;
-        public FunctionPointer<SystemAction<TParam1, TParam2>> fn; 
-        public void Execute() {
-            fn.Invoke.Invoke(ref param1, ref param2);
-        }
-    }
-
-
-    public unsafe class DelegateSystemRunner<T> : ISystemRunner where T : unmanaged, ISystemParam {
-        private SystemAction<T> _systemAction;
-        private T* ptr;
-        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
-            _systemAction.Invoke(*ptr);
-            return state.Dependencies;
-        }
-
-        public void Run(ref State state) {
-            _systemAction.Invoke(*ptr);
-        }
-
-        public string Name { get; }
     }
     
-    public delegate void Fn<T1, T2, T3>(UnsafeTuple<T1, T2, T3> query)
-        where T1 : unmanaged where T2 : unmanaged where T3 : unmanaged;
+
+    public class DelegateSystemRunner : ISystemRunner {
+        public SystemFnJob _job;
+        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
+            _job.Execute();
+            return state.Dependencies;
+        }
+        public void Run(ref State state) {
+            _job.Execute();
+        }
+
+        public string Name => "DelegateSystemRunner";
+    }
 }

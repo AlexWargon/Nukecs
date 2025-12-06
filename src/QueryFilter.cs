@@ -20,14 +20,14 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
     {
-        (Rf<T1>, Rf<T2>) Get(int e);
+        (Ref<T1>, Ref<T2>) Get(int e);
     }
     public interface IFilterWith<T1, T2, T3>  : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
     {
-        (Rf<T1>, Rf<T2>, Rf<T3>) Get(int e);
+        (Ref<T1>, Ref<T2>, Ref<T3>) Get(int e);
     }
     public interface IFilterWith<T1, T2, T3, T4>  : IFilter
         where T1 : unmanaged, IComponent
@@ -35,7 +35,7 @@ namespace Wargon.Nukecs
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
     {
-        (Rf<T1>, Rf<T2>, Rf<T3>, Rf<T4>) Get(int e);
+        (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>) Get(int e);
     }
     
     public interface IFilterWith<T1, T2, T3, T4, T5>  : IFilter
@@ -45,7 +45,7 @@ namespace Wargon.Nukecs
         where T4 : unmanaged, IComponent
         where T5 : unmanaged, IComponent
     {
-        (Rf<T1>, Rf<T2>, Rf<T3>, Rf<T4>, Rf<T5>) Get(int e);
+        (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>, Ref<T5>) Get(int e);
     }
     
     public struct With<T1> : IFilter where T1 : unmanaged, IComponent
@@ -57,7 +57,7 @@ namespace Wargon.Nukecs
     }
     
     
-    public struct With<T1, T2> : IFilter 
+    public struct With<T1, T2> : IFilter , IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
     {
@@ -67,7 +67,7 @@ namespace Wargon.Nukecs
             query->With(ComponentType<T2>.Index);
         }
     }
-    public struct With<T1, T2, T3> : IFilter
+    public struct With<T1, T2, T3> : IFilter, IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -80,7 +80,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct With<T1, T2, T3, T4> : IFilter
+    public struct With<T1, T2, T3, T4> : IFilter, IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -95,7 +95,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct With<T1, T2, T3, T4, T5> : IFilter
+    public struct With<T1, T2, T3, T4, T5> : IFilter, IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -112,7 +112,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct With<T1, T2, T3, T4, T5, T6> : IFilter 
+    public struct With<T1, T2, T3, T4, T5, T6> : IFilter , IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -148,7 +148,7 @@ namespace Wargon.Nukecs
             query->None(ComponentType<T2>.Index);
         }
     }
-    public struct None<T1, T2, T3> : IFilter 
+    public struct None<T1, T2, T3> : IFilter , IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -161,7 +161,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct None<T1, T2, T3, T4> : IFilter 
+    public struct None<T1, T2, T3, T4> : IFilter , IComponent
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -193,12 +193,12 @@ namespace Wargon.Nukecs
         }
     }
 
-    public struct Empty : IFilter {
+    public struct Empty : IFilter, IComponent {
         public unsafe void Setup(QueryUnsafe* query) {
             
         }
     }
-    public struct Nothing{}
+    public struct Nothing : IComponent{}
 
 
     public interface IService { }
@@ -235,17 +235,18 @@ namespace Wargon.Nukecs
     public class SystemAttribute : Attribute {
         
     }
-    public delegate void SystemAction<in T>(T t)
-        where T : ISystemParam, new();
-    public delegate void SystemAction<T1, T2>(ref T1 t1, ref T2 t2)
-        where T1 : struct, ISystemParam where T2 : struct, ISystemParam;
+
+    public delegate void SystemAction<T>(T t)
+        where T : unmanaged, ISystemParam;
+    public delegate void SystemAction<T1, T2>(T1 t1, T2 t2)
+        where T1 : unmanaged, ISystemParam where T2 : unmanaged, ISystemParam;
     public delegate void SystemAction<T1, T2, T3>(ref T1 t1, ref T2 t2, ref T3 t3) 
-        where T1 : struct, ISystemParam 
-        where T2 : struct, ISystemParam
-        where T3 : struct, ISystemParam;
-    public delegate void SystemAction<T1, T2, T3, T4>(ref T1 t1, ref T2 t2, ref T3 t3, ref T4 t4) 
-        where T1 : struct, ISystemParam 
-        where T2 : struct, ISystemParam
-        where T3 : struct, ISystemParam
-        where T4 : struct, ISystemParam;
+        where T1 : unmanaged, ISystemParam 
+        where T2 : unmanaged, ISystemParam
+        where T3 : unmanaged, ISystemParam;
+    public delegate void SystemAction<T1, T2, T3, T4>(T1 t1, T2 t2, T3 t3, T4 t4) 
+        where T1 : unmanaged, ISystemParam 
+        where T2 : unmanaged, ISystemParam
+        where T3 : unmanaged, ISystemParam
+        where T4 : unmanaged, ISystemParam;
 }

@@ -98,7 +98,7 @@ namespace Wargon.Nukecs {
         public static long GetSizeOfAllComponents(int poolSize = 1)
         {
             long size = 0;
-            var sizeOfGenericPool = UnsafeUtility.SizeOf<GenericPool.GenericPoolUnsafe>();
+            var sizeOfGenericPool = UnsafeUtility.SizeOf<ComponentPoolUntyped>();
             foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
             {
                 size += kvPair.Value.size * poolSize + sizeOfGenericPool;

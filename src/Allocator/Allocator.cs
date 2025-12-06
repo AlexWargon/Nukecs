@@ -199,7 +199,7 @@ namespace Wargon.Nukecs
                     block.Size = (int)sizeInBytes;
                     block.IsUsed = true;
                     spinner.Release();
-                    return new ptr<T>(basePtr,(uint)block.Pointer);
+                    return new ptr<T>(basePtr, (uint)block.Pointer);
                 }
             }
             spinner.Release();

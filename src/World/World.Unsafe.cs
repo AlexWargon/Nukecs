@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
@@ -74,6 +75,7 @@ namespace Wargon.Nukecs
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
             internal MemoryList<ptr<QueryUnsafe>> queries;
+            internal HashMap<int, int> queriesHashToIndex;
             internal EntityCommandBuffer EntityCommandBuffer;
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
@@ -85,6 +87,7 @@ namespace Wargon.Nukecs
             internal Spinner spinner;
             internal TimeData timeData;
             internal ptr<WorldUnsafe> selfPtr;
+            internal ref WorldUnsafe SelfRef => ref selfPtr.Ref;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
             internal UnityAllocatorHandler AllocatorHandler;
@@ -239,7 +242,9 @@ namespace Wargon.Nukecs
                 AddPool<DestroyEntity>();
             }
 
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal ref GenericPool GetPool<T>() where T : unmanaged, IComponent {
                 var poolIndex = ComponentType<T>.Index;
                 ref var pool = ref pools.Ptr[poolIndex];
@@ -250,7 +255,9 @@ namespace Wargon.Nukecs
                 return ref pool;
             }
             
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             public ref GenericPool GetUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
@@ -259,7 +266,9 @@ namespace Wargon.Nukecs
                 }
                 return ref pool;
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             public GenericPool* GetUntypedPoolPtr(int poolIndex) {
                 var pool = pools.Ptr + poolIndex;
                 if (!pool->IsCreated) 
@@ -268,7 +277,9 @@ namespace Wargon.Nukecs
                 }
                 return pool;
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal ref GenericPool GetElementUntypedPool(int poolIndex) {
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
@@ -299,6 +310,7 @@ namespace Wargon.Nukecs
                     if (!pool.IsCreated)
                     {
                         pool = GenericPool.Create<T>(config.StartPoolSize, ref selfPtr);
+                        dbug.log($"pool<{typeof(T).Name}> created at {poolsCount}");
                         poolsCount++;
                     }
                 }
@@ -321,7 +333,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal void OnDestroyEntity(int entity) {
                 entities.ElementAt(entity) = Nukecs.Entity.Null;
                 reservedEntities.Add(entity, ref AllocatorRef);
@@ -373,17 +387,23 @@ namespace Wargon.Nukecs
                 e.Add(in c2);
                 return e;
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             public Entity SpawnPrefab(in Entity prefab) {
                 var e = prefab.Copy();
                 prefabsToSpawn.Add(e, ref AllocatorRef);
                 return e;
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAt(id);
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             public Archetype CreateArchetype(params int[] types) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, idx, types);
@@ -393,7 +413,9 @@ namespace Wargon.Nukecs
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx, copyList);
@@ -403,7 +425,9 @@ namespace Wargon.Nukecs
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstDiscard]
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal void CreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
                 var idx = archetypesList.length;
                 var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx);
@@ -413,11 +437,15 @@ namespace Wargon.Nukecs
                 archetypesMap[archetypePtr.Ptr->id] = archetype;
                 //return archetype;
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
                 return archetypesList.Ptr[entitiesArchetypes.Ptr[ent]];
             }
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             private Archetype CreateRootArchetype() {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, idx);
@@ -427,7 +455,9 @@ namespace Wargon.Nukecs
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
             }
-            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal Archetype GetOrCreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var hash = ArchetypeUnsafe.GetHashCode(ref types);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
@@ -437,12 +467,17 @@ namespace Wargon.Nukecs
                 
                 return CreateArchetype(ref types);
             }
-            [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [BurstDiscard]
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal void GetOrCreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
                 archetype = GetOrCreateArchetype(ref types);
             }
 
+#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }
@@ -450,6 +485,15 @@ namespace Wargon.Nukecs
             internal void Update()
             {
                 ECB.Playback(Self);
+            }
+
+            internal ptr GetSystemParam<TParam0>(out SystemParamMetaType type) where TParam0 :  unmanaged, ISystemParam
+            {
+
+                var param = AllocatorRef.AllocatePtr<TParam0>();
+                param.Ref.Init(ref selfPtr);
+                type = param.Ref.MetaType;
+                return param.UntypedPointer;
             }
         }
     }

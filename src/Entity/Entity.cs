@@ -161,7 +161,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Add<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
+        public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
@@ -259,43 +259,43 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static (Rf<T1>, Rf<T2>) Get<T1, T2>(this in Entity entity)
+        public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
         {
             return (
-                new Rf<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->Chunks.Ptr },
-                new Rf<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->Chunks.Ptr });
+                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->Chunks.Ptr },
+                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->Chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static (Rf<T1>, Rf<T2>, Rf<T3>) Get<T1, T2, T3>(this in Entity entity)
+        public static (Ref<T1>, Ref<T2>, Ref<T3>) Get<T1, T2, T3>(this in Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
             where T3 : unmanaged, IComponent
         {
             return (
-                new Rf<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->Chunks.Ptr },
-                new Rf<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->Chunks.Ptr },
-                new Rf<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer->Chunks.Ptr });
+                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->Chunks.Ptr },
+                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->Chunks.Ptr },
+                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer->Chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static (Rf<T1>, Rf<T2>, Rf<T3>, Rf<T4>) Get<T1, T2, T3, T4>(this in Entity entity)
+        public static (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>) Get<T1, T2, T3, T4>(this in Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
             where T3 : unmanaged, IComponent
             where T4 : unmanaged, IComponent
         {
             return (
-                new Rf<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->Chunks.Ptr },
-                new Rf<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->Chunks.Ptr },
-                new Rf<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer->Chunks.Ptr },
-                new Rf<T4> { index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBuffer->Chunks.Ptr });
+                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer->Chunks.Ptr },
+                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer->Chunks.Ptr },
+                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer->Chunks.Ptr },
+                new Ref<T4> { index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBuffer->Chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
@@ -390,7 +390,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static bool TryGetRef<T>(this in Entity entity, out Rf<T> component) where T : unmanaged, IComponent
+        public static bool TryGetRef<T>(this in Entity entity, out Ref<T> component) where T : unmanaged, IComponent
         {
             if (entity.ArchetypeRef.Has<T>())
             {

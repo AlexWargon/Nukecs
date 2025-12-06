@@ -1,9 +1,12 @@
-﻿namespace Wargon.Nukecs
+﻿using Unity.Collections;
+
+namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using Unity.Collections.LowLevel.Unsafe;
+    using static UnsafeStatic;
     
     [StructLayout(LayoutKind.Sequential)]
     // ReSharper disable once InconsistentNaming
@@ -22,12 +25,22 @@
         public ptr(void* ptr, ptr_offset offset)
         {
             this.offset = offset;
-            cached = (byte*)ptr;
+            this.cached = (byte*)ptr;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T* As<T>() where T : unmanaged
         {
             return (T*)cached;
+        }
+
+        public ptr<T> AsTyped<T>() where T : unmanaged
+        {
+            return new ptr<T>(cached, offset.Offset, true);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T AsRef<T>() where T : unmanaged
+        {
+            return ref *(T*)cached;
         }
         public void OnDeserialize(ref MemAllocator allocator)
         {
@@ -113,7 +126,12 @@
             this.offset = new ptr_offset(0, offset);
             cached = (T*)(basePtr + offset);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ptr(byte* ptr, uint offset, bool fromOffseted = true)
+        {
+            this.offset = new ptr_offset(0, offset);
+            cached = (T*)ptr;
+        }
         public ptr UntypedPointer
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -178,6 +196,26 @@
         public static implicit operator ptr<T>(ptr<byte> ptr)
         {
             return new ptr<T>(basePtr:ptr.cached, ptr.offset.Offset);
+        }
+    }
+
+    // ReSharper disable once InconsistentNaming
+    public unsafe struct safe_ptr<T> where T : unmanaged
+    {
+        private T* _ptr;
+        public ref T Ref => ref *_ptr;
+
+        public static safe_ptr<T> New()
+        {
+            return new safe_ptr<T>
+            {
+                _ptr = malloc<T>(Allocator.Persistent)
+            };
+        }
+
+        public void Dispose()
+        {
+            free(_ptr, Allocator.Persistent);
         }
     }
 }
