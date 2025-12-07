@@ -491,12 +491,18 @@ namespace Wargon.Nukecs
 
             internal ptr GetSystemParam<TParam0>(out SystemParamMetaType type) where TParam0 :  unmanaged, ISystemParam
             {
-
                 var param = AllocatorRef.AllocatePtr<TParam0>();
                 param.Ref.Init(ref selfPtr);
                 type = param.Ref.MetaType;
                 dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {type}");
                 return param.UntypedPointer;
+            }
+            internal ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 :  unmanaged, ISystemParam
+            {
+                var param = AllocatorRef.AllocatePtr<TParam0>();
+                param.Ref.Init(ref selfPtr);
+                dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {param.Ref.MetaType}");
+                return param;
             }
         }
     }

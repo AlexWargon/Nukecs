@@ -5,10 +5,41 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-
+using static Wargon.Nukecs.UnsafeStatic;
 namespace Wargon.Nukecs {
+    public unsafe delegate void SystemActionPtr(void* param0);
+    public unsafe delegate void SystemActionPtr2(void* param0, void* param1);
     public delegate void SystemFnDelegate(ref World world, ref SystemParams systemParams, ref Range range);
     
+    public static unsafe class SystemFnRegistry2<TParam0>  
+        where TParam0 : unmanaged, ISystemParam
+    {
+        private static delegate* <TParam0, void> _fnPtr;
+        public delegate void SystemAction(TParam0 query);
+        private static FunctionPointer<SystemActionPtr> _fnFunctionPointer;
+
+        [BurstCompile(CompileSynchronously = true)]
+        [AOT.MonoPInvokeCallback(typeof(SystemFnDelegate))]
+        public static void Execute(ref World world, ref SystemParams systemParams, ref Range range)
+        {
+            ref var param0 = ref systemParams.FirstRef;
+            var param0Copy = *param0.Ptr<TParam0>();
+            var rangeFromQuery = (Range*)param0Copy.GetData();
+            *rangeFromQuery = range;
+            param0.data = (IntPtr)rangeFromQuery;
+            param0Copy.Update(ref world, param0.data);
+            if (!_fnFunctionPointer.IsCreated)
+            {
+                _fnFunctionPointer = new FunctionPointer<SystemActionPtr>(systemParams.system);
+            }
+            _fnFunctionPointer.Invoke(UnsafeUtility.AddressOf(ref param0Copy));
+        }
+        public static IntPtr Create()
+        {
+            return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
+        }
+    }
+    [BurstCompile(CompileSynchronously = true)]
     public static unsafe class SystemFnRegistry<TParam0>  
         where TParam0 : unmanaged, ISystemParam
     {
@@ -24,7 +55,7 @@ namespace Wargon.Nukecs {
             var rangeFromQuery = (Range*)param0Copy.GetData();
             *rangeFromQuery = range;
             param0.data = (IntPtr)rangeFromQuery;
-            param0.Ptr<TParam0>()->Update(ref world, param0.data);
+            param0Copy.Update(ref world, param0.data);
             if (_fnPtr == null)
             {
                 _fnPtr = (delegate* <TParam0, void>)systemParams.system;
@@ -36,7 +67,7 @@ namespace Wargon.Nukecs {
             return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
         }
     }
-    
+    [BurstCompile(CompileSynchronously = true)]
     public static class SystemFnRegistry<TParam0, TParam1>  
         where TParam0 : unmanaged, ISystemParam
         where TParam1 : unmanaged, ISystemParam
@@ -45,11 +76,12 @@ namespace Wargon.Nukecs {
         [AOT.MonoPInvokeCallback(typeof(SystemFnDelegate))]
         public static unsafe void Execute(ref World world, ref SystemParams systemParams, ref Range range)
         {
-            ref var param0 = ref systemParams.list.ElementAt(0);
-            var rangeFromQuery = (Range*)param0.Ptr<TParam0>()->GetData();
+            ref var param0 = ref systemParams.FirstRef;
+            var param0Copy = *param0.Ptr<TParam0>();
+            var rangeFromQuery = (Range*)param0Copy.GetData();
             *rangeFromQuery = range;
             param0.data = (IntPtr)rangeFromQuery;
-            param0.Ptr<TParam0>()->Update(ref world, param0.data);
+            param0Copy.Update(ref world, param0.data);
             ref var param1 = ref systemParams.list.ElementAt(1);
             param1.Ptr<TParam1>()->Update(ref world, param1.data);
             new FunctionPointer<SystemAction<TParam0, TParam1>>(systemParams.system).Invoke(*param0.Ptr<TParam0>(), *param1.Ptr<TParam1>());
@@ -58,9 +90,34 @@ namespace Wargon.Nukecs {
         {
             return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
         }
-
     }
-
+    public static class SystemFnRegistry<TParam0, TParam1, TParam2>  
+        where TParam0 : unmanaged, ISystemParam
+        where TParam1 : unmanaged, ISystemParam
+        where TParam2 : unmanaged, ISystemParam
+    {
+        [BurstCompile(CompileSynchronously = true)]
+        [AOT.MonoPInvokeCallback(typeof(SystemFnDelegate))]
+        public static unsafe void Execute(ref World world, ref SystemParams systemParams, ref Range range)
+        {
+            ref var param0 = ref systemParams.FirstRef;
+            var param0Copy = *param0.Ptr<TParam0>();
+            var rangeFromQuery = (Range*)param0Copy.GetData();
+            *rangeFromQuery = range;
+            param0.data = (IntPtr)rangeFromQuery;
+            param0Copy.Update(ref world, param0.data);
+            ref var param1 = ref systemParams.list.ElementAt(1);
+            param1.Ptr<TParam1>()->Update(ref world, param1.data);
+            ref var param2 = ref systemParams.list.ElementAt(2);
+            param1.Ptr<TParam2>()->Update(ref world, param2.data);
+            new FunctionPointer<SystemAction<TParam0, TParam1>>(systemParams.system).Invoke(*param0.Ptr<TParam0>(), *param1.Ptr<TParam1>());
+        }
+        public static IntPtr Create()
+        {
+            return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
+        }
+    }
+    [BurstCompile(CompileSynchronously = true, OptimizeFor = OptimizeFor.Performance)]
     public unsafe struct DelegateJob : IDelegateJobSystem
     {
         public FunctionPointer<SystemFnDelegate> fn;
@@ -80,7 +137,7 @@ namespace Wargon.Nukecs {
         public IntPtr system;
         public SystemMode mode;
         public ref SystemParam FirstRef => ref list.ElementAt(0);
-        public static SystemParams New<TParam0>(World.WorldUnsafe* world, delegate*<TParam0, void> systemAction)
+        public static SystemParams New<TParam0>(World.WorldUnsafe* world, IntPtr systemAction)
             where TParam0 : unmanaged, ISystemParam
         {
             var systemParams = new SystemParams
@@ -91,63 +148,66 @@ namespace Wargon.Nukecs {
             var param0 = new SystemParam
             {
                 value = world->GetSystemParam<TParam0>(out var metaType),
-                data = metaType == SystemParamMetaType.Query ? (IntPtr)UnsafeStatic.malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+                data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
             };
             
             systemParams.list.Add(param0);
             return systemParams;
         }
 
-        public static SystemParams New<TParam0, TParam1>(World.WorldUnsafe* world, SystemAction<TParam0, TParam1> systemAction) 
+        public static SystemParams New<TParam0, TParam1>(World.WorldUnsafe* world, 
+            IntPtr systemAction) 
             where TParam0 : unmanaged, ISystemParam
             where TParam1 : unmanaged, ISystemParam
         
         {
             var systemParams = new SystemParams
             {
-                list = new UnsafeList<SystemParam>(1, Allocator.Persistent)
+                list = new UnsafeList<SystemParam>(1, Allocator.Persistent),
+                system = (IntPtr)systemAction
             };
             var param0 = new SystemParam
             {
                 value = world->GetSystemParam<TParam0>(out var metaType),
-                data = metaType == SystemParamMetaType.Query ? (IntPtr)UnsafeStatic.malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+                data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
             };
             systemParams.list.Add(param0);
             var param1 = new SystemParam
             {
                 value = world->GetSystemParam<TParam1>(out metaType),
-                data = metaType == SystemParamMetaType.Query ? (IntPtr)UnsafeStatic.malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+                data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
             };
             systemParams.list.Add(param1);
             return systemParams;
         }
         
-        public static SystemParams New<TParam0, TParam1, TParam2>(World.WorldUnsafe* world, SystemAction<TParam0, TParam1, TParam2> systemAction) 
+        public static SystemParams New<TParam0, TParam1, TParam2>(World.WorldUnsafe* world, 
+            IntPtr systemAction) 
             where TParam0 : unmanaged, ISystemParam
             where TParam1 : unmanaged, ISystemParam
             where TParam2 : unmanaged, ISystemParam
-        
         {
             var systemParams = new SystemParams
             {
-                list = new UnsafeList<SystemParam>(2, Allocator.Persistent)
+                list = new UnsafeList<SystemParam>(2, Allocator.Persistent),
+                system = (IntPtr)systemAction
             };
             var param0 = new SystemParam
             {
                 value = world->GetSystemParam<TParam0>(out var metaType),
-                data = metaType == SystemParamMetaType.Query ? (IntPtr)UnsafeStatic.malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+                data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero
             };
             systemParams.list.Add(param0);
             var param1 = new SystemParam
             {
                 value = world->GetSystemParam<TParam1>(out metaType),
-                data = metaType == SystemParamMetaType.Query ? (IntPtr)UnsafeStatic.malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+                data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero
             };
             systemParams.list.Add(param1);
             var param2 = new SystemParam
             {
                 value = world->GetSystemParam<TParam2>(out metaType),
-                data = metaType == SystemParamMetaType.Query ? (IntPtr)UnsafeStatic.malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+                data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero
             };
             systemParams.list.Add(param2);
             return systemParams;
@@ -166,7 +226,7 @@ namespace Wargon.Nukecs {
 
         public unsafe void Dispose()
         {
-            UnsafeStatic.free_t((void*)data, Allocator.Domain);
+            free_t((void*)data, Allocator.Domain);
         }
     }
     
@@ -205,14 +265,14 @@ namespace Wargon.Nukecs {
                         while (true) {
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
-                            dbug.log($"PER THREAD {(thead : jobIndex, from : begin, to : end)}");
+                            //dbug.log($"PER THREAD {(thead : jobIndex, from : begin, to : end)}");
                             range = new Range(begin, end);
                             fullData.JobData.OnUpdate(range);
                         }
                         break;
                     case SystemMode.Single:
                         range = new Range(0, fullData.query->count);
-                        dbug.log($"SINGLE {(0, fullData.query->count)}");
+                        //dbug.log($"SINGLE {(0, fullData.query->count)}");
                         fullData.JobData.OnUpdate(range);
                         break;
                 }

@@ -1,6 +1,4 @@
-﻿using Unity.Collections.LowLevel.Unsafe;
-
-namespace Wargon.Nukecs
+﻿namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.InteropServices;

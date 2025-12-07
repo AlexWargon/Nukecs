@@ -7,7 +7,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using Wargon.Nukecs.Transforms;
+using Wargon.Nukecs.Editor;
 
 namespace Wargon.Nukecs
 {
@@ -686,72 +686,15 @@ namespace Wargon.Nukecs
         }
     }
 
-    public static class DelegateSystemsExtensions {
- 
-        public static unsafe Systems AddSystem2(this Systems systems, 
-            delegate* <Query<Transform, Input>.WithEntity,void> func)
-        {
-            var systemParams = SystemParams.New(systems.World.UnsafeWorld, func);
-            var fn = new FunctionPointer<SystemFnDelegate>
-            (SystemFnRegistry<Query<Transform, Input>.WithEntity>.Create());
-            
-            systemParams.FirstRef.value.AsRef<Query<Transform, Input>.WithEntity>()
-                .TryGetQuery(out var q);
-            var runner = new DelegateSystemRunner
-            {
-                mode = SystemMode.Parallel,
-                query = q,
-                systemParams = systemParams,
-                job = new DelegateJob
-                {
-                    fn = fn,
-                    world = systems.World
-                }
-            };
-            systems.runners.Add(runner);
-            return systems;
-        }
-    }
-    
 
-    public unsafe class DelegateSystemRunner : ISystemRunner {
-        public DelegateJob job;
-        public ptr<QueryUnsafe> query;
-        public SystemMode mode;
-        public SystemParams systemParams;
-#if NUKECS_DEBUG
-        private Marker _marker;
-#endif
-        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
-#if NUKECS_DEBUG
-            _marker.Autostart($"DELEGATE SYSTEM");
-#endif
-            job.systemParams = (SystemParams*)UnsafeUtility.AddressOf(ref systemParams);
-            ref var handle = ref state.Dependencies;
-            if (mode != SystemMode.Main)
-            {
-                handle = job.Schedule(query.Ptr, mode, ref state);
-            }
-            else
-            {
-                job.OnUpdate(new Range(0, query.Ref.count));
-            }
-#if NUKECS_DEBUG
-            _marker.End();
-#endif
-            return handle;
-        }
-        public void Run(ref State state) {
-            job.OnUpdate(new Range(0, query.Ref.count));
-        }
-
-        public string Name => "DelegateSystemRunner";
-    }
     [AttributeUsage((AttributeTargets.Method))]
     public class SystemAttribute : Attribute
     {
         public SystemMode mode;
-
+        public SystemAttribute()
+        {
+            this.mode = SystemMode.Parallel;
+        }
         public SystemAttribute(SystemMode mode)
         {
             this.mode = mode;

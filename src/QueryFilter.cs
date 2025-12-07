@@ -57,7 +57,7 @@ namespace Wargon.Nukecs
     }
     
     
-    public struct With<T1, T2> : IFilter , IComponent
+    public struct With<T1, T2> : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
     {
@@ -67,7 +67,7 @@ namespace Wargon.Nukecs
             query->With(ComponentType<T2>.Index);
         }
     }
-    public struct With<T1, T2, T3> : IFilter, IComponent
+    public struct With<T1, T2, T3> : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -80,7 +80,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct With<T1, T2, T3, T4> : IFilter, IComponent
+    public struct With<T1, T2, T3, T4> : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -95,7 +95,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct With<T1, T2, T3, T4, T5> : IFilter, IComponent
+    public struct With<T1, T2, T3, T4, T5> : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -112,7 +112,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct With<T1, T2, T3, T4, T5, T6> : IFilter , IComponent
+    public struct With<T1, T2, T3, T4, T5, T6> : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -148,7 +148,7 @@ namespace Wargon.Nukecs
             query->None(ComponentType<T2>.Index);
         }
     }
-    public struct None<T1, T2, T3> : IFilter , IComponent
+    public struct None<T1, T2, T3> : IFilter
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -161,7 +161,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public struct None<T1, T2, T3, T4> : IFilter , IComponent
+    public struct None<T1, T2, T3, T4> : IFilter 
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
