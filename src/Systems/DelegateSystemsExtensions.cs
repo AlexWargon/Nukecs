@@ -140,29 +140,7 @@ namespace Wargon.Nukecs
                 ((delegate* <TParam0, void>)fn)(copy);
             }
         }
-        [BurstCompile(CompileSynchronously = true, OptimizeFor = OptimizeFor.Performance)]
-        public unsafe struct SystemFunctionPtrGenericJob<TDelegate, TParam0> : IDelegateJobSystem 
-            where TParam0 : unmanaged, ISystemParam
-        {
-            [NativeDisableUnsafePtrRestriction]
-            public IntPtr fn;
-            public ptr<TParam0> q;
-            public World world;
-            public void OnUpdate(Range range)
-            {
-                var copy = q.Ref;
-                copy.Update(ref world, (IntPtr)UnsafeUtility.AddressOf(ref range));
-                new FunctionPointer<TDelegate>(fn).
-            }
-        }
-        public struct Wrapper<TDelegate> where TDelegate : Delegate
-        {
-            private TDelegate fn;
-            public void Invoke()
-            {
-                fn.????
-            }
-        }
+
         [BurstCompile(CompileSynchronously = true, OptimizeFor = OptimizeFor.Performance)]
         public struct SystemActionQueryTransformInputWithEntityJob : IDelegateJobSystem
         {
