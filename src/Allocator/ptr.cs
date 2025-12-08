@@ -145,12 +145,13 @@ namespace Wargon.Nukecs
         }
         public ref T Ref
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (cached == null)
-                {
-                    throw new NullReferenceException("cached ptr is null.");
-                }
+                // if (cached == null)
+                // {
+                //     throw new NullReferenceException("cached ptr is null.");
+                // }
                 return ref *cached;
             }
         }

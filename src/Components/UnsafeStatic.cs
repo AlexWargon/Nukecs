@@ -8,7 +8,6 @@ namespace Wargon.Nukecs
 {
     public static class UnsafeStatic
     {
-
         [MethodImpl(inline.YES)]
         public static unsafe void write_element<T>(void* ptr, int index, in T value) where T : unmanaged
         {
@@ -101,6 +100,20 @@ namespace Wargon.Nukecs
         public static unsafe void free_t(void* ptr, Unity.Collections.Allocator allocator)
         {
             UnsafeUtility.FreeTracked(ptr, allocator);
+        }
+        
+        
+        [MethodImpl(inline.YES)] 
+        public static unsafe ref T to_ptr<T>(void* ptr)
+            where T: unmanaged
+        {
+            return ref UnsafeUtility.AsRef<T>(ptr);
+        }
+        [MethodImpl(inline.YES)] 
+        public static unsafe void* to_ptr<T>(ref T value)
+            where T: unmanaged
+        {
+            return UnsafeUtility.AddressOf(ref value);
         }
     }
     public static class inline

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 // ReSharper disable RedundantDiscardDesignation
 // ReSharper disable SuspiciousTypeConversion.Global
@@ -168,7 +169,7 @@ namespace Wargon.Nukecs
             query = _query;
             return true;
         }
-
+        [BurstCompile]
         public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1;
@@ -178,18 +179,32 @@ namespace Wargon.Nukecs
             private Range _range;
             public void SetRange(Range range) => _range = range;
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-            public WithEntity Current => this;
 
-            public bool MoveNext()
+            public WithEntity Current
             {
-                _current++;
-                var index = _query.Ref.GetEntityID(_current);
-                _t1.index = index;
-                _tOption.index = index;
-                return _current < _range.end;
+                [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
+                get => this;
             }
 
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
+            public bool MoveNext()
+            {
+                if (++_current >= _range.end) return false;
+                _current++;
+                var index = _query.Ref.entities.Ptr[_current];
+                _t1.index = index;
+                _tOption.index = index;
+                return true;
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly void Deconstruct(out Entity e, out Ref<T1> c) { c = _t1; e = default; }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly void Deconstruct(out Entity e, out Ref<T1> c, out Ref<TOption> opt)
             {
                 c = _t1; opt = _tOption;
@@ -218,7 +233,7 @@ namespace Wargon.Nukecs
                         break;
                 }
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
             public void Update(ref World world, IntPtr data)
             {
                 _range = *(Range*)(void*)data;
@@ -229,7 +244,8 @@ namespace Wargon.Nukecs
             {
                 _current = _range.start - 1;
             }
-            public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public IntPtr GetData() => (IntPtr)UnsafeStatic.to_ptr(ref _range);
 
             public bool TryGetQuery(out ptr<QueryUnsafe> query)
             {

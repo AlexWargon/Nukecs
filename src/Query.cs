@@ -178,9 +178,9 @@ namespace Wargon.Nukecs {
         public ref Entity GetEntity(int index) {
             return ref world->entities[entities.ElementAt(index)];
         }
-#if !NUKECS_DEBUG
+//#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
+//#endif
         public int GetEntityID(int index)
         {
             return entities.ElementAt(index);
@@ -284,8 +284,9 @@ namespace Wargon.Nukecs {
     }
 
     public unsafe struct Ref<TComponent> where TComponent : unmanaged {
-        internal int index;
-        internal Chunk* pool;
+        public int index;
+        [NativeDisableUnsafePtrRestriction]
+        public Chunk* pool;
         public ref TComponent Val
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

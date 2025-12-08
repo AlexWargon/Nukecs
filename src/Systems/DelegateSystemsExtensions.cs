@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -34,6 +35,31 @@ namespace Wargon.Nukecs
                     fn = fn,
                     world = systems.World
                 }
+            };
+            systems.runners.Add(runner);
+            return systems;
+        }
+        private static unsafe Systems add_system_impl<TParam0>(this Systems systems, 
+            delegate* <ref TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            where TParam0 : unmanaged, ISystemParam
+        {
+            var systemParams = SystemParams.New<TParam0>(systems.World.UnsafeWorld, (IntPtr)func);
+            var fnWrapper = new FunctionPointer<SystemFnDelegate>
+                (SystemFnRegistryRef<TParam0>.Create());
+            
+            systemParams.FirstRef.value.AsRef<TParam0>()
+                .TryGetQuery(out var query);
+            var runner = new DelegateSystemRunner
+            {
+                mode = threads,
+                query = query,
+                systemParams = systemParams,
+                job = new DelegateJob
+                {
+                    fn = fnWrapper,
+                    world = systems.World
+                },
+                name = "DelegateSystem2Ref"
             };
             systems.runners.Add(runner);
             return systems;
@@ -114,7 +140,11 @@ namespace Wargon.Nukecs
             systems.runners.Add(runner);
             return systems;
         }
-        
+        public static unsafe Systems AddSystem2Ref(this Systems systems, 
+            delegate* <ref Query<Transform, Input>.WithEntity,void> func, SystemMode threads = SystemMode.Parallel)
+        {
+            return add_system_impl(systems, func, threads);
+        }
         public static unsafe Systems AddSystem2(this Systems systems, 
             delegate* <Query<Transform, Input>.WithEntity,void> func, SystemMode threads = SystemMode.Parallel)
         {
@@ -133,6 +163,7 @@ namespace Wargon.Nukecs
             public IntPtr fn;
             public ptr<TParam0> q;
             public World world;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void OnUpdate(Range range)
             {
                 var copy = q.Ref;
@@ -200,13 +231,14 @@ namespace Wargon.Nukecs
         }
     }
     
-        public unsafe class DelegateSystemRunner<TJob> : ISystemRunner where TJob : struct, IDelegateJobSystem {
+    public unsafe class DelegateSystemRunner<TJob> : ISystemRunner where TJob : struct, IDelegateJobSystem {
         public TJob job;
         public ptr<QueryUnsafe> query;
         public SystemMode mode;
 #if NUKECS_DEBUG
         private Marker _marker;
 #endif
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
 #if NUKECS_DEBUG
             _marker.Autostart($"DELEGATE SYSTEM");
@@ -261,7 +293,7 @@ namespace Wargon.Nukecs
         public void Run(ref State state) {
             job.OnUpdate(new Range(0, query.Ref.count));
         }
-
-        public string Name => "DelegateSystemRunner";
+        public string name = "DelegateSystem2";
+        public string Name => name;
     }
 }

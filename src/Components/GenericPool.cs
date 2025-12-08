@@ -18,7 +18,7 @@ namespace Wargon.Nukecs
             get => !UnsafeBufferPtr.IsDefault;
         }
 
-        internal ComponentPoolUntyped* UnsafeBuffer
+        public ComponentPoolUntyped* UnsafeBuffer
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => UnsafeBufferPtr.Ptr;

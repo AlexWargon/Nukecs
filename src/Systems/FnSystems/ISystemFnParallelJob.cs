@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
@@ -33,6 +34,33 @@ namespace Wargon.Nukecs {
                 _fnFunctionPointer = new FunctionPointer<SystemActionPtr>(systemParams.system);
             }
             _fnFunctionPointer.Invoke(UnsafeUtility.AddressOf(ref param0Copy));
+        }
+        public static IntPtr Create()
+        {
+            return Marshal.GetFunctionPointerForDelegate(new SystemFnDelegate(Execute));
+        }
+    }
+    [BurstCompile(CompileSynchronously = true)]
+    public static unsafe class SystemFnRegistryRef<TParam0>  
+        where TParam0 : unmanaged, ISystemParam
+    {
+        private static delegate* <ref TParam0, void> _fnPtr;
+
+        [BurstCompile(CompileSynchronously = true)]
+        [AOT.MonoPInvokeCallback(typeof(SystemFnDelegate))]
+        public static void Execute(ref World world, ref SystemParams systemParams, ref Range range)
+        {
+            ref var param0 = ref systemParams.FirstRef;
+            var param0Copy = *param0.Ptr<TParam0>();
+            var rangeFromQuery = (Range*)param0Copy.GetData();
+            *rangeFromQuery = range;
+            param0.data = (IntPtr)rangeFromQuery;
+            param0Copy.Update(ref world, param0.data);
+            if (_fnPtr == null)
+            {
+                _fnPtr = (delegate* <ref TParam0, void>)systemParams.system;
+            }
+            _fnPtr(ref param0Copy);
         }
         public static IntPtr Create()
         {
@@ -245,7 +273,7 @@ namespace Wargon.Nukecs {
             internal static readonly SharedStatic<IntPtr> JobReflectionData =
                 SharedStatic<IntPtr>.GetOrCreate<DelegateJobWrapper<TJob>>();
 
-            [BurstDiscard]
+            [BurstDiscard][MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal static void Initialize() {
                 if (JobReflectionData.Data == IntPtr.Zero) {
                     JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(DelegateJobWrapper<TJob>),
@@ -255,7 +283,7 @@ namespace Wargon.Nukecs {
 
             private delegate void ExecuteJobFunction(ref DelegateJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
-            
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static void Execute(ref DelegateJobWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 if(fullData.query->count == 0) return;
@@ -279,16 +307,16 @@ namespace Wargon.Nukecs {
             }
         }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void EarlyJobInit<T>() where T : struct, IDelegateJobSystem {
             DelegateJobWrapper<T>.Initialize();
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static IntPtr GetReflectionData<T>() where T : struct, IDelegateJobSystem {
             DelegateJobWrapper<T>.Initialize();
             return DelegateJobWrapper<T>.JobReflectionData.Data;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe JobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
             SystemMode mode, ref State state)
             where TJob : struct, IDelegateJobSystem {
