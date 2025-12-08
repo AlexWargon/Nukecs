@@ -25,7 +25,6 @@ namespace Wargon.Nukecs {
         {
             return query;
         }
-        
     }
 
     public enum SystemParamMetaType
@@ -38,24 +37,6 @@ namespace Wargon.Nukecs {
         State = 5
     }
 
-    public interface IQuerySystemParam : ISystemParam
-    {
-        public unsafe QueryUnsafe* QueryPtr
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Query.Ptr;
-        }
-
-        public ptr<QueryUnsafe> Query
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get; 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set;
-        } 
-        public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-        
-    }
     public interface ISystemParam {
         SystemParamMetaType MetaType { get; }
         void Init(ref ptr<World.WorldUnsafe> world);

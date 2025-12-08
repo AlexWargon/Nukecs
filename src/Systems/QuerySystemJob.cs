@@ -114,6 +114,7 @@ namespace Wargon.Nukecs
         }
     }
 
+    // ReSharper disable once InconsistentNaming
     public class IQuerySystemJobRunner<TJob> : ISystemRunner where TJob : struct, IQuerySystemJob
     {
         public TJob System;

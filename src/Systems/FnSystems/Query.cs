@@ -169,8 +169,36 @@ namespace Wargon.Nukecs
             query = _query;
             return true;
         }
+        // public ref struct WithEntityEnumerator
+        // {
+        //     public Ref<T1> t1;
+        //     public Ref<TOption> tOption;
+        //     public QueryUnsafe* query;
+        //     public Range* range;
+        //     public int current;
+        //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //     public readonly void Deconstruct(out Entity e, out Ref<T1> c) { c = t1; e = default; }
+        //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //     public readonly void Deconstruct(out Entity e, out Ref<T1> c, out Ref<TOption> opt)
+        //     {
+        //         c = t1; opt = tOption;
+        //         c.index = query->entities.Ptr[current];
+        //         opt.index = c.index;
+        //         e = query->GetEntity(c.index);
+        //     }
+        //     public WithEntityEnumerator Current
+        //     {
+        //         [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
+        //         get => this;
+        //     }
+        //     [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
+        //     public bool MoveNext()
+        //     {
+        //         return ++current < range->end;
+        //     }
+        // }
         [BurstCompile]
-        public struct WithEntity : IQuery, ISystemParam
+        public struct WithEntity : ISystemParam, IQuery
         {
             private Ref<T1> _t1;
             private Ref<TOption> _tOption;
@@ -180,6 +208,17 @@ namespace Wargon.Nukecs
             public void SetRange(Range range) => _range = range;
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
+            // public WithEntityEnumerator GetEnumerator()
+            // {
+            //     return new WithEntityEnumerator()
+            //     {
+            //         t1 = _t1,
+            //         tOption = _tOption,
+            //         query = _query.Ptr,
+            //         current = -1,
+            //         range = (Range*)UnsafeStatic.to_ptr(ref _range)
+            //     };
+            // }
             public WithEntity Current
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
@@ -196,10 +235,8 @@ namespace Wargon.Nukecs
             public bool MoveNext()
             {
                 if (++_current >= _range.end) return false;
-                _current++;
-                var index = _query.Ref.entities.Ptr[_current];
-                _t1.index = index;
-                _tOption.index = index;
+                _t1.index = _query.Ref.entities.Ptr[_current];
+                _tOption.index = _t1.index;
                 return true;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -210,7 +247,11 @@ namespace Wargon.Nukecs
                 c = _t1; opt = _tOption;
                 e = _query.cached->GetEntity(_current);
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly void Deconstruct(out Ref<T1> c, out Ref<TOption> opt)
+            {
+                c = _t1; opt = _tOption;
+            }
             public void Init(ref ptr<World.WorldUnsafe> world)
             {
                 _query = world.Ref.CreateQueryPtr();
@@ -252,7 +293,6 @@ namespace Wargon.Nukecs
                 query = _query;
                 return true;
             }
-            
         }
     }
 

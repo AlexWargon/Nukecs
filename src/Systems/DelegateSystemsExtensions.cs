@@ -208,8 +208,35 @@ namespace Wargon.Nukecs
             systems.runners.Add(runner);
             return systems;
         }
+        public static unsafe Systems AddSystem13Ref<TParam0>(this Systems systems, 
+            delegate* <ref TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            where TParam0 : unmanaged, ISystemParam
+        {
+            return systems.add_system_impl(func, threads);
+        }
         public static unsafe Systems AddSystem13<TParam0>(this Systems systems, 
             delegate* <TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            where TParam0 : unmanaged, ISystemParam
+        {
+            var queryPtr = systems.World.UnsafeWorldRef.GetSystemParam2<TParam0>();
+            queryPtr.Ref.TryGetQuery(out var query);
+            var runner = new DelegateSystemRunner<SystemDelegatePtrGenericJob<TParam0>>
+            {
+                mode = threads,
+                query = query,
+
+                job = new SystemDelegatePtrGenericJob<TParam0>
+                {
+                    fn = (IntPtr)func,
+                    world = systems.World,
+                    q = queryPtr,
+                }
+            };
+            systems.runners.Add(runner);
+            return systems;
+        }
+        public static unsafe Systems AddSystem13<TParam0>(this Systems systems, 
+            delegate* <ref TParam0, void> func, SystemMode threads = SystemMode.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             var queryPtr = systems.World.UnsafeWorldRef.GetSystemParam2<TParam0>();
@@ -241,7 +268,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
 #if NUKECS_DEBUG
-            _marker.Autostart($"DELEGATE SYSTEM");
+            _marker.Autostart(typeof(TJob).Name);
 #endif
             ref var handle = ref state.Dependencies;
             if (mode != SystemMode.Main)
@@ -273,7 +300,7 @@ namespace Wargon.Nukecs
 #endif
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
 #if NUKECS_DEBUG
-            _marker.Autostart($"DELEGATE SYSTEM");
+            _marker.Autostart(Name);
 #endif
             job.systemParams = (SystemParams*)UnsafeUtility.AddressOf(ref systemParams);
             ref var handle = ref state.Dependencies;
