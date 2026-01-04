@@ -73,6 +73,7 @@ Create class inherited from ```WordInstaller``` and drop it on scene
 	e.Has<Health>(); // check for component presence. return true or false. available in job systems
 	e.Remove<Health>(); // remove component. available in job systems
 	e.IsValide(); // e != null check. return true or false. available in job systems
+	var copy = e.Copy(); // create full copy of entity
 	e.Destroy(); // kill entity on start of next loop. available in job systems
 ```
 
