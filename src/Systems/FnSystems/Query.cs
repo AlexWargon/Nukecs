@@ -23,7 +23,11 @@ namespace Wargon.Nukecs
         public readonly void Deconstruct(out Ref<T1> c) => c = _t1;
         public ref Entity GetEntity(int index) => ref _query.cached->GetEntity(index);
         public ref T1 Current => ref _t1.Val;
-
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -66,7 +70,11 @@ namespace Wargon.Nukecs
             public ref Entity GetEntity(int index) => ref _query.cached->GetEntity(index);
 
             public WithEntity Current => this;
-
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;
@@ -123,12 +131,16 @@ namespace Wargon.Nukecs
         public readonly void Deconstruct(out Ref<T1> c) => c = _t1;
         public readonly void Deconstruct(out Ref<T1> c, out Ref<TOption> opt) { c = _t1; opt = _tOption; }
         public Query<T1, TOption> Current => this;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
-            var index = _query.Ref.GetEntityID(_current);
-            _t1.index = index;
-            _tOption.index = index;
+            _t1.index = _query.Ref.entities.Ptr[_current];
+            _tOption.index = _t1.index;
             return _current < _range.end;
         }
 
@@ -198,7 +210,7 @@ namespace Wargon.Nukecs
         //     }
         // }
         [BurstCompile]
-        public struct WithEntity : ISystemParam, IQuery
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1;
             private Ref<TOption> _tOption;
@@ -208,17 +220,6 @@ namespace Wargon.Nukecs
             public void SetRange(Range range) => _range = range;
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-            // public WithEntityEnumerator GetEnumerator()
-            // {
-            //     return new WithEntityEnumerator()
-            //     {
-            //         t1 = _t1,
-            //         tOption = _tOption,
-            //         query = _query.Ptr,
-            //         current = -1,
-            //         range = (Range*)UnsafeStatic.to_ptr(ref _range)
-            //     };
-            // }
             public WithEntity Current
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
@@ -300,7 +301,7 @@ namespace Wargon.Nukecs
     // Query<T1,T2, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where TOption : unmanaged
@@ -316,7 +317,11 @@ namespace Wargon.Nukecs
         public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2) { c1 = _t1; c2 = _t2; }
         public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<TOption> opt) { c1 = _t1; c2 = _t2; opt = _tOption; }
         public Query<T1,T2,TOption> Current => this;
-
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -366,7 +371,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2;
             private Ref<TOption> _tOption;
@@ -376,6 +381,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;
@@ -441,7 +451,7 @@ namespace Wargon.Nukecs
     // Query<T1..T3, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, T3, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -458,7 +468,11 @@ namespace Wargon.Nukecs
         public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3) { c1 = _t1; c2 = _t2; c3 = _t3; }
         public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<TOption> opt) { c1 = _t1; c2 = _t2; c3 = _t3; opt = _tOption; }
         public Query<T1,T2,T3,TOption> Current => this;
-
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -506,7 +520,7 @@ namespace Wargon.Nukecs
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2; private Ref<T3> _t3;
             private Ref<TOption> _tOption;
@@ -516,6 +530,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public WithEntity GetEnumerator() => this;
             public bool MoveNext()
             {
@@ -580,7 +599,7 @@ namespace Wargon.Nukecs
     // Query<T1..T4, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, T4, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, T3, T4, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -599,6 +618,11 @@ namespace Wargon.Nukecs
         public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<TOption> opt) { c1 = _t1; c2 = _t2; c3 = _t3; c4 = _t4; opt = _tOption; }
 
         public Query<T1,T2,T3,T4,TOption> Current => this;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -647,7 +671,7 @@ namespace Wargon.Nukecs
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
         public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2; private Ref<T3> _t3; private Ref<T4> _t4;
             private Ref<TOption> _tOption;
@@ -657,6 +681,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;
@@ -721,7 +750,7 @@ namespace Wargon.Nukecs
     // Query<T1..T5, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, T4, T5, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, T3, T4, T5, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -741,6 +770,11 @@ namespace Wargon.Nukecs
         public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5, out Ref<TOption> opt) { c1 = _t1; c2 = _t2; c3 = _t3; c4 = _t4; c5 = _t5; opt = _tOption; }
 
         public Query<T1,T2,T3,T4,T5,TOption> Current => this;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -791,7 +825,7 @@ namespace Wargon.Nukecs
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
         public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2; private Ref<T3> _t3; private Ref<T4> _t4; private Ref<T5> _t5;
             private Ref<TOption> _tOption;
@@ -801,6 +835,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;
@@ -863,7 +902,7 @@ namespace Wargon.Nukecs
     // Query<T1..T6, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, T4, T5, T6, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, T3, T4, T5, T6, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -887,6 +926,11 @@ namespace Wargon.Nukecs
         { c1 = _t1; c2 = _t2; c3 = _t3; c4 = _t4; c5 = _t5; c6 = _t6; opt = _tOption; }
 
         public Query<T1,T2,T3,T4,T5,T6,TOption> Current => this;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -935,7 +979,7 @@ namespace Wargon.Nukecs
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
         public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2; private Ref<T3> _t3; private Ref<T4> _t4; private Ref<T5> _t5; private Ref<T6> _t6;
             private Ref<TOption> _tOption;
@@ -945,6 +989,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;
@@ -1010,7 +1059,7 @@ namespace Wargon.Nukecs
     // Query<T1..T7, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, T4, T5, T6, T7, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, T3, T4, T5, T6, T7, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -1035,6 +1084,11 @@ namespace Wargon.Nukecs
         { c1 = _t1; c2 = _t2; c3 = _t3; c4 = _t4; c5 = _t5; c6 = _t6; c7 = _t7; opt = _tOption; }
 
         public Query<T1,T2,T3,T4,T5,T6,T7,TOption> Current => this;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -1089,7 +1143,7 @@ namespace Wargon.Nukecs
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
         public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2; private Ref<T3> _t3; private Ref<T4> _t4; private Ref<T5> _t5; private Ref<T6> _t6; private Ref<T7> _t7;
             private Ref<TOption> _tOption;
@@ -1099,6 +1153,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;
@@ -1170,7 +1229,7 @@ namespace Wargon.Nukecs
     // Query<T1..T8, TOption>
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, T4, T5, T6, T7, T8, TOption> : ISystemParam
+    public unsafe struct Query<T1, T2, T3, T4, T5, T6, T7, T8, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
@@ -1199,6 +1258,11 @@ namespace Wargon.Nukecs
         { c1 = _t1; c2 = _t2; c3 = _t3; c4 = _t4; c5 = _t5; c6 = _t6; c7 = _t7; c8 = _t8; opt = _tOption; }
 
         public Query<T1,T2,T3,T4,T5,T6,T7,T8,TOption> Current => this;
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count; 
+        }
         public bool MoveNext()
         {
             _current++;
@@ -1251,7 +1315,7 @@ namespace Wargon.Nukecs
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
         public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
 
-        public struct WithEntity : ISystemParam
+        public struct WithEntity : IQuery, ISystemParam
         {
             private Ref<T1> _t1; private Ref<T2> _t2; private Ref<T3> _t3; private Ref<T4> _t4;
             private Ref<T5> _t5; private Ref<T6> _t6; private Ref<T7> _t7; private Ref<T8> _t8;
@@ -1262,6 +1326,11 @@ namespace Wargon.Nukecs
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
             public WithEntity Current => this;
+            public int Count
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => _query.Ref.count; 
+            }
             public bool MoveNext()
             {
                 _current++;

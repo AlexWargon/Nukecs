@@ -5,7 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs {
     public interface IQuery {
-
+        int Count { get; }
     }
     [BurstCompile(CompileSynchronously = true)]
     public static class QueryGenericExtensions {

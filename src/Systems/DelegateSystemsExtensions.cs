@@ -186,6 +186,7 @@ namespace Wargon.Nukecs
                 fn.Invoke(ref copy);
             }
         }
+
         public delegate void SystemActionQueryTransformInputWithEntity(ref Query<Transform, Input>.WithEntity query);
         public static Systems AddSystem12(this Systems systems, 
             SystemActionQueryTransformInputWithEntity func, SystemMode threads = SystemMode.Parallel)

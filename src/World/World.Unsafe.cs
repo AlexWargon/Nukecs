@@ -93,7 +93,7 @@ namespace Wargon.Nukecs
             internal UnityAllocatorHandler AllocatorHandler;
             internal ref MemAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
             internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
-            internal ref EntityCommandBuffer ECB {
+            public ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref Self->EntityCommandBuffer;
             }
@@ -497,7 +497,7 @@ namespace Wargon.Nukecs
                 dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {type}");
                 return param.UntypedPointer;
             }
-            internal ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 :  unmanaged, ISystemParam
+            public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 :  unmanaged, ISystemParam
             {
                 var param = AllocatorRef.AllocatePtr<TParam0>();
                 param.Ref.Init(ref selfPtr);

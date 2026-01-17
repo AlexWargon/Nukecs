@@ -13,14 +13,14 @@ namespace Wargon.Nukecs
 {
     public unsafe class Systems
     {
-        internal readonly List<ISystemDestroyer> systemDestroyers;
-        internal JobHandle Dependencies;
-        internal readonly List<ISystemRunner> fixedRunners;
-        internal readonly List<ISystemRunner> runners;
-        internal readonly List<ISystemRunner> mtFixedRunners;
-        internal readonly List<ISystemRunner> mtRunners;
+        public readonly List<ISystemDestroyer> systemDestroyers;
+        public JobHandle Dependencies;
+        public readonly List<ISystemRunner> fixedRunners;
+        public readonly List<ISystemRunner> runners;
+        public readonly List<ISystemRunner> mtFixedRunners;
+        public readonly List<ISystemRunner> mtRunners;
         internal SystemsDependencies SystemsDependencies;
-        internal World World;
+        public World World;
         private State _state;
         internal ref State State => ref _state;
         private State _stateFixed;
@@ -343,7 +343,7 @@ namespace Wargon.Nukecs
         FixedUpdate
     }
 
-    internal interface ISystemDestroyer
+    public interface ISystemDestroyer
     {
         void Destroy(ref World world);
     }
