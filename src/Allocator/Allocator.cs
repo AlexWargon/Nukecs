@@ -99,6 +99,7 @@ namespace Wargon.Nukecs
             memoryUsed = 0;
             spinner = new Spinner();
             IsActive = true;
+            AddToFreeList(0, totalSize);
         }
 
         public static MemAllocator* New(long sizeInBytes, int maxBlocks = 65536)
@@ -175,7 +176,8 @@ namespace Wargon.Nukecs
                         if (block.Size > sizeInBytes)
                         {
                             InsertBlock(fi + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-                            AddToFreeList(fi + 1, block.Size - sizeInBytes);
+                            if (error == 0)
+                                AddToFreeList(fi + 1, block.Size - sizeInBytes);
                         }
                         block.Size = sizeInBytes;
                         block.IsUsed = true;
