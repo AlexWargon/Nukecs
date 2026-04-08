@@ -214,7 +214,6 @@ namespace Wargon.Nukecs
             ref var chunk = ref chunks.ElementAt(chunkIndex);
             // if (chunk.isCreated == 0)
             // {
-            //     //dbug.log($"is array element : {data.IsArrayElement}", Color.yellow);
             //     var size = data.IsArrayElement ? data.size * ComponentArray.DEFAULT_MAX_CAPACITY : data.size;
             //     chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
             //     mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
@@ -322,7 +321,6 @@ namespace Wargon.Nukecs
             ref var chunk = ref Chunks.ElementAt(chunkIndex);
             if (chunk.isCreated == 0)
             {
-                //dbug.log($"is array element : {componentTypeData.IsArrayElement}", Color.yellow);
                 var size = componentTypeData.IsArrayElement
                     ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
                     : componentTypeData.size;

@@ -30,13 +30,11 @@ namespace Wargon.Nukecs
             //var allocator = AllocatorWrapper.ToAllocator;
             AllocatorWrapper.Dispose();
             allocatorHelper.Dispose();
-            //dbug.log($"Allocator Disposed {(int)allocator}");
         }
         public UnityAllocatorHandler(long sizeInBytes)
         {
             this = default;
             CreateCustomAllocator(Allocator.Persistent, sizeInBytes);
-            //dbug.log($"Allocator created with {sizeInBytes} bytes buffer");
         }
         public void Dispose()
         {

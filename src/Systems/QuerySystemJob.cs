@@ -108,13 +108,13 @@ namespace Wargon.Nukecs
     //         ref var world = ref state.World;
     //         if (Mode == SystemMode.Main) {
     //             System.OnUpdate(ref Query.Ref);
-    //             EcbJob.ECB = world.GetEcbVieContext(updateContext);
+    //             EcbJob.ECB = world.GetEcbByContext(updateContext);
     //             EcbJob.world = world;
     //             EcbJob.Execute();
     //         }
     //         else {
     //             state.Dependencies = System.Schedule(Query, Mode, ref state);
-    //             EcbJob.ECB = world.GetEcbVieContext(updateContext);
+    //             EcbJob.ECB = world.GetEcbByContext(updateContext);
     //             EcbJob.world = world;
     //             state.Dependencies = EcbJob.Schedule(state.Dependencies);
     //         }

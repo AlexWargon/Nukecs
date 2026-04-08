@@ -293,14 +293,12 @@ namespace Wargon.Nukecs {
                         while (true) {
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
-                            //dbug.log($"PER THREAD {(thead : jobIndex, from : begin, to : end)}");
                             range = new Range(begin, end);
                             fullData.JobData.OnUpdate(range);
                         }
                         break;
                     case SystemMode.Single:
                         range = new Range(0, fullData.query->count);
-                        //dbug.log($"SINGLE {(0, fullData.query->count)}");
                         fullData.JobData.OnUpdate(range);
                         break;
                 }

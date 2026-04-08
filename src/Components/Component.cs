@@ -160,7 +160,7 @@
             ComponentTypeData.Init();
             Generated.GeneratedComponentList.InitializeComponentList();
             var components = Generated.GeneratedComponentList.GetAllComponents();
-            //dbug.log(components.ToList().Count.ToString());
+
             foreach (var component in components)
             {
                 if(component == typeof(IComponent)) continue;
@@ -197,10 +197,12 @@
 
         internal static void LogComponent(ComponentTypeData typeData)
         {
+#if UNITY_EDITOR
             if (NukecsDebugData.Instance.showInitedComponents)
             {
                 Debug.Log(typeData.ToString());
             }
+#endif
         }
         public static IEnumerable<Type> FindGenericUsages(Type genericTypeDefinition, Assembly assembly)
         {

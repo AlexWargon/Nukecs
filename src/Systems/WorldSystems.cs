@@ -1,16 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace Wargon.Nukecs
 {
     internal static class WorldSystems
     {
-        private static readonly Dictionary<int, System.Collections.Generic.List<Systems>> systemsMap = new Dictionary<int, System.Collections.Generic.List<Systems>>();
+        private static readonly ConcurrentDictionary<int, List<Systems>> systemsMap = new ConcurrentDictionary<int, List<Systems>>();
     
         internal static void Add(int id, Systems systems)
         {
-            if (!systemsMap.ContainsKey(id))
-                systemsMap[id] = new System.Collections.Generic.List<Systems>();
-            systemsMap[id].Add(systems);
+            var list = systemsMap.GetOrAdd(id, _ => new List<Systems>());
+            list.Add(systems);
         }
 
         public static Systems Get(int world, int index)
@@ -19,8 +19,7 @@ namespace Wargon.Nukecs
         }
         internal static void CompleteAll(int id)
         {
-            if(!systemsMap.ContainsKey(id)) return;
-            var list = systemsMap[id];
+            if(!systemsMap.TryGetValue(id, out var list)) return;
             foreach (var systems in list)
             {
                 systems.OnWorldDispose();

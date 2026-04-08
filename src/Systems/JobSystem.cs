@@ -13,7 +13,7 @@ namespace Wargon.Nukecs
         public bool isComplete;
         public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
-            System.Schedule(SystemMode.Single, updateContext, ref state);
+            System.Schedule(updateContext, ref state);
             if(isComplete) state.Dependencies.Complete();
             EcbJob.ECB = state.World.GetEcbByContext(updateContext);
             EcbJob.world = state.World;
@@ -56,15 +56,6 @@ namespace Wargon.Nukecs
             public static void Execute(ref JobSystemWrapper<TJob> fullData, IntPtr additionalPtr,
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 fullData.JobData.OnUpdate(ref fullData.State);
-                // return;
-                // while (true) {
-                //     if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
-                //         return;
-                //
-                //     for (var i = begin; i < end; i++) {
-                //         fullData.JobData.OnUpdate(ref fullData.State);
-                //     }
-                // }
             }
         }
 
@@ -79,7 +70,7 @@ namespace Wargon.Nukecs
         }
 
         public static unsafe JobHandle Schedule<TJob>(this TJob jobData,
-            SystemMode mode, UpdateContext updateContext, ref State state)
+            UpdateContext updateContext, ref State state)
             where TJob : struct, IJobSystem {
             var fullData = new JobSystemWrapper<TJob> {
                 JobData = jobData,
@@ -88,30 +79,8 @@ namespace Wargon.Nukecs
             };
 
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
-                GetReflectionData<TJob>(), state.Dependencies,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
-            switch (mode) {
-                case SystemMode.Single:
-                    return JobsUtility.Schedule(ref scheduleParams);
-                // case SystemMode.Parallel:
-                //     throw new Exception($"{typeof(IJobSystem)} is not support Parallel for now. Use single");
-                //     return state.Dependencies;
-                //     return JobsUtility.ScheduleParallelFor(ref scheduleParams, 1, 1);
-            }
-            return state.Dependencies;
+                GetReflectionData<TJob>(), state.Dependencies, ScheduleMode.Single);
+            return JobsUtility.Schedule(ref scheduleParams);
         }
-        // public static unsafe void Run<TJob>(this TJob jobData, ref World world, float deltaTime) where TJob : struct, IJobSystem
-        // {
-        //     var fullData = new JobSystemWrapper<TJob> {
-        //         JobData = jobData,
-        //         world = world,
-        //         deltaTime = deltaTime
-        //     };
-        //     JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
-        //         JobSystemExtensions.GetReflectionData<TJob>(),
-        //         new JobHandle(), 
-        //         ScheduleMode.Run);
-        //     JobsUtility.Schedule(ref parameters);
-        // }
     }
 }

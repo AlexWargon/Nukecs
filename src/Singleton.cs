@@ -21,7 +21,6 @@ namespace Wargon.Nukecs.Tests {
                 instance.Data.Value.Dispose();
                 instance.Data = default;
             }
-            //dbug.log(typeof(T).Name + " reseted", Color.green);
         }
         
         private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();

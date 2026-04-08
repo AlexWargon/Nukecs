@@ -26,14 +26,14 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe partial struct MemAllocator : IDisposable
     {
-        private const int MAX_BLOCKS = 1024 * 1024;
+        private int maxBlocks;
         private const int ALIGNMENT = 16;
         public const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
         [StructLayout(LayoutKind.Sequential)]
         public struct MemoryBlock
         {
             public long Pointer;
-            public int Size;
+            public long Size;
             public bool IsUsed;
         }
 
@@ -71,18 +71,18 @@ namespace Wargon.Nukecs
         public bool IsActive { get; private set; }
         public bool IsDisposed => !IsActive;
         
-        public MemAllocator(long sizeInBytes)
+        public MemAllocator(long sizeInBytes, int maxBlocks = 65536)
         {
+            this.maxBlocks = maxBlocks;
             totalSize = sizeInBytes;
             basePtr = (byte*)UnsafeUtility.Malloc(totalSize, ALIGNMENT, Allocator.Persistent);
-            blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent);
-            // Initialize first block covering entire memory
+            blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * this.maxBlocks, ALIGNMENT, Allocator.Persistent);
             UnsafeUtility.MemClear(basePtr, totalSize);
-            UnsafeUtility.MemClear(blocks, sizeof(MemoryBlock) * MAX_BLOCKS);
+            UnsafeUtility.MemClear(blocks, sizeof(MemoryBlock) * this.maxBlocks);
             blocks[0] = new MemoryBlock
             {
                 Pointer = 0,
-                Size = (int)totalSize,
+                Size = totalSize,
                 IsUsed = false,
             };
             blockCount = 1;
@@ -92,12 +92,12 @@ namespace Wargon.Nukecs
             IsActive = true;
         }
 
-        public static MemAllocator* New(long sizeInBytes)
+        public static MemAllocator* New(long sizeInBytes, int maxBlocks = 65536)
         {
             var ptr = (MemAllocator*)UnsafeUtility.MallocTracked(sizeof(MemAllocator), 
                 UnsafeUtility.AlignOf<MemAllocator>(),
                 Allocator.Persistent, 0);
-            *ptr = new MemAllocator(sizeInBytes);
+            *ptr = new MemAllocator(sizeInBytes, maxBlocks);
             return ptr;
         }
 
@@ -117,7 +117,7 @@ namespace Wargon.Nukecs
                     if (block.Size > sizeInBytes)
                         InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
 
-                    block.Size = (int)sizeInBytes;
+                    block.Size = sizeInBytes;
                     block.IsUsed = true;
                     blockIndex = i;
                     return (IntPtr)(basePtr + block.Pointer);
@@ -283,7 +283,7 @@ namespace Wargon.Nukecs
 
         private void InsertBlock(int index, long offset, long size, bool isUsed, ref int error)
         {
-            if (blockCount >= MAX_BLOCKS)
+            if (blockCount >= maxBlocks)
             {
                 error = AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED;
                 return;
@@ -295,7 +295,7 @@ namespace Wargon.Nukecs
             blocks[index] = new MemoryBlock
             {
                 Pointer = offset,
-                Size = (int)size,
+                Size = size,
                 IsUsed = isUsed
             };
             blockCount++;

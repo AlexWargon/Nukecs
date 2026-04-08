@@ -7,6 +7,7 @@ namespace Wargon.Nukecs {
     using System.IO;
     using System.Runtime.CompilerServices;
     using System.Runtime.Serialization.Formatters.Binary;
+#pragma warning disable SYSLIB0011
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;

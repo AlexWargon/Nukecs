@@ -39,7 +39,7 @@ namespace Wargon.Nukecs {
             InternalPointer = query.Ptr;
         }
 
-        public Query With<T>(ReadWrite readWrite = ReadWrite.ReadWrite) where T :  unmanaged, IComponent {
+        public Query With<T>() where T :  unmanaged, IComponent {
             InternalPointer->With(ComponentType<T>.Index);
             return this;
         }

@@ -145,7 +145,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem
+        public Systems Add<T>(bool dummy = false) where T : struct, IEntityJobSystem
         {
             T system = default;
             if (system is IOnCreate s)
@@ -168,7 +168,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(ushort dymmy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy
+        public Systems Add<T>(ushort dummy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy
         {
             T system = default;
             if (system is IOnCreate s)
@@ -192,7 +192,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem
+        public Systems Add<T>(short dummy = 1) where T : struct, IQueryJobSystem
         {
             T system = default;
             if (system is IOnCreate s)
@@ -215,7 +215,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(int dymmy = 1) where T : struct, ISystem
+        public Systems Add<T>(int dummy = 1) where T : struct, ISystem
         {
             T system = default;
             if (system is IOnCreate onCreate)
@@ -247,7 +247,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(long dymmy = 1) where T : class, ISystem, new()
+        public Systems Add<T>(long dummy = 1) where T : class, ISystem, new()
         {
             var system = new T();
             if (system is IOnCreate s)
@@ -559,7 +559,6 @@ namespace Wargon.Nukecs
         [BurstCompile]
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            //dbug.log($"remove entity {entity}");
             state.World.ECB.Remove(entity.id, Type);
         }
     }

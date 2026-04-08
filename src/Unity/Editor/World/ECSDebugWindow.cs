@@ -463,8 +463,6 @@ namespace Wargon.Nukecs.Editor
             
             
             _lastEntityId = entityId;
-            //dbug.log("redraw all inspector", Color.red);
-            
             _inspectorView.Clear();
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entityId).Ref;
 

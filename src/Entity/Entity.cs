@@ -76,7 +76,7 @@ namespace Wargon.Nukecs
 #endif
         public bool Equals(Entity other)
         {
-            return id == other.id && generation == other.generation;
+            return id == other.id && generation == other.generation && worldPointer == other.worldPointer;
         }
 
 #if !NUKECS_DEBUG
@@ -100,7 +100,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator ==(in Entity one, in Entity two)
         {
-            return one.id == two.id && one.generation == two.generation;
+            return one.id == two.id && one.generation == two.generation && one.worldPointer == two.worldPointer;
         }
 
 #if !NUKECS_DEBUG
@@ -108,7 +108,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator !=(in Entity one, in Entity two)
         {
-            return one.id != two.id || one.generation != two.generation;
+            return one.id != two.id || one.generation != two.generation || one.worldPointer != two.worldPointer;
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -155,6 +155,21 @@ namespace Wargon.Nukecs
         {
             exist = entity.ArchetypeRef.Has(ComponentType<T>.Index);
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+        }
+
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static bool TryGet<T>(this ref Entity entity, out T value) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if (!entity.ArchetypeRef.Has(componentType))
+            {
+                value = default;
+                return false;
+            }
+            value = entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+            return true;
         }
 
         [BurstDiscard]

@@ -170,7 +170,8 @@
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = ComponentType<T>.Index
+                    ComponentType = ComponentType<T>.Index,
+                    IsDisposable = ComponentType<T>.Data.isDisposable
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -181,7 +182,8 @@
                 var cmd = new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = componentType
+                    ComponentType = componentType,
+                    IsDisposable = ComponentTypeMap.GetComponentType(componentType).isDisposable
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -421,7 +423,12 @@
                     archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                     break;
                 case ECBCommand.Type.AddComponentNoData:
-                    if (archetype.Has(cmd.ComponentType)) break;
+                    if (archetype.Has(cmd.ComponentType)) {
+                        if (cmd.IsDisposable) {
+                            world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
+                        }
+                        break;
+                    }
                     world->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
                     archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
                     break;
