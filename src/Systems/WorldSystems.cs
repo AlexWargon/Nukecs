@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Wargon.Nukecs
 {
-    internal static class WorldSystems
+    public static class WorldSystems
     {
         private static readonly ConcurrentDictionary<int, List<Systems>> systemsMap = new ConcurrentDictionary<int, List<Systems>>();
     
