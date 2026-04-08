@@ -285,8 +285,9 @@ namespace Wargon.Nukecs
             where T : unmanaged, IComponent
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
+            var chunkCount = (size + Chunk.MAX_CHUNK_SIZE - 1) / Chunk.MAX_CHUNK_SIZE;
             ptr.Ref.Chunks = new MemoryList<Chunk>(
-                capacity:size / Chunk.MAX_CHUNK_SIZE, 
+                capacity:chunkCount, 
                 allocator:ref world.Ref.AllocatorRef, 
                 clear:true, 
                 lenAsCapacity:true);
@@ -294,6 +295,7 @@ namespace Wargon.Nukecs
             ptr.Ref.componentTypeData = ComponentType<T>.Data;
             ptr.Ref.componentSize = ptr.Ref.componentTypeData.size;
             ptr.Ref.world = world;
+            ptr.Ref.PreAllocateChunks(size);
             return ptr;
         }
 
@@ -301,12 +303,14 @@ namespace Wargon.Nukecs
             in ComponentTypeData data)
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
+            var chunkCount = (size + Chunk.MAX_CHUNK_SIZE - 1) / Chunk.MAX_CHUNK_SIZE;
             ptr.Ref.Chunks =
-                new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true, 
+                new MemoryList<Chunk>(chunkCount, ref world.Ref.AllocatorRef, clear: true, 
                     lenAsCapacity:true);
             ptr.Ref.componentSize = data.size;
             ptr.Ref.componentTypeData = data;
             ptr.Ref.world = world;
+            ptr.Ref.PreAllocateChunks(size);
             return ptr;
         }
 
@@ -343,6 +347,21 @@ namespace Wargon.Nukecs
         public int GetComponentIndex(int entity)
         {
             return entity % Chunk.MAX_CHUNK_SIZE;
+        }
+
+        public void PreAllocateChunks(int entityCount)
+        {
+            var count = (entityCount + Chunk.MAX_CHUNK_SIZE - 1) / Chunk.MAX_CHUNK_SIZE;
+            for (var i = 0; i < count; i++)
+            {
+                ref var chunk = ref Chunks.ElementAt(i);
+                var size = componentTypeData.IsArrayElement
+                    ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
+                    : componentTypeData.size;
+                chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
+                mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
+                chunk.isCreated = 1;
+            }
         }
 
 #if !NUKECS_DEBUG

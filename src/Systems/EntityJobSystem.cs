@@ -27,26 +27,20 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
             _marker.Autostart(System);
 #endif
-            ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
                 for (var i = 0; i < Query->count; i++) {
                     System.OnUpdate(ref Query->GetEntity(i), ref state);    
                 }
-                EcbJob.ECB = world.GetEcbByContext(updateContext);
-                EcbJob.world = world;
-                EcbJob.ECB.PlaybackMainThread(ref world);
 #if NUKECS_DEBUG
                 _marker.End();
 #endif
                 return state.Dependencies;
             }
             state.Dependencies = System.Schedule(Query, Mode, updateContext, ref state);
-            EcbJob.ECB = world.GetEcbByContext(updateContext);
-            EcbJob.world = world;
 #if NUKECS_DEBUG
             _marker.End();
 #endif
-            return EcbJob.Schedule(state.Dependencies);
+            return state.Dependencies;
         }
 
         public void Run(ref State state) {

@@ -29,6 +29,7 @@ namespace Wargon.Nukecs
                 rootArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
                 entitiesArchetypes.OnDeserialize(ref allocator);
                 entityGenerations.OnDeserialize(ref allocator);
+                entityDirtyVersion.OnDeserialize(ref allocator);
 
                 pools.OnDeserialize(ref allocator);
                 foreach (ref var genericPool in pools)
@@ -72,6 +73,7 @@ namespace Wargon.Nukecs
             internal Archetype rootArchetype;
             internal MemoryList<int> entitiesArchetypes;
             internal MemoryList<ushort> entityGenerations;
+            internal MemoryList<uint> entityDirtyVersion;
             internal HashMap<int, Archetype> archetypesMap;
             internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<GenericPool> pools;
@@ -79,6 +81,7 @@ namespace Wargon.Nukecs
             internal MemoryList<ptr<QueryUnsafe>> queries;
             internal HashMap<int, int> queriesHashToIndex;
             internal EntityCommandBuffer EntityCommandBuffer;
+            internal EntityCommandBuffer FixedUpdateECB;
             internal JobHandle systemsUpdateJobDependencies;
             internal JobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
@@ -136,6 +139,7 @@ namespace Wargon.Nukecs
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
                 entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
                 entityGenerations = new MemoryList<ushort>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:false);
+                entityDirtyVersion = new MemoryList<uint>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
                 for (int i = 0; i < worldConfig.StartEntitiesAmount; i++)
                     entityGenerations.ElementAt(i) = 1;
                 pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef, clear:true, lenAsCapacity:true);
@@ -152,6 +156,7 @@ namespace Wargon.Nukecs
                 poolsCount = 0;
                 lastDestroyedEntity = 0;
                 EntityCommandBuffer = new EntityCommandBuffer(256, Allocator.Persistent);
+                FixedUpdateECB = new EntityCommandBuffer(256, Allocator.Persistent);
                 spinner = new Spinner();
                 aspects = new Aspects(ref AllocatorRef, id);
                 
@@ -179,6 +184,7 @@ namespace Wargon.Nukecs
                         entities.Resize(newCapacity, ref AllocatorRef);
                         entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                         entityGenerations.Resize(newCapacity, ref AllocatorRef);
+                        entityDirtyVersion.Resize(newCapacity, ref AllocatorRef);
                         for (int i = lastEntityIndex; i < newCapacity; i++)
                             entityGenerations.ElementAt(i) = 1;
                     }
@@ -219,6 +225,7 @@ namespace Wargon.Nukecs
                         entities.Resize(newCapacity, ref AllocatorRef);
                         entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                         entityGenerations.Resize(newCapacity, ref AllocatorRef);
+                        entityDirtyVersion.Resize(newCapacity, ref AllocatorRef);
                         for (int i = lastEntityIndex; i < newCapacity; i++)
                             entityGenerations.ElementAt(i) = 1;
                     }

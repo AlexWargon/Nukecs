@@ -47,7 +47,7 @@
     public struct Changed<T> : IComponent where T : unmanaged, IComponent {}
     public struct Reactive<T> : IComponent where T : unmanaged, IComponent
     {
-        public T oldValue;
+        public uint lastSeenVersion;
     }
 
     public struct Name : IComponent, IDisposable

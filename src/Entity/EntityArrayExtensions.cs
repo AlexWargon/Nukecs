@@ -55,6 +55,7 @@ namespace Wargon.Nukecs
             pool.Set(entity.id, in array);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add<ComponentArray<T>>(entity.id);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
             return ref pool.GetRef<ComponentArray<T>>(entity.id);
         }
 

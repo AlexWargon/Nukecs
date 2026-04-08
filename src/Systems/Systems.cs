@@ -51,20 +51,65 @@ namespace Wargon.Nukecs
             _state.Time.ElapsedTime += dt;
             _state.Time.DeltaTimeFixed = FixedUpdateInterval;
             World.UnsafeWorld->timeData = _state.Time;
-            
+
+            var inputDeps = _state.Dependencies;
+
+            var jobHandles = new NativeArray<JobHandle>(runners.Count, Allocator.Temp);
             for (var i = 0; i < runners.Count; i++)
-                _state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref _state);
+            {
+                _state.Dependencies = inputDeps;
+                jobHandles[i] = runners[i].Schedule(UpdateContext.Update, ref _state);
+            }
+
             for (var i = 0; i < mtRunners.Count; i++)
-                _state.Dependencies = mtRunners[i].Schedule(UpdateContext.Update, ref _state);
+            {
+                _state.Dependencies = inputDeps;
+                mtRunners[i].Schedule(UpdateContext.Update, ref _state);
+            }
+
+            var combinedDeps = inputDeps;
+            if (jobHandles.Length > 0)
+                combinedDeps = JobHandle.CombineDependencies(jobHandles);
+            jobHandles.Dispose();
+
+            var ecbJob = new ECBJob
+            {
+                ECB = World.GetEcbByContext(UpdateContext.Update),
+                world = World
+            };
+            _state.Dependencies = ecbJob.Schedule(combinedDeps);
 
             _timeSinceLastFixedUpdate += dt;
             var maxSteps = 5;
             while (_timeSinceLastFixedUpdate >= FixedUpdateInterval && maxSteps-- > 0)
             {
+                inputDeps = _state.Dependencies;
+
+                var fixedJobHandles = new NativeArray<JobHandle>(fixedRunners.Count, Allocator.Temp);
                 for (var i = 0; i < fixedRunners.Count; i++)
-                    _state.Dependencies = fixedRunners[i].Schedule(UpdateContext.FixedUpdate, ref _state);
+                {
+                    _state.Dependencies = inputDeps;
+                    fixedJobHandles[i] = fixedRunners[i].Schedule(UpdateContext.FixedUpdate, ref _state);
+                }
+
                 for (var i = 0; i < mtFixedRunners.Count; i++)
-                    _state.Dependencies = mtFixedRunners[i].Schedule(UpdateContext.FixedUpdate, ref _state);
+                {
+                    _state.Dependencies = inputDeps;
+                    mtFixedRunners[i].Schedule(UpdateContext.FixedUpdate, ref _state);
+                }
+
+                var fixedCombinedDeps = inputDeps;
+                if (fixedJobHandles.Length > 0)
+                    fixedCombinedDeps = JobHandle.CombineDependencies(fixedJobHandles);
+                fixedJobHandles.Dispose();
+
+                var fixedEcbJob = new ECBJob
+                {
+                    ECB = World.GetEcbByContext(UpdateContext.FixedUpdate),
+                    world = World
+                };
+                _state.Dependencies = fixedEcbJob.Schedule(fixedCombinedDeps);
+
                 _timeSinceLastFixedUpdate -= FixedUpdateInterval;
             }
             _allSystems.End();
@@ -145,7 +190,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(bool dummy = false) where T : struct, IEntityJobSystem
+        public Systems AddJob<T>() where T : unmanaged, IEntityJobSystem
         {
             T system = default;
             if (system is IOnCreate s)
@@ -168,7 +213,12 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(ushort dummy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy
+        public Systems Add<T>(bool dummy = false) where T : unmanaged, IEntityJobSystem
+        {
+            return AddJob<T>();
+        }
+
+        public Systems AddEntityJob<T>() where T : unmanaged, IEntityJobSystem, IOnDestroy
         {
             T system = default;
             if (system is IOnCreate s)
@@ -192,7 +242,12 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(short dummy = 1) where T : struct, IQueryJobSystem
+        public Systems Add<T>(ushort dummy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy
+        {
+            return AddEntityJob<T>();
+        }
+
+        public Systems AddQueryJob<T>() where T : unmanaged, IQueryJobSystem
         {
             T system = default;
             if (system is IOnCreate s)
@@ -215,7 +270,12 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(int dummy = 1) where T : struct, ISystem
+        public Systems Add<T>(short dummy = 1) where T : unmanaged, IQueryJobSystem
+        {
+            return AddQueryJob<T>();
+        }
+
+        public Systems AddMainThread<T>() where T : unmanaged, ISystem
         {
             T system = default;
             if (system is IOnCreate onCreate)
@@ -243,11 +303,16 @@ namespace Wargon.Nukecs
             {
                 mtRunners.Add(runner);
             }
-            
+
             return this;
         }
 
-        public Systems Add<T>(long dummy = 1) where T : class, ISystem, new()
+        public Systems Add<T>(int dummy = 1) where T : unmanaged, ISystem
+        {
+            return AddMainThread<T>();
+        }
+
+        public Systems AddMainThreadClass<T>() where T : class, ISystem, new()
         {
             var system = new T();
             if (system is IOnCreate s)
@@ -280,6 +345,11 @@ namespace Wargon.Nukecs
                 systemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
             }
             return this;
+        }
+
+        public Systems Add<T>(long dummy = 1) where T : class, ISystem, new()
+        {
+            return AddMainThreadClass<T>();
         }
 
         public Systems Add<T>(T group) where T : SystemsGroup
@@ -365,9 +435,7 @@ namespace Wargon.Nukecs
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             System.OnUpdate(ref state);
-            EcbJob.ECB = state.World.ECB;
-            EcbJob.world = state.World;
-            return EcbJob.Schedule(state.Dependencies);
+            return state.Dependencies;
         }
 
         public void Run(ref State state)

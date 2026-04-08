@@ -15,9 +15,7 @@ namespace Wargon.Nukecs
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
             System.Schedule(updateContext, ref state);
             if(isComplete) state.Dependencies.Complete();
-            EcbJob.ECB = state.World.GetEcbByContext(updateContext);
-            EcbJob.world = state.World;
-            return EcbJob.Schedule(state.Dependencies);
+            return state.Dependencies;
         }
 
         public void Run(ref State state) {

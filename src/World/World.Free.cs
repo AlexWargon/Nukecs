@@ -11,47 +11,7 @@ public unsafe partial struct World
             public void Free()
             {
                 ECB.Dispose();
-                // var info = AllocatorHandler.AllocatorWrapper.Allocator.GetMemoryInfo();
-                // var sb = new System.Text.StringBuilder();
-                // sb.Append($"Allocator on free: Total memory: {info.totalSize} . Free: {info.freeSize} bytes. Used {info.usedSize} bytes. Defragmentation Cycles: {info.defragmentationCycles}. Blocks: {info.blockCount}");
-                // sb.AppendLine();
-                // var memoryView = AllocatorHandler.AllocatorWrapper.Allocator.GetMemoryView();
-                // long unUsedMemory = 0;
-                // long usedMemory = 0;
-                // for (int i = 0; i < memoryView.BlockCount; i++)
-                // {
-                //     ref var block = ref memoryView.Blocks[i];
-                //     if (block.IsUsed)
-                //     {
-                //         usedMemory += block.Size;
-                //     }
-                //     else
-                //     {
-                //         unUsedMemory += block.Size;
-                //     }
-                //
-                //     var used = block.IsUsed ? "[Used]" : "UnUsed";
-                //     if (block.Size > 10_000_000)
-                //     {
-                //         sb.Append($"Giant Block #{i}: {used}. Total size: {block.Size} bytes");
-                //     }
-                //     else
-                //     if (block.Size > 10_000)
-                //     {
-                //         sb.Append($"Big Block #{i}: {used}. Total size: {block.Size} bytes");
-                //     }
-                //     else
-                //     {
-                //         sb.Append($"Block #{i}: {used}. Total size: {block.Size} bytes");
-                //     }
-                //     sb.AppendLine();
-                // }
-                // sb.Append($"Used Memory: {usedMemory} bytes");
-                // sb.AppendLine();
-                // sb.Append($"Unused Memory: {unUsedMemory} bytes");
-                // sb.AppendLine();
-                // Debug.Log(sb.ToString());
-                
+                FixedUpdateECB.Dispose();
                 WorldSystems.CompleteAll(Id);
                 
                 foreach (var entity in entities) {
@@ -60,39 +20,26 @@ public unsafe partial struct World
                     }
                 }
 
-                //entities.Dispose();
-                //entitiesArchetypes.Dispose();
-                // pools list count == total components registered including arrays
-                //var poolsToDispose = ComponentAmount.Value.Data;
-                // for (var index = 0; index < poolsToDispose; index++) {
-                //     
-                //     ref var pool = ref pools.Ptr[index];
-                //     pool.Dispose();
-                // }
-                // pools.Dispose();
-                //
-                // for (var index = 0; index < queries.Length; index++) {
-                //     QueryUnsafe* ptr = queries[index];
-                //     QueryUnsafe.Free(ptr);
-                // }
-                //
-                // queries.Dispose();
-                // foreach (var kvPair in archetypesMap) {
-                //     kvPair.Value.Dispose();
-                // }
-                
-                // archetypesList.Dispose();
-                // archetypesMap.Dispose();
-                //poolsCount = 0;
-                //EntityCommandBuffer.Dispose();
-                // DefaultNoneTypes.Dispose();
-                // reservedEntities.Dispose();
-                // prefabsToSpawn.Dispose();
-                // locking.Dispose();
-                // aspects.Dispose();
-                //Lockers.pools.Dispose();
-                //AllocatorManager.Free(AllocatorHandler.AllocatorWrapper.Handle, selfPtr.Ptr);
+                entities.Dispose();
+                entitiesArchetypes.Dispose();
+                entityGenerations.Dispose();
 
+                for (var index = 0; index < queries.length; index++) {
+                    QueryUnsafe.Free(queries.Ptr[index].Ptr);
+                }
+                queries.Dispose();
+
+                for (var index = 0; index < archetypesList.length; index++) {
+                    ArchetypeUnsafe.Destroy(archetypesList.Ptr[index].Ptr);
+                }
+                archetypesList.Dispose();
+                archetypesMap.Dispose();
+
+                pools.Dispose();
+                DefaultNoneTypes.Dispose();
+                reservedEntities.Dispose();
+                prefabsToSpawn.Dispose();
+                aspects.Dispose();
             }
             
         }

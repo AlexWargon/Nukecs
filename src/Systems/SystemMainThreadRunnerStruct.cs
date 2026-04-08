@@ -14,10 +14,7 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
             _marker.Autostart(System);
 #endif
-            ref var world = ref state.World;
             System.OnUpdate(ref state);
-            EcbJob.ECB = world.GetEcbByContext(updateContext);
-            EcbJob.ECB.PlaybackMainThread(ref world);
 #if NUKECS_DEBUG
             _marker.End();
 #endif

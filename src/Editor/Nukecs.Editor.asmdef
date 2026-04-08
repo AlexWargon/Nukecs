@@ -1,0 +1,21 @@
+{
+    "name": "Nukecs.Editor",
+    "rootNamespace": "Wargon.Nukecs.Editor",
+    "references": [
+        "Nukecs",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Burst"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

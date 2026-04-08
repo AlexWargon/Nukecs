@@ -1,31 +1,7 @@
 ﻿using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs.Reactive
 {
-    // [BurstCompile]
-    // public unsafe struct ReactiveCheckSystem<T> : IJobSystem, IOnCreate where T : unmanaged, IComponent, IReactive
-    // {
-    //     private Query compare;
-    //     public void OnCreate(ref World world)
-    //     {
-    //         compare = world.Query().With<T>().With<Reactive<T>>();
-    //     }
-    //     public void OnUpdate(ref State state)
-    //     {
-    //         if(compare.Count > 0)
-    //             foreach (ref var entity in compare)
-    //             {
-    //                 ref var c = ref entity.Get<T>();
-    //                 ref var cOld = ref entity.Get<Reactive<T>>();
-    //                 if(UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref c), UnsafeUtility.AddressOf(ref cOld.oldValue), UnsafeUtility.SizeOf<T>()) != 0)
-    //                 {
-    //                     entity.Add<Changed<T>>();
-    //                     cOld.oldValue = c;
-    //                 }
-    //             }
-    //     }
-    // }
     public unsafe struct ReactiveCheckSystem<T> : IEntityJobSystem where T : unmanaged, IComponent, IReactive
     {
         public SystemMode Mode => SystemMode.Single;
@@ -35,12 +11,12 @@ namespace Wargon.Nukecs.Reactive
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            ref var c = ref entity.Get<T>();
-            ref var cOld = ref entity.Get<Reactive<T>>();
-            if(UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref c), UnsafeUtility.AddressOf(ref cOld.oldValue), UnsafeUtility.SizeOf<T>()) != 0)
+            ref var reactive = ref entity.Get<Reactive<T>>();
+            var currentVersion = entity.worldPointer->entityDirtyVersion.ElementAt(entity.id);
+            if (currentVersion != reactive.lastSeenVersion)
             {
                 entity.Add<Changed<T>>();
-                cOld.oldValue = c;
+                reactive.lastSeenVersion = currentVersion;
             }
         }
     }

@@ -257,7 +257,7 @@ namespace Wargon.Nukecs.Collections
         {
             return new MemoryList<T2>
             {
-                capacity = this.capacity,
+                capacity = (this.capacity * UnsafeUtility.SizeOf<T>()) / UnsafeUtility.SizeOf<T2>(),
                 length = (this.length * UnsafeUtility.SizeOf<T>()) / UnsafeUtility.SizeOf<T2>(),
                 Ptr = this.PtrOffset.AsPtr<T2>(Ptr),
                 PtrOffset = this.PtrOffset

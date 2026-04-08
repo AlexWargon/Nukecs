@@ -134,8 +134,20 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
         [BurstCompile]
         public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent
+        {
+            return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+        }
+
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        [BurstCompile]
+        public static ref T GetOrAdd<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType))
@@ -143,6 +155,7 @@ namespace Wargon.Nukecs
                 ref var pool = ref entity.worldPointer->GetPool<T>();
                 pool.Set(entity.id, default(T));
                 entity.worldPointer->ECB.Add(entity.id, componentType);
+                entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
                 return ref pool.GetRef<T>(entity.id);
             }
 
@@ -187,6 +200,7 @@ namespace Wargon.Nukecs
             if (entity.ArchetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
             entity.worldPointer->ECB.Add<T>(entity.id);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
 #if !NUKECS_DEBUG
@@ -198,6 +212,7 @@ namespace Wargon.Nukecs
             if (entity.ArchetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
 #if !NUKECS_DEBUG
@@ -217,6 +232,7 @@ namespace Wargon.Nukecs
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
 #if !NUKECS_DEBUG
@@ -228,6 +244,7 @@ namespace Wargon.Nukecs
             entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add(entity.id, componentIndex);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
 #if !NUKECS_DEBUG
@@ -238,6 +255,7 @@ namespace Wargon.Nukecs
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
             entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
 #if !NUKECS_DEBUG
@@ -250,12 +268,14 @@ namespace Wargon.Nukecs
             entity.worldPointer->GetUntypedPool(componentIndex).AddObject(entity.id, component);
             ref var ecb = ref entity.worldPointer->ECB;
             ecb.Add(entity.id, componentIndex);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
         public static void SetObject(this in Entity entity, IComponent component)
         {
             var componentIndex = ComponentTypeMap.Index(component.GetType());
             entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
+            entity.worldPointer->entityDirtyVersion.ElementAt(entity.id)++;
         }
 
 #if !NUKECS_DEBUG

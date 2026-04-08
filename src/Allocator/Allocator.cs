@@ -44,6 +44,10 @@ namespace Wargon.Nukecs
         private long memoryUsed;
         private int defragmentationCount;
         private Spinner spinner;
+        private const int SIZE_CLASS_COUNT = 11;
+        private int* freeListHeads;
+        private int* freeListNext;
+        private bool freeListDirty;
         public long MemoryLeft => totalSize - memoryUsed;
         public byte* BasePtr
         {
@@ -79,6 +83,10 @@ namespace Wargon.Nukecs
             blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * this.maxBlocks, ALIGNMENT, Allocator.Persistent);
             UnsafeUtility.MemClear(basePtr, totalSize);
             UnsafeUtility.MemClear(blocks, sizeof(MemoryBlock) * this.maxBlocks);
+            freeListHeads = (int*)UnsafeUtility.Malloc(sizeof(int) * SIZE_CLASS_COUNT, ALIGNMENT, Allocator.Persistent);
+            freeListNext = (int*)UnsafeUtility.Malloc(sizeof(int) * this.maxBlocks, ALIGNMENT, Allocator.Persistent);
+            UnsafeUtility.MemSet(freeListHeads, 0xFF, sizeof(int) * SIZE_CLASS_COUNT);
+            UnsafeUtility.MemSet(freeListNext, 0xFF, sizeof(int) * this.maxBlocks);
             blocks[0] = new MemoryBlock
             {
                 Pointer = 0,
@@ -106,9 +114,77 @@ namespace Wargon.Nukecs
             allocator->Dispose();
             UnsafeUtility.FreeTracked(allocator, Allocator.Persistent);
         }
+        private static int GetSizeClassIndex(long size)
+        {
+            if (size <= 64) return 0;
+            if (size <= 128) return 1;
+            if (size <= 256) return 2;
+            if (size <= 512) return 3;
+            if (size <= 1024) return 4;
+            if (size <= 2048) return 5;
+            if (size <= 4096) return 6;
+            if (size <= 8192) return 7;
+            if (size <= 16384) return 8;
+            if (size <= 32768) return 9;
+            return 10;
+        }
+
+        private void RebuildFreeList()
+        {
+            UnsafeUtility.MemSet(freeListHeads, 0xFF, sizeof(int) * SIZE_CLASS_COUNT);
+            for (var i = 0; i < blockCount; i++)
+            {
+                if (!blocks[i].IsUsed)
+                {
+                    var sc = GetSizeClassIndex(blocks[i].Size);
+                    freeListNext[i] = freeListHeads[sc];
+                    freeListHeads[sc] = i;
+                }
+            }
+        }
+
+        private void AddToFreeList(int blockIdx, long size)
+        {
+            var sc = GetSizeClassIndex(size);
+            freeListNext[blockIdx] = freeListHeads[sc];
+            freeListHeads[sc] = blockIdx;
+        }
+
         private IntPtr TryAllocate(long sizeInBytes, ref int error, out int blockIndex)
         {
             blockIndex = -1;
+            if (freeListDirty)
+            {
+                RebuildFreeList();
+                freeListDirty = false;
+            }
+            var sc = GetSizeClassIndex(sizeInBytes);
+            for (var c = sc; c < SIZE_CLASS_COUNT; c++)
+            {
+                var fi = freeListHeads[c];
+                var prev = -1;
+                while (fi >= 0)
+                {
+                    ref var block = ref blocks[fi];
+                    if (block.Size >= sizeInBytes)
+                    {
+                        if (prev >= 0) freeListNext[prev] = freeListNext[fi];
+                        else freeListHeads[c] = freeListNext[fi];
+                        freeListNext[fi] = -1;
+                        if (block.Size > sizeInBytes)
+                        {
+                            InsertBlock(fi + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
+                            AddToFreeList(fi + 1, block.Size - sizeInBytes);
+                        }
+                        block.Size = sizeInBytes;
+                        block.IsUsed = true;
+                        blockIndex = fi;
+                        return (IntPtr)(basePtr + block.Pointer);
+                    }
+                    prev = fi;
+                    fi = freeListNext[fi];
+                }
+            }
             for (var i = 0; i < blockCount; i++)
             {
                 ref var block = ref blocks[i];
@@ -116,7 +192,6 @@ namespace Wargon.Nukecs
                 {
                     if (block.Size > sizeInBytes)
                         InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
                     block.Size = sizeInBytes;
                     block.IsUsed = true;
                     blockIndex = i;
@@ -221,6 +296,8 @@ namespace Wargon.Nukecs
                 if (block.Pointer == offset)
                 {
                     block.IsUsed = false;
+                    memoryUsed -= block.Size;
+                    AddToFreeList(i, block.Size);
                     spinner.Release();
                     return;
                 }
@@ -240,6 +317,8 @@ namespace Wargon.Nukecs
                 if (block.Pointer == offset)
                 {
                     block.IsUsed = false;
+                    memoryUsed -= block.Size;
+                    AddToFreeList(i, block.Size);
                     spinner.Release();
                     return;
                 }
@@ -259,6 +338,8 @@ namespace Wargon.Nukecs
                 if (block.Pointer == offset)
                 {
                     block.IsUsed = false;
+                    memoryUsed -= block.Size;
+                    AddToFreeList(i, block.Size);
                     spinner.Release();
                     return;
                 }
@@ -269,6 +350,7 @@ namespace Wargon.Nukecs
         }
         private void DeFragment()
         {
+            freeListDirty = true;
             for (var i = 0; i < blockCount - 1; i++)
             {
                 if (!blocks[i].IsUsed && !blocks[i + 1].IsUsed)
@@ -283,6 +365,7 @@ namespace Wargon.Nukecs
 
         private void InsertBlock(int index, long offset, long size, bool isUsed, ref int error)
         {
+            freeListDirty = true;
             if (blockCount >= maxBlocks)
             {
                 error = AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED;
@@ -305,6 +388,7 @@ namespace Wargon.Nukecs
 
         private void RemoveBlock(int index)
         {
+            freeListDirty = true;
             for (var i = index; i < blockCount - 1; i++)
             {
                 blocks[i] = blocks[i + 1];
@@ -326,6 +410,18 @@ namespace Wargon.Nukecs
             {
                 UnsafeUtility.Free(blocks, Allocator.Persistent);
                 blocks = null;
+            }
+
+            if (freeListHeads != null)
+            {
+                UnsafeUtility.Free(freeListHeads, Allocator.Persistent);
+                freeListHeads = null;
+            }
+
+            if (freeListNext != null)
+            {
+                UnsafeUtility.Free(freeListNext, Allocator.Persistent);
+                freeListNext = null;
             }
             
             IsActive = false;

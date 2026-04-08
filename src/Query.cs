@@ -118,6 +118,7 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
         internal int Id;
+        internal Spinner spinner;
         public bool IsCreated => world != null;
 
         internal void OnDeserialize(ref MemAllocator allocator)
@@ -159,6 +160,7 @@ namespace Wargon.Nukecs {
             this.noneDebug = new MemoryList<int>(8, ref world->AllocatorRef);
 #endif
             this.count = 0;
+            this.spinner = new Spinner();
             this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
             this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
             this.Id = world->queries.Length;
@@ -190,25 +192,37 @@ namespace Wargon.Nukecs {
 #endif
         internal void Add(int entity) 
         {
-            entities.ElementAt(count++) = entity;
-            entitiesMap[entity] = count;
+            spinner.Acquire();
+            try {
+                entities.ElementAt(count++) = entity;
+                entitiesMap[entity] = count;
+            }
+            finally {
+                spinner.Release();
+            }
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         internal void Remove(int entity)
         {
-            var index = entitiesMap[entity] - 1;
-            if (index < 0)
-            {
-                return;
+            spinner.Acquire();
+            try {
+                var index = entitiesMap[entity] - 1;
+                if (index < 0)
+                {
+                    return;
+                }
+                entitiesMap[entity] = 0;
+                count--;
+                if (count > index)
+                {
+                    entities[index] = entities[count];
+                    entitiesMap[entities[index]] = index + 1;
+                }
             }
-            entitiesMap[entity] = 0;
-            count--;
-            if (count > index)
-            {
-                entities[index] = entities[count];
-                entitiesMap[entities[index]] = index + 1;
+            finally {
+                spinner.Release();
             }
         }
         

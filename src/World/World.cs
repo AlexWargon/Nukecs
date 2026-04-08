@@ -43,6 +43,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref EntityCommandBuffer GetEcbByContext(UpdateContext context)
         {
+            if (context == UpdateContext.FixedUpdate)
+                return ref UnsafeWorld->FixedUpdateECB;
             return ref UnsafeWorld->EntityCommandBuffer;
         }
 

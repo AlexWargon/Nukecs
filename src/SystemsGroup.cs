@@ -20,7 +20,7 @@ namespace Wargon.Nukecs
             this.name = name;
         }
 
-        public unsafe SystemsGroup Add<T>(bool dummy = false) where T : struct, IEntityJobSystem {
+        public unsafe SystemsGroup AddJob<T>() where T : unmanaged, IEntityJobSystem {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -45,8 +45,11 @@ namespace Wargon.Nukecs
             return this;
         }
 
+        public unsafe SystemsGroup Add<T>(bool dummy = false) where T : unmanaged, IEntityJobSystem {
+            return AddJob<T>();
+        }
 
-        public SystemsGroup Add<T>(int dummy = 1) where T : struct, ISystem {
+        public SystemsGroup AddMainThread<T>() where T : unmanaged, ISystem {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -72,7 +75,12 @@ namespace Wargon.Nukecs
             }
             return this;
         }
-        public SystemsGroup Add<T>(byte dummy = 1) where T : class, ISystem, new() {
+
+        public SystemsGroup Add<T>(int dummy = 1) where T : unmanaged, ISystem {
+            return AddMainThread<T>();
+        }
+
+        public SystemsGroup AddMainThreadClass<T>() where T : class, ISystem, new() {
             T system = new T();
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -102,6 +110,10 @@ namespace Wargon.Nukecs
                 destroyRunners.Add(new SystemClassDestroyer(onDestroySystem));
             }
             return this;
+        }
+
+        public SystemsGroup Add<T>(byte dummy = 1) where T : class, ISystem, new() {
+            return AddMainThreadClass<T>();
         }
     }
 }

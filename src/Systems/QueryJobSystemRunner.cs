@@ -10,19 +10,11 @@ namespace Wargon.Nukecs
         public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
-            ref var world = ref state.World;
             if (Mode == SystemMode.Main) {
                 System.OnUpdate(ref Query, state.Time.DeltaTime);
-                EcbJob.ECB = world.GetEcbByContext(updateContext);
-                EcbJob.world = world;
-                EcbJob.Execute();
+                return state.Dependencies;
             }
-            else {
-                state.Dependencies = System.Schedule(ref Query, state.Time.DeltaTime, Mode, state.Dependencies);
-                EcbJob.ECB = world.GetEcbByContext(updateContext);
-                EcbJob.world = world;
-                state.Dependencies = EcbJob.Schedule(state.Dependencies);
-            }
+            state.Dependencies = System.Schedule(ref Query, state.Time.DeltaTime, Mode, state.Dependencies);
             return state.Dependencies;
         }
 
