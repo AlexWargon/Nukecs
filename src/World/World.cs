@@ -18,7 +18,7 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World : IDisposable
     {
-        internal ptr<WorldUnsafe> unsafeWorldPtr;
+        public ptr<WorldUnsafe> unsafeWorldPtr;
 
         public WorldUnsafe* UnsafeWorld
         {
@@ -26,7 +26,7 @@ namespace Wargon.Nukecs
             get => unsafeWorldPtr.Ptr;
         }
 
-        internal ref WorldUnsafe UnsafeWorldRef
+        public ref WorldUnsafe UnsafeWorldRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref unsafeWorldPtr.Ref;
