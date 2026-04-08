@@ -117,7 +117,7 @@ namespace Wargon.Nukecs
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
                 dbug.log($"Components size {Memory.BytesToMegabytes(cSize)} MB");
                 var sizeToAllocate = cSize;
-                sizeToAllocate += Memory.MEGABYTE * 10;
+                sizeToAllocate += Memory.MEGABYTE * 12;
                 dbug.log($"Try Allocate {Memory.BytesToMegabytes(sizeToAllocate/2)} MB");
                 var allocator = new UnityAllocatorHandler(sizeToAllocate/2);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();

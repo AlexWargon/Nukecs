@@ -163,7 +163,7 @@ namespace Wargon.Nukecs {
         public UnsafeList<SystemParam> list;
         [NativeDisableUnsafePtrRestriction]
         public IntPtr system;
-        public SystemMode mode;
+        public Threads mode;
         public ref SystemParam FirstRef => ref list.ElementAt(0);
         public static SystemParams New<TParam0>(World.WorldUnsafe* world, IntPtr systemAction)
             where TParam0 : unmanaged, ISystemParam
@@ -266,7 +266,7 @@ namespace Wargon.Nukecs {
         [StructLayout(LayoutKind.Sequential)]
         internal unsafe struct DelegateJobWrapper<TJob> where TJob : struct, IDelegateJobSystem {
             public TJob JobData;
-            public SystemMode mode;
+            public Threads mode;
             [NativeDisableUnsafePtrRestriction]
             public QueryUnsafe* query;
             public State State;
@@ -289,7 +289,7 @@ namespace Wargon.Nukecs {
                 if(fullData.query->count == 0) return;
                 Range range;
                 switch (fullData.mode) {
-                    case SystemMode.Parallel:
+                    case Threads.Parallel:
                         while (true) {
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
@@ -298,7 +298,7 @@ namespace Wargon.Nukecs {
                             fullData.JobData.OnUpdate(range);
                         }
                         break;
-                    case SystemMode.Single:
+                    case Threads.Single:
                         range = new Range(0, fullData.query->count);
                         //dbug.log($"SINGLE {(0, fullData.query->count)}");
                         fullData.JobData.OnUpdate(range);
@@ -318,7 +318,7 @@ namespace Wargon.Nukecs {
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe JobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
-            SystemMode mode, ref State state)
+            Threads mode, ref State state)
             where TJob : struct, IDelegateJobSystem {
             var fullData = new DelegateJobWrapper<TJob> {
                 JobData = jobData,
@@ -329,13 +329,13 @@ namespace Wargon.Nukecs {
             
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), state.Dependencies,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             var workers = JobsUtility.JobWorkerCount;
             var batchCount = query->count > workers ? query->count / workers : 1;
             switch (mode) {
-                case SystemMode.Single:
+                case Threads.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
+                case Threads.Parallel:
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, query->count, batchCount);
             }
 

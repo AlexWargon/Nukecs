@@ -10,7 +10,7 @@ namespace Wargon.Nukecs
     public static class DelegateSystemsExtensions {
 
         private static unsafe Systems add_system_impl<TParam0>(this Systems systems, 
-            SystemFnRegistry2<TParam0>.SystemAction func, SystemMode threads = SystemMode.Parallel)
+            SystemFnRegistry2<TParam0>.SystemAction func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             SystemActionPtr burstWrapper = (void* ptr) =>
@@ -40,7 +40,7 @@ namespace Wargon.Nukecs
             return systems;
         }
         private static unsafe Systems add_system_impl<TParam0>(this Systems systems, 
-            delegate* <ref TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <ref TParam0, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             var systemParams = SystemParams.New<TParam0>(systems.World.UnsafeWorld, (IntPtr)func);
@@ -65,7 +65,7 @@ namespace Wargon.Nukecs
             return systems;
         }
         private static unsafe Systems add_system_impl<TParam0>(this Systems systems, 
-            delegate* <TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <TParam0, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             var systemParams = SystemParams.New<TParam0>(systems.World.UnsafeWorld, (IntPtr)func);
@@ -89,7 +89,7 @@ namespace Wargon.Nukecs
             return systems;
         }
         private static unsafe Systems add_system_impl<TParam0, TParam1>(this Systems systems, 
-            delegate* <TParam0, TParam1, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <TParam0, TParam1, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
             where TParam1 : unmanaged, ISystemParam
         {
@@ -115,7 +115,7 @@ namespace Wargon.Nukecs
         }
         
         private static unsafe Systems add_system_impl<TParam0, TParam1, TParam2>(this Systems systems, 
-            delegate* <TParam0, TParam1, TParam2, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <TParam0, TParam1, TParam2, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
             where TParam1 : unmanaged, ISystemParam
             where TParam2 : unmanaged, ISystemParam
@@ -141,17 +141,17 @@ namespace Wargon.Nukecs
             return systems;
         }
         public static unsafe Systems AddSystem2Ref(this Systems systems, 
-            delegate* <ref Query<Transform, Input>.WithEntity,void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <ref Query<Transform, Input>.WithEntity,void> func, Threads threads = Threads.Parallel)
         {
             return add_system_impl(systems, func, threads);
         }
         public static unsafe Systems AddSystem2(this Systems systems, 
-            delegate* <Query<Transform, Input>.WithEntity,void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <Query<Transform, Input>.WithEntity,void> func, Threads threads = Threads.Parallel)
         {
             return add_system_impl(systems, func, threads);
         }
         public static Systems AddSystem2(this Systems systems, 
-            SystemFnRegistry2<Query<Transform, Input>.WithEntity>.SystemAction func, SystemMode threads = SystemMode.Parallel)
+            SystemFnRegistry2<Query<Transform, Input>.WithEntity>.SystemAction func, Threads threads = Threads.Parallel)
         {
             return add_system_impl(systems, func, threads);
         }
@@ -189,7 +189,7 @@ namespace Wargon.Nukecs
 
         public delegate void SystemActionQueryTransformInputWithEntity(ref Query<Transform, Input>.WithEntity query);
         public static Systems AddSystem12(this Systems systems, 
-            SystemActionQueryTransformInputWithEntity func, SystemMode threads = SystemMode.Parallel)
+            SystemActionQueryTransformInputWithEntity func, Threads threads = Threads.Parallel)
         {
             var funcPtr = BurstCompiler.CompileFunctionPointer(func);
             var queryPtr = systems.World.UnsafeWorldRef.GetSystemParam2<Query<Transform, Input>.WithEntity>();
@@ -210,13 +210,13 @@ namespace Wargon.Nukecs
             return systems;
         }
         public static unsafe Systems AddSystem13Ref<TParam0>(this Systems systems, 
-            delegate* <ref TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <ref TParam0, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             return systems.add_system_impl(func, threads);
         }
         public static unsafe Systems AddSystem13<TParam0>(this Systems systems, 
-            delegate* <TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <TParam0, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             var queryPtr = systems.World.UnsafeWorldRef.GetSystemParam2<TParam0>();
@@ -237,7 +237,7 @@ namespace Wargon.Nukecs
             return systems;
         }
         public static unsafe Systems AddSystem13<TParam0>(this Systems systems, 
-            delegate* <ref TParam0, void> func, SystemMode threads = SystemMode.Parallel)
+            delegate* <ref TParam0, void> func, Threads threads = Threads.Parallel)
             where TParam0 : unmanaged, ISystemParam
         {
             var queryPtr = systems.World.UnsafeWorldRef.GetSystemParam2<TParam0>();
@@ -262,7 +262,7 @@ namespace Wargon.Nukecs
     public unsafe class DelegateSystemRunner<TJob> : ISystemRunner where TJob : struct, IDelegateJobSystem {
         public TJob job;
         public ptr<QueryUnsafe> query;
-        public SystemMode mode;
+        public Threads mode;
 #if NUKECS_DEBUG
         private Marker _marker;
 #endif
@@ -272,7 +272,7 @@ namespace Wargon.Nukecs
             _marker.Autostart(typeof(TJob).Name);
 #endif
             ref var handle = ref state.Dependencies;
-            if (mode != SystemMode.Main)
+            if (mode != Threads.Main)
             {
                 handle = job.Schedule(query.Ptr, mode, ref state);
             }
@@ -294,7 +294,7 @@ namespace Wargon.Nukecs
     public unsafe class DelegateSystemRunner : ISystemRunner {
         public DelegateJob job;
         public ptr<QueryUnsafe> query;
-        public SystemMode mode;
+        public Threads mode;
         public SystemParams systemParams;
 #if NUKECS_DEBUG
         private Marker _marker;
@@ -305,7 +305,7 @@ namespace Wargon.Nukecs
 #endif
             job.systemParams = (SystemParams*)UnsafeUtility.AddressOf(ref systemParams);
             ref var handle = ref state.Dependencies;
-            if (mode != SystemMode.Main)
+            if (mode != Threads.Main)
             {
                 handle = job.Schedule(query.Ptr, mode, ref state);
             }

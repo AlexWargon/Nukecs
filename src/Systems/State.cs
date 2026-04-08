@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
 
         IntPtr ISystemParam.GetData()
         {
-            return  IntPtr.Zero;
+            return IntPtr.Zero;
             
         }
         bool ISystemParam.TryGetQuery(out ptr<QueryUnsafe> query)

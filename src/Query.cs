@@ -176,7 +176,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public ref Entity GetEntity(int index) {
-            return ref world->entities[entities.ElementAt(index)];
+            return ref world->entities.ElementAt(entities.ElementAt(index));
         }
 //#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -291,6 +291,17 @@ namespace Wargon.Nukecs {
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref Chunk.GetRef<TComponent>(pool, index);
+        }
+        public ref TComponent Get
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref Chunk.GetRef<TComponent>(pool, index);
+        }
+        
+        public TComponent Read
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Chunk.GetRef<TComponent>(pool, index);
         }
     }
 

@@ -5,13 +5,13 @@ namespace Wargon.Nukecs
     internal class QueryJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IQueryJobSystem {
         public TSystem System;
         public Query Query;
-        public SystemMode Mode;
+        public Threads Mode;
         public ECBJob EcbJob;
         public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
             ref var world = ref state.World;
-            if (Mode == SystemMode.Main) {
+            if (Mode == Threads.Main) {
                 System.OnUpdate(ref Query, state.Time.DeltaTime);
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;

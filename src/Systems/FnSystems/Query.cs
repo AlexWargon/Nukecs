@@ -167,7 +167,7 @@ namespace Wargon.Nukecs
                     break;
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
         {
             _range = *(Range*)(void*)data;
@@ -181,34 +181,7 @@ namespace Wargon.Nukecs
             query = _query;
             return true;
         }
-        // public ref struct WithEntityEnumerator
-        // {
-        //     public Ref<T1> t1;
-        //     public Ref<TOption> tOption;
-        //     public QueryUnsafe* query;
-        //     public Range* range;
-        //     public int current;
-        //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //     public readonly void Deconstruct(out Entity e, out Ref<T1> c) { c = t1; e = default; }
-        //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        //     public readonly void Deconstruct(out Entity e, out Ref<T1> c, out Ref<TOption> opt)
-        //     {
-        //         c = t1; opt = tOption;
-        //         c.index = query->entities.Ptr[current];
-        //         opt.index = c.index;
-        //         e = query->GetEntity(c.index);
-        //     }
-        //     public WithEntityEnumerator Current
-        //     {
-        //         [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
-        //         get => this;
-        //     }
-        //     [MethodImpl(MethodImplOptions.AggressiveInlining)][BurstCompile]
-        //     public bool MoveNext()
-        //     {
-        //         return ++current < range->end;
-        //     }
-        // }
+        
         [BurstCompile]
         public struct WithEntity : IQuery, ISystemParam
         {
@@ -322,6 +295,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count; 
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             _current++;
@@ -356,7 +330,7 @@ namespace Wargon.Nukecs
                     break;
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
         {
             _range = *(Range*)(void*)data;

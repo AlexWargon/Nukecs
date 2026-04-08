@@ -9,7 +9,7 @@ namespace Wargon.Nukecs
 {
     [JobProducerType(typeof(QueryJobSystemExtensions.QueryJobStruct<>))]
     public interface IQueryJobSystem {
-        SystemMode Mode { get; }
+        Threads Mode { get; }
         Query GetQuery(ref World world);
         void OnUpdate(ref Query query, float deltaTime);
     }
@@ -54,7 +54,7 @@ namespace Wargon.Nukecs
             return QueryJobStruct<T>.JobReflectionData.Data;
         }
 
-        public static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref Query query, float deltaTime, SystemMode mode, JobHandle dependsOn = default)
+        public static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref Query query, float deltaTime, Threads mode, JobHandle dependsOn = default)
             where TJob : struct, IQueryJobSystem 
         {
             var fullData = new QueryJobStruct<TJob> {
@@ -65,11 +65,11 @@ namespace Wargon.Nukecs
             
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), dependsOn,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
-                case SystemMode.Single:
+                case Threads.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
+                case Threads.Parallel:
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, 1, 1);
             }
             //var workers = JobsUtility.JobWorkerCount;

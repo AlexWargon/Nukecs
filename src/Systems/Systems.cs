@@ -23,7 +23,6 @@ namespace Wargon.Nukecs
         public World World;
         private State _state;
         internal ref State State => ref _state;
-        private State _stateFixed;
         private const float FIXED_UPDATE_INTERVAL = 0.016f;
         private float _timeSinceLastFixedUpdate;
         public Systems(ref World world)
@@ -297,7 +296,6 @@ namespace Wargon.Nukecs
         internal void Complete()
         {
             _state.Dependencies.Complete();
-            _stateFixed.Dependencies.Complete();
         }
 
         internal void OnWorldDispose()
@@ -315,7 +313,7 @@ namespace Wargon.Nukecs
 
     public static class SystemsExtensions
     {
-        public static unsafe Systems Add<T>(this Systems systems, SystemMode systemMode)
+        public static unsafe Systems Add<T>(this Systems systems, Threads threads)
             where T : struct, IEntityJobSystem
         {
             T system = default;
@@ -328,7 +326,7 @@ namespace Wargon.Nukecs
             var runner = new EntityJobSystemRunner<T>
             {
                 System = system,
-                Mode = systemMode,
+                Mode = threads,
                 EcbJob = default
             };
             runner.Query = runner.System.GetQuery(ref systems.World).InternalPointer;
@@ -381,7 +379,7 @@ namespace Wargon.Nukecs
     ///     Parallel : execute parallel
     ///     Main : execute in main thread, need to axes to unity api
     /// </summary>
-    public enum SystemMode
+    public enum Threads
     {
         Main,
         Parallel,
@@ -439,7 +437,7 @@ namespace Wargon.Nukecs
     [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]
     public interface IEntityIndexJobSystem
     {
-        SystemMode Mode { get; }
+        Threads Mode { get; }
         void OnUpdate<T1>(ref T1 c1, ref State state) where T1 : unmanaged, IComponent;
     }
 
@@ -501,7 +499,7 @@ namespace Wargon.Nukecs
     public static class EXT
     {
         public static unsafe JobHandle Schedule<TJob, T>(this TJob jobData, ref Query query, ref State state,
-            SystemMode mode, JobHandle dependsOn = default)
+            Threads mode, JobHandle dependsOn = default)
             where TJob : struct, IEntityIndexJobSystem
             where T : unmanaged, IComponent
         {
@@ -514,12 +512,12 @@ namespace Wargon.Nukecs
 
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 EntityIndexJobSystemExtensions<T>.GetReflectionData<TJob>(), dependsOn,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode)
             {
-                case SystemMode.Single:
+                case Threads.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
+                case Threads.Parallel:
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
             }
 
@@ -532,7 +530,7 @@ namespace Wargon.Nukecs
     [BurstCompile]
     public struct ClearEntityCreatedEventSystem : IEntityJobSystem
     {
-        public SystemMode Mode => SystemMode.Single;
+        public Threads Mode => Threads.Single;
         public Query GetQuery(ref World world)
         {
             return world.Query().With<EntityCreated>();
@@ -548,7 +546,7 @@ namespace Wargon.Nukecs
     internal struct RemoveComponentSystem : IEntityJobSystem
     {
         internal int Type;
-        public SystemMode Mode => SystemMode.Single;
+        public Threads Mode => Threads.Single;
 
         public Query GetQuery(ref World world)
         {
@@ -690,12 +688,12 @@ namespace Wargon.Nukecs
     [AttributeUsage((AttributeTargets.Method))]
     public class SystemAttribute : Attribute
     {
-        public SystemMode mode;
+        public Threads mode;
         public SystemAttribute()
         {
-            this.mode = SystemMode.Parallel;
+            this.mode = Threads.Parallel;
         }
-        public SystemAttribute(SystemMode mode)
+        public SystemAttribute(Threads mode)
         {
             this.mode = mode;
         }

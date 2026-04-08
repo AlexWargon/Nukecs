@@ -13,7 +13,7 @@ namespace Wargon.Nukecs
         public bool isComplete;
         public string Name => System.GetType().Name;
         public JobHandle Schedule(UpdateContext updateContext, ref State state) {
-            System.Schedule(SystemMode.Single, updateContext, ref state);
+            System.Schedule(Threads.Single, updateContext, ref state);
             if(isComplete) state.Dependencies.Complete();
             EcbJob.ECB = state.World.GetEcbVieContext(updateContext);
             EcbJob.world = state.World;
@@ -79,7 +79,7 @@ namespace Wargon.Nukecs
         }
 
         public static unsafe JobHandle Schedule<TJob>(this TJob jobData,
-            SystemMode mode, UpdateContext updateContext, ref State state)
+            Threads mode, UpdateContext updateContext, ref State state)
             where TJob : struct, IJobSystem {
             var fullData = new JobSystemWrapper<TJob> {
                 JobData = jobData,
@@ -89,9 +89,9 @@ namespace Wargon.Nukecs
 
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), state.Dependencies,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
-                case SystemMode.Single:
+                case Threads.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
                 // case SystemMode.Parallel:
                 //     throw new Exception($"{typeof(IJobSystem)} is not support Parallel for now. Use single");

@@ -64,7 +64,7 @@ namespace Wargon.Nukecs
     [BurstCompile]
     public struct RotateCubeSystem : IEntityJobSystem
     {
-        public SystemMode Mode => SystemMode.Parallel;
+        public Threads Mode => Threads.Parallel;
         public Query GetQuery(ref World world)
         {
             return world.Query().With<Transform>().With<TransformRef>().With<Cube>();

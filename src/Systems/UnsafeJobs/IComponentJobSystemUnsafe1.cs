@@ -34,14 +34,14 @@ namespace Wargon.Nukecs {
         }
 
         private delegate void ExecuteJobFunction(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
-            IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex, SystemMode mode);
+            IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex, Threads mode);
         
         public static void Execute(ref EntityJobWrapper<TJob> fullData, IntPtr additionalPtr,
-            IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex, SystemMode mode) {
+            IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex, Threads mode) {
             if(fullData.query.Count == 0) return;
             ref var pool1 = ref fullData.world->GetUntypedPool(fullData.c1);
             switch (mode) {
-                case SystemMode.Parallel:
+                case Threads.Parallel:
                     while (true) {
                         if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                             break;
@@ -52,7 +52,7 @@ namespace Wargon.Nukecs {
                         }
                     }
                     break;
-                case SystemMode.Single:
+                case Threads.Single:
                     for (var i = 0; i < fullData.query.Count; i++) {
                         ref var e = ref fullData.query.InternalPointer->GetEntity(i);
                         fullData.JobData.OnUpdate(ref e, pool1.UnsafeGetPtr(e.id), ref fullData.State);
@@ -73,7 +73,7 @@ namespace Wargon.Nukecs {
         }
 
         public static unsafe JobHandle Schedule<TJob>(this TJob jobData, ref Query query,
-            SystemMode mode, UpdateContext updateContext, ref State state)
+            Threads mode, UpdateContext updateContext, ref State state)
             where TJob : struct, IComponentJobSystemUnsafe1 {
             var fullData = new EntityJobWrapper<TJob> {
                 JobData = jobData,
@@ -84,11 +84,11 @@ namespace Wargon.Nukecs {
             
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), state.Dependencies,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
-                case SystemMode.Single:
+                case Threads.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
+                case Threads.Parallel:
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
             }
             //var workers = JobsUtility.JobWorkerCount;

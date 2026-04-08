@@ -1,6 +1,4 @@
-﻿using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-
+﻿
 namespace Wargon.Nukecs
 {
     public partial struct World

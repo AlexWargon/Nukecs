@@ -5,7 +5,7 @@ namespace Wargon.Nukecs.Transforms
     [BurstCompile]
     public struct TransformChildSystem : IEntityJobSystem
     {
-        public readonly SystemMode Mode => SystemMode.Parallel;
+        public readonly Threads Mode => Threads.Parallel;
 
         public Query GetQuery(ref World world) => world.Query()
             .With<ChildOf>()

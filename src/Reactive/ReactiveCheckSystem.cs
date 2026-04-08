@@ -28,7 +28,7 @@ namespace Wargon.Nukecs.Reactive
     // }
     public unsafe struct ReactiveCheckSystemPointerReflectionSystem : IEntityJobSystem
     {
-        public SystemMode Mode => SystemMode.Parallel;
+        public Threads Mode => Threads.Parallel;
         private readonly int _componentIndex;
         private readonly int _reactiveGenericIndex;
         private readonly int _componentChangedTagIndex;
@@ -63,7 +63,7 @@ namespace Wargon.Nukecs.Reactive
 
     public unsafe struct ReactiveCheckSystem<T> : IEntityJobSystem where T : unmanaged, IComponent, IReactive
     {
-        public SystemMode Mode => SystemMode.Single;
+        public Threads Mode => Threads.Single;
         public Query GetQuery(ref World world)
         {
             return world.Query().With<T>().With<Reactive<T>>();
