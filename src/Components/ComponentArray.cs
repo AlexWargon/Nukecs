@@ -127,7 +127,9 @@
 
         public void Dispose()
         {
+            if (data.cached == null) return;
             var w = data.Ref.world.Ptr;
+            if (w == null) return;
             data.Ref.length = 0;
             data.Ref.capacity = 0;
             w->AllocatorRef.Free(data.Ref.Data);

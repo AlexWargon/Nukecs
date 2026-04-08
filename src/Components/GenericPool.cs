@@ -463,7 +463,10 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int entity)
         {
-            ref var chunk = ref GetChunk(entity);
+            var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
+            if (chunkIndex >= Chunks.capacity) return;
+            ref var chunk = ref Chunks.ElementAt(chunkIndex);
+            if (chunk.isCreated == 0) return;
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
             if (componentTypeData.isDisposable) DisposeComponent(componentIndex, ref chunk);
             if (!componentTypeData.isTag)

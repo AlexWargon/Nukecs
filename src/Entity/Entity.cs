@@ -134,9 +134,6 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         [BurstCompile]
         public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
