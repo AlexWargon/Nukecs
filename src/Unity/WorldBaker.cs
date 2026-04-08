@@ -1,7 +1,6 @@
 ﻿using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using TriInspector;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -28,7 +27,7 @@ namespace Wargon.Nukecs {
             }
         }
 
-        [Button]
+        [ContextMenu("Load")]
         private void Load() {
             _runtimeWorld = World.Create(WorldConfig.Default16384);
             ;
@@ -41,7 +40,7 @@ namespace Wargon.Nukecs {
             if (this is IOnUpdate onUpdate) _onUpdate = onUpdate;
         }
 
-        [Button]
+        [ContextMenu("LoadAsync")]
         private async Task LoadAsync() {
             _runtimeWorld = World.Create(WorldConfig.Default16384);
             ;
@@ -56,7 +55,7 @@ namespace Wargon.Nukecs {
             dbug.log("World loaded!");
         }
 
-        [Button]
+        [ContextMenu("Save")]
         private void Save() {
             _ = _runtimeWorld.SaveToFileAsync(FullPath);
         }
@@ -64,7 +63,7 @@ namespace Wargon.Nukecs {
         protected abstract void AddSystems(Systems systems);
 
 
-        [Button]
+        [ContextMenu("Bake")]
         private async void BakeInternal() {
             var world = World.Create(WorldConfig.Default16384);
             Bake(ref world);

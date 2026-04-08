@@ -1,4 +1,3 @@
-using TriInspector;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
@@ -11,7 +10,7 @@ namespace Wargon.Nukecs
 {
     public class WorldInstaller : MonoBehaviour
     {
-        [ReadOnly][SerializeField] public int WorldId;
+        [SerializeField] public int WorldId;
         protected World world;
         public ref World World => ref world;
         protected Systems Systems;

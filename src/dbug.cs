@@ -19,7 +19,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void log(string message, Color color)
         {
-            Debug.Log($"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{message}</color>");
+            UnityEngine.Debug.Log($"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{message}</color>");
         }
         [BurstDiscard]
         [Conditional("NUKECS_DEBUG")]
