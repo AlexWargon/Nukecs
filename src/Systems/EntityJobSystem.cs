@@ -32,7 +32,7 @@ namespace Wargon.Nukecs
                 for (var i = 0; i < Query->count; i++) {
                     System.OnUpdate(ref Query->GetEntity(i), ref state);    
                 }
-                EcbJob.ECB = world.GetEcbVieContext(updateContext);
+                EcbJob.ECB = world.GetEcbByContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.ECB.PlaybackMainThread(ref world);
 #if NUKECS_DEBUG
@@ -41,7 +41,7 @@ namespace Wargon.Nukecs
                 return state.Dependencies;
             }
             state.Dependencies = System.Schedule(Query, Mode, updateContext, ref state);
-            EcbJob.ECB = world.GetEcbVieContext(updateContext);
+            EcbJob.ECB = world.GetEcbByContext(updateContext);
             EcbJob.world = world;
 #if NUKECS_DEBUG
             _marker.End();
@@ -136,10 +136,11 @@ namespace Wargon.Nukecs
                 case SystemMode.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
                 case SystemMode.Parallel:
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query->count, 1);
+                    var workers = JobsUtility.JobWorkerCount;
+                    var batchCount = query->count > workers ? query->count / workers : 1;
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query->count, batchCount);
             }
-            //var workers = JobsUtility.JobWorkerCount;
-            //var batchCount = query.Count > workers ? query.Count / workers : 1;
+
             return state.Dependencies;
         }
         

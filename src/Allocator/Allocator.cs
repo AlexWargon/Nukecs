@@ -106,55 +106,61 @@ namespace Wargon.Nukecs
             allocator->Dispose();
             UnsafeUtility.FreeTracked(allocator, Allocator.Persistent);
         }
-        public IntPtr AllocateRaw(long sizeInBytes, ref int error)
+        private IntPtr TryAllocate(long sizeInBytes, ref int error, out int blockIndex)
         {
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
+            blockIndex = -1;
             for (var i = 0; i < blockCount; i++)
             {
                 ref var block = ref blocks[i];
                 if (!block.IsUsed && block.Size >= sizeInBytes)
                 {
-                    // Split block if larger than requested size
                     if (block.Size > sizeInBytes)
                         InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
 
                     block.Size = (int)sizeInBytes;
                     block.IsUsed = true;
-                    spinner.Release();
+                    blockIndex = i;
                     return (IntPtr)(basePtr + block.Pointer);
                 }
             }
-            spinner.Release();
-            error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
-            
             return IntPtr.Zero;
         }
+
+        private IntPtr AllocateInternal(long sizeInBytes, ref int error, out int blockIndex)
+        {
+            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
+            spinner.Acquire();
+            var result = TryAllocate(sizeInBytes, ref error, out blockIndex);
+            if (result == IntPtr.Zero)
+            {
+                DeFragment();
+                result = TryAllocate(sizeInBytes, ref error, out blockIndex);
+            }
+            spinner.Release();
+            return result;
+        }
+
+        public IntPtr AllocateRaw(long sizeInBytes, ref int error)
+        {
+            var result = AllocateInternal(sizeInBytes, ref error, out _);
+            if (result == IntPtr.Zero)
+                error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
+            return result;
+        }
+
         public ptr_offset AllocateRaw(long sizeInBytes)
         {
             var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
+            var result = AllocateInternal(sizeInBytes, ref error, out var blockIndex);
+            if (result == IntPtr.Zero)
+                return ptr_offset.NULL;
+            return new ptr_offset(0, (uint)blocks[blockIndex].Pointer);
+        }
 
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return new ptr_offset(0, (uint)block.Pointer);
-                }
-            }
-            spinner.Release();
-
-            return ptr_offset.NULL;
+        public void* Allocate(long sizeInBytes)
+        {
+            var error = 0;
+            return (void*)AllocateInternal(sizeInBytes, ref error, out _);
         }
 
         public ptr<T> AllocatePtr<T>() where T : unmanaged
@@ -162,78 +168,22 @@ namespace Wargon.Nukecs
             return AllocatePtr<T>(sizeof(T));
         }
 
-        public void* Allocate(long sizeInBytes)
-        {
-            var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return basePtr + block.Pointer;
-                }
-            }
-            spinner.Release();
-            return null;
-        }
         public ptr<T> AllocatePtr<T>(long sizeInBytes) where T : unmanaged
         {
             var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return new ptr<T>(basePtr, (uint)block.Pointer);
-                }
-            }
-            spinner.Release();
-            return ptr<T>.NULL;
+            var result = AllocateInternal(sizeInBytes, ref error, out var blockIndex);
+            if (result == IntPtr.Zero)
+                return ptr<T>.NULL;
+            return new ptr<T>(basePtr, (uint)blocks[blockIndex].Pointer);
         }
-        
+
         public ptr AllocatePtr(long sizeInBytes)
         {
             var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return new ptr(basePtr,(uint)block.Pointer);
-                }
-            }
-            spinner.Release();
-            return ptr.NULL;
+            var result = AllocateInternal(sizeInBytes, ref error, out var blockIndex);
+            if (result == IntPtr.Zero)
+                return ptr.NULL;
+            return new ptr(basePtr, (uint)blocks[blockIndex].Pointer);
         }
         private void SizeWithAlign(ref long size, int align)
         {
@@ -317,7 +267,7 @@ namespace Wargon.Nukecs
             
             error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
         }
-        internal void DeFragment()
+        private void DeFragment()
         {
             for (var i = 0; i < blockCount - 1; i++)
             {

@@ -24,7 +24,7 @@ namespace Wargon.Nukecs
         private State _state;
         internal ref State State => ref _state;
         private State _stateFixed;
-        private const float FIXED_UPDATE_INTERVAL = 0.016f;
+        public float FixedUpdateInterval { get; set; } = 1f / 60f;
         private float _timeSinceLastFixedUpdate;
         public Systems(ref World world)
         {
@@ -49,22 +49,23 @@ namespace Wargon.Nukecs
             _state.Time.DeltaTime = dt;
             _state.Time.Time = time;
             _state.Time.ElapsedTime += dt;
-            _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
+            _state.Time.DeltaTimeFixed = FixedUpdateInterval;
             World.UnsafeWorld->timeData = _state.Time;
             
-            for (var i = 0; i < mtRunners.Count; i++)
-                _state.Dependencies = mtRunners[i].Schedule(UpdateContext.Update, ref _state);
             for (var i = 0; i < runners.Count; i++)
                 _state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref _state);
+            for (var i = 0; i < mtRunners.Count; i++)
+                _state.Dependencies = mtRunners[i].Schedule(UpdateContext.Update, ref _state);
 
             _timeSinceLastFixedUpdate += dt;
-            if (_timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
+            var maxSteps = 5;
+            while (_timeSinceLastFixedUpdate >= FixedUpdateInterval && maxSteps-- > 0)
             {
-                for (var i = 0; i < mtFixedRunners.Count; i++)
-                    _state.Dependencies = mtFixedRunners[i].Schedule(UpdateContext.Update, ref _state);
                 for (var i = 0; i < fixedRunners.Count; i++)
-                    _state.Dependencies = fixedRunners[i].Schedule(UpdateContext.Update, ref _state);
-                _timeSinceLastFixedUpdate = 0;
+                    _state.Dependencies = fixedRunners[i].Schedule(UpdateContext.FixedUpdate, ref _state);
+                for (var i = 0; i < mtFixedRunners.Count; i++)
+                    _state.Dependencies = mtFixedRunners[i].Schedule(UpdateContext.FixedUpdate, ref _state);
+                _timeSinceLastFixedUpdate -= FixedUpdateInterval;
             }
             _allSystems.End();
         }

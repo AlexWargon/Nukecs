@@ -52,20 +52,13 @@ public unsafe partial struct World
                 // sb.AppendLine();
                 // Debug.Log(sb.ToString());
                 
-                // foreach (var entity in entities) {
-                //     if (entity != Nukecs.Entity.Null) {
-                //         entity.Free();
-                //     }
-                // }
-                //var entitiesToClear = entitiesAmount + reservedEntities.Length + 1;
-                // for (var i = 0; i < entitiesAmount; i++) {
-                //     ref var entity = ref entities.ElementAt(i);
-                //     if (entity != Nukecs.Entity.Null) {
-                //         entity.Free();
-                //     }
-                // }
-                
                 WorldSystems.CompleteAll(Id);
+                
+                foreach (var entity in entities) {
+                    if (entity != Nukecs.Entity.Null) {
+                        entity.Free();
+                    }
+                }
 
                 //entities.Dispose();
                 //entitiesArchetypes.Dispose();

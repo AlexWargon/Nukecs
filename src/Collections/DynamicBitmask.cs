@@ -81,16 +81,11 @@ namespace Wargon.Nukecs
 
         public bool HasRange(int* buffer, int range)
         {
-            var matches = 0;
             for (var i = 0; i < range; i++)
             {
-                if (Has(buffer[i])) matches++;
-                {
-                    if (matches == range) return true;
-                }
+                if (!Has(buffer[i])) return false;
             }
-
-            return false;
+            return true;
         }
 
         // Method to clear an element (unset a specific bit)

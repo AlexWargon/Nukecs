@@ -23,6 +23,15 @@
             *ecb = new ECBInternal();
             //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
             ecb->perThreadBuffer = Chains(startSize, this.allocator);
+            var tc = JobsUtility.ThreadIndexCount + 2;
+            ecb->threadCount = tc;
+            ecb->componentBufferCapacity = 262144;
+            ecb->componentBuffers = (byte**)UnsafeUtility.Malloc(sizeof(byte*) * tc, UnsafeUtility.AlignOf<IntPtr>(), Allocator.Persistent);
+            ecb->componentBufferOffsets = (int*)UnsafeUtility.Malloc(sizeof(int) * tc, UnsafeUtility.AlignOf<int>(), Allocator.Persistent);
+            for (var i = 0; i < tc; i++) {
+                ecb->componentBuffers[i] = (byte*)UnsafeUtility.Malloc(262144, 16, Allocator.Persistent);
+                ecb->componentBufferOffsets[i] = 0;
+            }
             ecb->isCreated = 1;
         }
 
@@ -47,6 +56,7 @@
             public float3 Position;
             public byte active;
             public bool IsDisposable;
+            public byte FromBump;
 
             public enum Type : short {
                 AddComponent = 0,
@@ -71,6 +81,10 @@
             //[NativeDisableUnsafePtrRestriction]
             //internal UnsafeList<ECBCommand>* internalBuffer;
             [NativeDisableUnsafePtrRestriction] internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadBuffer;
+            [NativeDisableUnsafePtrRestriction] internal byte** componentBuffers;
+            [NativeDisableUnsafePtrRestriction] internal int* componentBufferOffsets;
+            internal int componentBufferCapacity;
+            internal int threadCount;
 
 
             internal UnsafeList<ECBCommand>* internalBuffer {
@@ -87,6 +101,9 @@
 
             public void Clear() {
                 internalBuffer->Clear();
+                for (var i = 0; i < threadCount; i++) {
+                    componentBufferOffsets[i] = 0;
+                }
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -118,18 +135,30 @@
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T component, int thread) where T : unmanaged {
-
                 var size = UnsafeUtility.SizeOf<T>();
-                var ptr = (T*) UnsafeUtility.Malloc(size, UnsafeUtility.AlignOf<T>(), Allocator.Temp);
-                *ptr = component;
+                var align = UnsafeUtility.AlignOf<T>();
+                byte* ptr;
+                byte fromBump;
+                var offset = componentBufferOffsets[thread];
+                var aligned = (offset + align - 1) & ~(align - 1);
+                if (aligned + size <= componentBufferCapacity) {
+                    ptr = componentBuffers[thread] + aligned;
+                    componentBufferOffsets[thread] = aligned + size;
+                    fromBump = 1;
+                } else {
+                    ptr = (byte*)UnsafeUtility.Malloc(size, align, Allocator.Temp);
+                    fromBump = 0;
+                }
+                *(T*)ptr = component;
                 ref var data = ref ComponentType<T>.Data;
                 var cmd = new ECBCommand {
-                    Component = (byte*)ptr,
+                    Component = ptr,
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,
                     ComponentType = data.index,
                     AdditionalData = size,
-                    IsDisposable = data.isDisposable
+                    IsDisposable = data.isDisposable,
+                    FromBump = fromBump
                 };
                 var buffer = perThreadBuffer->ElementAt(thread);
                 buffer->Add(cmd);
@@ -272,7 +301,11 @@
                 }
 
                 UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadBuffer);
-                //UnsafeList<ECBCommand>.Destroy(internalBuffer);
+                for (var i = 0; i < threadCount; i++) {
+                    UnsafeUtility.Free(componentBuffers[i], Allocator.Persistent);
+                }
+                UnsafeUtility.Free(componentBuffers, Allocator.Persistent);
+                UnsafeUtility.Free(componentBufferOffsets, Allocator.Persistent);
                 isCreated = 0;
             }
         }
@@ -350,225 +383,112 @@
             ecb->PlayParticleReference(entity, value, ThreadIndex);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void ProcessCommand(ref ECBCommand cmd, World.WorldUnsafe* world) {
+            ref var archetype = ref world->GetEntityArchetypePtr(cmd.Entity).Ref;
+#if NUKECS_DEBUG
+            world->AddComponentChange(new World.ComponentChange
+            {
+                command = cmd.EcbCommandType,
+                entityId = cmd.Entity,
+                componentTypeIndex = cmd.ComponentType,
+                timeStamp = world->timeData.ElapsedTime
+            });
+#endif
+            switch (cmd.EcbCommandType) {
+                case ECBCommand.Type.AddComponent:
+                    if (archetype.Has(cmd.ComponentType)) {
+                        if (cmd.IsDisposable) {
+                            world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
+                        }
+                        if (cmd.FromBump == 0) UnsafeUtility.Free(cmd.Component, Allocator.Temp);
+                        break;
+                    }
+                    ref var pool = ref world->GetUntypedPool(cmd.ComponentType);
+                    pool.SetPtr(cmd.Entity, cmd.Component);
+                    if (cmd.FromBump == 0) UnsafeUtility.Free(cmd.Component, Allocator.Temp);
+                    archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                    break;
+                case ECBCommand.Type.AddComponentPtr:
+                    if (archetype.Has(cmd.ComponentType)) {
+                        if (cmd.IsDisposable) {
+                            world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
+                        }
+                        break;
+                    }
+                    pool = ref world->GetUntypedPool(cmd.ComponentType);
+                    pool.SetPtr(cmd.Entity, cmd.Component);
+                    archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                    break;
+                case ECBCommand.Type.AddComponentNoData:
+                    if (archetype.Has(cmd.ComponentType)) break;
+                    world->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
+                    archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
+                    break;
+                case ECBCommand.Type.RemoveComponent:
+                    if (!archetype.Has(cmd.ComponentType)) break;
+                    world->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
+                    archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
+                    break;
+                case ECBCommand.Type.CreateEntity:
+                    world->CreateEntity();
+                    break;
+                case ECBCommand.Type.DestroyEntity:
+                    archetype.Destroy(cmd.Entity);
+                    break;
+                case ECBCommand.Type.Copy:
+                    archetype.Copy(cmd.Entity, cmd.AdditionalData);
+                    break;
+                case ECBCommand.Type.RemoveAndDispose:
+                    if (!archetype.Has(cmd.ComponentType)) break;
+                    archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
+                    world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
+                    break;
+            }
+        }
+
         public void PlaybackMainThread(ref World world)
         {
             ref var buffer = ref ecb->perThreadBuffer->ElementAt(0);
-            if(buffer->IsEmpty) return;
+            if (buffer->IsEmpty) return;
             for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                 ref var cmd = ref buffer->ElementAt(cmdIndex);
-
-                ref var archetype = ref world.UnsafeWorld->GetEntityArchetypePtr(cmd.Entity).Ref;
-#if NUKECS_DEBUG
-                world.UnsafeWorld->AddComponentChange(new World.ComponentChange
-                {
-                    command = cmd.EcbCommandType,
-                    entityId = cmd.Entity,
-                    componentTypeIndex = cmd.ComponentType,
-                    timeStamp = world.UnsafeWorld->timeData.ElapsedTime
-                });
-#endif
-                switch (cmd.EcbCommandType) {
-                    case ECBCommand.Type.AddComponent:
-                        if (archetype.Has(cmd.ComponentType))
-                        {
-                            if (cmd.IsDisposable)
-                            {
-                                world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                            }
-                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            break;
-                        }
-                        ref var pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
-                        pool.SetPtr(cmd.Entity, cmd.Component);
-                        UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                        archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                        break;
-                    case ECBCommand.Type.AddComponentPtr:
-                        if (archetype.Has(cmd.ComponentType))
-                        {
-                            if (cmd.IsDisposable)
-                            {
-                                world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                            }
-                            break;
-                        }
-                        pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
-                        pool.SetPtr(cmd.Entity, cmd.Component);
-                        archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                        break;
-                    case ECBCommand.Type.AddComponentNoData:
-                        if(archetype.Has(cmd.ComponentType)) break;
-                        world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
-                        archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                        break;
-                    case ECBCommand.Type.RemoveComponent:
-                        if(archetype.Has(cmd.ComponentType) == false) break;
-                        world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
-                        archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                        break;
-                    case ECBCommand.Type.CreateEntity:
-                        world.Entity();
-                        break;
-                    case ECBCommand.Type.DestroyEntity:
-                        archetype.Destroy(cmd.Entity);
-                        break;
-                    case ECBCommand.Type.Copy:
-                        archetype.Copy(cmd.Entity, cmd.AdditionalData);
-                        break;
-                    case ECBCommand.Type.RemoveAndDispose:
-                        if(archetype.Has(cmd.ComponentType) == false) break;
-                        archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                        world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                        break;
-                }
+                ProcessCommand(ref cmd, world.UnsafeWorld);
                 ecb->count--;
             }
             buffer->Clear();
+            ecb->componentBufferOffsets[0] = 0;
         }
+
         public void Playback(ref World world) {
-            
             for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
                 if (buffer->IsEmpty) continue;
-
                 for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-#if NUKECS_DEBUG
-                    world.UnsafeWorld->AddComponentChange(new World.ComponentChange
-                    {
-                        command = cmd.EcbCommandType,
-                        entityId = cmd.Entity,
-                        componentTypeIndex = cmd.ComponentType,
-                        timeStamp = world.UnsafeWorld->timeData.ElapsedTime
-                    });
-#endif
-                    
-                    ref var archetype = ref world.UnsafeWorld->GetEntityArchetypePtr(cmd.Entity).Ref;
-                    switch (cmd.EcbCommandType) {
-                        case ECBCommand.Type.AddComponent:
-                            if (archetype.Has(cmd.ComponentType))
-                            {
-                                UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                                break;
-                            }
-                            ref var pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
-                            pool.SetPtr(cmd.Entity, cmd.Component);
-                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.AddComponentPtr:
-                            if (archetype.Has(cmd.ComponentType))
-                            {
-                                if (cmd.IsDisposable)
-                                {
-                                    world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                                }
-                                break;
-                            }
-                            pool = ref world.UnsafeWorld->GetUntypedPool(cmd.ComponentType);
-                            pool.SetPtr(cmd.Entity, cmd.Component);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.AddComponentNoData:
-                            if(archetype.Has(cmd.ComponentType)) break;
-                            world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.RemoveComponent:
-                            if(archetype.Has(cmd.ComponentType) == false) break;
-                            world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
-                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.CreateEntity:
-                            world.Entity();
-                            break;
-                        case ECBCommand.Type.DestroyEntity:
-                            archetype.Destroy(cmd.Entity);
-                            break;
-                        case ECBCommand.Type.Copy:
-                            archetype.Copy(cmd.Entity, cmd.AdditionalData);
-                            break;
-                        case ECBCommand.Type.RemoveAndDispose:
-                            if(!archetype.Has(cmd.ComponentType)) break;
-                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            world.UnsafeWorld->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                            break;
-                    }
+                    ProcessCommand(ref cmd, world.UnsafeWorld);
                     ecb->count--;
                 }
                 buffer->Clear();
             }
+            for (var i = 0; i < ecb->threadCount; i++) {
+                ecb->componentBufferOffsets[i] = 0;
+            }
         }
-        internal void Playback(World.WorldUnsafe* world) 
-        {
-            for (var i = 0; i < ecb->perThreadBuffer->Length; i++) 
-            {
+
+        internal void Playback(World.WorldUnsafe* world) {
+            for (var i = 0; i < ecb->perThreadBuffer->Length; i++) {
                 var buffer = ecb->perThreadBuffer->ElementAt(i);
                 if (buffer->IsEmpty) continue;
-
-                for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) 
-                {
+                for (var cmdIndex = 0; cmdIndex < buffer->m_length; cmdIndex++) {
                     ref var cmd = ref buffer->ElementAt(cmdIndex);
-
-                    ref var archetype = ref world->GetEntityArchetypePtr(cmd.Entity).Ref;
-                    switch (cmd.EcbCommandType) 
-                    {
-                        case ECBCommand.Type.AddComponent:
-                            if (archetype.Has(cmd.ComponentType))
-                            {
-                                if (cmd.IsDisposable)
-                                {
-                                    world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                                }
-                                UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                                break;
-                            }
-                            ref var pool = ref world->GetUntypedPool(cmd.ComponentType);
-                            pool.SetPtr(cmd.Entity, cmd.Component);
-                            UnsafeUtility.Free(cmd.Component, Allocator.Temp);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.AddComponentPtr:
-                            if (archetype.Has(cmd.ComponentType))
-                            {
-                                if (cmd.IsDisposable)
-                                {
-                                    world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                                }
-                                break;
-                            }
-                            pool = ref world->GetUntypedPool(cmd.ComponentType);
-                            pool.SetPtr(cmd.Entity, cmd.Component);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.AddComponentNoData:
-                            if(archetype.Has(cmd.ComponentType)) break;
-                            world->GetUntypedPool(cmd.ComponentType).Set(cmd.Entity);
-                            archetype.OnEntityChangeECB(cmd.Entity, cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.RemoveComponent:
-                            if(!archetype.Has(cmd.ComponentType)) break;
-                            world->GetUntypedPool(cmd.ComponentType).Remove(cmd.Entity);
-                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            break;
-                        case ECBCommand.Type.CreateEntity:
-                            world->CreateEntity();
-                            break;
-                        case ECBCommand.Type.DestroyEntity:
-                            archetype.Destroy(cmd.Entity);
-                            break;
-                        case ECBCommand.Type.Copy:
-                            archetype.Copy(cmd.Entity, cmd.AdditionalData);
-                            break;
-                        case ECBCommand.Type.RemoveAndDispose:
-                            if(!archetype.Has(cmd.ComponentType)) break;
-                            archetype.OnEntityChangeECB(cmd.Entity, -cmd.ComponentType);
-                            world->GetUntypedPool(cmd.ComponentType).DisposeComponent(cmd.Entity);
-                            break;
-                    }
+                    ProcessCommand(ref cmd, world);
                     ecb->count--;
                 }
                 buffer->Clear();
+            }
+            for (var i = 0; i < ecb->threadCount; i++) {
+                ecb->componentBufferOffsets[i] = 0;
             }
         }
         public void Dispose() 

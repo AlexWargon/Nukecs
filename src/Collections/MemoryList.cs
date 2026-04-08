@@ -182,13 +182,14 @@ namespace Wargon.Nukecs.Collections
             newCapacity = math.max(0, newCapacity);
 
             T* newPointer = null;
+            var newPtrOffset = new ptr_offset();
 
             var sizeOf = sizeof(T);
 
             if (newCapacity > 0)
             {
-                var ptr = allocator.AllocateRaw(sizeOf * newCapacity);
-                newPointer = ptr.AsPtr<T>(ref allocator);
+                newPtrOffset = allocator.AllocateRaw(sizeOf * newCapacity);
+                newPointer = newPtrOffset.AsPtr<T>(ref allocator);
                 if (Ptr != null && capacity > 0)
                 {
                     var itemsToCopy = math.min(newCapacity, capacity);
@@ -197,6 +198,7 @@ namespace Wargon.Nukecs.Collections
                 }
             }
             allocator.Free(Ptr);
+            PtrOffset = newPtrOffset;
             Ptr = newPointer;
             capacity = newCapacity;
             length = math.min(length, newCapacity);
@@ -211,6 +213,15 @@ namespace Wargon.Nukecs.Collections
             for (var i = index; i < length; i++)
             {
                 *dst++ = *src++;
+            }
+        }
+
+        public void RemoveAtSwapBack(int index) {
+            length--;
+            if (index < length) {
+                UnsafeUtility.MemMove((byte*)Ptr + index * UnsafeUtility.SizeOf<T>(),
+                    (byte*)Ptr + length * UnsafeUtility.SizeOf<T>(),
+                    UnsafeUtility.SizeOf<T>());
             }
         }
 

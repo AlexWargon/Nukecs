@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using UnityEngine;
 
@@ -6,43 +7,47 @@ namespace Wargon.Nukecs
 {
     public static class dbug
     {
-        private static string hexColor;
         [BurstDiscard]
+        [Conditional("NUKECS_DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void log(object massage)
+        public static void log(object message)
         {
-            UnityEngine.Debug.Log(massage);
+            UnityEngine.Debug.Log(message);
         }
+        [BurstDiscard]
+        [Conditional("NUKECS_DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void log(string message, Color color)
         {
-            hexColor = ColorUtility.ToHtmlStringRGB(color);
-            Debug.Log($"<color=#{hexColor}>{message}</color>");
+            Debug.Log($"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{message}</color>");
         }
         [BurstDiscard]
+        [Conditional("NUKECS_DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void log(string massage)
+        public static void log(string message)
         {
-            //CustomConsoleWindow.AddMessage(massage);
-            UnityEngine.Debug.Log(massage);
+            UnityEngine.Debug.Log(message);
         }
         [BurstDiscard]
+        [Conditional("NUKECS_DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void error(string massage)
+        public static void error(string message)
         {
-            UnityEngine.Debug.LogError(massage);
+            UnityEngine.Debug.LogError(message);
         }
         [BurstDiscard]
+        [Conditional("NUKECS_DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void error_no_componnet<T>(Entity entity)
+        public static void error_no_component<T>(Entity entity)
         {
-            UnityEngine.Debug.LogError($"entity: {entity.id}, has no componnet {typeof(T).Name}" );
+            UnityEngine.Debug.LogError($"entity: {entity.id}, has no component {typeof(T).Name}" );
         }
         [BurstDiscard]
+        [Conditional("NUKECS_DEBUG")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void warn(string massage)
+        public static void warn(string message)
         {
-            UnityEngine.Debug.LogWarning(massage);
+            UnityEngine.Debug.LogWarning(message);
         }
     }
 }

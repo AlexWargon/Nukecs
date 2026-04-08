@@ -10,8 +10,9 @@ namespace Wargon.Nukecs
 
         static rng()
         {
-            var seed = malloc_t<uint>(Allocator.Temp);
-            random.Data = new random(*seed);
+            var seed = (uint)System.DateTime.UtcNow.Ticks;
+            if (seed == 0) seed = 1;
+            random.Data = new random(seed);
         }
         [BurstCompile]
         public static int range(int min, int max)

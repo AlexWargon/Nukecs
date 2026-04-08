@@ -70,10 +70,11 @@ namespace Wargon.Nukecs
                 case SystemMode.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
                 case SystemMode.Parallel:
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, 1, 1);
+                    var workers = JobsUtility.JobWorkerCount;
+                    var batch = query.Count > workers ? query.Count / workers : 1;
+                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, batch);
             }
-            //var workers = JobsUtility.JobWorkerCount;
-            //var batchCount = query.Count > workers ? query.Count / workers : 1;
+
             return dependsOn;
         }
     }

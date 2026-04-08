@@ -204,22 +204,32 @@ namespace Wargon.Nukecs {
 
     internal static class StaticObjectRefStorage
     {
+        private static readonly object syncRoot = new object();
         internal static readonly AutoArray<object> Objects = new AutoArray<object>(32, 1);
 
         internal static int Add<T>(T item)
         {
             if (item == null) throw new ArgumentNullException(nameof(item), "Cannot add null to StaticObjectRefStorage");
-            return Objects.Add(item);
+            lock (syncRoot)
+            {
+                return Objects.Add(item);
+            }
         }
 
         internal static void Remove(int index)
         {
-            Objects.Remove(index);
+            lock (syncRoot)
+            {
+                Objects.Remove(index);
+            }
         }
 
         internal static void Clear()
         {
-            Objects.Clear();
+            lock (syncRoot)
+            {
+                Objects.Clear();
+            }
         }
     }
 

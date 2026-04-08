@@ -159,7 +159,7 @@ namespace Wargon.Nukecs
         public ref T this[int index]
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *cached;
+            get => ref cached[index];
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(ptr<T> other)

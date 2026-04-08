@@ -318,7 +318,7 @@ namespace Wargon.Nukecs
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
 
-            if (chunkIndex > Chunks.capacity) Chunks.Resize(Chunks.capacity * 2, ref world.Ref.AllocatorRef);
+            if (chunkIndex >= Chunks.capacity) Chunks.Resize(Chunks.capacity * 2, ref world.Ref.AllocatorRef);
             ref var chunk = ref Chunks.ElementAt(chunkIndex);
             if (chunk.isCreated == 0)
             {

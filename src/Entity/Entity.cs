@@ -13,6 +13,7 @@ namespace Wargon.Nukecs
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
+        public ushort generation;
 
         [NativeDisableUnsafePtrRestriction] [NonSerialized]
         public World.WorldUnsafe* worldPointer;
@@ -32,6 +33,7 @@ namespace Wargon.Nukecs
         internal Entity(int id, World.WorldUnsafe* worldPointer)
         {
             this.id = id;
+            this.generation = worldPointer->entityGenerations[id];
             this.worldPointer = worldPointer;
         }
 
@@ -41,6 +43,7 @@ namespace Wargon.Nukecs
         internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype)
         {
             this.id = id;
+            this.generation = worldPointer->entityGenerations[id];
             this.worldPointer = worldPointer;
             this.worldPointer->entitiesArchetypes.ElementAt(id) = archetype;
         }
@@ -60,6 +63,8 @@ namespace Wargon.Nukecs
             }
         }
 
+        public bool IsAlive => id != 0 && generation == worldPointer->entityGenerations[id];
+
         public override string ToString()
         {
             return $"e:{id}";
@@ -71,7 +76,7 @@ namespace Wargon.Nukecs
 #endif
         public bool Equals(Entity other)
         {
-            return id == other.id;
+            return id == other.id && generation == other.generation;
         }
 
 #if !NUKECS_DEBUG
@@ -87,7 +92,7 @@ namespace Wargon.Nukecs
 #endif
         public override int GetHashCode()
         {
-            return HashCode.Combine(id, unchecked((int)(long)worldPointer));
+            return id * 397 ^ generation.GetHashCode();
         }
 
 #if !NUKECS_DEBUG
@@ -95,7 +100,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator ==(in Entity one, in Entity two)
         {
-            return one.id == two.id;
+            return one.id == two.id && one.generation == two.generation;
         }
 
 #if !NUKECS_DEBUG
@@ -103,7 +108,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator !=(in Entity one, in Entity two)
         {
-            return one.id != two.id;
+            return one.id != two.id || one.generation != two.generation;
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -423,7 +428,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static Entity CopyVieECB(this in Entity entity)
+        public static Entity CopyViaECB(this in Entity entity)
         {
             var e = entity.worldPointer->CreateEntity();
             entity.worldPointer->ECB.Copy(entity.id, e.id);
