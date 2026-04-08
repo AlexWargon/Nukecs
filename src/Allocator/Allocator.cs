@@ -79,6 +79,7 @@ namespace Wargon.Nukecs
         {
             this.maxBlocks = maxBlocks;
             totalSize = sizeInBytes;
+            freeListDirty = false;
             basePtr = (byte*)UnsafeUtility.Malloc(totalSize, ALIGNMENT, Allocator.Persistent);
             blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * this.maxBlocks, ALIGNMENT, Allocator.Persistent);
             UnsafeUtility.MemClear(basePtr, totalSize);
