@@ -192,7 +192,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Set<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
+        public static void Set<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType)) return;

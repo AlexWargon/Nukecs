@@ -22,7 +22,7 @@ namespace Wargon.Nukecs
             worlds.Data = new MemoryList<World>(4, ref *allocator, true);
             staticInited = true;
         }
-
+        
         public static ref World Get(int index)
         {
             if (allocator != null)

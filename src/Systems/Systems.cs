@@ -42,7 +42,7 @@ namespace Wargon.Nukecs
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
-            _state.Dependencies.Complete();
+
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
             _state.Time.DeltaTime = dt;
@@ -65,6 +65,7 @@ namespace Wargon.Nukecs
                     _state.Dependencies = fixedRunners[i].Schedule(UpdateContext.Update, ref _state);
                 _timeSinceLastFixedUpdate = 0;
             }
+            _state.Dependencies.Complete();
             _allSystems.End();
         }
         

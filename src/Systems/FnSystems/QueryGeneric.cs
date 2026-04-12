@@ -49,9 +49,15 @@ namespace Wargon.Nukecs {
         public readonly int start;
         public readonly int end;
 
-        public Range(int start, int end) {
+        public Range(int start, int end)
+        {
             this.start = start;
             this.end = end;
+        }
+
+        public override string ToString()
+        {
+            return $"Range:[{start}, {end}]";
         }
     }
 
