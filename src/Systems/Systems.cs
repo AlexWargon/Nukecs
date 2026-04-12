@@ -411,7 +411,7 @@ namespace Wargon.Nukecs
     public interface IComplete
     {
     }
-
+    [Obsolete]
     public interface ISystem
     {
         void OnUpdate(ref State state);

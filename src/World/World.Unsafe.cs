@@ -338,14 +338,14 @@ namespace Wargon.Nukecs
                 e.Add(in c1);
                 return ref e;
             }
-            internal Entity CreateEntity<T1, T2>(in T1 c1, in T2 c2) 
+            internal ref Entity CreateEntity<T1, T2>(in T1 c1, in T2 c2) 
                 where T1 : unmanaged, IComponent 
                 where T2 : unmanaged, IComponent 
             {
-                var e = CreateEntity();
+                ref var e = ref CreateEntity();
                 e.Add(in c1);
                 e.Add(in c2);
-                return e;
+                return ref e;
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
