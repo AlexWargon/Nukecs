@@ -1,7 +1,5 @@
 using System;
 using NUnit.Framework;
-using Unity.Jobs;
-using Wargon.Nukecs;
 
 namespace Wargon.Nukecs.Tests
 {
@@ -14,12 +12,24 @@ namespace Wargon.Nukecs.Tests
     public static class TestSystems
     {
         [System]
-        public static void Movement(ref Query<PositionTest, VelocityTest> query, ref State state)
+        public static void Movement(ref Query<PositionTest, VelocityTest>.WithEntity query, ref State state)
         {
-            foreach (var (pos, vel) in query)
+            foreach (var (e,pos, vel) in query)
             {
                 pos.Get.X += vel.Read.X * state.Time.DeltaTime;
                 pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
+                dbug.log($"{e.id} : {pos.Get.Y}");
+            }
+        }
+
+        public static void TwoQueries(ref Query<PositionTest, VelocityTest> q1, ref Query<HealthTest> q2)
+        {
+            foreach (var (pos, vel) in q1)
+            {
+                foreach (ref var h in q2)
+                {
+                    
+                }
             }
         }
     }
@@ -104,7 +114,6 @@ namespace Wargon.Nukecs.Tests
                 new VelocityTest { X = 1f, Y = 2f }
             );
             world.Update();
-
             // Запускаем системы
             systems.OnUpdate(1f, 1f);
 
@@ -119,25 +128,43 @@ namespace Wargon.Nukecs.Tests
         [Test]
         public void SystemExample_CodeGeneratedSystemParallel()
         {
-            var world = World.Create(WorldConfig.Default256);
+            var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
 
+            
             // Добавляем кодогенерируемую систему в параллельном режиме
-            systems.Add(TestSystems.Movement, Threads.Parallel);
-
+            systems.Add(TestSystems.Movement, Threads.Main);
+            var query = world.Query().With<PositionTest>().With<VelocityTest>();
             // Создаем несколько сущностей
-            for (int i = 0; i < 10; i++)
+            var entityList = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < 1000; i++)
             {
-                world.Entity(
+                var e = world.Entity(
                     new PositionTest { X = 0f, Y = 0f },
                     new VelocityTest { X = 1f, Y = 1f }
                 );
+                entityList.Add(e.id);
             }
+            world.Update();
             // Запускаем системы
             systems.OnUpdate(1f, 1f);
 
             // Проверяем все сущности
-            var query = world.Query().With<PositionTest>().With<VelocityTest>();
+            // foreach (var i in entityList)
+            // {
+            //     ref var e = ref world.GetEntity(i);
+            //     ref var pos = ref e.Get<PositionTest>();
+            //     Assert.AreEqual(1f, pos.X, "All positions X should be updated in parallel");
+            //     Assert.AreEqual(1f, pos.Y, "All positions Y should be updated in parallel");
+            // }
+            // for (int i = 0; i < 1000; i++)
+            // {
+            //     ref var e = ref world.GetEntity(i);
+            //     ref var pos = ref e.Get<PositionTest>();
+            //     Assert.AreEqual(1f, pos.X, "All positions X should be updated in parallel");
+            //     Assert.AreEqual(1f, pos.Y, "All positions Y should be updated in parallel");
+            // }
+            dbug.log($"query.Count:{query.Count}");
             foreach (ref var entity in query)
             {
                 ref var pos = ref entity.Get<PositionTest>();
@@ -156,10 +183,8 @@ namespace Wargon.Nukecs.Tests
 
             entity.AddArray<ChildTest>();
 
-
             ref var children = ref entity.Get<ComponentArray<ChildTest>>();
 
-            // Добавляем несколько элементов
             children.Add(new ChildTest { ParentId = 1 });
             children.Add(new ChildTest { ParentId = 2 });
             children.Add(new ChildTest { ParentId = 3 });

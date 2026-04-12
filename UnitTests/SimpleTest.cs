@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using Wargon.Nukecs;
 
 namespace Wargon.Nukecs.Tests
 {
