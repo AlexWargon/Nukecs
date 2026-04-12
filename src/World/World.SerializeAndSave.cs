@@ -40,6 +40,53 @@ namespace Wargon.Nukecs {
                 entity.worldPointer = UnsafeWorld->Self;
             }
         }
+
+        public partial struct WorldUnsafe
+        {
+            internal void OnDeserialize(ref MemAllocator allocator)
+            {
+                selfPtr.OnDeserialize(ref allocator);
+#if NUKECS_DEBUG
+                entitiesDens.OnDeserialize(ref allocator);
+                storyLog.OnDeserialize(ref allocator);
+#endif
+                entities.OnDeserialize(ref allocator);
+                prefabsToSpawn.OnDeserialize(ref allocator);
+                reservedEntities.OnDeserialize(ref allocator);
+                rootArchetype.ptr.OnDeserialize(ref allocator);
+                rootArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                entitiesArchetypes.OnDeserialize(ref allocator);
+
+                pools.OnDeserialize(ref allocator);
+                foreach (ref var genericPool in pools)
+                {
+                    if(genericPool.IsCreated)
+                        genericPool.OnDeserialize(ref allocator);
+                }
+                
+                queries.OnDeserialize(ref allocator);
+                foreach (ref var query in queries)
+                {
+                    query.OnDeserialize(ref allocator);
+                    query.Ref.OnDeserialize(ref allocator);
+                }
+
+                archetypesList.OnDeserialize(ref allocator);
+                foreach (ref var ptr in archetypesList)
+                {
+                    ptr.OnDeserialize(ref allocator);
+                    ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                }
+                archetypesMap.OnDeserialize(ref allocator, Allocator);
+                foreach (var kvPair in archetypesMap)
+                {
+                    kvPair.Value.ptr.OnDeserialize(ref allocator);
+                    kvPair.Value.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                }
+
+                DefaultNoneTypes.OnDeserialize(ref allocator);
+            }
+        }
     }
 
     public partial struct World {

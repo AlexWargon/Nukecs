@@ -15,49 +15,6 @@ namespace Wargon.Nukecs
     {
         [StructLayout(LayoutKind.Sequential)]
         public partial struct WorldUnsafe {
-            internal void OnDeserialize(ref MemAllocator allocator)
-            {
-                selfPtr.OnDeserialize(ref allocator);
-#if NUKECS_DEBUG
-                entitiesDens.OnDeserialize(ref allocator);
-                storyLog.OnDeserialize(ref allocator);
-#endif
-                entities.OnDeserialize(ref allocator);
-                prefabsToSpawn.OnDeserialize(ref allocator);
-                reservedEntities.OnDeserialize(ref allocator);
-                rootArchetype.ptr.OnDeserialize(ref allocator);
-                rootArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
-                entitiesArchetypes.OnDeserialize(ref allocator);
-
-                pools.OnDeserialize(ref allocator);
-                foreach (ref var genericPool in pools)
-                {
-                    if(genericPool.IsCreated)
-                        genericPool.OnDeserialize(ref allocator);
-                }
-                
-                queries.OnDeserialize(ref allocator);
-                foreach (ref var query in queries)
-                {
-                    query.OnDeserialize(ref allocator);
-                    query.Ref.OnDeserialize(ref allocator);
-                }
-
-                archetypesList.OnDeserialize(ref allocator);
-                foreach (ref var ptr in archetypesList)
-                {
-                    ptr.OnDeserialize(ref allocator);
-                    ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
-                }
-                archetypesMap.OnDeserialize(ref allocator, Allocator);
-                foreach (var kvPair in archetypesMap)
-                {
-                    kvPair.Value.ptr.OnDeserialize(ref allocator);
-                    kvPair.Value.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
-                }
-
-                DefaultNoneTypes.OnDeserialize(ref allocator);
-            }
             
             internal WorldConfig config;
             internal const int FIRST_ENTITY_ID = 1;
@@ -166,13 +123,13 @@ namespace Wargon.Nukecs
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public Entity CreateEntity() {
+            public ref Entity CreateEntity() {
                 if (lastEntityIndex >= entities.Capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                 }
-                Entity e;
+                ref Entity e = ref entities.ElementAt(lastEntityIndex);
                 entitiesAmount++;
                 var last = lastEntityIndex;
                 if (reservedEntities.length > 0) {
@@ -180,20 +137,18 @@ namespace Wargon.Nukecs
                     reservedEntities.RemoveAt(reservedEntities.length - 1);
                     e = new Entity(last, Self);
                     entitiesArchetypes.ElementAt(e.id) = 0;
-                    entities.ElementAt(last) = e;
 #if NUKECS_DEBUG
                     entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
-                    return e;
+                    return ref e;
                 }
                 e = new Entity(last, Self);
-                entities.ElementAt(last) = e;
                 entitiesArchetypes.ElementAt(e.id) = 0;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
                 lastEntityIndex++;
-                return e;
+                return ref e;
             }
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -338,8 +293,10 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-            internal void OnDestroyEntity(int entity) {
-                entities.ElementAt(entity) = Nukecs.Entity.Null;
+            internal void OnDestroyEntity(int entity)
+            {
+                ref var e = ref entities.ElementAt(entity);
+                e = Nukecs.Entity.Null;
                 reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
@@ -347,6 +304,7 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
                 entitiesDens.Remove(entity);
 #endif
+                dbug.log($"Entity {entity} destroyed");
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)
@@ -373,12 +331,12 @@ namespace Wargon.Nukecs
             //     return e;
             // }
 
-            internal Entity CreateEntity<T1>(in T1 c1) 
+            internal ref Entity CreateEntity<T1>(in T1 c1) 
                 where T1 : unmanaged, IComponent 
             {   
-                var e = CreateEntity();
+                ref var e = ref CreateEntity();
                 e.Add(in c1);
-                return e;
+                return ref e;
             }
             internal Entity CreateEntity<T1, T2>(in T1 c1, in T2 c2) 
                 where T1 : unmanaged, IComponent 
