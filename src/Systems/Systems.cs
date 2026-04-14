@@ -7,7 +7,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
-using Wargon.Nukecs.Editor;
 
 namespace Wargon.Nukecs
 {
@@ -412,7 +411,6 @@ namespace Wargon.Nukecs
     public interface IComplete
     {
     }
-    [Obsolete]
     public interface ISystem
     {
         void OnUpdate(ref State state);

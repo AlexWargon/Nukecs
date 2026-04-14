@@ -15,7 +15,7 @@ namespace Wargon.Nukecs
         protected World world;
         public ref World World => ref world;
         protected Systems Systems;
-        protected virtual WorldConfig GetConfig() => WorldConfig.Default16384;
+        protected virtual WorldConfig GetConfig() => WorldConfig.Default256;
 
         private unsafe void Awake()
         {

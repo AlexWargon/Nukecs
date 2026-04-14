@@ -161,7 +161,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
+        public static void Add<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
@@ -365,7 +365,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Destroy(this ref Entity entity)
+        public static void Destroy(this in Entity entity)
         {
             entity.Add(new DestroyEntity());
         }

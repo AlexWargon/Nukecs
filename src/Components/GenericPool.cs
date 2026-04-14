@@ -245,10 +245,18 @@ namespace Wargon.Nukecs
             var chunkIndex = index / MAX_CHUNK_SIZE;
             var componentIndex = index % MAX_CHUNK_SIZE;
             ref var page = ref chunks[chunkIndex];
-
             return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe T* GetPtr<T>(Chunk* chunks, int index) where T : unmanaged
+        {
+            var chunkIndex = index / MAX_CHUNK_SIZE;
+            var componentIndex = index % MAX_CHUNK_SIZE;
+            ref var page = ref chunks[chunkIndex];
+            return get_element_ptr<T>(page.buffer.Ptr, componentIndex);
+        }
+        
         public void OnDeserialize(ref MemAllocator allocator)
         {
             buffer.OnDeserialize(ref allocator);

@@ -30,7 +30,13 @@ namespace Wargon.Nukecs
         public static unsafe T get_element<T>(byte* ptr, int index) where T : unmanaged
         {
             return *((T*)ptr + index);
-        } 
+        }
+        
+        [MethodImpl(inline.YES)]
+        public static unsafe T* get_element_ptr<T>(void* ptr, int index) where T : unmanaged
+        {
+            return (T*)ptr + index;
+        }
         
         [MethodImpl(inline.YES)]
         public static unsafe ref T get_ref<T>(void* ptr) where T : unmanaged
