@@ -12,25 +12,19 @@ namespace Wargon.Nukecs {
         [NativeDisableUnsafePtrRestriction]
         internal readonly QueryUnsafe* InternalPointer;
         public int Count {
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             get => InternalPointer->count;
         }
 
         public bool IsEmpty
         {
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             get => InternalPointer->count == 0;
         }
         internal int CountMulti => InternalPointer->count / InternalPointer->world->job_worker_count;
         public bool IsValid
         {
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             get => InternalPointer != null;
         }
 
@@ -110,10 +104,10 @@ namespace Wargon.Nukecs {
         internal DynamicBitmask none;
         internal MemoryList<int> entities;
         internal MemoryList<int> entitiesMap;
-#if UNITY_EDITOR
-        internal MemoryList<int> withDebug;
-        internal MemoryList<int> noneDebug;
-#endif
+// #if UNITY_EDITOR
+//         internal MemoryList<int> withDebug;
+//         internal MemoryList<int> noneDebug;
+// #endif
         internal int count;
         [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
         [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
@@ -126,10 +120,10 @@ namespace Wargon.Nukecs {
             none.OnDeserialize(ref allocator);
             entities.OnDeserialize(ref allocator);
             entitiesMap.OnDeserialize(ref allocator);
-#if UNITY_EDITOR
-            withDebug.OnDeserialize(ref allocator);
-            noneDebug.OnDeserialize(ref allocator);
-#endif
+// #if UNITY_EDITOR
+//             withDebug.OnDeserialize(ref allocator);
+//             noneDebug.OnDeserialize(ref allocator);
+// #endif
         }
         internal static void Free(QueryUnsafe* queryImpl) {
             queryImpl->Free();
@@ -154,10 +148,10 @@ namespace Wargon.Nukecs {
             this.world = world;
             this.with = DynamicBitmask.CreateForComponents(world);
             this.none = DynamicBitmask.CreateForComponents(world);
-#if UNITY_EDITOR
-            this.withDebug = new MemoryList<int>(16, ref world->AllocatorRef);
-            this.noneDebug = new MemoryList<int>(8, ref world->AllocatorRef);
-#endif
+// #if UNITY_EDITOR
+//             this.withDebug = new MemoryList<int>(16, ref world->AllocatorRef);
+//             this.noneDebug = new MemoryList<int>(8, ref world->AllocatorRef);
+// #endif
             this.count = 0;
             this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
             this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
@@ -165,37 +159,30 @@ namespace Wargon.Nukecs {
             this.self = self;
             if (withDefaultNoneTypes) {
                 foreach (var type in world->DefaultNoneTypes) {
-#if UNITY_EDITOR
-                    noneDebug.Add(type, ref world->AllocatorRef);
-#endif
+// #if UNITY_EDITOR
+//                     noneDebug.Add(type, ref world->AllocatorRef);
+// #endif
                     none.Add(type);
                 }    
             }
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public ref Entity GetEntity(int index) {
             return ref world->entities.ElementAt(entities.ElementAt(index));
         }
-//#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-//#endif
         public int GetEntityID(int index)
         {
             return entities.ElementAt(index);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         internal void Add(int entity) 
         {
             entities.ElementAt(count++) = entity;
             entitiesMap[entity] = count;
         }
-#if !NUKECS_DEBUG
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         internal void Remove(int entity)
         {
             var index = entitiesMap[entity] - 1;
@@ -214,9 +201,9 @@ namespace Wargon.Nukecs {
         
         public QueryUnsafe* With(int type) {
             with.Add(type);
-#if UNITY_EDITOR
-            withDebug.Add(type, ref world->AllocatorRef);
-#endif
+// #if UNITY_EDITOR
+//             withDebug.Add(type, ref world->AllocatorRef);
+// #endif
             return self;
         }
 
@@ -230,9 +217,9 @@ namespace Wargon.Nukecs {
 
         public QueryUnsafe* None(int type) {
             none.Add(type);
-#if UNITY_EDITOR
-            noneDebug.Add(type, ref world->AllocatorRef);
-#endif
+// #if UNITY_EDITOR
+//             noneDebug.Add(type, ref world->AllocatorRef);
+// #endif
             return self;
         }
         [BurstDiscard]
@@ -256,16 +243,12 @@ namespace Wargon.Nukecs {
     public unsafe ref struct QueryEnumerator {
         private int _lastIndex;
         private readonly QueryUnsafe* _query;
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         internal QueryEnumerator(QueryUnsafe* queryUnsafe) {
             _query = queryUnsafe;
             _lastIndex = -1;
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public bool MoveNext() {
             _lastIndex++;
             return _query->count > _lastIndex;
@@ -276,9 +259,7 @@ namespace Wargon.Nukecs {
         }
 
         public ref Entity Current {
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             get => ref _query->GetEntity(_lastIndex);
         }
     }

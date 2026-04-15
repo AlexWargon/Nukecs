@@ -213,19 +213,20 @@ namespace Wargon.Nukecs
                 _tOption.index = _t1.index;
                 return true;
             }
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c) { c = _t1; e = default; }
+            public readonly void Deconstruct(out Entity e, out Ref<T1> c)
+            {
+                c = _t1; 
+                e = _query.cached->GetEntity(_current);
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly void Deconstruct(out Entity e, out Ref<T1> c, out Ref<TOption> opt)
             {
                 c = _t1; opt = _tOption;
                 e = _query.cached->GetEntity(_current);
             }
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly void Deconstruct(out Ref<T1> c, out Ref<TOption> opt)
-            {
-                c = _t1; opt = _tOption;
-            }
+
             public void Init(ref ptr<World.WorldUnsafe> world)
             {
                 _query = world.Ref.CreateQueryPtr();

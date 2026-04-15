@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
 {
@@ -8,7 +9,7 @@ namespace Wargon.Nukecs.Tests
         public float X;
         public float Y;
     }
-
+    
     public static class TestSystems
     {
         [System]
@@ -18,6 +19,22 @@ namespace Wargon.Nukecs.Tests
             {
                 pos.Get.X += vel.Read.X * state.Time.DeltaTime;
                 pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
+            }
+        }
+        [System]
+        public static void AddComponentSystem(ref Query<PositionTest, None<VelocityTest>>.WithEntity query)
+        {
+            foreach (var (e, _) in query)
+            {
+                e.Add(new VelocityTest());
+            }
+        }
+        [System]
+        public static void RemoveComponentSystem(ref Query<PositionTest, VelocityTest>.WithEntity query)
+        {
+            foreach (var (e, _, _) in query)
+            {
+                e.Remove<VelocityTest>();
             }
         }
     }
@@ -59,7 +76,27 @@ namespace Wargon.Nukecs.Tests
         {
             World.DisposeStatic();
         }
+        [Test]
+        public void AddRemoveSystem()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
 
+            systems.Add(TestSystems.AddComponentSystem, Threads.Main);
+            systems.Add(TestSystems.RemoveComponentSystem, Threads.Main);
+            systems.Add(TestSystems.RemoveComponentSystem, Threads.Main);
+            
+            var entity = world.Entity(
+                new PositionTest { X = 0f, Y = 0f }
+            );
+            world.Update();
+
+            systems.OnUpdate(1f, 1f);
+
+            Assert.IsTrue(!entity.Has<VelocityTest>());
+
+            world.Dispose();
+        }
         [Test]
         public void SystemExample_ISystemImplementation()
         {
@@ -383,5 +420,54 @@ namespace Wargon.Nukecs.Tests
 
             world.Dispose();
         }
+        // [Test]
+        // public void AddRemoveSystemMain()
+        // {
+        //     var world = World.Create(WorldConfig.Default256);
+        //     var systems = new Systems(ref world);
+        //     systems.Add(TestSystems.AddComponentSystem, Threads.Main);
+        //     systems.Add(TestSystems.RemoveComponentSystem, Threads.Main);
+        //     
+        //     var entity = world.Entity();
+        //     entity.Add(new PositionTest());
+        //     world.Update();
+        //     systems.OnUpdate(1f,1f);
+        //     Assert.IsTrue(!entity.Has<VelocityTest>());
+        //     Assert.IsTrue(entity.Has<PositionTest>());
+        // }
+        //
+        // [Test]
+        // public void AddRemoveSystemSingle()
+        // {
+        //     var world = World.Create(WorldConfig.Default256);
+        //     var systems = new Systems(ref world);
+        //     systems.Add(TestSystems.AddComponentSystem, Threads.Single);
+        //     systems.Add(TestSystems.RemoveComponentSystem, Threads.Single);
+        //     
+        //     var entity = world.Entity();
+        //     entity.Add(new PositionTest());
+        //     world.Update();
+        //     systems.OnUpdate(1f,1f);
+        //     
+        //     Assert.IsTrue(!entity.Has<VelocityTest>());
+        //     Assert.IsTrue(entity.Has<PositionTest>());
+        // }
+        // [Test]
+        // public void AddRemoveSystemParallel()
+        // {
+        //     var world = World.Create(WorldConfig.Default256);
+        //     var systems = new Systems(ref world);
+        //     systems.Add(TestSystems.AddComponentSystem);
+        //     systems.Add(TestSystems.RemoveComponentSystem);
+        //     
+        //     var entity = world.Entity();
+        //     entity.Add(new PositionTest());
+        //     world.Update();
+        //     systems.OnUpdate(1f,1f);
+        //     // MUST BE ONLY ONE AND WORK, BUT NOW WORK ONLY WITH TWO. 15 04 2026
+        //     systems.OnUpdate(1f,1f);
+        //     Assert.IsTrue(!entity.Has<VelocityTest>());
+        //     Assert.IsTrue(entity.Has<PositionTest>());
+        // }
     }
 }

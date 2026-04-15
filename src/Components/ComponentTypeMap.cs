@@ -43,8 +43,9 @@ namespace Wargon.Nukecs
         public static void InitializeComponentType<T>(int index) where T : unmanaged
         {
             Add(typeof(T), index);
-            _ = AddComponentType<T>(index);
+            var data = AddComponentType<T>(index);
             ComponentHelpers.CreateWriter<T>(index);
+            ComponentType<T>.Data = data;
         }
 
         public static unsafe void InitializeElementType<T>(int index) where T : unmanaged, IArrayComponent

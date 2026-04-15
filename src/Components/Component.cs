@@ -96,9 +96,9 @@
     public struct ChildOf : IComponent {
         public Entity Value;
     }
-#if NUKECS_DEBUG
+//#if NUKECS_DEBUG
     public struct DebugView : IComponent {}
-#endif
+//#endif
     public sealed class UseWith : Attribute
     {
         public Type[] types;

@@ -129,7 +129,9 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         private static void Init() {
-            ID.Data = ComponentTypeMap.GetComponentType<T>();
+            if (TypeToComponentType.Map.TryGetValue(typeof(T), out var data)) {
+                ID.Data = data;
+            }
         }
     }
 

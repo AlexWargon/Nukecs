@@ -67,16 +67,12 @@ namespace Wargon.Nukecs
         {
             UnsafeUtility.MemMove(dest, src, length);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(inline.YES)]
-#endif
         public static unsafe void mem_clear(void* dest, long size)
         {
             UnsafeUtility.MemClear(dest, size);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(inline.YES)]
-#endif
         public static unsafe T* cast<T>(void* ptr) where T : unmanaged
         {
             return (T*)ptr;

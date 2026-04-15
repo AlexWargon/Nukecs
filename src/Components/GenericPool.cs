@@ -62,10 +62,8 @@ namespace Wargon.Nukecs
         {
             return UnsafeBufferPtr.Ref.GetPtr(index);
         }
-
-#if !NUKECS_DEBUG
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public void Set<T>(int index, in T value) where T : unmanaged
         {
             UnsafeBufferPtr.Ref.Add(index, in value);
@@ -121,26 +119,17 @@ namespace Wargon.Nukecs
         {
             UnsafeBufferPtr.Ref.Remove(index);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public void DisposeComponent(int index)
         {
             UnsafeBufferPtr.Ref.DisposeComponent(index);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public void Copy(int source, int destination)
         {
             UnsafeBufferPtr.Ref.Copy(source, destination);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-
-
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckResize(int index)
         {
         }
@@ -318,10 +307,7 @@ namespace Wargon.Nukecs
             ptr.Ref.world = world;
             return ptr;
         }
-
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public ref Chunk GetChunk(int entity)
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
@@ -354,10 +340,8 @@ namespace Wargon.Nukecs
         {
             return entity % Chunk.MAX_CHUNK_SIZE;
         }
-
-#if !NUKECS_DEBUG
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         public void Add<T>(int entity, in T data) where T : unmanaged
         {
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;

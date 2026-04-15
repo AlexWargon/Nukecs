@@ -228,7 +228,7 @@ namespace Wargon.Nukecs.Tests
             world.Update();
 
             var count = 0;
-            foreach (var entity in query)
+            foreach (ref var entity in query)
             {
                 count++;
                 Assert.IsTrue(entity.Has<HealthTest>());
