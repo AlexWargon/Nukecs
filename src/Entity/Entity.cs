@@ -130,7 +130,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         [BurstCompile]
-        public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent
+        public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType))

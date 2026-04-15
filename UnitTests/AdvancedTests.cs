@@ -66,20 +66,16 @@ namespace Wargon.Nukecs.Tests
             var world = World.Create(WorldConfig.Default256);
             var systems = new Systems(ref world);
 
-            // Добавляем систему, реализующую ISystem
             systems.Add<MovementSystemTest>();
 
-            // Создаем сущность с компонентами
             var entity = world.Entity(
                 new PositionTest { X = 0f, Y = 0f },
                 new VelocityTest { X = 1f, Y = 2f }
             );
             world.Update();
 
-            // Запускаем системы
             systems.OnUpdate(1f, 1f);
 
-            // Проверяем результат
             ref var pos = ref entity.Get<PositionTest>();
             Assert.AreEqual(1f, pos.X, "Position X should be updated by system");
             Assert.AreEqual(2f, pos.Y, "Position Y should be updated by system");
@@ -88,24 +84,20 @@ namespace Wargon.Nukecs.Tests
         }
 
         [Test]
-        public void SystemExample_CodeGeneratedSystem()
+        public void CodeGeneratedSystem()
         {
             var world = World.Create(WorldConfig.Default256);
             var systems = new Systems(ref world);
 
-            // Добавляем кодогенерируемую систему
             systems.Add(TestSystems.Movement, Threads.Main);
 
-            // Создаем сущность с компонентами
             var entity = world.Entity(
                 new PositionTest { X = 0f, Y = 0f },
                 new VelocityTest { X = 1f, Y = 2f }
             );
             world.Update();
-            // Запускаем системы
             systems.OnUpdate(1f, 1f);
 
-            // Проверяем результат
             ref var pos = ref entity.Get<PositionTest>();
             Assert.AreEqual(1f, pos.X, "Position X should be updated by code-generated system");
             Assert.AreEqual(2f, pos.Y, "Position Y should be updated by code-generated system");
@@ -113,15 +105,14 @@ namespace Wargon.Nukecs.Tests
             world.Dispose();
         }
         [Test]
-        public void SystemExample_1000_Entities_CodeGeneratedSystemSingle()
+        public void CodeGeneratedSystemSingle()
         {
             var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
-            
-            // Добавляем кодогенерируемую систему в параллельном режиме
+
             systems.Add(TestSystems.Movement, Threads.Single);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
-            // Создаем несколько сущностей
+
             for (var i = 0; i < 1000; i++)
             {
                 var e = world.Entity(
@@ -130,7 +121,7 @@ namespace Wargon.Nukecs.Tests
                 );
             }
             world.Update();
-            // Запускаем системы
+
             systems.OnUpdate(1f, 1f);
 
             foreach (ref var entity in query)
@@ -143,16 +134,13 @@ namespace Wargon.Nukecs.Tests
             world.Dispose();
         }
         [Test]
-        public void SystemExample_1000_Entities_CodeGeneratedSystemMain()
+        public void CodeGeneratedSystemMain()
         {
             var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
-
-            
-            // Добавляем кодогенерируемую систему в параллельном режиме
             systems.Add(TestSystems.Movement, Threads.Main);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
-            // Создаем несколько сущностей
+
             for (var i = 0; i < 1000; i++)
             {
                 var e = world.Entity(
@@ -161,7 +149,7 @@ namespace Wargon.Nukecs.Tests
                 );
             }
             world.Update();
-            // Запускаем системы
+
             systems.OnUpdate(1f, 1f);
             foreach (ref var entity in query)
             {
@@ -173,15 +161,14 @@ namespace Wargon.Nukecs.Tests
             world.Dispose();
         }
         [Test]
-        public void SystemExample_1000_Entities_CodeGeneratedSystemParallel()
+        public void CodeGeneratedSystemParallel()
         {
             var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
-            
-            // Добавляем кодогенерируемую систему в параллельном режиме
+
             systems.Add(TestSystems.Movement, Threads.Parallel);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
-            // Создаем несколько сущностей
+
             for (var i = 0; i < 1000; i++)
             {
                 var e = world.Entity(
@@ -239,7 +226,6 @@ namespace Wargon.Nukecs.Tests
             children.Add(new ChildTest { ParentId = 2 });
             children.Add(new ChildTest { ParentId = 3 });
 
-            // Удаляем элемент по индексу 1
             children.RemoveAt(1);
 
             Assert.AreEqual(2, children.Length);
@@ -265,7 +251,6 @@ namespace Wargon.Nukecs.Tests
             children.Add(new ChildTest { ParentId = 3 });
             children.Add(new ChildTest { ParentId = 4 });
 
-            // Удаляем диапазон с индекса 1, 2 элемента
             children.RemoveRange(1, 2);
 
             Assert.AreEqual(2, children.Length);
@@ -361,7 +346,6 @@ namespace Wargon.Nukecs.Tests
 
             children.Add(new ChildTest { ParentId = 1 });
 
-            // Проверяем выход за границы с помощью try-catch
             try
             {
                 children.ElementAt(-1);
