@@ -13,13 +13,11 @@ namespace Wargon.Nukecs
     public struct ComponentTypeMap {
         private static int nextIndex;
         private static ComponentsMapCache cache;
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ComponentTypes;
+        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ComponentTypes
+            = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
         
         private static bool _initialized = false;
         public static List<int> TypesIndexes => cache.TypesIndexes;
-        static ComponentTypeMap() {
-            ComponentTypes = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
-        }
 
         private static void EnsureInitialized() {
             if (_initialized) return;
@@ -30,6 +28,12 @@ namespace Wargon.Nukecs
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             } catch {}
             _initialized = true;
+        }
+
+        internal static void Dispose()
+        {
+            ComponentTypes.Data.Dispose();
+            ComponentTypeData.ElementTypes.Dispose();
         }
         [BurstDiscard]
         internal static void RegisterByReflection(Type type)
@@ -130,9 +134,6 @@ namespace Wargon.Nukecs
                 isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>),
                 IsArrayElement = typeof(T).GetInterfaces().Any(i => i == typeof(IArrayComponent)),
             };
-
-            data.defaultValue = UnsafeUtility.MallocTracked(data.size, data.align, Allocator.Persistent , 0);
-            UnsafeUtility.MemClear(data.defaultValue, data.size);
             ComponentTypes.Data.TryAdd(index, data);
             TypeToComponentType.Map.TryAdd(typeof(T), data);
             return data;

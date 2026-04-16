@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Wargon.Nukecs
 {
@@ -21,7 +22,7 @@ namespace Wargon.Nukecs
 
         internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world)
         {
-            return new DynamicBitmask(Math.Max(ComponentAmount.Value.Data, 256), world);
+            return new DynamicBitmask(math.max(ComponentAmount.Value.Data, 256), world);
         }
 
         internal DynamicBitmask(int maxBits, World.WorldUnsafe* world)

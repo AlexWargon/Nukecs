@@ -24,8 +24,6 @@ namespace Wargon.Nukecs {
         public bool isArray;
         public bool IsArrayElement;
         [NativeDisableUnsafePtrRestriction]
-        public unsafe void* defaultValue;
-        [NativeDisableUnsafePtrRestriction]
         internal IntPtr disposeFn;
         [NativeDisableUnsafePtrRestriction]
         internal IntPtr copyFn;
@@ -117,28 +115,25 @@ namespace Wargon.Nukecs {
 
         public static unsafe int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get {
-                if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size == 0)
-                    EnsureRegistered();
-                return (*(ComponentTypeData*)ID.UnsafeDataPointer).index;
-            }
+            get => (*(ComponentTypeData*) ID.UnsafeDataPointer).index;
         }
 
         internal static unsafe ref ComponentTypeData Data {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get {
-                if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size == 0)
-                    EnsureRegistered();
-                return ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
-            }
+            get => ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
         }
-
+        
         [MethodImpl(MethodImplOptions.NoInlining)]
         [BurstDiscard]
         private static unsafe void EnsureRegistered() {
             if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size != 0) return;
             var data = ComponentTypeMap.RegisterIfNeeded<T>();
             ID.Data = data;
+        }
+
+        static ComponentType()
+        {
+            EnsureRegistered();
         }
     }
 

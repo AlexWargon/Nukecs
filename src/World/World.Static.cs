@@ -13,6 +13,7 @@ namespace Wargon.Nukecs
         private static MemAllocator* allocator;
         private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
         private static byte lastFreeSlot;
+        private static int worldCount;
         private static int lastWorldID;
         private static bool staticInited;
         internal static void InitStatic()
@@ -20,7 +21,7 @@ namespace Wargon.Nukecs
             if(staticInited) return;
             allocator = MemAllocator.New(sizeof(MemoryList<World>) + sizeof(World) * 4);
             worlds.Data = new MemoryList<World>(4, ref *allocator, true);
-            
+            worldCount = 0;
             staticInited = true;
         }
         
@@ -86,7 +87,7 @@ namespace Wargon.Nukecs
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
             worlds.Data[id] = world;
-
+            worldCount++;
             return world;
         }
 
@@ -100,6 +101,7 @@ namespace Wargon.Nukecs
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
             Debug.Log($"Created World {id}");
+            worldCount++;
             return world;
         }
         public static World Load(WorldConfig config, byte[] data)
@@ -112,6 +114,7 @@ namespace Wargon.Nukecs
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
             Debug.Log($"Created World {id}");
+            worldCount++;
             return world;
         }
         public static void DisposeStatic()

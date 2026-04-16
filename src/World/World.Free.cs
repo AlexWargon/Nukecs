@@ -6,7 +6,7 @@ namespace Wargon.Nukecs
 {
 public unsafe partial struct World
     {
-        public unsafe partial struct WorldUnsafe
+        public partial struct WorldUnsafe
         {
             public void Free()
             {
@@ -25,7 +25,11 @@ public unsafe partial struct World
             allctr.Dispose();
             unsafeWorldPtr = default;
             //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
-            
+            worldCount--;
+            if (worldCount == 0)
+            {
+                DisposeStatic();
+            }
             Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
     }

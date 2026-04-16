@@ -91,7 +91,7 @@ namespace Wargon.Nukecs
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
                 entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
-                pools = new MemoryList<GenericPool>(64, ref AllocatorRef, clear:true, lenAsCapacity:true);
+                pools = new MemoryList<GenericPool>(200, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
@@ -201,20 +201,10 @@ namespace Wargon.Nukecs
                 AddPool<DestroyEntity>();
             }
 
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             internal ref GenericPool GetPool<T>() where T : unmanaged, IComponent {
                 var poolIndex = ComponentType<T>.Index;
-                if (poolIndex >= pools.Capacity) {
-                    spinner.Acquire();
-                    try {
-                        if (poolIndex >= pools.Capacity)
-                            pools.Resize(poolIndex + 32, ref AllocatorRef);
-                    } finally {
-                        spinner.Release();
-                    }
-                }
+                //if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
@@ -223,19 +213,9 @@ namespace Wargon.Nukecs
                 return ref pool;
             }
             
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             public ref GenericPool GetUntypedPool(int poolIndex) {
-                if (poolIndex >= pools.Capacity) {
-                    spinner.Acquire();
-                    try {
-                        if (poolIndex >= pools.Capacity)
-                            pools.Resize(poolIndex + 32, ref AllocatorRef);
-                    } finally {
-                        spinner.Release();
-                    }
-                }
+                //if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
                 {
@@ -243,19 +223,9 @@ namespace Wargon.Nukecs
                 }
                 return ref pool;
             }
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             public GenericPool* GetUntypedPoolPtr(int poolIndex) {
-                if (poolIndex >= pools.Capacity) {
-                    spinner.Acquire();
-                    try {
-                        if (poolIndex >= pools.Capacity)
-                            pools.Resize(poolIndex + 32, ref AllocatorRef);
-                    } finally {
-                        spinner.Release();
-                    }
-                }
+                if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 var pool = pools.Ptr + poolIndex;
                 if (!pool->IsCreated) 
                 {
@@ -263,19 +233,9 @@ namespace Wargon.Nukecs
                 }
                 return pool;
             }
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             internal ref GenericPool GetElementUntypedPool(int poolIndex) {
-                if (poolIndex >= pools.Capacity) {
-                    spinner.Acquire();
-                    try {
-                        if (poolIndex >= pools.Capacity)
-                            pools.Resize(poolIndex + 32, ref AllocatorRef);
-                    } finally {
-                        spinner.Release();
-                    }
-                }
+                if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
                 {
@@ -290,6 +250,13 @@ namespace Wargon.Nukecs
                     spinner.Release();
                 }
                 return ref pool;
+            }
+
+            private void EnsurePoolCapacity(int needed) {
+                spinner.Acquire();
+                if (needed > pools.Capacity)
+                    pools.Resize(needed, ref AllocatorRef);
+                spinner.Release();
             }
 
             private void AddPool<T>() where T : unmanaged, IComponent
