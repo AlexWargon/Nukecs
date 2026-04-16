@@ -226,6 +226,39 @@ namespace Wargon.Nukecs
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Entity Copy(int entity)
+        {
+            var newEntity = world->CreateEntity(index);
+            for (var i = 0; i < queries.Length; i++)
+            {
+                var queryId = queries.ElementAt(i);
+                Query(queryId).Ref.Add(newEntity.id);
+            }
+
+            for (var index = 0; index < types.length; index++)
+            {
+                ref var pool = ref world->GetUntypedPool(types[index]);
+                pool.Copy(entity, newEntity.id);
+            }
+
+            if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
+            {
+                ref var pool = ref world->GetPool<ComponentArray<Child>>();
+                ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity);
+                ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
+
+                for (var i = 0; i < fromC.Length; i++)
+                {
+                    ref var child = ref fromC.ElementAt(i);
+                    ref var childNew = ref to.ElementAt(i);
+                    childNew.Value = child.Value.Copy();
+                    childNew.Value.Get<ChildOf>().Value = newEntity;
+                }
+            }
+
+            return newEntity;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity Copy(in Entity entity)
         {
             var newEntity = world->CreateEntity(index);

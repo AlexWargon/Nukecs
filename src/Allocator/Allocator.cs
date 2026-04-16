@@ -4,7 +4,7 @@ namespace Wargon.Nukecs
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    
+
     public struct AllocatorError
     {
         public const int NO_ERRORS = 0;
@@ -23,12 +23,21 @@ namespace Wargon.Nukecs
             return (int)(bytes / 1024 / 1024);
         }
     }
-    [StructLayout(LayoutKind.Sequential)]
+
     public unsafe partial struct MemAllocator : IDisposable
     {
-        private const int MAX_BLOCKS = 1024 * 1024;
         private const int ALIGNMENT = 16;
+        private const int INITIAL_REGION_CAPACITY = 64;
         public const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Region
+        {
+            public byte* basePtr;
+            public long size;
+            public long cursor;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct MemoryBlock
         {
@@ -37,66 +46,51 @@ namespace Wargon.Nukecs
             public bool IsUsed;
         }
 
-        private byte* basePtr;
-        private long totalSize;
-        private MemoryBlock* blocks;
-        private int blockCount;
-        private long memoryUsed;
-        private int defragmentationCount;
+        private Region* regions;
+        private int regionCount;
+        private int regionCapacity;
+        private long initialRegionSize;
+        private long totalCapacity;
+        private long totalAllocated;
         private Spinner spinner;
-        public long MemoryLeft => totalSize - memoryUsed;
-        public byte* BasePtr
-        {
-            get => basePtr;
-            set => basePtr = value;
-        }
 
-        public long TotalSize
-        {
-            get => totalSize;
-            set => totalSize = value;
-        }
-
-        public MemoryBlock* Blocks
-        {
-            get => blocks;
-            set => blocks = value;
-        }
-
-        public int BlockCount
-        {
-            get => blockCount;
-            set => blockCount = value;
-        }
         public bool IsActive { get; private set; }
         public bool IsDisposed => !IsActive;
-        
+
+        public byte* BasePtr => regions != null && regionCount > 0 ? regions[0].basePtr : null;
+        public long TotalSize => totalCapacity;
+        public long MemoryUsed => totalAllocated;
+        public int RegionCount => regionCount;
+
+        public long MemoryLeft
+        {
+            get
+            {
+                long free = 0;
+                for (int i = 0; i < regionCount; i++)
+                    free += regions[i].size - regions[i].cursor;
+                return free;
+            }
+        }
+
         public MemAllocator(long sizeInBytes)
         {
-            totalSize = sizeInBytes;
-            basePtr = (byte*)UnsafeUtility.Malloc(totalSize, ALIGNMENT, Allocator.Persistent);
-            blocks = (MemoryBlock*)UnsafeUtility.Malloc(sizeof(MemoryBlock) * MAX_BLOCKS, ALIGNMENT, Allocator.Persistent);
-            // Initialize first block covering entire memory
-            UnsafeUtility.MemClear(basePtr, totalSize);
-            UnsafeUtility.MemClear(blocks, sizeof(MemoryBlock) * MAX_BLOCKS);
-            blocks[0] = new MemoryBlock
-            {
-                Pointer = 0,
-                Size = (int)totalSize,
-                IsUsed = false,
-            };
-            blockCount = 1;
-            defragmentationCount = 0;
-            memoryUsed = 0;
+            initialRegionSize = Math.Max(sizeInBytes, 4096);
+            regionCapacity = INITIAL_REGION_CAPACITY;
+            regions = (Region*)UnsafeUtility.Malloc(sizeof(Region) * regionCapacity, ALIGNMENT, Allocator.Persistent);
+            UnsafeUtility.MemClear(regions, sizeof(Region) * regionCapacity);
+            regionCount = 0;
+            totalCapacity = 0;
+            totalAllocated = 0;
             spinner = new Spinner();
             IsActive = true;
+            AddRegion(initialRegionSize);
         }
 
         public static MemAllocator* New(long sizeInBytes)
         {
-            var ptr = (MemAllocator*)UnsafeUtility.MallocTracked(sizeof(MemAllocator), 
-                UnsafeUtility.AlignOf<MemAllocator>(),
-                Allocator.Persistent, 0);
+            var ptr = (MemAllocator*)UnsafeUtility.MallocTracked(sizeof(MemAllocator),
+                UnsafeUtility.AlignOf<MemAllocator>(), Allocator.Persistent, 0);
             *ptr = new MemAllocator(sizeInBytes);
             return ptr;
         }
@@ -106,55 +100,99 @@ namespace Wargon.Nukecs
             allocator->Dispose();
             UnsafeUtility.FreeTracked(allocator, Allocator.Persistent);
         }
-        public IntPtr AllocateRaw(long sizeInBytes, ref int error)
+
+        public byte* GetRegionPtr(int index)
+        {
+            return regions[index].basePtr;
+        }
+
+        public ref Region GetRegion(int index)
+        {
+            return ref regions[index];
+        }
+
+        private void AddRegion(long sizeInBytes)
+        {
+            if (regionCount >= regionCapacity)
+            {
+                var newCap = regionCapacity * 2;
+                var newRegions = (Region*)UnsafeUtility.Malloc(sizeof(Region) * newCap, ALIGNMENT, Allocator.Persistent);
+                UnsafeUtility.MemCpy(newRegions, regions, sizeof(Region) * regionCount);
+                UnsafeUtility.MemClear(newRegions + regionCount, sizeof(Region) * (newCap - regionCount));
+                UnsafeUtility.Free(regions, Allocator.Persistent);
+                regions = newRegions;
+                regionCapacity = newCap;
+            }
+
+            var basePtr = (byte*)UnsafeUtility.Malloc(sizeInBytes, ALIGNMENT, Allocator.Persistent);
+            UnsafeUtility.MemClear(basePtr, sizeInBytes);
+            regions[regionCount] = new Region
+            {
+                basePtr = basePtr,
+                size = sizeInBytes,
+                cursor = 0
+            };
+            totalCapacity += sizeInBytes;
+            regionCount++;
+        }
+
+        private static void SizeWithAlign(ref long size, int align)
+        {
+            size = (size + align - 1) / align * align;
+        }
+
+        private ptr_offset AllocateCore(long sizeInBytes)
         {
             SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
+            for (int i = 0; i < regionCount; i++)
             {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
+                if (regions[i].cursor + sizeInBytes <= regions[i].size)
                 {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return (IntPtr)(basePtr + block.Pointer);
+                    var offset = (uint)regions[i].cursor;
+                    regions[i].cursor += sizeInBytes;
+                    totalAllocated += sizeInBytes;
+                    return new ptr_offset((uint)i, offset);
                 }
             }
-            spinner.Release();
-            error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
-            
-            return IntPtr.Zero;
+
+            var newSize = Math.Max(initialRegionSize, sizeInBytes * 2);
+            AddRegion(newSize);
+            ref var r = ref regions[regionCount - 1];
+            var result = (uint)r.cursor;
+            r.cursor += sizeInBytes;
+            totalAllocated += sizeInBytes;
+            return new ptr_offset((uint)(regionCount - 1), result);
         }
+
         public ptr_offset AllocateRaw(long sizeInBytes)
         {
-            var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
             spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return new ptr_offset(0, (uint)block.Pointer);
-                }
-            }
+            var result = AllocateCore(sizeInBytes);
             spinner.Release();
+            return result;
+        }
 
-            return ptr_offset.NULL;
+        public IntPtr AllocateRaw(long sizeInBytes, ref int error)
+        {
+            spinner.Acquire();
+            var off = AllocateCore(sizeInBytes);
+            spinner.Release();
+            if (off.BlockIndex == uint.MaxValue)
+            {
+                error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY;
+                return IntPtr.Zero;
+            }
+            error = 0;
+            return (IntPtr)(regions[off.BlockIndex].basePtr + off.Offset);
+        }
+
+        public void* Allocate(long sizeInBytes)
+        {
+            spinner.Acquire();
+            var off = AllocateCore(sizeInBytes);
+            spinner.Release();
+            if (off.BlockIndex == uint.MaxValue) return null;
+            return regions[off.BlockIndex].basePtr + off.Offset;
         }
 
         public ptr<T> AllocatePtr<T>() where T : unmanaged
@@ -162,268 +200,89 @@ namespace Wargon.Nukecs
             return AllocatePtr<T>(sizeof(T));
         }
 
-        public void* Allocate(long sizeInBytes)
-        {
-            var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
-            spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return basePtr + block.Pointer;
-                }
-            }
-            spinner.Release();
-            return null;
-        }
         public ptr<T> AllocatePtr<T>(long sizeInBytes) where T : unmanaged
         {
-            var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
             spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return new ptr<T>(basePtr, (uint)block.Pointer);
-                }
-            }
+            var off = AllocateCore(sizeInBytes);
             spinner.Release();
-            return ptr<T>.NULL;
+            if (off.BlockIndex == uint.MaxValue) return ptr<T>.NULL;
+            return new ptr<T>(regions[off.BlockIndex].basePtr, off);
         }
-        
+
         public ptr AllocatePtr(long sizeInBytes)
         {
-            var error = 0;
-            SizeWithAlign(ref sizeInBytes, ALIGNMENT);
             spinner.Acquire();
-            DeFragment();
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                if (!block.IsUsed && block.Size >= sizeInBytes)
-                {
-                    // Split block if larger than requested size
-                    if (block.Size > sizeInBytes)
-                        InsertBlock(i + 1, block.Pointer + sizeInBytes, block.Size - sizeInBytes, false, ref error);
-
-                    block.Size = (int)sizeInBytes;
-                    block.IsUsed = true;
-                    spinner.Release();
-                    return new ptr(basePtr,(uint)block.Pointer);
-                }
-            }
+            var off = AllocateCore(sizeInBytes);
             spinner.Release();
-            return ptr.NULL;
-        }
-        private void SizeWithAlign(ref long size, int align)
-        {
-            size = (size + align - 1) / align * align;
-        }
-        public void Free(ptr ptr)
-        {
-            var error = 0;
-            Free(ptr.offset, ref error);
-        }
-        public void Free<T>(ptr<T> ptr) where T : unmanaged
-        {
-            var error = 0;
-            Free(ptr.offset, ref error);
-        }
-        public void Free(void* ptr)
-        {
-            var error = 0;
-            Free((byte*)ptr, ref error);
+            if (off.BlockIndex == uint.MaxValue) return ptr.NULL;
+            return new ptr(regions[off.BlockIndex].basePtr, off);
         }
 
-        public void Free(uint ptr)
-        {
-            var error = 0;
-            Free(ptr, ref error);
-        }
-        public void Free(ptr_offset ptr, ref int error)
-        {
-            spinner.Acquire();
-            var offset = ptr.Offset;
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                
-                if (block.Pointer == offset)
-                {
-                    block.IsUsed = false;
-                    spinner.Release();
-                    return;
-                }
-            }
-            spinner.Release();
-            
-            error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
-        }
-        public void Free(byte* ptr, ref int error)
-        {
-            spinner.Acquire();
-            var offset = ptr - basePtr;
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                
-                if (block.Pointer == offset)
-                {
-                    block.IsUsed = false;
-                    spinner.Release();
-                    return;
-                }
-            }
-            spinner.Release();
-            
-            error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
-        }
-        public void Free(uint ptr, ref int error)
-        {
-            spinner.Acquire();
-            var offset = ptr;
-            for (var i = 0; i < blockCount; i++)
-            {
-                ref var block = ref blocks[i];
-                
-                if (block.Pointer == offset)
-                {
-                    block.IsUsed = false;
-                    spinner.Release();
-                    return;
-                }
-            }
-            spinner.Release();
-            
-            error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
-        }
-        internal void DeFragment()
-        {
-            for (var i = 0; i < blockCount - 1; i++)
-            {
-                if (!blocks[i].IsUsed && !blocks[i + 1].IsUsed)
-                {
-                    blocks[i].Size += blocks[i + 1].Size;
-                    RemoveBlock(i + 1);
-                    i--;
-                }
-            }
-            defragmentationCount++;
-        }
-
-        private void InsertBlock(int index, long offset, long size, bool isUsed, ref int error)
-        {
-            if (blockCount >= MAX_BLOCKS)
-            {
-                error = AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED;
-                return;
-            }
-
-            for (var i = blockCount; i > index; i--) 
-                blocks[i] = blocks[i - 1];
-
-            blocks[index] = new MemoryBlock
-            {
-                Pointer = offset,
-                Size = (int)size,
-                IsUsed = isUsed
-            };
-            blockCount++;
-            memoryUsed += size;
-            error = 0;
-        }
-
-        private void RemoveBlock(int index)
-        {
-            for (var i = index; i < blockCount - 1; i++)
-            {
-                blocks[i] = blocks[i + 1];
-                blocks[i + 1].IsUsed = false;
-            }
-            blockCount--;
-        }
+        public void Free(ptr p) { }
+        public void Free<T>(ptr<T> p) where T : unmanaged { }
+        public void Free(void* p) { }
+        public void Free(uint p) { }
+        public void Free(ptr_offset p) { }
+        public void Free(ptr_offset p, ref int error) { error = 0; }
+        public void Free(byte* p) { }
+        public void Free(byte* p, ref int error) { error = 0; }
+        public void Free(uint p, ref int error) { error = 0; }
 
         public void Dispose()
         {
             spinner.Release();
-            if (basePtr != null)
+            for (int i = 0; i < regionCount; i++)
             {
-                UnsafeUtility.Free(basePtr, Allocator.Persistent);
-                basePtr = null;
+                if (regions[i].basePtr != null)
+                {
+                    UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
+                }
             }
 
-            if (blocks != null)
+            if (regions != null)
             {
-                UnsafeUtility.Free(blocks, Allocator.Persistent);
-                blocks = null;
+                UnsafeUtility.Free(regions, Allocator.Persistent);
+                regions = null;
             }
-            
+
+            regionCount = 0;
+            totalCapacity = 0;
+            totalAllocated = 0;
             IsActive = false;
-            
-            dbug.log(nameof(MemAllocator) + $" disposed {totalSize}b, {totalSize/1024/1024}mb ");
         }
 
-        // Get total allocated memory size
         public long GetTotalSize()
         {
-            return totalSize;
+            return totalCapacity;
         }
 
-        // Optional: Get memory usage information
-        public (long totalSize, long usedSize, long freeSize, int defragmentationCycles, int blockCount) GetMemoryInfo()
+        public (long totalSize, long usedSize, long freeSize, int regionCount) GetMemoryInfo()
         {
-            long usedSize = 0;
-            var freeSize = totalSize;
-
-            for (var i = 0; i < blockCount; i++)
-                if (blocks[i].IsUsed)
-                {
-                    usedSize += blocks[i].Size;
-                    freeSize -= blocks[i].Size;
-                }
-
-            return (totalSize, usedSize, freeSize, defragmentationCount, blockCount);
+            return (totalCapacity, totalAllocated, totalCapacity - totalAllocated, regionCount);
         }
 
         public MemoryView GetMemoryView()
         {
             return new MemoryView
             {
-                Blocks = blocks,
-                BlockCount = blockCount,
-                memoryUsed = memoryUsed
+                Regions = regions,
+                RegionCount = regionCount,
+                memoryUsed = totalAllocated
             };
         }
     }
 
-    public class MemoryView
+    public unsafe class MemoryView
     {
-        public unsafe MemAllocator.MemoryBlock* Blocks;
-        public int BlockCount;
+        public MemAllocator.Region* Regions;
+        public int RegionCount;
         public long memoryUsed;
+        [Obsolete("Use Regions instead")]
+        public MemAllocator.MemoryBlock* Blocks => null;
+        [Obsolete("Use RegionCount instead")]
+        public int BlockCount => RegionCount;
     }
 
-    
     public interface IOnDeserialize
     {
         void OnDeserialize(ref MemAllocator memoryAllocator);

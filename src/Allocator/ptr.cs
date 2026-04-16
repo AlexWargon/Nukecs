@@ -7,9 +7,8 @@ namespace Wargon.Nukecs
     using System.Runtime.InteropServices;
     using Unity.Collections.LowLevel.Unsafe;
     using static UnsafeStatic;
-    
+
     [StructLayout(LayoutKind.Sequential)]
-    // ReSharper disable once InconsistentNaming
     public unsafe struct ptr
     {
         public ptr_offset offset;
@@ -21,6 +20,12 @@ namespace Wargon.Nukecs
         {
             this.offset = new ptr_offset(0, offset);
             cached = basePtr + offset;
+        }
+
+        public ptr(byte* regionBase, ptr_offset off)
+        {
+            this.offset = off;
+            cached = regionBase + off.Offset;
         }
 
         public ptr(void* ptr, ptr_offset offset)
@@ -45,7 +50,8 @@ namespace Wargon.Nukecs
         }
         public void OnDeserialize(ref MemAllocator allocator)
         {
-            cached = allocator.BasePtr + offset.Offset;
+            if (offset.BlockIndex < allocator.RegionCount)
+                cached = allocator.GetRegionPtr((int)offset.BlockIndex) + offset.Offset;
         }
 
         public override string ToString()
@@ -53,14 +59,16 @@ namespace Wargon.Nukecs
             return new IntPtr(cached).ToString();
         }
     }
-    // ReSharper disable once InconsistentNaming
+
     [StructLayout(LayoutKind.Sequential)]
     public struct ptr_offset
     {
         public uint Offset;
         public uint BlockIndex;
         public const int SIZE_OF_BYTES = 8;
-        public static readonly ptr_offset NULL = new (0u,0u);
+        public static readonly ptr_offset NULL = new (uint.MaxValue, uint.MaxValue);
+
+        public bool IsNull => BlockIndex == uint.MaxValue;
 
         public ptr_offset(uint blockIndex, uint offset)
         {
@@ -70,12 +78,14 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void* AsPtr(ref MemAllocator allocator)
         {
-            return allocator.BasePtr + allocator.Blocks[BlockIndex].Pointer + Offset;
+            if (BlockIndex == uint.MaxValue) return null;
+            return allocator.GetRegionPtr((int)BlockIndex) + Offset;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe T* AsPtr<T>(ref MemAllocator allocator) where T : unmanaged
         {
-            return (T*)(allocator.BasePtr + Offset);
+            if (BlockIndex == uint.MaxValue) return null;
+            return (T*)(allocator.GetRegionPtr((int)BlockIndex) + Offset);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe T* AsPtr<T>(void* ptr) where T : unmanaged
@@ -99,7 +109,6 @@ namespace Wargon.Nukecs
         }
     }
 
-    // ReSharper disable once InconsistentNaming
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ptr<T> : IEquatable<ptr<T>> where T : unmanaged
     {
@@ -114,18 +123,25 @@ namespace Wargon.Nukecs
         }
 
         public bool IsDefault {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]    
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => offset.Offset == 0u;
         }
         public void OnDeserialize(ref MemAllocator allocator)
         {
-            cached = (T*)(allocator.BasePtr + offset.Offset);
+            if (offset.BlockIndex < allocator.RegionCount)
+                cached = (T*)(allocator.GetRegionPtr((int)offset.BlockIndex) + offset.Offset);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ptr(byte* basePtr, uint offset)
         {
             this.offset = new ptr_offset(0, offset);
             cached = (T*)(basePtr + offset);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ptr(byte* regionBase, ptr_offset off)
+        {
+            this.offset = off;
+            cached = (T*)(regionBase + off.Offset);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ptr(byte* ptr, uint offset, bool fromOffseted = true)
@@ -148,10 +164,6 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                // if (cached == null)
-                // {
-                //     throw new NullReferenceException("cached ptr is null.");
-                // }
                 return ref *cached;
             }
         }
@@ -181,7 +193,7 @@ namespace Wargon.Nukecs
         {
             unchecked
             {
-                return (int)offset.Offset;    
+                return (int)offset.Offset;
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -201,7 +213,6 @@ namespace Wargon.Nukecs
         }
     }
 
-    // ReSharper disable once InconsistentNaming
     public unsafe struct safe_ptr<T> where T : unmanaged
     {
         [NativeDisableUnsafePtrRestriction]

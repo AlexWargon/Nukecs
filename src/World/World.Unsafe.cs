@@ -61,36 +61,37 @@ namespace Wargon.Nukecs
             internal static WorldUnsafe* Create(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
-                var sizeToAllocate = (long)(cSize) + 3 * 1024 * 1024;
-                var allocator = new UnityAllocatorHandler(sizeToAllocate);
+                var minSize = (long)config.StartPoolSize * 512;
+                var allocatorSize = Math.Max(cSize, minSize) + 3 * 1024 * 1024;
+                var allocator = new UnityAllocatorHandler(allocatorSize);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
-                ptr.Ptr->Initialize(id, config, ptr, ref allocator);
+                ptr.Ptr->AllocatorHandler = allocator;
+                ptr.Ptr->Initialize(id, config, ptr);
                 return ptr.Ptr;
             }
             
             internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
-                dbug.log($"Components size {Memory.BytesToMegabytes(cSize)} MB");
-                var sizeToAllocate = cSize;
-                sizeToAllocate += Memory.MEGABYTE * 12;
-                dbug.log($"Try Allocate {Memory.BytesToMegabytes(sizeToAllocate/2)} MB");
-                var allocator = new UnityAllocatorHandler(sizeToAllocate/2);
+                var minSize = (long)config.StartPoolSize * 512;
+                var allocatorSize = Math.Max(cSize, minSize) + Memory.MEGABYTE * 6;
+                dbug.log($"Allocator initial size {Memory.BytesToMegabytes(allocatorSize)} MB");
+                var allocator = new UnityAllocatorHandler(allocatorSize);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
-                ptr.Ref.Initialize(id, config, ptr, ref allocator);
+                ptr.Ref.AllocatorHandler = allocator;
+                ptr.Ref.Initialize(id, config, ptr);
                 return ptr;
             }
-            private void Initialize(byte id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf, ref UnityAllocatorHandler allocatorHandler) {
+            private void Initialize(byte id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf) {
                 Id = id;
                 config = worldConfig;
-                AllocatorHandler = allocatorHandler;
                 entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
                 entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
-                pools = new MemoryList<GenericPool>(ComponentAmount.Value.Data + 1, ref AllocatorRef, clear:true, lenAsCapacity:true);
+                pools = new MemoryList<GenericPool>(64, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
@@ -171,6 +172,7 @@ namespace Wargon.Nukecs
                 }
                 var e = new Entity(last, Self, archetype);
                 entities.ElementAt(last) = e;
+                entitiesArchetypes.ElementAt(last) = archetype;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
@@ -204,6 +206,15 @@ namespace Wargon.Nukecs
 #endif
             internal ref GenericPool GetPool<T>() where T : unmanaged, IComponent {
                 var poolIndex = ComponentType<T>.Index;
+                if (poolIndex >= pools.Capacity) {
+                    spinner.Acquire();
+                    try {
+                        if (poolIndex >= pools.Capacity)
+                            pools.Resize(poolIndex + 32, ref AllocatorRef);
+                    } finally {
+                        spinner.Release();
+                    }
+                }
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
@@ -216,6 +227,15 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             public ref GenericPool GetUntypedPool(int poolIndex) {
+                if (poolIndex >= pools.Capacity) {
+                    spinner.Acquire();
+                    try {
+                        if (poolIndex >= pools.Capacity)
+                            pools.Resize(poolIndex + 32, ref AllocatorRef);
+                    } finally {
+                        spinner.Release();
+                    }
+                }
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
                 {
@@ -227,6 +247,15 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             public GenericPool* GetUntypedPoolPtr(int poolIndex) {
+                if (poolIndex >= pools.Capacity) {
+                    spinner.Acquire();
+                    try {
+                        if (poolIndex >= pools.Capacity)
+                            pools.Resize(poolIndex + 32, ref AllocatorRef);
+                    } finally {
+                        spinner.Release();
+                    }
+                }
                 var pool = pools.Ptr + poolIndex;
                 if (!pool->IsCreated) 
                 {
@@ -238,6 +267,15 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal ref GenericPool GetElementUntypedPool(int poolIndex) {
+                if (poolIndex >= pools.Capacity) {
+                    spinner.Acquire();
+                    try {
+                        if (poolIndex >= pools.Capacity)
+                            pools.Resize(poolIndex + 32, ref AllocatorRef);
+                    } finally {
+                        spinner.Release();
+                    }
+                }
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated) 
                 {
@@ -304,7 +342,7 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
                 entitiesDens.Remove(entity);
 #endif
-                dbug.log($"Entity {entity} destroyed");
+                //dbug.log($"Entity {entity} destroyed");
             }
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)

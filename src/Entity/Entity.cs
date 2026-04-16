@@ -223,7 +223,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void AddObject(this in Entity entity, IComponent component)
+        public static void AddObject(this ref Entity entity, IComponent component)
         {
             var componentIndex = ComponentTypeMap.Index(component.GetType());
             if (entity.ArchetypeRef.Has(componentIndex)) return;

@@ -20,6 +20,7 @@ namespace Wargon.Nukecs
             if(staticInited) return;
             allocator = MemAllocator.New(sizeof(MemoryList<World>) + sizeof(World) * 4);
             worlds.Data = new MemoryList<World>(4, ref *allocator, true);
+            
             staticInited = true;
         }
         
@@ -80,7 +81,6 @@ namespace Wargon.Nukecs
         {
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
-            Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
@@ -94,7 +94,6 @@ namespace Wargon.Nukecs
         {
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
-            Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
@@ -107,7 +106,6 @@ namespace Wargon.Nukecs
         {
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
-            Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
@@ -120,9 +118,7 @@ namespace Wargon.Nukecs
         {
             if(!staticInited) return;
             MemAllocator.Destroy(allocator);
-            ComponentTypeMap.Dispose();
             StaticObjectRefStorage.Clear();
-            //ComponentTypeMap.Save();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;

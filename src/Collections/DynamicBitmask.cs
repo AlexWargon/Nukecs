@@ -21,7 +21,7 @@ namespace Wargon.Nukecs
 
         internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world)
         {
-            return new DynamicBitmask(ComponentAmount.Value.Data, world);
+            return new DynamicBitmask(Math.Max(ComponentAmount.Value.Data, 256), world);
         }
 
         internal DynamicBitmask(int maxBits, World.WorldUnsafe* world)

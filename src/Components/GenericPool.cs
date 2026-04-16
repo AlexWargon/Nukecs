@@ -441,9 +441,9 @@ namespace Wargon.Nukecs
             ref var chunk = ref GetChunk(entity);
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
             if (componentTypeData.isDisposable) DisposeComponent(componentIndex, ref chunk);
-            if (!componentTypeData.isTag)
-                memcpy(chunk.buffer.cached + componentIndex * componentTypeData.size, componentTypeData.defaultValue,
-                    componentTypeData.size);
+            // if (!componentTypeData.isTag)
+            //     memcpy(chunk.buffer.cached + componentIndex * componentTypeData.size, componentTypeData.defaultValue,
+            //         componentTypeData.size);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

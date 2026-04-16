@@ -98,6 +98,7 @@ namespace Wargon.Nukecs {
         public static long GetSizeOfAllComponents(int poolSize = 1)
         {
             long size = 0;
+            if (!ComponentTypeMap.ComponentTypes.Data.IsCreated) return 0;
             var sizeOfGenericPool = UnsafeUtility.SizeOf<ComponentPoolUntyped>();
             foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
             {
@@ -116,22 +117,28 @@ namespace Wargon.Nukecs {
 
         public static unsafe int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (*(ComponentTypeData*) ID.UnsafeDataPointer).index;
+            get {
+                if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size == 0)
+                    EnsureRegistered();
+                return (*(ComponentTypeData*)ID.UnsafeDataPointer).index;
+            }
         }
 
         internal static unsafe ref ComponentTypeData Data {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
-        }
-        
-        static ComponentType() {
-            Init();
-        }
-        [BurstDiscard]
-        private static void Init() {
-            if (TypeToComponentType.Map.TryGetValue(typeof(T), out var data)) {
-                ID.Data = data;
+            get {
+                if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size == 0)
+                    EnsureRegistered();
+                return ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        [BurstDiscard]
+        private static unsafe void EnsureRegistered() {
+            if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size != 0) return;
+            var data = ComponentTypeMap.RegisterIfNeeded<T>();
+            ID.Data = data;
         }
     }
 
@@ -158,9 +165,19 @@ namespace Wargon.Nukecs {
 
         public int Index(Type type)
         {
-            return _indexByType.GetValueOrDefault(type, -1);
+            return _indexByType[type];
         }
-
+        public bool HasIndex(Type type) => _indexByType.ContainsKey(type);
+        public bool TryGetIndex(Type type, out int index)
+        {
+            index = -1;
+            if (_indexByType.TryGetValue(type, out index))
+            {
+                return true;
+            }
+            return false;
+        }
+        
         public int Index(string name) {
             return _indexByType[_nameToType[name]];
         }

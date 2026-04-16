@@ -140,9 +140,6 @@
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
     internal struct Component {
-        /// <summary>
-        /// Components count that are using right now
-        /// </summary>
         internal static bool _initialized;
         static Component()
         {
@@ -151,47 +148,8 @@
         
         [BurstDiscard]
         public static void Initialization() {
-
             if(_initialized) return;
-            
-            var count = 0;
-            var componentTypes = new System.Collections.Generic.List<(Type, int)>();
-            var arrayElementTypes = new System.Collections.Generic.List<(Type,int)>();
-            ComponentTypeData.Init();
-            Generated.GeneratedComponentList.InitializeComponentList();
-            var components = Generated.GeneratedComponentList.GetAllComponents();
-            //dbug.log(components.ToList().Count.ToString());
-            foreach (var component in components)
-            {
-                if(component == typeof(IComponent)) continue;
-
-                componentTypes.Add((component, count));
-                if (component.IsGenericType && component.GetGenericTypeDefinition() == typeof(ComponentArray<>))
-                {
-                    arrayElementTypes.Add((component.GetGenericArguments()[0], count));
-                    count++;
-                }
-                count++;
-            }
-            
-            ComponentAmount.Value.Data = count;
-            ComponentTypeMap.Init();
-            foreach (var (type, index) in componentTypes)
-            {
-                ComponentTypeMap.InitializeComponentTypeReflection(type, index);
-            }
-            
-            foreach (var (type, index) in arrayElementTypes)
-            {
-                ComponentTypeMap.InitializeArrayElementTypeReflection(type, index);
-            }
-            
-            Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
-            Generated.GeneratedDisposeRegistryStatic.RegisterTypes();
-            
-            componentTypes.Clear();
-            arrayElementTypes.Clear();
-            
+            ComponentTypeMap.RegisterIfNeeded<DestroyEntity>();
             _initialized = true;
         }
 
@@ -261,15 +219,19 @@
 
     internal static class ComponentHelpers
     {
-        static ComponentHelpers() {
-            writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
-            readers = new IUnsafeBufferReader[ComponentAmount.Value.Data];
-        }
-        private static readonly IUnsafeBufferWriter[] writers;
-        private static readonly IUnsafeBufferReader[] readers;
-        internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
+        private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[64];
+        private static IUnsafeBufferReader[] readers = new IUnsafeBufferReader[64];
+        internal static void EnsureWriter<T>(int typeIndex) where T : unmanaged {
+            if (typeIndex >= writers.Length) {
+                var newSize = Math.Max(typeIndex + 1, writers.Length * 2);
+                Array.Resize(ref writers, newSize);
+                Array.Resize(ref readers, newSize);
+            }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
             readers[typeIndex] = new UnsafeBufferReader<T>();
+        }
+        internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
+            EnsureWriter<T>(typeIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
