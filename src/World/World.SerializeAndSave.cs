@@ -12,11 +12,19 @@ namespace Wargon.Nukecs {
 
         public void Deserialize(byte[] data) {
             UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastDeserialize(data);
+            ref var allocatorOld = ref UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator;
+            allocatorOld.FastDeserialize(data);
+            ComponentTypeMap.ReRegisterFunctionPointers();
+            unsafeWorldPtr.OnDeserialize(ref allocatorOld);
+            UnsafeWorld->OnDeserialize(ref allocatorOld);
+            
             for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
                 entity.worldPointer = UnsafeWorld;
             }
+
+            UnsafeWorldRef.version++;
+            Get(Id) = this;
         }
 
         public void SaveToFile(string path) {
@@ -26,7 +34,11 @@ namespace Wargon.Nukecs {
 
         public void LoadFromFile(string path) {
             UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.LoadFromFile(path);
+            ref var allocator = ref UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator;
+            allocator.LoadFromFile(path);
+            ComponentTypeMap.ReRegisterFunctionPointers();
+            unsafeWorldPtr.OnDeserialize(ref allocator);
+            UnsafeWorld->OnDeserialize(ref allocator);
             for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
                 entity.worldPointer = UnsafeWorld;
@@ -54,7 +66,7 @@ namespace Wargon.Nukecs {
                 prefabsToSpawn.OnDeserialize(ref allocator);
                 reservedEntities.OnDeserialize(ref allocator);
                 rootArchetype.ptr.OnDeserialize(ref allocator);
-                rootArchetype.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                rootArchetype.ptr.Ref.OnDeserialize(ref allocator, selfPtr.Ptr);
                 entitiesArchetypes.OnDeserialize(ref allocator);
 
                 pools.OnDeserialize(ref allocator);
@@ -75,13 +87,13 @@ namespace Wargon.Nukecs {
                 foreach (ref var ptr in archetypesList)
                 {
                     ptr.OnDeserialize(ref allocator);
-                    ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                    ptr.Ref.OnDeserialize(ref allocator, selfPtr.Ptr);
                 }
-                archetypesMap.OnDeserialize(ref allocator, Allocator);
+                archetypesMap.OnDeserialize(ref allocator);
                 foreach (var kvPair in archetypesMap)
                 {
                     kvPair.Value.ptr.OnDeserialize(ref allocator);
-                    kvPair.Value.ptr.Ref.OnDeserialize(ref allocator, Allocator, selfPtr.Ptr);
+                    kvPair.Value.ptr.Ref.OnDeserialize(ref allocator, selfPtr.Ptr);
                 }
 
                 DefaultNoneTypes.OnDeserialize(ref allocator);

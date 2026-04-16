@@ -30,6 +30,9 @@
     public interface IComponent { }
     public interface IArrayComponent { }
     public interface IReactive { }
+    public interface IComponentPtrFixer {
+        void FixPtrs(ref MemAllocator allocator);
+    }
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }

@@ -277,6 +277,21 @@ namespace Wargon.Nukecs
                 }
             }
             world.OnDeserialize(ref allocator);
+            FixPtrComponents(ref allocator);
+        }
+
+        private void FixPtrComponents(ref MemAllocator allocator) {
+            if (!componentTypeData.isArray) return;
+            var elementsSize = componentTypeData.size;
+            foreach (ref var chunk in Chunks) {
+                if (chunk.isCreated != 1) continue;
+                for (var i = 0; i < Chunk.MAX_CHUNK_SIZE; i++)
+                {
+                    var ptr = chunk.buffer.Ptr + i * elementsSize;
+                    ComponentArrayData.Restore(ptr, ref allocator);
+                    //fixMethod.Invoke(null, new object[] { (IntPtr)(chunk.buffer.Ptr + i * componentTypeData.size), allocator });
+                }
+            }
         }
 
         public static ptr<ComponentPoolUntyped> Create<T>(int size, ref ptr<World.WorldUnsafe> world)
@@ -320,15 +335,15 @@ namespace Wargon.Nukecs
                 var size = componentTypeData.IsArrayElement
                     ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
                     : componentTypeData.size;
-                if (world.cached == null)
-                {
-                    dbug.error("WORLD NULL");
-                }
+                // if (world.cached == null)
+                // {
+                //     dbug.error("WORLD NULL");
+                // }
                 chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
-                if (chunk.buffer.cached == null)
-                {
-                    dbug.error("CHUNK BUFFER NULL");
-                }
+                // if (chunk.buffer.cached == null)
+                // {
+                //     dbug.error("CHUNK BUFFER NULL");
+                // }
                 mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
                 chunk.isCreated = 1;
             }

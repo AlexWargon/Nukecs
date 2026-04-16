@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Unity.Collections;
 
 namespace Wargon.Nukecs {
     using System;
@@ -8,9 +9,12 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using Collections;
     
-    public readonly unsafe struct Query {
+    public unsafe struct Query {
         [NativeDisableUnsafePtrRestriction]
-        internal readonly QueryUnsafe* InternalPointer;
+        internal QueryUnsafe* InternalPointer;
+        internal byte worldId;
+        internal int id;
+        internal int version;
         public int Count {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => InternalPointer->count;
@@ -31,6 +35,9 @@ namespace Wargon.Nukecs {
         internal Query(ptr<QueryUnsafe> query)
         {
             InternalPointer = query.Ptr;
+            worldId = query.Ref.world->Id;
+            id = query.Ref.Id;
+            version = 0;
         }
 
         public Query With<T>(ReadWrite readWrite = ReadWrite.ReadWrite) where T :  unmanaged, IComponent {
@@ -85,7 +92,28 @@ namespace Wargon.Nukecs {
             return InternalPointer->ToString();
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryEnumerator GetEnumerator() {
+        public void RestoreIfNeed()
+        {
+            if (version != World.Get(worldId).UnsafeWorldRef.version)
+            {
+                InternalPointer = World.Get(worldId).UnsafeWorldRef.queries.ElementAt(id).Ptr;
+                dbug.log("Q RESTORED");
+                version = World.Get(worldId).UnsafeWorldRef.version;
+            }
+        }
+
+        public static void RestoreIfNeed(ref QueryUnsafe* query, ref int version, int id, ref World world)
+        {
+            if (version != world.UnsafeWorldRef.version)
+            {
+                query = world.UnsafeWorldRef.queries.ElementAt(id).Ptr;
+                version = world.UnsafeWorldRef.version;
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryEnumerator GetEnumerator()
+        {
+            RestoreIfNeed();
             return new QueryEnumerator(InternalPointer);
         }
 
@@ -109,8 +137,10 @@ namespace Wargon.Nukecs {
 //         internal MemoryList<int> noneDebug;
 // #endif
         internal int count;
-        [NativeDisableUnsafePtrRestriction] internal readonly World.WorldUnsafe* world;
-        [NativeDisableUnsafePtrRestriction] internal readonly QueryUnsafe* self;
+        internal ptr<World.WorldUnsafe> worldPtr;
+        [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
+        internal ptr<QueryUnsafe> self;
+        
         internal int Id;
         public bool IsCreated => world != null;
 
@@ -120,6 +150,9 @@ namespace Wargon.Nukecs {
             none.OnDeserialize(ref allocator);
             entities.OnDeserialize(ref allocator);
             entitiesMap.OnDeserialize(ref allocator);
+            self.OnDeserialize(ref allocator);
+            worldPtr.OnDeserialize(ref allocator);
+            world = worldPtr.Ptr;
 // #if UNITY_EDITOR
 //             withDebug.OnDeserialize(ref allocator);
 //             noneDebug.OnDeserialize(ref allocator);
@@ -137,28 +170,30 @@ namespace Wargon.Nukecs {
             entitiesMap.Dispose();
         }
 
-        internal static ptr<QueryUnsafe> CreatePtrRef(World.WorldUnsafe* world, bool withDefaultNoneTypes = true)
+        internal static ptr<QueryUnsafe> CreatePtrRef(ptr<World.WorldUnsafe> world, bool withDefaultNoneTypes = true)
         {
-            var ptr = world->_allocate_ptr<QueryUnsafe>();
-            ptr.Ref = new QueryUnsafe(world, ptr.Ptr, withDefaultNoneTypes);
+            var ptr = world.Ptr->_allocate_ptr<QueryUnsafe>();
+            ptr.Ref = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
         
-        internal QueryUnsafe(World.WorldUnsafe* world, QueryUnsafe* self, bool withDefaultNoneTypes = true) {
-            this.world = world;
-            this.with = DynamicBitmask.CreateForComponents(world);
-            this.none = DynamicBitmask.CreateForComponents(world);
+        internal QueryUnsafe(ptr<World.WorldUnsafe> world, ptr<QueryUnsafe> self, bool withDefaultNoneTypes = true) {
+            this.world = world.Ptr;
+            this.worldPtr = world;
+            this.with = DynamicBitmask.CreateForComponents(world.Ptr);
+            this.none = DynamicBitmask.CreateForComponents(world.Ptr);
 // #if UNITY_EDITOR
 //             this.withDebug = new MemoryList<int>(16, ref world->AllocatorRef);
 //             this.noneDebug = new MemoryList<int>(8, ref world->AllocatorRef);
 // #endif
             this.count = 0;
-            this.entities = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
-            this.entitiesMap = new MemoryList<int>(world->config.StartEntitiesAmount, ref world->AllocatorRef, true);
-            this.Id = world->queries.Length;
+            this.entities = new MemoryList<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, true);
+            this.entitiesMap = new MemoryList<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, true);
+            this.Id = world.Ptr->queries.Length;
+            
             this.self = self;
             if (withDefaultNoneTypes) {
-                foreach (var type in world->DefaultNoneTypes) {
+                foreach (var type in world.Ptr->DefaultNoneTypes) {
 // #if UNITY_EDITOR
 //                     noneDebug.Add(type, ref world->AllocatorRef);
 // #endif
@@ -204,7 +239,7 @@ namespace Wargon.Nukecs {
 // #if UNITY_EDITOR
 //             withDebug.Add(type, ref world->AllocatorRef);
 // #endif
-            return self;
+            return self.Ptr;
         }
 
         public bool HasWith(int type) {
@@ -220,7 +255,7 @@ namespace Wargon.Nukecs {
 // #if UNITY_EDITOR
 //             noneDebug.Add(type, ref world->AllocatorRef);
 // #endif
-            return self;
+            return self.Ptr;
         }
         [BurstDiscard]
         public override string ToString() {
@@ -243,12 +278,12 @@ namespace Wargon.Nukecs {
     public unsafe ref struct QueryEnumerator {
         private int _lastIndex;
         private readonly QueryUnsafe* _query;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal QueryEnumerator(QueryUnsafe* queryUnsafe) {
             _query = queryUnsafe;
             _lastIndex = -1;
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext() {
             _lastIndex++;
             return _query->count > _lastIndex;

@@ -19,6 +19,7 @@ namespace Wargon.Nukecs
             internal WorldConfig config;
             internal const int FIRST_ENTITY_ID = 1;
             public byte Id;
+            public int version;
 #if NUKECS_DEBUG
             internal AliveEntitiesSet entitiesDens;
 #endif
@@ -121,6 +122,7 @@ namespace Wargon.Nukecs
                 CreateStoryLogList(1024);
                 entitiesDens = new AliveEntitiesSet(config.StartEntitiesAmount, ref AllocatorRef);
 #endif
+                version = 0;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -181,7 +183,7 @@ namespace Wargon.Nukecs
             
             internal ptr<QueryUnsafe> CreateQueryPtr(bool withDefaultNoneTypes = true)
             {
-                var ptr = QueryUnsafe.CreatePtrRef(Self, withDefaultNoneTypes);
+                var ptr = QueryUnsafe.CreatePtrRef(selfPtr, withDefaultNoneTypes);
                 queries.Add(ptr, ref AllocatorRef);
                 return ptr;
             }

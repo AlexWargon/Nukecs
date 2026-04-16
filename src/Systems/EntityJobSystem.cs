@@ -18,6 +18,9 @@ namespace Wargon.Nukecs
         public QueryUnsafe* Query;
         public Threads Mode;
         public ECBJob EcbJob;
+        private int version;
+        private int id;
+        private bool idIsZero;
         public string Name => System.GetType().Name;
 #if NUKECS_DEBUG
         Marker _marker;
@@ -27,7 +30,13 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
             _marker.Autostart(System);
 #endif
+            if (id == 0 && !idIsZero)
+            {
+                id = Query->Id;
+                idIsZero = id == 0;
+            }
             ref var world = ref state.World;
+            Nukecs.Query.RestoreIfNeed(ref Query, ref version, id, ref world);
             if (Mode == Threads.Main) {
                 for (var i = 0; i < Query->count; i++) {
                     System.OnUpdate(ref Query->GetEntity(i), ref state);    

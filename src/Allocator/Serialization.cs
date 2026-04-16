@@ -77,7 +77,6 @@ namespace Wargon.Nukecs
 
         public unsafe void FastDeserialize(byte[] data)
         {
-            spinner.Acquire();
             fixed (byte* pData = data)
             {
                 byte* p = pData;
@@ -121,7 +120,6 @@ namespace Wargon.Nukecs
                     p += regions[i].size;
                 }
             }
-            spinner.Release();
         }
 
         public void SaveToFile(string filePath)

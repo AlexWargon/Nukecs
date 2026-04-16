@@ -81,6 +81,13 @@ namespace Wargon.Nukecs
             }
         }
 
+        public static void ReRegisterFunctionPointers() {
+            var types = new System.Collections.Generic.List<Type>(TypeToComponentType.Map.Keys);
+            foreach (var type in types) {
+                RegisterDisposeCopy(type);
+            }
+        }
+
         internal static void InitializeArrayElementTypeReflection(Type typeElement, int index)
         {
             var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));

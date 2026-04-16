@@ -45,18 +45,18 @@ namespace Wargon.Nukecs
         internal int index;
         internal bool IsCreated => world != null;
 
-        internal void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator, World.WorldUnsafe* worldPtr)
+        internal void OnDeserialize(ref MemAllocator allocator, World.WorldUnsafe* worldPtr)
         {
             world = worldPtr;
             queries.OnDeserialize(ref allocator);
-            transactions.OnDeserialize(ref allocator, unityAllocator);
-            destroyEdge.OnDeserialize(ref allocator, unityAllocator, worldPtr);
+            transactions.OnDeserialize(ref allocator);
+            destroyEdge.OnDeserialize(ref allocator, worldPtr);
             types.OnDeserialize(ref allocator);
             foreach (var kvPair in transactions)
             {
                 kvPair.Value.OnDeserialize(ref allocator);
                 ref var edge = ref kvPair.Value.Ref;
-                edge.OnDeserialize(ref allocator, unityAllocator, worldPtr);
+                edge.OnDeserialize(ref allocator, worldPtr);
             }
             mask.OnDeserialize(ref allocator);
         }
@@ -579,7 +579,7 @@ namespace Wargon.Nukecs
             for (var i = 0; i < AddEntity.length; i++) AddEntity.ElementAt(i).Ref.Add(entity);
         }
 
-        public void OnDeserialize(ref MemAllocator alloc, Allocator allocator, World.WorldUnsafe* w)
+        public void OnDeserialize(ref MemAllocator alloc, World.WorldUnsafe* w)
         {
             AddEntity.OnDeserialize(ref alloc);
             foreach (ref var ptr in AddEntity)

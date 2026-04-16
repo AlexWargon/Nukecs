@@ -25,9 +25,9 @@ namespace Wargon.Nukecs.Collections
             data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, allocator);
         }
 
-        public void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator)
+        public void OnDeserialize(ref MemAllocator allocator)
         {
-            data.OnDeserialize(ref allocator, unityAllocator);
+            data.OnDeserialize(ref allocator);
         }
         public void Dispose()
         {
@@ -247,9 +247,9 @@ namespace Wargon.Nukecs.Collections
             AllocatedIndex = 0;
         }
 
-        internal void OnDeserialize(ref MemAllocator allocator, Allocator unityAllocator)
+        internal void OnDeserialize(ref MemAllocator allocator)
         {
-            Allocator = unityAllocator;
+            //Allocator = unityAllocator;
             Ptr = PtrOffset.AsPtr<byte>(ref allocator);
             Keys = (TKey*)(Ptr + keyOffset);
             Next = (int*)(Ptr + nextOffset);

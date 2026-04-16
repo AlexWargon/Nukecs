@@ -49,7 +49,8 @@ namespace Wargon.Nukecs {
         {
             if (disposeFn == IntPtr.Zero)
             {
-                throw new NullReferenceException($"disposeFn is null for type {ManagedType.Name}");
+                var fromMap = ComponentTypeMap.GetComponentType(index);
+                disposeFn = fromMap.disposeFn;
             }
             return new FunctionPointer<DisposeDelegate>(disposeFn);
         }
@@ -58,8 +59,12 @@ namespace Wargon.Nukecs {
         {
             if (copyFn == IntPtr.Zero)
             {
-                throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
+                var fromMap = ComponentTypeMap.GetComponentType(index);
+                copyFn = fromMap.copyFn;
             }
+            // else{
+            //     throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
+            // }
             return new FunctionPointer<CopyDelegate>(copyFn);
         }
 
@@ -138,7 +143,7 @@ namespace Wargon.Nukecs {
     }
 
     internal static class TypeToComponentType {
-        internal static readonly Dictionary<Type, ComponentTypeData> Map = new();
+        internal static Dictionary<Type, ComponentTypeData> Map = new();
     }
 
     [Serializable]

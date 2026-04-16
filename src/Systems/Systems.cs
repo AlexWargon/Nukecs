@@ -41,7 +41,7 @@ namespace Wargon.Nukecs
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
-
+            
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
             _state.Time.DeltaTime = dt;
