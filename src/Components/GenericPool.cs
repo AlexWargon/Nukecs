@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Wargon.Nukecs;
 using Wargon.Nukecs.Collections;
 using static Wargon.Nukecs.UnsafeStatic;
 
@@ -170,29 +171,30 @@ namespace Wargon.Nukecs
     {
         public static ComponentPool<T> AsComponentPool<T>(in this GenericPool genericPool) where T : unmanaged
         {
-            return new ComponentPool<T>(ref genericPool.UnsafeBufferPtr.Ref);
+            return new ComponentPool<T>(genericPool.UnsafeBufferPtr.Ptr);
         }
 
         public static AspectData<T> AsAspectData<T>(in this GenericPool genericPool) where T : unmanaged, IComponent
         {
             return new AspectData<T>
             {
-                Buffer = genericPool.UnsafeBuffer->Chunks.Ptr
+                PoolOwner = genericPool.UnsafeBufferPtr.Ptr
             };
         }
     }
 
     public unsafe struct ComponentPool<T> where T : unmanaged
     {
-        public MemoryList<Chunk> chunks;
+        [NativeDisableUnsafePtrRestriction]
+        public ComponentPoolUntyped* poolPtr;
         public ptr<World.WorldUnsafe> world;
         public ComponentTypeData data;
 
-        internal ComponentPool(ref ComponentPoolUntyped pool)
+        internal ComponentPool(ComponentPoolUntyped* pool)
         {
-            chunks = pool.Chunks;
-            world = pool.world;
-            data = pool.componentTypeData;
+            poolPtr = pool;
+            world = pool->world;
+            data = pool->componentTypeData;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -200,17 +202,27 @@ namespace Wargon.Nukecs
         {
             var chunkIndex = index / Chunk.MAX_CHUNK_SIZE;
             var componentIndex = index % Chunk.MAX_CHUNK_SIZE;
-            ref var chunk = ref chunks.ElementAt(chunkIndex);
-            // if (chunk.isCreated == 0)
-            // {
-            //     //dbug.log($"is array element : {data.IsArrayElement}", Color.yellow);
-            //     var size = data.IsArrayElement ? data.size * ComponentArray.DEFAULT_MAX_CAPACITY : data.size;
-            //     chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
-            //     mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
-            //     chunk.isCreated = 1;
-            // }
+            ref var chunk = ref poolPtr->Chunks.ElementAt(chunkIndex);
             return ref get_ref_element<T>(chunk.buffer.Ptr, componentIndex);
         }
+
+
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public ref T Get(int index)
+        // {
+        //     var chunkIndex = index / Chunk.MAX_CHUNK_SIZE;
+        //     var componentIndex = index % Chunk.MAX_CHUNK_SIZE;
+        //     ref var chunk = ref chunks.ElementAt(chunkIndex);
+        //     // if (chunk.isCreated == 0)
+        //     // {
+        //     //     //dbug.log($"is array element : {data.IsArrayElement}", Color.yellow);
+        //     //     var size = data.IsArrayElement ? data.size * ComponentArray.DEFAULT_MAX_CAPACITY : data.size;
+        //     //     chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
+        //     //     mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
+        //     //     chunk.isCreated = 1;
+        //     // }
+        //     return ref get_ref_element<T>(chunk.buffer.Ptr, componentIndex);
+        // }
     }
 
     public struct Chunk
@@ -327,23 +339,23 @@ namespace Wargon.Nukecs
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
 
-            if (chunkIndex > Chunks.capacity) Chunks.Resize(Chunks.capacity * 2, ref world.Ref.AllocatorRef);
+            if (chunkIndex >= Chunks.capacity)
+            {
+                var oldLength = Chunks.length;
+                var newCapacity = Chunks.capacity * 2;
+                if (newCapacity <= chunkIndex) newCapacity = chunkIndex + 1;
+                Chunks.Resize(newCapacity, ref world.Ref.AllocatorRef);
+                //UnsafeUtility.MemSet(Chunks.Ptr, 0xff, BucketCapacity * sizeof(int));
+                for (var i = oldLength; i < Chunks.capacity; i++)
+                    Chunks.ElementAt(i) = default;
+            }
             ref var chunk = ref Chunks.ElementAt(chunkIndex);
             if (chunk.isCreated == 0)
             {
-                //dbug.log($"is array element : {componentTypeData.IsArrayElement}", Color.yellow);
                 var size = componentTypeData.IsArrayElement
                     ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
                     : componentTypeData.size;
-                // if (world.cached == null)
-                // {
-                //     dbug.error("WORLD NULL");
-                // }
                 chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
-                // if (chunk.buffer.cached == null)
-                // {
-                //     dbug.error("CHUNK BUFFER NULL");
-                // }
                 mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
                 chunk.isCreated = 1;
             }
@@ -372,6 +384,13 @@ namespace Wargon.Nukecs
             memcpy(chunk.buffer.Ptr + componentIndex * componentTypeData.size, data, componentTypeData.size);
         }
 
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public ref T Get<T>(int entity) where T : unmanaged
+        // {
+        //     var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
+        //     ref var page = ref GetChunk(entity);
+        //     return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
+        // }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get<T>(int entity) where T : unmanaged
         {
@@ -380,13 +399,11 @@ namespace Wargon.Nukecs
             ref var page = ref Chunks[chunkIndex];
             return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
         }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte* GetPtr(int entity)
         {
-            var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
-            ref var page = ref Chunks[chunkIndex];
+            ref var page = ref GetChunk(entity);
             return page.buffer.Ptr + componentIndex * componentTypeData.size;
         }
 
@@ -505,9 +522,9 @@ namespace Wargon.Nukecs
             }
         }
 
-        public ComponentPool<T> AsComponentPool<T>() where T : unmanaged, IComponent
-        {
-            return new ComponentPool<T>(ref this);
-        }
+        // public ComponentPool<T> AsComponentPool<T>() where T : unmanaged, IComponent
+        // {
+        //     return new ComponentPool<T>(ref this);
+        // }
     }
 }

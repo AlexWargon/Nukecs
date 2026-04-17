@@ -385,12 +385,12 @@
     {
         internal int index;
         [NativeDisableUnsafePtrRestriction]
-        private readonly Chunk* buffer;
+        private readonly ComponentPoolUntyped* poolOwner;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal GetRef(ref GenericPool pool)
         {
             index = 0;
-            buffer = pool.UnsafeBufferPtr.Ptr->Chunks.Ptr;
+            poolOwner = pool.UnsafeBufferPtr.Ptr;
         }
         public readonly ref TComponent Value
         {
@@ -399,7 +399,7 @@
             {
                 var chunkIndex = index / Chunk.MAX_CHUNK_SIZE;
                 var componentIndex = index % Chunk.MAX_CHUNK_SIZE;
-                ref var page = ref buffer[chunkIndex];
+                ref var page = ref poolOwner->Chunks.ElementAt(chunkIndex);
                 return ref get_ref_element<TComponent>(page.buffer.Ptr, componentIndex);
             }
         }
@@ -453,16 +453,17 @@
     // }
     public unsafe struct AspectData<T> where T : unmanaged, IComponent
     {
-        internal Chunk* Buffer;
+        internal ComponentPoolUntyped* PoolOwner;
         private int _entity;
         public ref T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
+                var chunks = PoolOwner->Chunks.Ptr;
                 var chunkIndex = _entity / Chunk.MAX_CHUNK_SIZE;
                 var componentIndex = _entity % Chunk.MAX_CHUNK_SIZE;
-                ref var page = ref Buffer[chunkIndex];
+                ref var page = ref chunks[chunkIndex];
                 return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
             }
         }

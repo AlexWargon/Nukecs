@@ -416,5 +416,63 @@ namespace Wargon.Nukecs.Tests
 
             Assert.IsFalse(world.IsAlive);
         }
+
+        [Test]
+        public void EntityCount_ExceedsInitialCapacity()
+        {
+            var world = World.Create(WorldConfig.Default16);
+            var query = world.Query().With<HealthTest>();
+            const int total = 100;
+
+            for (int i = 0; i < total; i++)
+            {
+                ref var entity = ref world.Entity(new HealthTest { Value = i });
+            }
+
+            world.Update();
+
+            Assert.AreEqual(total, query.Count, $"Expected {total} entities but got {query.Count}");
+
+            for (int i = 0; i < total; i++)
+            {
+                ref var entity = ref world.GetEntity(i + 1);
+                Assert.IsTrue(entity.IsValid(), $"Entity {i + 1} should be valid");
+                Assert.AreEqual(i, entity.Get<HealthTest>().Value, $"Entity {i + 1} has wrong component value");
+            }
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void EntityCount_DestroyAndCreateBeyondCapacity()
+        {
+            var world = World.Create(WorldConfig.Default16);
+            const int initial = 16;
+            var ids = new int[initial];
+
+            for (int i = 0; i < initial; i++)
+            {
+                ref var e = ref world.Entity(new HealthTest { Value = i });
+                ids[i] = e.id;
+            }
+            world.Update();
+
+            for (int i = 0; i < initial; i++)
+            {
+                world.GetEntity(ids[i]).DestroyNow();
+            }
+            world.Update();
+
+            const int nextBatch = 50;
+            for (int i = 0; i < nextBatch; i++)
+            {
+                world.Entity(new HealthTest { Value = 100 + i });
+            }
+            world.Update();
+
+            Assert.AreEqual(nextBatch, world.EntitiesAmount, $"Expected {nextBatch} entities");
+
+            world.Dispose();
+        }
     }
 }

@@ -213,13 +213,29 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity) 
         {
-            entities.ElementAt(count++) = entity;
+            if (count >= entities.capacity)
+            {
+                var newCapacity = entities.capacity * 2;
+                entities.Resize(newCapacity, ref world->AllocatorRef);
+                entitiesMap.Resize(newCapacity, ref world->AllocatorRef);
+            }
+            entities.ElementAt(count) = entity;
+            count++;
+            if (entity >= entitiesMap.Length)
+            {
+                var oldLen = entitiesMap.Length;
+                var newLen = entity + 1;
+                entitiesMap.Resize(newLen, ref world->AllocatorRef);
+                for (var i = oldLen; i < newLen; i++)
+                    entitiesMap.ElementAt(i) = 0;
+            }
             entitiesMap[entity] = count;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity)
         {
+            if (entity < 0 || entity >= entitiesMap.Length) return;
             var index = entitiesMap[entity] - 1;
             if (index < 0)
             {
@@ -302,37 +318,40 @@ namespace Wargon.Nukecs {
     public unsafe struct Ref<TComponent> where TComponent : unmanaged {
         public int index;
         [NativeDisableUnsafePtrRestriction]
-        public Chunk* pool;
+        public ComponentPoolUntyped* pool;
+
         public ref TComponent Val
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Chunk.GetRef<TComponent>(pool, index);
+            get => ref pool->Get<TComponent>(index);
         }
         public ref TComponent Get
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Chunk.GetRef<TComponent>(pool, index);
+            get => ref pool->Get<TComponent>(index);
         }
         
         public TComponent Read
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Chunk.GetRef<TComponent>(pool, index);
+            get => pool->Get<TComponent>(index);
         }
     }
 
     
-    public readonly  struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
+    public readonly unsafe struct ReadRef<TComponent> where TComponent : unmanaged, IComponent {
         internal readonly int index;
-        internal readonly unsafe Chunk* pool;
+        [NativeDisableUnsafePtrRestriction]
+        internal readonly ComponentPoolUntyped* pool;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe ReadRef(int index, ref GenericPool pool){
+        public ReadRef(int index, ref GenericPool pool){
             this.index = index;
-            this.pool = pool.UnsafeBufferPtr.Ref.Chunks.Ptr;
+            this.pool = pool.UnsafeBufferPtr.Ptr;
         }
-        public unsafe ref readonly TComponent Value {
+        public ref readonly TComponent Value {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Chunk.GetRef<TComponent>(pool, index);
+            get => ref pool->Get<TComponent>(index);
         }
     }
     
@@ -353,11 +372,11 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe implicit operator (Ref<T1>,Ref<T2>)(QueryTuple<T1,T2> queryTuple) {
             var ref1 = new Ref<T1> {
-                pool = queryTuple.pool1.UnsafeBuffer->Chunks.Ptr,
+                pool = queryTuple.pool1.UnsafeBufferPtr.Ptr,
                 index = queryTuple.entity
             };
             var ref2 = new Ref<T2> {
-                pool = queryTuple.pool2.UnsafeBuffer->Chunks.Ptr,
+                pool = queryTuple.pool2.UnsafeBufferPtr.Ptr,
                 index = queryTuple.entity
             };
             return (ref1, ref2);
@@ -396,9 +415,9 @@ namespace Wargon.Nukecs {
             public IterEnumerator(int start, int end, World.WorldUnsafe* world) {
                 _lastIndex = start - 1;
                 _end = end;
-                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBuffer->Chunks.Ptr;
-                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBuffer->Chunks.Ptr;
-                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBuffer->Chunks.Ptr;
+                c1 = default; c1.pool = world->GetPool<T1>().UnsafeBufferPtr.Ptr;
+                c2 = default; c2.pool = world->GetPool<T2>().UnsafeBufferPtr.Ptr;
+                c3 = default; c3.pool = world->GetPool<T3>().UnsafeBufferPtr.Ptr;
             }
             public bool MoveNext() {
                 _lastIndex++;
