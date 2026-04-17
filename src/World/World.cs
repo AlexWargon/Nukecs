@@ -199,7 +199,7 @@ namespace Wargon.Nukecs
     {
         private NativeReference<int> _locks;
 
-        public static Locking Create(Allocator allocator)
+        public static Locking Create(Unity.Collections.Allocator allocator)
         {
             return new Locking
             {

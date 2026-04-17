@@ -8,6 +8,11 @@ namespace Wargon.Nukecs.Collections
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
 
+    public struct NoCopyList<T> where T : unmanaged
+    {
+        public MemoryList<ptr<MemoryList<T>>> list;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct MemoryList<T> where T : unmanaged 
     {
@@ -109,12 +114,12 @@ namespace Wargon.Nukecs.Collections
 #if NUKECS_DEBUG
             if (Ptr == null)
             {
-                throw new Exception("PTR NULL");
+                throw new Exception($"{nameof(MemoryList<T>)} is null");
             }
 
             if (index >= capacity)
             {
-                throw new IndexOutOfRangeException();
+                throw new IndexOutOfRangeException($"Index {index} is out of range. Capacity {capacity}");
             }
 #endif
             return ref Ptr[index];

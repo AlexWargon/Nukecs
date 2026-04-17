@@ -52,10 +52,6 @@ namespace Wargon.Nukecs
 #endif
             get
             {
-                // if(worldPointer == null) throw new Exception("World pointer is null");
-                // if(this == Null) throw new Exception("Entity is null");
-                // if(!worldPointer->entitiesArchetypes.IsCreated) throw new Exception("Entities archetype is null");
-                // ref var arch = ref worldPointer->archetypesList.ElementAt(worldPointer->entitiesArchetypes.ElementAt(id));
                 return ref worldPointer->GetEntityArchetypePtr(id).Ref;
             }
         }

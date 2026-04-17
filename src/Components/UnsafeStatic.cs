@@ -8,7 +8,7 @@ namespace Wargon.Nukecs
 {
     public static class UnsafeStatic
     {
-        [MethodImpl(inline.YES)]
+        //[MethodImpl(inline.YES)]
         public static unsafe void write_element<T>(void* ptr, int index, in T value) where T : unmanaged
         {
             *((T*)ptr + index) = value;

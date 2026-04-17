@@ -91,7 +91,7 @@ namespace Wargon.Nukecs.Editor
         public void CreateGUI()
         {
             _world = World.Get(worldId);
-            
+            if(!_world.IsAlive) return;
             var root = rootVisualElement;
             root.style.flexDirection = FlexDirection.Row;
 

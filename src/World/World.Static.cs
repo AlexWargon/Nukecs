@@ -9,9 +9,12 @@ namespace Wargon.Nukecs
 {
     public unsafe partial struct World
     {
-        private static World dummy;
-        private static MemAllocator* allocator;
-        private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
+        private struct KeyDomainAllocator {}
+        private struct KeyWorldsList {}
+        private struct DummyWorld { }
+        private static readonly SharedStatic<World> dummyWorld = SharedStatic<World>.GetOrCreate<DummyWorld>();
+        private static readonly SharedStatic<MemAllocator> domainAllocator = SharedStatic<MemAllocator>.GetOrCreate<KeyDomainAllocator>();
+        private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
         private static byte lastFreeSlot;
         private static int worldCount;
         private static int lastWorldID;
@@ -19,19 +22,17 @@ namespace Wargon.Nukecs
         internal static void InitStatic()
         {
             if(staticInited) return;
-            allocator = MemAllocator.New(sizeof(MemoryList<World>) + sizeof(World) * 4);
-            worlds.Data = new MemoryList<World>(4, ref *allocator, true);
+            domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4);
+            worlds.Data = new MemoryList<World>(4, ref domainAllocator.Data, true);
             worldCount = 0;
             staticInited = true;
         }
         
         public static ref World Get(int index)
         {
-            if (allocator != null)
-            {
+            if(worlds.UnsafeDataPointer != null)
                 return ref worlds.Data.ElementAt(index);
-            }
-            return ref dummy;
+            return ref dummyWorld.Data;
         }
 
         public static bool HasActiveWorlds()
@@ -90,7 +91,6 @@ namespace Wargon.Nukecs
             worldCount++;
             return world;
         }
-
         public static World Create(WorldConfig config)
         {
             InitStatic();
@@ -120,12 +120,15 @@ namespace Wargon.Nukecs
         public static void DisposeStatic()
         {
             if(!staticInited) return;
-            MemAllocator.Destroy(allocator);
+            domainAllocator.Data.Dispose();
             StaticObjectRefStorage.Clear();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
             staticInited = false;
+            lastFreeSlot = 0;
+            lastWorldID = 0;
+            worldCount = 0;
             SingletonRegistry.ResetAll();
             EntityPrefabMap.Dispose();
             dbug.log(nameof(DisposeStatic), Color.green);
