@@ -33,6 +33,7 @@ namespace Wargon.Nukecs
                 EcbJob = default
             };
             runner.Query = runner.System.GetQuery(ref world).InternalPointer;
+            runner.SetQueryId();
             if (system is IFixed)
             {
                 fixedRunners.Add(runner);

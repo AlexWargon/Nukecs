@@ -91,7 +91,7 @@ namespace Wargon.Nukecs {
         public override string ToString() {
             return InternalPointer->ToString();
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RestoreIfNeed()
         {
             if (version != World.Get(worldId).UnsafeWorldRef.version)
@@ -110,7 +110,7 @@ namespace Wargon.Nukecs {
                 version = world.UnsafeWorldRef.version;
             }
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryEnumerator GetEnumerator()
         {
             RestoreIfNeed();

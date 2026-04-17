@@ -13,15 +13,25 @@ namespace Wargon.Nukecs
         Query GetQuery(ref World world);
         void OnUpdate(ref Entity entity, ref State state);
     }
-    internal unsafe class EntityJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
+    internal unsafe class EntityJobSystemRunner<TSystem> : ISystemRunner, IQueryHolder where TSystem : struct, IEntityJobSystem {
         public TSystem System;
         public QueryUnsafe* Query;
         public Threads Mode;
         public ECBJob EcbJob;
         private int version;
         private int id;
+        private int queryId = -1;
         private bool idIsZero;
         public string Name => System.GetType().Name;
+
+        public void SetQueryId() {
+            if (Query != null) queryId = Query->Id;
+        }
+        
+        public void UpdateQueryPointer(World.WorldUnsafe* world) {
+            if (queryId >= 0 && queryId < world->queries.Length)
+                Query = world->queries.Ptr[queryId].Ptr;
+        }
 #if NUKECS_DEBUG
         Marker _marker;
 #endif

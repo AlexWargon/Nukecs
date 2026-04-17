@@ -354,7 +354,7 @@ namespace Wargon.Nukecs
                     _regionsContainer.Add(card);
                 }
 
-                UpdateRegionCard(card, i, regionUsed, regionSize, pct, region.freeBlockCount);
+                UpdateRegionCard(card, i, regionUsed, regionSize, pct, region.freeCount);
             }
 
             for (int i = childCount - 1; i >= regionCount; i--)

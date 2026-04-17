@@ -298,6 +298,26 @@ namespace Wargon.Nukecs
             _state.Dependencies.Complete();
         }
 
+        internal void OnWorldDeserialize(World.WorldUnsafe* world) {
+            RebuildQueryPointers(runners, world);
+            RebuildQueryPointers(fixedRunners, world);
+            RebuildQueryPointers(mtRunners, world);
+            RebuildQueryPointers(mtFixedRunners, world);
+        }
+
+        private unsafe void RebuildQueryPointers(List<ISystemRunner> list, World.WorldUnsafe* worldPtr) {
+            foreach (var runner in list) {
+                if (runner is IQueryHolder holder)
+                    holder.UpdateQueryPointer(worldPtr);
+                if (runner is ISystemWithDeserialization sysDeser)
+                    sysDeser.OnWorldDeserialize(World);
+            }
+        }
+
+        internal interface ISystemWithDeserialization {
+            void OnWorldDeserialize(World world);
+        }
+
         internal void OnWorldDispose()
         {
             Complete();
@@ -333,6 +353,10 @@ namespace Wargon.Nukecs
             systems.runners.Add(runner);
             return systems;
         }
+    }
+
+    public interface IQueryHolder {
+        unsafe void UpdateQueryPointer(World.WorldUnsafe* world);
     }
 
     public enum UpdateContext
@@ -414,6 +438,10 @@ namespace Wargon.Nukecs
     public interface ISystem
     {
         void OnUpdate(ref State state);
+    }
+
+    public interface IOnWorldDeserialize {
+        void OnWorldDeserialize(ref World world);
     }
 
     public abstract class System<T> : ISystem, IOnCreate where T : unmanaged, IComponent

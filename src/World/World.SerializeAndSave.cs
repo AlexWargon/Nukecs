@@ -10,26 +10,24 @@ namespace Wargon.Nukecs {
             return UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastSerialize();
         }
 
-        public void Deserialize(byte[] data) {
+        public void Deserialize(byte[] data)
+        {
+            var id = Id;
             UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            ref var allocatorOld = ref UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator;
+            var allocatorOld = UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator;
             allocatorOld.FastDeserialize(data);
             ComponentTypeMap.ReRegisterFunctionPointers();
             unsafeWorldPtr.OnDeserialize(ref allocatorOld);
-            UnsafeWorld->OnDeserialize(ref allocatorOld);
             
+            UnsafeWorld->OnDeserialize(ref allocatorOld);
+            UnsafeWorld->AllocatorRef = allocatorOld;
+            ReinitAllSystems(UnsafeWorld);
             for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
                 entity.worldPointer = UnsafeWorld;
             }
 
-            UnsafeWorldRef.version++;
-            Get(Id) = this;
-        }
-
-        public void SaveToFile(string path) {
-            UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.SaveToFile(path);
+            Get(id) = this;
         }
 
         public void LoadFromFile(string path) {
@@ -37,13 +35,27 @@ namespace Wargon.Nukecs {
             ref var allocator = ref UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator;
             allocator.LoadFromFile(path);
             ComponentTypeMap.ReRegisterFunctionPointers();
-            unsafeWorldPtr.OnDeserialize(ref allocator);
             UnsafeWorld->OnDeserialize(ref allocator);
+            ReinitAllSystems(UnsafeWorld);
             for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
                 ref var entity = ref UnsafeWorld->entities.Ptr[index];
                 entity.worldPointer = UnsafeWorld;
             }
         }
+
+        private void ReinitAllSystems(WorldUnsafe* world) {
+            var id = world->Id;
+            var allSystems = WorldSystems.GetAll(id);
+            foreach (var systems in allSystems) {
+                systems.OnWorldDeserialize(world);
+            }
+        }
+
+        public void SaveToFile(string path) {
+            UnsafeWorld->systemsUpdateJobDependencies.Complete();
+            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.SaveToFile(path);
+        }
+
 
 
         private void UpdateEntitiesWorld() {

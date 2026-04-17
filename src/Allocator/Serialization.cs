@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
@@ -88,17 +88,6 @@ namespace Wargon.Nukecs
                         UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
                 }
 
-                while (regionCapacity < savedRegionCount)
-                {
-                    var newCap = regionCapacity * 2;
-                    var newRegions = (Region*)UnsafeUtility.Malloc(sizeof(Region) * newCap, ALIGNMENT, Allocator.Persistent);
-                    UnsafeUtility.MemCpy(newRegions, regions, sizeof(Region) * regionCount);
-                    UnsafeUtility.MemClear(newRegions + regionCount, sizeof(Region) * (newCap - regionCount));
-                    UnsafeUtility.Free(regions, Allocator.Persistent);
-                    regions = newRegions;
-                    regionCapacity = newCap;
-                }
-
                 regionCount = savedRegionCount;
                 totalCapacity = 0;
                 totalAllocated = 0;
@@ -107,9 +96,11 @@ namespace Wargon.Nukecs
                 {
                     long size = *(long*)p; p += sizeof(long);
                     long cursor = *(long*)p; p += sizeof(long);
-                    regions[i].basePtr = (byte*)UnsafeUtility.Malloc(size, ALIGNMENT, Allocator.Persistent);
+                    regions[i].basePtr = (byte*)UnsafeUtility.Malloc(size, ALIGN, Allocator.Persistent);
                     regions[i].size = size;
                     regions[i].cursor = cursor;
+                    regions[i].freeHead = NPOS;
+                    regions[i].freeCount = 0;
                     totalCapacity += size;
                     totalAllocated += cursor;
                 }
@@ -124,27 +115,27 @@ namespace Wargon.Nukecs
 
         public void SaveToFile(string filePath)
         {
-            spinner.Acquire();
+            lock_.Acquire();
             FastSerialize(ref serializedAllocator);
             using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
             var data = Compress(serializedAllocator);
             fs.Write(data, 0, data.Length);
-            spinner.Release();
+            lock_.Release();
         }
 
         public async Task SaveToFileAsync(string filePath)
         {
-            spinner.Acquire();
+            lock_.Acquire();
             FastSerialize(ref serializedAllocator);
             await using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
             var data = await CompressAsync(serializedAllocator);
             fs.Write(data, 0, data.Length);
-            spinner.Release();
+            lock_.Release();
         }
 
         public async Task LoadFromFileAsync(string filePath)
         {
-            spinner.Acquire();
+            lock_.Acquire();
             if (!File.Exists(filePath))
                 Debug.LogError($"File not found: {filePath}");
             await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -153,7 +144,7 @@ namespace Wargon.Nukecs
             await fs.ReadAsync(serializedAllocator, 0, serializedAllocator.Length);
             var decompressedData = await DecompressAsync(serializedAllocator);
             FastDeserialize(decompressedData);
-            spinner.Release();
+            lock_.Release();
         }
 
         private static async Task<byte[]> CompressAsync(byte[] data)
@@ -195,7 +186,7 @@ namespace Wargon.Nukecs
 
         public void LoadFromFile(string filePath)
         {
-            spinner.Acquire();
+            lock_.Acquire();
             if (!File.Exists(filePath))
                 Debug.LogError($"File not found: {filePath}");
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
@@ -203,7 +194,7 @@ namespace Wargon.Nukecs
                 Array.Resize(ref serializedAllocator, (int)fs.Length);
             fs.Read(serializedAllocator, 0, serializedAllocator.Length);
             FastDeserialize(Decompress(serializedAllocator));
-            spinner.Release();
+            lock_.Release();
         }
     }
 }

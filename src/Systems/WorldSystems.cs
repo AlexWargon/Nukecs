@@ -17,6 +17,12 @@ namespace Wargon.Nukecs
         {
             return systemsMap[world][index];
         }
+        internal static List<Systems> GetAll(int worldId)
+        {
+            if (!systemsMap.ContainsKey(worldId))
+                return new List<Systems>();
+            return systemsMap[worldId];
+        }
         internal static void CompleteAll(int id)
         {
             if(!systemsMap.ContainsKey(id)) return;

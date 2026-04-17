@@ -2,7 +2,7 @@
 
 namespace Wargon.Nukecs
 {
-    internal class SystemMainThreadRunnerClass<TSystem> : ISystemRunner where TSystem : class, ISystem, new() {
+    internal class SystemMainThreadRunnerClass<TSystem> : ISystemRunner, Systems.ISystemWithDeserialization where TSystem : class, ISystem, new() {
         internal TSystem System;
         internal ECBJob EcbJob;
         public string Name => System.GetType().Name;
@@ -28,6 +28,11 @@ namespace Wargon.Nukecs
         public void Run(ref State state) {
             System.OnUpdate(ref state);
             state.World.ECB.Playback(ref state.World);
+        }
+
+        public void OnWorldDeserialize(World world) {
+            if (System is IOnWorldDeserialize deser)
+                deser.OnWorldDeserialize(ref world);
         }
     }
 }
