@@ -297,6 +297,7 @@ namespace Wargon.Nukecs
             long hOff = userOffset - HDR;
             var h = (Header*)(bp + hOff);
             long size = h->Size;
+            if (size <= 0) { lock_.Release(); return; }
 
             h->Size = -size;
 
