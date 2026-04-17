@@ -103,15 +103,20 @@ namespace Wargon.Nukecs.Collections
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
-            // #if NUKECS_DEBUG
-            // if (Ptr == null)
-            // {
-            //     throw new Exception("PTR NULL");
-            // }
-            // #endif
+#if NUKECS_DEBUG
+            if (Ptr == null)
+            {
+                throw new Exception("PTR NULL");
+            }
+
+            if (index >= capacity)
+            {
+                throw new IndexOutOfRangeException();
+            }
+#endif
             return ref Ptr[index];
         }
         
