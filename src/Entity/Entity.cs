@@ -260,8 +260,8 @@ namespace Wargon.Nukecs
             where T2 : unmanaged, IComponent
         {
             return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr });
+                new Ref<T1> { index = entity.id, chunks = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr->Chunks.Ptr },
+                new Ref<T2> { index = entity.id, chunks = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr->Chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
@@ -273,9 +273,9 @@ namespace Wargon.Nukecs
             where T3 : unmanaged, IComponent
         {
             return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr },
-                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBufferPtr.Ptr });
+                new Ref<T1> { index = entity.id, chunks = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr->Chunks.Ptr },
+                new Ref<T2> { index = entity.id, chunks = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr->Chunks.Ptr },
+                new Ref<T3> { index = entity.id, chunks = entity.worldPointer->GetPool<T3>().UnsafeBufferPtr.Ptr->Chunks.Ptr });
         }
 
 #if !NUKECS_DEBUG
@@ -392,7 +392,8 @@ namespace Wargon.Nukecs
             {
                 component.index = entity.id;
                 component.pool = entity.worldPointer->GetPool<T>().UnsafeBufferPtr.Ptr;
-                component.pool = null;
+                component.chunks = component.pool->Chunks.Ptr;
+                
                 return true;
             }
 

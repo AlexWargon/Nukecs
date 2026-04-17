@@ -63,7 +63,7 @@ namespace Wargon.Nukecs
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
                 var minSize = (long)config.StartPoolSize * 512;
-                var allocatorSize = Math.Max(cSize, minSize) + 3 * 1024 * 1024;
+                var allocatorSize = Math.Max(cSize, minSize);
                 var allocator = new UnityAllocatorHandler(allocatorSize);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
@@ -76,7 +76,7 @@ namespace Wargon.Nukecs
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
                 var minSize = (long)config.StartPoolSize * 512;
-                var allocatorSize = Math.Max(cSize, minSize) + Memory.MEGABYTE * 6;
+                var allocatorSize = Math.Max(cSize, minSize);
                 dbug.log($"Allocator initial size {Memory.BytesToMegabytes(allocatorSize)} MB");
                 var allocator = new UnityAllocatorHandler(allocatorSize);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();

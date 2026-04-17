@@ -14,6 +14,7 @@ namespace Wargon.Nukecs
             _query = world.Ref.CreateQueryPtr();
             _query.Ref.With(ComponentType<T1>.Index);
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+            _t1.ResolveChunks();
         }
         public ref T1 C0 => ref _t1.Get;
         public ref Entity Entity => ref _query.Ref.GetEntity(0);

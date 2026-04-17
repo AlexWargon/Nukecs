@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
@@ -41,12 +41,15 @@ namespace Wargon.Nukecs
             _query = world.Ref.CreateQueryPtr();
             _query.Ref.With(ComponentType<T1>.Index);
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
         }
 
         public void Update(ref World world, IntPtr data)
         {
             _range = *(Range*)data;
             _current = _range.start - 1;
+            _t1.pool = world.GetPool<T1>().UnsafeBuffer;
+            _t1.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -94,12 +97,15 @@ namespace Wargon.Nukecs
                 _query = world.Ref.CreateQueryPtr();
                 _query.Ref.With(ComponentType<T1>.Index);
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             }
 
             public void Update(ref World world, IntPtr data)
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -151,12 +157,16 @@ namespace Wargon.Nukecs
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
 
+
             TOption option = default;
             switch (option)
             {
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -172,6 +182,10 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -233,12 +247,16 @@ namespace Wargon.Nukecs
                 _query.Ref.With(ComponentType<T1>.Index);
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
 
+
                 TOption option = default;
                 switch (option)
                 {
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -254,11 +272,17 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public void UpdateInner()
             {
                 _current = _range.start - 1;
+
+
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public IntPtr GetData() => (IntPtr)UnsafeStatic.to_ptr(ref _range);
@@ -313,7 +337,9 @@ namespace Wargon.Nukecs
             _query.Ref.With(ComponentType<T2>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -321,6 +347,9 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -336,6 +365,11 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -387,7 +421,9 @@ namespace Wargon.Nukecs
                 _query.Ref.With(ComponentType<T1>.Index);
                 _query.Ref.With(ComponentType<T2>.Index);
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
                 _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -395,6 +431,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -410,6 +449,11 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+                _t2.ResolveChunks();
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -465,8 +509,11 @@ namespace Wargon.Nukecs
             _query.Ref.With(ComponentType<T3>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
             _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -474,6 +521,8 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    _tOption.ResolveChunks();
+                    QueryParamInfo<TOption>.IsComponent = true;
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -489,6 +538,11 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+            _t3.ResolveChunks();
+            if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -538,8 +592,11 @@ namespace Wargon.Nukecs
                 _query.Ref.With(ComponentType<T2>.Index);
                 _query.Ref.With(ComponentType<T3>.Index);
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-                _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-                _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
+                    _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
+                    _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -547,6 +604,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -562,6 +622,16 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                
+                _t1.pool = world.GetPool<T1>().UnsafeBuffer;
+                _t1.ResolveChunks();
+
+                _t2.pool = world.GetPool<T2>().UnsafeBuffer;
+                _t2.ResolveChunks();
+
+                _t3.pool = world.GetPool<T3>().UnsafeBuffer;
+                _t3.ResolveChunks();
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -616,9 +686,13 @@ namespace Wargon.Nukecs
             _query.Ref.With(ComponentType<T4>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
             _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
             _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -626,6 +700,9 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -641,6 +718,13 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+            _t3.ResolveChunks();
+            _t4.ResolveChunks();
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -689,9 +773,13 @@ namespace Wargon.Nukecs
                 _query.Ref.With(ComponentType<T3>.Index);
                 _query.Ref.With(ComponentType<T4>.Index);
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
                 _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
                 _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
                 _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -699,6 +787,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -714,6 +805,13 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+                _t2.ResolveChunks();
+                _t3.ResolveChunks();
+                _t4.ResolveChunks();
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -769,10 +867,15 @@ namespace Wargon.Nukecs
             _query.Ref.With(ComponentType<T5>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
             _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
             _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
             _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -780,6 +883,9 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -795,6 +901,14 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+            _t3.ResolveChunks();
+            _t4.ResolveChunks();
+            _t5.ResolveChunks();
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -840,10 +954,15 @@ namespace Wargon.Nukecs
                 _query = world.Ref.CreateQueryPtr();
                 _query.Ref.With(ComponentType<T1>.Index);_query.Ref.With(ComponentType<T2>.Index);_query.Ref.With(ComponentType<T3>.Index);_query.Ref.With(ComponentType<T4>.Index);_query.Ref.With(ComponentType<T5>.Index);
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
                 _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
                 _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
                 _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
                 _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -851,6 +970,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -866,6 +988,14 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+                _t2.ResolveChunks();
+                _t3.ResolveChunks();
+                _t4.ResolveChunks();
+                _t5.ResolveChunks();
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -922,11 +1052,17 @@ namespace Wargon.Nukecs
                 ;_query.Ref.With(ComponentType<T4>.Index);_query.Ref.With(ComponentType<T5>.Index);_query.Ref.With(ComponentType<T6>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
             _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
             _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
             _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
             _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -934,6 +1070,9 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -949,6 +1088,15 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+            _t3.ResolveChunks();
+            _t4.ResolveChunks();
+            _t5.ResolveChunks();
+            _t6.ResolveChunks();
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -996,11 +1144,17 @@ namespace Wargon.Nukecs
                     ;_query.Ref.With(ComponentType<T4>.Index);_query.Ref.With(ComponentType<T5>.Index);_query.Ref.With(ComponentType<T6>.Index);
 
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
                 _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
                 _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
                 _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
                 _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
                 _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -1008,6 +1162,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -1023,6 +1180,15 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+                _t2.ResolveChunks();
+                _t3.ResolveChunks();
+                _t4.ResolveChunks();
+                _t5.ResolveChunks();
+                _t6.ResolveChunks();
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -1085,12 +1251,19 @@ namespace Wargon.Nukecs
             _query.Ref.With(ComponentType<T7>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
             _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
             _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
             _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
             _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
+
             _t7.pool = world.Ref.GetPool<T7>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -1098,6 +1271,9 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -1113,6 +1289,16 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+            _t3.ResolveChunks();
+            _t4.ResolveChunks();
+            _t5.ResolveChunks();
+            _t6.ResolveChunks();
+            _t7.ResolveChunks();
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -1165,12 +1351,19 @@ namespace Wargon.Nukecs
                 _query.Ref.With(ComponentType<T7>.Index);
 
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
                 _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
                 _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
                 _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
                 _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
                 _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
+
                 _t7.pool = world.Ref.GetPool<T7>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -1178,6 +1371,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -1193,6 +1389,16 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+                _t2.ResolveChunks();
+                _t3.ResolveChunks();
+                _t4.ResolveChunks();
+                _t5.ResolveChunks();
+                _t6.ResolveChunks();
+                _t7.ResolveChunks();
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -1256,13 +1462,21 @@ namespace Wargon.Nukecs
                 ;_query.Ref.With(ComponentType<T7>.Index);_query.Ref.With(ComponentType<T8>.Index);
 
             _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
             _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
             _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
             _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
             _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
             _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
+
             _t7.pool = world.Ref.GetPool<T7>().UnsafeBuffer;
+
             _t8.pool = world.Ref.GetPool<T8>().UnsafeBuffer;
+
 
             TOption option = default;
             switch (option)
@@ -1270,6 +1484,9 @@ namespace Wargon.Nukecs
                 case IComponent _:
                     _query.Ref.With(ComponentType<TOption>.Index);
                     _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                    _tOption.ResolveChunks();
+
                     break;
                 case IFilter filter:
                     filter.Setup(_query.Ptr);
@@ -1285,6 +1502,18 @@ namespace Wargon.Nukecs
         {
             _range = *(Range*)(void*)data;
             _current = _range.start - 1;
+            _t1.ResolveChunks();
+            _t2.ResolveChunks();
+            _t3.ResolveChunks();
+            _t4.ResolveChunks();
+            _t5.ResolveChunks();
+            _t6.ResolveChunks();
+            _t7.ResolveChunks();
+            _t8.ResolveChunks();
+
+
+
+                    if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
         }
 
         public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
@@ -1338,13 +1567,21 @@ namespace Wargon.Nukecs
                     ;_query.Ref.With(ComponentType<T7>.Index);_query.Ref.With(ComponentType<T8>.Index);
 
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
+
                 _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
+
                 _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
+
                 _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
+
                 _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
+
                 _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
+
                 _t7.pool = world.Ref.GetPool<T7>().UnsafeBuffer;
+
                 _t8.pool = world.Ref.GetPool<T8>().UnsafeBuffer;
+
 
                 TOption option = default;
                 switch (option)
@@ -1352,6 +1589,9 @@ namespace Wargon.Nukecs
                     case IComponent _:
                         _query.Ref.With(ComponentType<TOption>.Index);
                         _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
+                    QueryParamInfo<TOption>.IsComponent = true;
+                        _tOption.ResolveChunks();
+
                         break;
                     case IFilter filter:
                         filter.Setup(_query.Ptr);
@@ -1367,10 +1607,36 @@ namespace Wargon.Nukecs
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
+                _t1.ResolveChunks();
+                _t2.ResolveChunks();
+                _t3.ResolveChunks();
+                _t4.ResolveChunks();
+                _t5.ResolveChunks();
+                _t6.ResolveChunks();
+                _t7.ResolveChunks();
+                _t8.ResolveChunks();
+
+
+
+                        if(QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
             }
 
             public IntPtr GetData() => (IntPtr)UnsafeUtility.AddressOf(ref _range);
             public bool TryGetQuery(out ptr<QueryUnsafe> query) { query = _query; return true; }
         }
     }
+
+    public struct QueryParamInfo<T>
+    {
+        private static readonly SharedStatic<byte> isComponent = SharedStatic<byte>.GetOrCreate<QueryParamInfo<T>>();
+
+        public static bool IsComponent
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => isComponent.Data == 1;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => isComponent.Data = value ? (byte)1 : (byte)0;
+        }
+    }
+    
 }
