@@ -4,7 +4,6 @@ namespace Wargon.Nukecs
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-
     public struct AllocatorError
     {
         public const int NO_ERRORS = 0;
@@ -23,11 +22,13 @@ namespace Wargon.Nukecs
             return (int)(bytes / 1024 / 1024);
         }
     }
-
     public unsafe partial struct MemAllocator : IDisposable
     {
         private const int ALIGNMENT = 16;
+        private const int HEADER_SIZE = 16;
         private const int INITIAL_REGION_CAPACITY = 64;
+        private const long FREE_LIST_END = -1;
+        private const long MIN_SPLIT_SIZE = HEADER_SIZE + ALIGNMENT * 2;
         public const int BIG_MEMORY_BLOCK_SIZE = 1024 * 1024;
 
         [StructLayout(LayoutKind.Sequential)]
@@ -36,6 +37,14 @@ namespace Wargon.Nukecs
             public byte* basePtr;
             public long size;
             public long cursor;
+            public long freeListHead;
+            public int freeBlockCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct AllocHeader
+        {
+            public long Size;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -70,6 +79,37 @@ namespace Wargon.Nukecs
                 for (int i = 0; i < regionCount; i++)
                     free += regions[i].size - regions[i].cursor;
                 return free;
+            }
+        }
+
+        public int TotalFreeBlocks
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < regionCount; i++)
+                    count += regions[i].freeBlockCount;
+                return count;
+            }
+        }
+
+        public long FreeListMemory
+        {
+            get
+            {
+                long total = 0;
+                for (int i = 0; i < regionCount; i++)
+                {
+                    long offset = regions[i].freeListHead;
+                    while (offset != FREE_LIST_END)
+                    {
+                        var header = (AllocHeader*)(regions[i].basePtr + offset);
+                        total += header->Size + HEADER_SIZE;
+                        long nextOffset = *(long*)(regions[i].basePtr + offset + HEADER_SIZE);
+                        offset = nextOffset;
+                    }
+                }
+                return total;
             }
         }
 
@@ -130,7 +170,9 @@ namespace Wargon.Nukecs
             {
                 basePtr = basePtr,
                 size = sizeInBytes,
-                cursor = 0
+                cursor = 0,
+                freeListHead = FREE_LIST_END,
+                freeBlockCount = 0
             };
             totalCapacity += sizeInBytes;
             regionCount++;
@@ -144,24 +186,122 @@ namespace Wargon.Nukecs
         private ptr_offset AllocateCore(long sizeInBytes)
         {
             SizeWithAlign(ref sizeInBytes, ALIGNMENT);
+            var totalSize = sizeInBytes + HEADER_SIZE;
+
             for (int i = 0; i < regionCount; i++)
             {
-                if (regions[i].cursor + sizeInBytes <= regions[i].size)
+                var found = TryAllocateFromFreeList(i, sizeInBytes, totalSize);
+                if (found.BlockIndex != uint.MaxValue)
+                    return found;
+
+                if (regions[i].cursor + totalSize <= regions[i].size)
                 {
-                    var offset = (uint)regions[i].cursor;
-                    regions[i].cursor += sizeInBytes;
-                    totalAllocated += sizeInBytes;
-                    return new ptr_offset((uint)i, offset);
+                    var headerOffset = regions[i].cursor;
+                    var header = (AllocHeader*)(regions[i].basePtr + headerOffset);
+                    header->Size = sizeInBytes;
+                    regions[i].cursor += totalSize;
+                    totalAllocated += totalSize;
+                    return new ptr_offset((uint)i, (uint)(headerOffset + HEADER_SIZE));
                 }
             }
 
-            var newSize = Math.Max(initialRegionSize, sizeInBytes * 2);
+            var newSize = Math.Max(initialRegionSize, totalSize * 2);
             AddRegion(newSize);
             ref var r = ref regions[regionCount - 1];
-            var result = (uint)r.cursor;
-            r.cursor += sizeInBytes;
-            totalAllocated += sizeInBytes;
-            return new ptr_offset((uint)(regionCount - 1), result);
+            var hOffset = r.cursor;
+            var h = (AllocHeader*)(r.basePtr + hOffset);
+            h->Size = sizeInBytes;
+            r.cursor += totalSize;
+            totalAllocated += totalSize;
+            return new ptr_offset((uint)(regionCount - 1), (uint)(hOffset + HEADER_SIZE));
+        }
+
+        private ptr_offset TryAllocateFromFreeList(int regionIndex, long userSize, long totalSize)
+        {
+            ref var region = ref regions[regionIndex];
+            if (region.freeListHead == FREE_LIST_END)
+                return ptr_offset.NULL;
+
+            long currentOffset = region.freeListHead;
+            bool isHead = true;
+            long prevOffset = FREE_LIST_END;
+
+            while (currentOffset != FREE_LIST_END)
+            {
+                var header = (AllocHeader*)(region.basePtr + currentOffset);
+                long blockSize = header->Size + HEADER_SIZE;
+                long nextOffset = *(long*)(region.basePtr + currentOffset + HEADER_SIZE);
+
+                if (blockSize >= totalSize)
+                {
+                    long remainder = blockSize - totalSize;
+                    if (remainder >= MIN_SPLIT_SIZE)
+                    {
+                        long splitOffset = currentOffset + totalSize;
+                        var splitHeader = (AllocHeader*)(region.basePtr + splitOffset);
+                        splitHeader->Size = remainder - HEADER_SIZE;
+                        *(long*)(region.basePtr + splitOffset + HEADER_SIZE) = nextOffset;
+
+                        if (isHead)
+                            region.freeListHead = splitOffset;
+                        else
+                            *(long*)(region.basePtr + prevOffset + HEADER_SIZE) = splitOffset;
+
+                        header->Size = userSize;
+                    }
+                    else
+                    {
+                        if (isHead)
+                            region.freeListHead = nextOffset;
+                        else
+                            *(long*)(region.basePtr + prevOffset + HEADER_SIZE) = nextOffset;
+                        region.freeBlockCount--;
+                    }
+
+                    totalAllocated += totalSize;
+                    return new ptr_offset((uint)regionIndex, (uint)(currentOffset + HEADER_SIZE));
+                }
+
+                prevOffset = currentOffset;
+                currentOffset = nextOffset;
+                isHead = false;
+            }
+
+            return ptr_offset.NULL;
+        }
+
+        private void FreeCore(int regionIndex, long userOffset)
+        {
+            if (regionIndex < 0 || regionIndex >= regionCount)
+                return;
+
+            ref var region = ref regions[regionIndex];
+            long headerOffset = userOffset - HEADER_SIZE;
+            var header = (AllocHeader*)(region.basePtr + headerOffset);
+            long totalSize = header->Size + HEADER_SIZE;
+
+            if (headerOffset + totalSize == region.cursor)
+            {
+                region.cursor = headerOffset;
+                totalAllocated -= totalSize;
+                return;
+            }
+
+            long* nextPtr = (long*)(region.basePtr + userOffset);
+            *nextPtr = region.freeListHead;
+            region.freeListHead = headerOffset;
+            region.freeBlockCount++;
+            totalAllocated -= totalSize;
+        }
+
+        private int FindRegionIndex(void* ptr)
+        {
+            for (int i = 0; i < regionCount; i++)
+            {
+                if (ptr >= regions[i].basePtr && ptr < regions[i].basePtr + regions[i].size)
+                    return i;
+            }
+            return -1;
         }
 
         public ptr_offset AllocateRaw(long sizeInBytes)
@@ -218,15 +358,98 @@ namespace Wargon.Nukecs
             return new ptr(regions[off.BlockIndex].basePtr, off);
         }
 
-        public void Free(ptr p) { }
-        public void Free<T>(ptr<T> p) where T : unmanaged { }
-        public void Free(void* p) { }
-        public void Free(uint p) { }
-        public void Free(ptr_offset p) { }
-        public void Free(ptr_offset p, ref int error) { error = 0; }
-        public void Free(byte* p) { }
-        public void Free(byte* p, ref int error) { error = 0; }
-        public void Free(uint p, ref int error) { error = 0; }
+        public void Free(ptr p)
+        {
+            if (p.IsNull) return;
+            spinner.Acquire();
+            FreeCore((int)p.offset.BlockIndex, p.offset.Offset);
+            spinner.Release();
+        }
+
+        public void Free<T>(ptr<T> p) where T : unmanaged
+        {
+            if (p.IsNull) return;
+            spinner.Acquire();
+            FreeCore((int)p.offset.BlockIndex, p.offset.Offset);
+            spinner.Release();
+        }
+
+        public void Free(void* p)
+        {
+            if (p == null) return;
+            spinner.Acquire();
+            int regionIndex = FindRegionIndex(p);
+            if (regionIndex >= 0)
+                FreeCore(regionIndex, (long)((byte*)p - regions[regionIndex].basePtr));
+            spinner.Release();
+        }
+
+        public void Free(uint p)
+        {
+            spinner.Acquire();
+            FreeCore(0, p);
+            spinner.Release();
+        }
+
+        public void Free(ptr_offset p)
+        {
+            if (p.IsNull) return;
+            spinner.Acquire();
+            FreeCore((int)p.BlockIndex, p.Offset);
+            spinner.Release();
+        }
+
+        public void Free(ptr_offset p, ref int error)
+        {
+            if (p.IsNull)
+            {
+                error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
+                return;
+            }
+            spinner.Acquire();
+            FreeCore((int)p.BlockIndex, p.Offset);
+            spinner.Release();
+            error = AllocatorError.NO_ERRORS;
+        }
+
+        public void Free(byte* p)
+        {
+            if (p == null) return;
+            spinner.Acquire();
+            int regionIndex = FindRegionIndex(p);
+            if (regionIndex >= 0)
+                FreeCore(regionIndex, (long)(p - regions[regionIndex].basePtr));
+            spinner.Release();
+        }
+
+        public void Free(byte* p, ref int error)
+        {
+            if (p == null)
+            {
+                error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
+                return;
+            }
+            spinner.Acquire();
+            int regionIndex = FindRegionIndex(p);
+            if (regionIndex >= 0)
+            {
+                FreeCore(regionIndex, (long)(p - regions[regionIndex].basePtr));
+                error = AllocatorError.NO_ERRORS;
+            }
+            else
+            {
+                error = AllocatorError.ERROR_ALLOCATOR_FAILED_TO_DEALLOCATE;
+            }
+            spinner.Release();
+        }
+
+        public void Free(uint p, ref int error)
+        {
+            spinner.Acquire();
+            FreeCore(0, p);
+            spinner.Release();
+            error = AllocatorError.NO_ERRORS;
+        }
 
         public void Dispose()
         {
@@ -260,27 +483,6 @@ namespace Wargon.Nukecs
         {
             return (totalCapacity, totalAllocated, totalCapacity - totalAllocated, regionCount);
         }
-
-        public MemoryView GetMemoryView()
-        {
-            return new MemoryView
-            {
-                Regions = regions,
-                RegionCount = regionCount,
-                memoryUsed = totalAllocated
-            };
-        }
-    }
-
-    public unsafe class MemoryView
-    {
-        public MemAllocator.Region* Regions;
-        public int RegionCount;
-        public long memoryUsed;
-        [Obsolete("Use Regions instead")]
-        public MemAllocator.MemoryBlock* Blocks => null;
-        [Obsolete("Use RegionCount instead")]
-        public int BlockCount => RegionCount;
     }
 
     public interface IOnDeserialize

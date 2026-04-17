@@ -43,15 +43,6 @@
         public int Length => data.length;
         internal ComponentArrayData data;
 
-        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // private ComponentArray(int capacity)
-        // {
-        //     buffer = (T*)UnsafeUtility.MallocTracked(capacity* sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent, 0);
-        //     this.capacity = capacity;
-        //     length = 0;
-        //     entity = default;
-        // }
-
         internal ComponentArray(ref GenericPool pool, Entity index)
         {
             data = default;
