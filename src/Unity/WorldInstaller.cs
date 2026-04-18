@@ -72,10 +72,11 @@ namespace Wargon.Nukecs
         public void OnUpdate(ref Entity entity, ref State state)
         {
             ref var transform = ref entity.Get<Transform>();
-            float angle = math.radians(30f * state.Time.DeltaTime);
+            var angle = math.radians(30f * state.Time.DeltaTime);
             transform.Rotation = math.mul(transform.Rotation, quaternion.AxisAngle(math.up(), angle));
         }
     }
+
     public struct SyncTransformsSystem : ISystem, IOnCreate
     {
         private Query _query;

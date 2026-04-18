@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Wargon.Nukecs
 {
-public unsafe partial struct World
+    public unsafe partial struct World
     {
         public partial struct WorldUnsafe
         {

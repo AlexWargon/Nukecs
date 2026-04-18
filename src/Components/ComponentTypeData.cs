@@ -62,9 +62,6 @@ namespace Wargon.Nukecs {
                 var fromMap = ComponentTypeMap.GetComponentType(index);
                 copyFn = fromMap.copyFn;
             }
-            // else{
-            //     throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
-            // }
             return new FunctionPointer<CopyDelegate>(copyFn);
         }
 
