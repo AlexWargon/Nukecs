@@ -47,8 +47,11 @@ namespace Wargon.Nukecs
         internal static ComponentTypeData RegisterIfNeeded<T>() where T : unmanaged {
             EnsureInitialized();
             var type = typeof(T);
-            if (TypeToComponentType.Map.TryGetValue(type, out var existing))
+            if (TypeToComponentType.Map.TryGetValue(type, out var existing)) {
+                if (!cache.HasIndex(type))
+                    Add(type, existing.index);
                 return existing;
+            }
             
             var index = nextIndex++;
             var data = AddComponentType<T>(index);
@@ -56,13 +59,13 @@ namespace Wargon.Nukecs
             ComponentHelpers.EnsureWriter<T>(index);
             RegisterDisposeCopy(type);
 
-            if (typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>)) {
+            if (data.isArray) {
                 var elementType = typeof(T).GetGenericArguments()[0];
                 if (typeof(IArrayComponent).IsAssignableFrom(elementType)) {
+                    nextIndex++;
                     InitializeArrayElementTypeReflection(elementType, index);
                 }
             }
-            
             ComponentAmount.Value.Data = nextIndex;
             return TypeToComponentType.Map[type];
         }
@@ -93,13 +96,6 @@ namespace Wargon.Nukecs
             var addElement = typeof(ComponentTypeMap).GetMethod(nameof(InitializeElementType));
             var addElementMethod = addElement.MakeGenericMethod(typeElement);
             addElementMethod.Invoke(null, new object[] { index });
-        }
-
-        internal static void InitializeComponentTypeReflection(Type type, int index)
-        {
-            var method = typeof(ComponentTypeMap).GetMethod(nameof(InitializeComponentType));
-            var genericMethod = method.MakeGenericMethod(type);
-            genericMethod.Invoke(null, new object[] { index });
         }
         
         public static void InitializeComponentType<T>(int index) where T : unmanaged
@@ -177,7 +173,6 @@ namespace Wargon.Nukecs
             if (!cache.HasIndex(type))
             {
                 RegisterByReflection(type);
-                dbug.log($"{type.Name} ADDED BY REFLECTION");
             }
 
             return cache.Index(type);

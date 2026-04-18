@@ -85,14 +85,11 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe void Resize<T>(int oldCapacity, int newCapacity, ref T* buffer, Allocator allocator) where T : unmanaged
         {
-            // Calculate new capacity
-
             var typeSize = sizeof(T);
-            // Allocate new buffer
-            var newBuffer = (T*)UnsafeUtility.Malloc(
+            var newBuffer = (T*)UnsafeUtility.MallocTracked(
                 newCapacity * typeSize,
                 UnsafeUtility.AlignOf<T>(),
-                allocator
+                allocator, 0
             );
 
             if (newBuffer == null)  
@@ -100,16 +97,12 @@ namespace Wargon.Nukecs {
                 throw new OutOfMemoryException("Failed to allocate memory for resizing.");
             }
 
-            //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
-            // Copy old data to new buffer
+            UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
             UnsafeUtility.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
 
-            // Free old buffer
-            UnsafeUtility.Free(buffer, allocator);
+            UnsafeUtility.FreeTracked(buffer, allocator);
 
-            // Update impl
             buffer = newBuffer;
-            //Debug.Log($"Resized ptr from {oldCapacity} to {newCapacity}");
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -117,14 +110,12 @@ namespace Wargon.Nukecs {
         {
             if (index >= capacity)
             {
-                // Calculate new capacity
                 var newCapacity = math.max(capacity * 2, index + 1);
                 var typeSize = sizeof(T);
-                // Allocate new buffer
-                var newBuffer = (T*)UnsafeUtility.Malloc(
+                var newBuffer = (T*)UnsafeUtility.MallocTracked(
                     newCapacity * sizeof(T),
                     UnsafeUtility.AlignOf<T>(),
-                    allocator
+                    allocator, 0
                 );
 
                 if (newBuffer == null)
@@ -132,14 +123,11 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
-                // Copy old data to new buffer
+                UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
                 UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
 
-                // Free old buffer
-                UnsafeUtility.Free(buffer, allocator);
+                UnsafeUtility.FreeTracked(buffer, allocator);
 
-                // Update impl
                 buffer = newBuffer;
                 capacity = newCapacity;
             }
@@ -150,27 +138,22 @@ namespace Wargon.Nukecs {
         {
             if (index >= capacity)
             {
-                // Calculate new capacity
                 int newCapacity = math.max(capacity * 2, index + 1);
-                // Allocate new buffer
-                void* newBuffer = UnsafeUtility.Malloc(
+                void* newBuffer = UnsafeUtility.MallocTracked(
                     newCapacity * sizeof(T),
                     align,
-                    allocator
+                    allocator, 0
                 );
 
                 if (newBuffer == null)
                 {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
-                //UnsafeUtility.MemClear(newBuffer, newCapacity * impl->elementSize);
-                // Copy old data to new buffer
+                UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
                 UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
 
-                // Free old buffer
-                UnsafeUtility.Free(buffer, allocator);
+                UnsafeUtility.FreeTracked(buffer, allocator);
 
-                // Update impl
                 buffer = newBuffer;
                 capacity = newCapacity;
             }

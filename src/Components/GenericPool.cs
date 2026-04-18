@@ -342,13 +342,9 @@ namespace Wargon.Nukecs
 
             if (chunkIndex >= Chunks.capacity)
             {
-                var oldLength = Chunks.length;
                 var newCapacity = Chunks.capacity * 2;
                 if (newCapacity <= chunkIndex) newCapacity = chunkIndex + 1;
                 Chunks.Resize(newCapacity, ref world.Ref.AllocatorRef);
-                //UnsafeUtility.MemSet(Chunks.Ptr, 0xff, BucketCapacity * sizeof(int));
-                for (var i = oldLength; i < Chunks.capacity; i++)
-                    Chunks.ElementAt(i) = default;
             }
             ref var chunk = ref Chunks.ElementAt(chunkIndex);
             if (chunk.isCreated == 0)
@@ -474,9 +470,15 @@ namespace Wargon.Nukecs
             ref var chunk = ref GetChunk(entity);
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
             if (componentTypeData.isDisposable) DisposeComponent(componentIndex, ref chunk);
-            // if (!componentTypeData.isTag)
-            //     memcpy(chunk.buffer.cached + componentIndex * componentTypeData.size, componentTypeData.defaultValue,
-            //         componentTypeData.size);
+            if (!componentTypeData.isTag)
+            {
+                UnsafeUtility.MemClear(
+                    chunk.buffer.cached + componentIndex * 
+                    componentTypeData.size, componentTypeData.size);
+                // memcpy(chunk.buffer.cached + componentIndex * componentTypeData.size, 
+                //     componentTypeData.defaultValue, componentTypeData.size);
+            }
+
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

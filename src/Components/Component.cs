@@ -153,6 +153,7 @@
         public static void Initialization() {
             if(_initialized) return;
             ComponentTypeMap.RegisterIfNeeded<DestroyEntity>();
+            
             _initialized = true;
         }
 
@@ -232,13 +233,23 @@
             }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
             readers[typeIndex] = new UnsafeBufferReader<T>();
+            //dbug.log($"{typeof(T).Name} Writer created index:{typeIndex}");
         }
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
             EnsureWriter<T>(typeIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
-            writers[typeIndex].Write(buffer, index, sizeInBytes, component);
+            try
+            {
+                writers[typeIndex].Write(buffer, index, sizeInBytes, component);
+            }
+            catch (Exception e)
+            {
+                dbug.error($"Component:{component.GetType().Name}, TypeIndex:{typeIndex}" +
+                           $" WriterType:{writers[typeIndex].GetType().GetGenericArguments()[0].FullName}");
+                throw;
+            }
         }
 
         internal static unsafe IComponent Read(void* buffer, int index, int sizeInBytes, int type)
@@ -272,13 +283,6 @@
     
     public unsafe interface IComponentDisposer {
         void Dispose(byte* buffer, int index);
-    }
-
-    public struct TestDisposable : IDisposable, IComponent
-    {
-        public void Dispose()
-        {
-        }
     }
 
     public readonly struct UntypedUnmanagedDelegate : IDisposable

@@ -131,7 +131,7 @@ namespace Wargon.Nukecs
             worldCount = 0;
             SingletonRegistry.ResetAll();
             EntityPrefabMap.Dispose();
-            dbug.log(nameof(DisposeStatic), Color.green);
+            //dbug.log(nameof(DisposeStatic), Color.green);
         }
     }
 }

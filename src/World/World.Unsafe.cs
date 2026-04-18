@@ -77,7 +77,7 @@ namespace Wargon.Nukecs
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
                 var minSize = (long)config.StartPoolSize * 512;
                 var allocatorSize = Math.Max(cSize, minSize);
-                dbug.log($"Allocator initial size {Memory.BytesToMegabytes(allocatorSize)} MB");
+                //dbug.log($"Allocator initial size {Memory.BytesToMegabytes(allocatorSize)} MB");
                 var allocator = new UnityAllocatorHandler(allocatorSize);
                 var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
@@ -407,8 +407,8 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-            internal ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
-                return archetypesList.Ptr[entitiesArchetypes.Ptr[ent]];
+            internal ref ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
+                return ref archetypesList.Ptr[entitiesArchetypes.Ptr[ent]];
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

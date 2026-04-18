@@ -122,6 +122,10 @@ namespace Wargon.Nukecs
             return entity.ArchetypeRef.Has<T>();
         }
 
+        public static bool Has(this in Entity entity, int componentIndex)
+        {
+            return entity.ArchetypeRef.Has(componentIndex);
+        }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif

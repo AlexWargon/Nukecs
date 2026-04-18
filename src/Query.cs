@@ -146,6 +146,16 @@ namespace Wargon.Nukecs
         {
             return new QueryIterator<T1, T2, T3>(0, Count, InternalPointer->world);
         }
+
+        public Query ForceUpdate()
+        {
+            foreach (var ptr in InternalPointer->world->archetypesList)
+            {
+                ptr.Ref.TryAddQuery(InternalPointer);
+            }
+
+            return this;
+        }
     }
 
 
@@ -153,9 +163,9 @@ namespace Wargon.Nukecs
     {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
-        internal MemoryList<int> entities;
+        internal MemoryArray<int> entities;
 
-        internal MemoryList<int> entitiesMap;
+        internal MemoryArray<int> entitiesMap;
 
 // #if UNITY_EDITOR
 //         internal MemoryList<int> withDebug;
@@ -217,9 +227,9 @@ namespace Wargon.Nukecs
 // #endif
             this.count = 0;
             this.entities =
-                new MemoryList<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, true);
+                new MemoryArray<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, clear: true);
             this.entitiesMap =
-                new MemoryList<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, true);
+                new MemoryArray<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, clear: true);
             this.Id = world.Ptr->queries.Length;
 
             this.self = self;
@@ -250,31 +260,17 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity)
         {
-            if (count >= entities.capacity)
-            {
-                var newCapacity = entities.capacity * 2;
-                entities.Resize(newCapacity, ref world->AllocatorRef);
-                entitiesMap.Resize(newCapacity, ref world->AllocatorRef);
-            }
-
+            entities.EnsureCapacity(count + 1, ref world->AllocatorRef);
             entities.ElementAt(count) = entity;
             count++;
-            if (entity >= entitiesMap.Length)
-            {
-                var oldLen = entitiesMap.Length;
-                var newLen = entity + 1;
-                entitiesMap.Resize(newLen, ref world->AllocatorRef);
-                for (var i = oldLen; i < newLen; i++)
-                    entitiesMap.ElementAt(i) = 0;
-            }
-
+            entitiesMap.EnsureCapacity(entity + 1, ref world->AllocatorRef);
             entitiesMap[entity] = count;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity)
         {
-            if (entity < 0 || entity >= entitiesMap.Length) return;
+            if (entity < 0 || entity >= entitiesMap.Capacity) return;
             var index = entitiesMap[entity] - 1;
             if (index < 0)
             {

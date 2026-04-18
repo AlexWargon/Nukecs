@@ -170,6 +170,35 @@ namespace Wargon.Nukecs
             PopulateQueries(world);
         }
 
+        internal bool TryAddQuery(QueryUnsafe* q)
+        {
+            var matches = 0;
+            var hasNone = false;
+            foreach (var type in types)
+            {
+                if (q->HasNone(type))
+                {
+                    hasNone = true;
+                    break;
+                }
+            }
+
+            if (hasNone) return false;
+            foreach (var type in types)
+            {
+                if (q->HasWith(type))
+                {
+                    matches++;
+                    if (matches == q->with.Count)
+                    {
+                        queries.Add(q->Id, ref world->AllocatorRef);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
         internal void PopulateQueries(World.WorldUnsafe* world)
         {
             for (var i = 0; i < world->queries.Length; i++)
