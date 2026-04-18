@@ -248,6 +248,7 @@ namespace Wargon.Nukecs
                                     config.StartPoolSize * ComponentArray.DEFAULT_MAX_CAPACITY, 
                                     ref selfPtr);
                         poolsCount++;
+                        //dbug.log($"ElementPool<{ComponentTypeMap.GetComponentType(poolIndex, true).ManagedType.Name}>.Index {poolIndex}");
                     }
                     spinner.Release();
                 }

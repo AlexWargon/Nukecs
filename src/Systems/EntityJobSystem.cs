@@ -8,7 +8,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
-    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))][Obsolete]
+    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]//[Obsolete]
     public interface IEntityJobSystem {
         Threads Mode { get; }
         Query GetQuery(ref World world);

@@ -58,14 +58,16 @@ namespace Wargon.Nukecs
             Add(type, index);
             ComponentHelpers.EnsureWriter<T>(index);
             RegisterDisposeCopy(type);
-
+            //dbug.log($"REGISTER COMPONENT {type.Name}. Index:{index}", Color.cyan);
             if (data.isArray) {
                 var elementType = typeof(T).GetGenericArguments()[0];
                 if (typeof(IArrayComponent).IsAssignableFrom(elementType)) {
                     nextIndex++;
-                    InitializeArrayElementTypeReflection(elementType, index);
+                    InitializeArrayElementTypeReflection(elementType, index+1);
+                    //dbug.log($"REGISTER ELEMENT {elementType.Name}. Index:{index+1}", Color.green);
                 }
             }
+            
             ComponentAmount.Value.Data = nextIndex;
             return TypeToComponentType.Map[type];
         }
@@ -146,7 +148,7 @@ namespace Wargon.Nukecs
 
         public static ComponentTypeData GetComponentType(int index, bool isArrayElement = false)
         {
-            if (isArrayElement) return ComponentTypeData.ElementTypes[index - 1];
+            if (isArrayElement) return ComponentTypeData.ElementTypes[index];
             return ComponentTypes.Data[index];
         }
         

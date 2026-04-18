@@ -1,5 +1,6 @@
 ﻿using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
+#pragma warning disable CS0612 // Type or member is obsolete
 
 namespace Wargon.Nukecs.Reactive
 {

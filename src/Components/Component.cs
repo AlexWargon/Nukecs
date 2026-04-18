@@ -1,4 +1,7 @@
-﻿namespace Wargon.Nukecs
+﻿using System.Diagnostics.CodeAnalysis;
+
+#pragma warning disable CS0168 // Variable is declared but never used
+namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -225,7 +228,8 @@
     {
         private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[64];
         private static IUnsafeBufferReader[] readers = new IUnsafeBufferReader[64];
-        internal static void EnsureWriter<T>(int typeIndex) where T : unmanaged {
+        internal static void EnsureWriter<T>(int typeIndex) where T : unmanaged 
+        {
             if (typeIndex >= writers.Length) {
                 var newSize = Math.Max(typeIndex + 1, writers.Length * 2);
                 Array.Resize(ref writers, newSize);
@@ -233,37 +237,31 @@
             }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
             readers[typeIndex] = new UnsafeBufferReader<T>();
-            //dbug.log($"{typeof(T).Name} Writer created index:{typeIndex}");
         }
         internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
             EnsureWriter<T>(typeIndex);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
-            try
-            {
-                writers[typeIndex].Write(buffer, index, sizeInBytes, component);
-            }
-            catch (Exception e)
-            {
-                dbug.error($"Component:{component.GetType().Name}, TypeIndex:{typeIndex}" +
-                           $" WriterType:{writers[typeIndex].GetType().GetGenericArguments()[0].FullName}");
-                throw;
-            }
+        internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component)
+        {
+            writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe IComponent Read(void* buffer, int index, int sizeInBytes, int type)
         {
             return readers[type].Read(buffer, index, sizeInBytes);
         }
     }
 
-    public unsafe interface IUnsafeBufferWriter {
+    public unsafe interface IUnsafeBufferWriter 
+    {
         void Write(void* buffer, int index, int sizeInBytes, IComponent component);
     }
-    public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged {
+    public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged 
+    {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
+        public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) 
+        {
             ((T*) buffer)[index] = (T)component;
         }
     }
@@ -484,16 +482,16 @@
     }
     public struct ComponentsTuple<T1, T2> : ITuple where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent
     {
-        private int entity;
-        public GetRef<T1> Value1;
-        public GetRef<T2> Value2;
+        private int _entity;
+        public GetRef<T1> value1;
+        public GetRef<T2> value2;
         public object this[int index] => null;
 
         public int Length => 2;
         public void Deconstruct(out GetRef<T1> v1, out GetRef<T2> v2)
         {
-            v1 = Value1;
-            v2 = Value2;
+            v1 = value1;
+            v2 = value2;
         }
     }
 
@@ -558,25 +556,26 @@
         }
     }
     
+    [SuppressMessage("ReSharper", "ArrangeThisQualifier")]
     public unsafe struct ClassPtr<T> : System.IEquatable<ClassPtr<T>> where T : class {
 
         [NativeDisableUnsafePtrRestriction]
         private System.IntPtr ptr;
         [NativeDisableUnsafePtrRestriction]
-        private System.Runtime.InteropServices.GCHandle gcHandle;
+        private System.Runtime.InteropServices.GCHandle _gcHandle;
 
         public bool IsValid => this.ptr.ToPointer() != null;
 
-        public T Value => (T)this.gcHandle.Target;
+        public T Value => (T)this._gcHandle.Target;
 
         public ClassPtr(T data) {
-            this.gcHandle = (data != null ? System.Runtime.InteropServices.GCHandle.Alloc(data) : default);
-            this.ptr = System.Runtime.InteropServices.GCHandle.ToIntPtr(this.gcHandle);
+            this._gcHandle = (data != null ? System.Runtime.InteropServices.GCHandle.Alloc(data) : default);
+            this.ptr = System.Runtime.InteropServices.GCHandle.ToIntPtr(this._gcHandle);
         }
 
         public void Dispose() {
-            if (this.gcHandle.IsAllocated == true) {
-                this.gcHandle.Free();
+            if (this._gcHandle.IsAllocated) {
+                this._gcHandle.Free();
             }
         }
 
