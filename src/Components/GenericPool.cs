@@ -99,6 +99,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public byte* GetArraySlot(int index)
+        {
+            return UnsafeBufferPtr.Ref.GetArraySlot(index);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddObject(int index, IComponent component)
         {
             UnsafeBufferPtr.Ref.AddObject(index, component);
@@ -358,6 +364,15 @@ namespace Wargon.Nukecs
             }
 
             return ref chunk;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public byte* GetArraySlot(int entity)
+        {
+            ref var chunk = ref GetChunk(entity);
+            var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
+            var slotSize = componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY;
+            return chunk.buffer.Ptr + componentIndex * slotSize;
         }
 
         public int GetComponentIndex(int entity)
