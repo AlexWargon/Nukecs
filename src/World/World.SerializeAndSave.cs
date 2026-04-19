@@ -22,10 +22,10 @@ namespace Wargon.Nukecs {
             UnsafeWorld->OnDeserialize(ref allocatorOld);
             UnsafeWorld->AllocatorRef = allocatorOld;
             ReinitAllSystems(UnsafeWorld);
-            for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
-                ref var entity = ref UnsafeWorld->entities.Ptr[index];
-                entity.worldPointer = UnsafeWorld;
-            }
+            // for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
+            //     ref var entity = ref UnsafeWorld->entities.Ptr[index];
+            //     entity.worldPointer = UnsafeWorld;
+            // }
 
             Get(id) = this;
         }
@@ -37,10 +37,10 @@ namespace Wargon.Nukecs {
             ComponentTypeMap.ReRegisterFunctionPointers();
             UnsafeWorld->OnDeserialize(ref allocator);
             ReinitAllSystems(UnsafeWorld);
-            for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
-                ref var entity = ref UnsafeWorld->entities.Ptr[index];
-                entity.worldPointer = UnsafeWorld;
-            }
+            // for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
+            //     ref var entity = ref UnsafeWorld->entities.Ptr[index];
+            //     entity.worldPointer = UnsafeWorld;
+            // }
         }
 
         private void ReinitAllSystems(WorldUnsafe* world) {
@@ -59,10 +59,10 @@ namespace Wargon.Nukecs {
 
 
         private void UpdateEntitiesWorld() {
-            for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
-                ref var entity = ref UnsafeWorld->entities.Ptr[index];
-                entity.worldPointer = UnsafeWorld->Self;
-            }
+            // for (var index = 0; index < UnsafeWorld->entities.Length; index++) {
+            //     ref var entity = ref UnsafeWorld->entities.Ptr[index];
+            //     entity.worldPointer = UnsafeWorld->Self;
+            // }
         }
 
         public partial struct WorldUnsafe
@@ -126,10 +126,10 @@ namespace Wargon.Nukecs {
         }
 
         private static unsafe void OnWorldLoad(ref WorldUnsafe worldUnsafe) {
-            for (var index = 0; index < worldUnsafe.entities.Length; index++) {
-                ref var entity = ref worldUnsafe.entities.Ptr[index];
-                entity.worldPointer = worldUnsafe.selfPtr.Ptr;
-            }
+            // for (var index = 0; index < worldUnsafe.entities.Length; index++) {
+            //     ref var entity = ref worldUnsafe.entities.Ptr[index];
+            //     entity.worldPointer = worldUnsafe.selfPtr.Ptr;
+            // }
         }
 
         public static async Task LoadAsync(string filePath, World world) {
@@ -216,10 +216,10 @@ namespace Wargon.Nukecs {
             unsafeWorldPtr.OnDeserialize(ref a);
             unsafeWorldPtr.Ref.AllocatorRef = a;
             unsafeWorldPtr.Ref.OnDeserialize(ref a);
-            for (var index = 0; index < unsafeWorldPtr.Ref.entities.Length; index++) {
-                ref var entity = ref UnsafeWorld->entities.Ptr[index];
-                entity.worldPointer = UnsafeWorld;
-            }
+            // for (var index = 0; index < unsafeWorldPtr.Ref.entities.Length; index++) {
+            //     ref var entity = ref UnsafeWorld->entities.Ptr[index];
+            //     entity.worldPointer = UnsafeWorld;
+            // }
         }
 
         private static byte[] Decompress(byte[] inputData) {

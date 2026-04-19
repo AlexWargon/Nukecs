@@ -13,9 +13,9 @@ namespace Wargon.Nukecs
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
+        internal byte worldIndex;
 
-        [NativeDisableUnsafePtrRestriction] [NonSerialized]
-        public World.WorldUnsafe* worldPointer;
+        public World.WorldUnsafe* worldPointer => World.Get(worldIndex).UnsafeWorld;
 
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
@@ -32,7 +32,8 @@ namespace Wargon.Nukecs
         internal Entity(int id, World.WorldUnsafe* worldPointer)
         {
             this.id = id;
-            this.worldPointer = worldPointer;
+            //this.worldPointer = worldPointer;
+            this.worldIndex = worldPointer->Id;
         }
 
 #if !NUKECS_DEBUG
@@ -41,8 +42,8 @@ namespace Wargon.Nukecs
         internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype)
         {
             this.id = id;
-            this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(id) = archetype;
+            //this.worldPointer = worldPointer;
+            this.worldIndex = worldPointer->Id;
         }
 
         internal ref ArchetypeUnsafe ArchetypeRef
@@ -106,7 +107,7 @@ namespace Wargon.Nukecs
 #endif
         public bool IsValid()
         {
-            return worldPointer != null && id != 0;
+            return id != 0;
         }
     }
 
