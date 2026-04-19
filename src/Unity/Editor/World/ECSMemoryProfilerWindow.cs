@@ -21,6 +21,7 @@ namespace Wargon.Nukecs.Editor
         private readonly Dictionary<int, bool> _foldoutStates = new();
         private readonly List<PoolMemoryInfo> _poolInfos = new();
         private readonly List<WorldMemoryInfo> _worldInfos = new();
+        private long _totalPoolsAllocated;
 
         private struct PoolMemoryInfo
         {
@@ -111,6 +112,7 @@ namespace Wargon.Nukecs.Editor
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
 
             CollectWorldInfo();
+            CollectPoolInfos();
             DrawWorldOverview();
 
             EditorGUILayout.Space(4);
@@ -252,13 +254,18 @@ namespace Wargon.Nukecs.Editor
             DrawInfoRow("Queries Memory", FormatBytes(info.queriesMemory));
             DrawInfoRow("Pools Created", info.poolsCreated.ToString());
 
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Untracked", EditorStyles.boldLabel);
+            var known = info.entitiesMemory + info.archetypesMemory + info.queriesMemory + _totalPoolsAllocated;
+            var untracked = info.allocatorUsed - known;
+            if (untracked < 0) untracked = 0;
+            DrawInfoRow("Untracked Memory", FormatBytes(untracked));
+
             EditorGUILayout.EndVertical();
         }
 
         private void DrawPoolsOverview()
         {
-            CollectPoolInfos();
-
             EditorGUILayout.BeginVertical("HelpBox");
 
             var headerRect = EditorGUILayout.GetControlRect();
@@ -469,7 +476,7 @@ namespace Wargon.Nukecs.Editor
                 skipIndices.Add(typeIndex + 1);
             }
 
-            //parents.Sort((a, b) => b.allocatedBytes.CompareTo(a.allocatedBytes));
+            parents.Sort((a, b) => b.allocatedBytes.CompareTo(a.allocatedBytes));
 
             foreach (var parent in parents)
             {
@@ -477,6 +484,10 @@ namespace Wargon.Nukecs.Editor
                 if (elementMap.TryGetValue(parent.typeIndex, out var element))
                     _poolInfos.Add(element);
             }
+
+            _totalPoolsAllocated = 0;
+            foreach (var p in _poolInfos)
+                _totalPoolsAllocated += p.allocatedBytes;
         }
 
         private PoolMemoryInfo CollectSinglePool(int typeIndex, ref GenericPool pool, ComponentTypeData typeData, string typeName, int overrideEntitiesUsing = -1)
