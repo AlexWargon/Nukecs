@@ -528,23 +528,131 @@ namespace Wargon.Nukecs
             }
         }
 
-        public void BatchAdd<T>(int start, int end, in T data) where T : unmanaged, IComponent
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void FillContiguous<T>(byte* buf, int compStart, int count, in T data) where T : unmanaged
         {
-            var startChunkIndex = start / Chunk.MAX_CHUNK_SIZE;
-            var startComponentIndex = start % Chunk.MAX_CHUNK_SIZE;
-            
-            var endChunkIndex = end / Chunk.MAX_CHUNK_SIZE;
-            var endComponentIndex = end % Chunk.MAX_CHUNK_SIZE;
-            if (startChunkIndex == endChunkIndex)
+            new Span<T>(buf + compStart * sizeof(T), count).Fill(data);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchAdd<T>(int start, int end, in T data) where T : unmanaged
+        {
+            if (componentTypeData.isTag) return;
+            var entity = start;
+            while (entity < end)
             {
-                ref var chunk = ref GetChunk(startChunkIndex);
-                
-            }
-            for (int i = startChunkIndex; i < endChunkIndex; i++)
-            {
-                ref var chunk = ref GetChunk(i);
-                
+                var compStart = entity & (Chunk.MAX_CHUNK_SIZE - 1);
+                var count = Chunk.MAX_CHUNK_SIZE - compStart;
+                if (entity + count > end) count = end - entity;
+                ref var chunk = ref GetChunk(entity);
+                FillContiguous(chunk.buffer.cached, compStart, count, in data);
+                entity += count;
             }
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchAdd<T>(int* entities, int count, in T data) where T : unmanaged
+        {
+            if (componentTypeData.isTag) return;
+            var curChunkIdx = -1;
+            byte* curBuf = null;
+            for (var i = 0; i < count; i++)
+            {
+                var entity = entities[i];
+                var chunkIndex = entity >> Chunk.CHUNK_INDEX_BITSFIFT;
+                if (chunkIndex != curChunkIdx)
+                {
+                    ref var chunk = ref GetChunk(entity);
+                    curBuf = chunk.buffer.cached;
+                    curChunkIdx = chunkIndex;
+                }
+                write_element(curBuf, entity & (Chunk.MAX_CHUNK_SIZE - 1), data);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchRemove(int start, int end)
+        {
+            var entity = start;
+            while (entity < end)
+            {
+                var compStart = entity & (Chunk.MAX_CHUNK_SIZE - 1);
+                var count = Chunk.MAX_CHUNK_SIZE - compStart;
+                if (entity + count > end) count = end - entity;
+                ref var chunk = ref GetChunk(entity);
+                if (componentTypeData.isDisposable)
+                {
+                    for (var c = 0; c < count; c++)
+                        componentTypeData.DisposeFn().Invoke(chunk.buffer.cached, compStart + c);
+                }
+                if (!componentTypeData.isTag)
+                {
+                    mem_clear(
+                        chunk.buffer.cached + compStart * componentTypeData.size,
+                        count * componentTypeData.size);
+                }
+                entity += count;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchRemove(int* entities, int count)
+        {
+            var curChunkIdx = -1;
+            byte* curBuf = null;
+            for (var i = 0; i < count; i++)
+            {
+                var entity = entities[i];
+                var chunkIndex = entity >> Chunk.CHUNK_INDEX_BITSFIFT;
+                var compIndex = entity & (Chunk.MAX_CHUNK_SIZE - 1);
+                if (chunkIndex != curChunkIdx)
+                {
+                    ref var chunk = ref GetChunk(entity);
+                    curBuf = chunk.buffer.cached;
+                    curChunkIdx = chunkIndex;
+                }
+                if (componentTypeData.isDisposable)
+                    componentTypeData.DisposeFn().Invoke(curBuf, compIndex);
+                if (!componentTypeData.isTag)
+                    mem_clear(curBuf + compIndex * componentTypeData.size, componentTypeData.size);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchSet<T>(int start, int end, in T data) where T : unmanaged
+        {
+            if (componentTypeData.isTag) return;
+            var entity = start;
+            while (entity < end)
+            {
+                var compStart = entity & (Chunk.MAX_CHUNK_SIZE - 1);
+                var count = Chunk.MAX_CHUNK_SIZE - compStart;
+                if (entity + count > end) count = end - entity;
+                ref var chunk = ref GetChunk(entity);
+                FillContiguous(chunk.buffer.cached, compStart, count, in data);
+                entity += count;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchSet<T>(int* entities, int count, in T data) where T : unmanaged
+        {
+            if (componentTypeData.isTag) return;
+            var curChunkIdx = -1;
+            byte* curBuf = null;
+            for (var i = 0; i < count; i++)
+            {
+                var entity = entities[i];
+                var chunkIndex = entity >> Chunk.CHUNK_INDEX_BITSFIFT;
+                if (chunkIndex != curChunkIdx)
+                {
+                    ref var chunk = ref GetChunk(entity);
+                    curBuf = chunk.buffer.cached;
+                    curChunkIdx = chunkIndex;
+                }
+                write_element(curBuf, entity & (Chunk.MAX_CHUNK_SIZE - 1), data);
+            }
+        }
+
     }
 }
