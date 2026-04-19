@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
@@ -630,6 +632,99 @@ namespace Wargon.Nukecs
             {
                 ptr.OnDeserialize(ref alloc);
             }
+
+            QueryTest<(C1,C2,C3,C4)> d = default;
+            foreach (var (C1, C2, C3, C4) in d.par_iter())
+            {
+                
+            }
+        }
+    }
+
+    public struct C1 : IComponent { }
+    public struct C2 : IComponent { }
+    public struct C3 : IComponent { }
+    public struct C4 : IComponent { }
+    
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct QueryTest
+    {
+        private byte* data;
+        public int cursor;
+        public int len;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct QueryTest<TTuple> where TTuple : unmanaged, ITuple
+    {
+        private TTuple* data;
+        public int cursor;
+        public int len;
+        public QueryTest(int size)
+        {
+            data = (TTuple*)UnsafeUtility.Malloc(sizeof(TTuple) * size,
+                UnsafeUtility.AlignOf<TTuple>(), 
+                Allocator.Persistent);
+            cursor = 0;
+            len = size;
+        }
+
+        public void Dispose() => UnsafeUtility.Free(data, Allocator.Persistent);
+        public QueryTest<TTuple> GetEnumerator() => this;
+        public ref TTuple Current => ref data[cursor];
+
+        public bool MoveNext()
+        {
+            return ++cursor < len;
+        }
+
+        public ParIter par_iter()
+        {
+            var threadIndex = JobsUtility.ThreadIndex;
+            var threadCount = JobsUtility.ThreadIndexCount;
+            var length = len;
+            var baseSize = length / threadCount;
+            var remainder = length % threadCount;
+
+            var start = threadIndex * baseSize + math.min(threadIndex, remainder);
+            var size = baseSize + (threadIndex < remainder ? 1 : 0);
+            var end = start + size;
+            return new ParIter(data, start, end);
+        }
+        public ref struct ParIter
+        {
+            private int _current;
+            private readonly int _end;
+            private readonly TTuple* _perThreadCache;
+
+            public ParIter GetEnumerator()
+            {
+                return this;
+            }
+            public ParIter(TTuple* data, int start, int end)
+            {
+                _perThreadCache = data;
+                _current = start;
+                _end = end;
+            }
+            public ref TTuple Current => ref _perThreadCache[_current];
+            public bool MoveNext() => ++_current < _end;
+        }
+    }
+
+    public unsafe struct WTest
+    {
+        public NativeArray<QueryTest> queries;
+
+        public WTest(int size)
+        {
+            queries = new NativeArray<QueryTest>(size, Allocator.Persistent);
+        }
+
+        public void Dispose() => queries.Dispose();
+        public ref QueryTest<T> GetQ<T>(int index) where T : unmanaged, ITuple
+        {
+            ref var q = ref *((QueryTest<T>*)queries.GetUnsafePtr() + index);
+            return ref q;
         }
     }
 }
