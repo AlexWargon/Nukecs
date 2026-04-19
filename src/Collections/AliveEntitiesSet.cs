@@ -65,5 +65,10 @@ namespace Wargon.Nukecs.Collections
         {
             return dense.AsSpan();
         }
+
+        public long GetMemorySizeUsed()
+        {
+            return dense.GetMemorySizeUsed() + sparse.GetMemorySizeUsed();
+        }
     }
 }

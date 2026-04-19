@@ -148,7 +148,7 @@ namespace Wargon.Nukecs.Collections
                 return new Enumerator { m_Enumerator = new HashMapHelper<TKey>.Enumerator(data) };
             }
         }
-        public unsafe long GetMemorySizeUsed()
+        public long GetMemorySizeUsed()
         {
             return data.GetMemorySizeUsed() + sizeof(HashMap<TKey, TValue>);
         }
@@ -213,7 +213,7 @@ namespace Wargon.Nukecs.Collections
         private int keyOffset, nextOffset, bucketOffset;
         internal AllocatorManager.AllocatorHandle Allocator;
 
-        internal const int K_MINIMUM_CAPACITY = 256;
+        internal const int K_MINIMUM_CAPACITY = 8;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int CalcCapacityCeilPow2(int capacity)

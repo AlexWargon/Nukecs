@@ -394,13 +394,6 @@ namespace Wargon.Nukecs
             memcpy(chunk.buffer.Ptr + componentIndex * componentTypeData.size, data, componentTypeData.size);
         }
 
-        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // public ref T Get<T>(int entity) where T : unmanaged
-        // {
-        //     var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
-        //     ref var page = ref GetChunk(entity);
-        //     return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
-        // }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get<T>(int entity) where T : unmanaged
         {
@@ -485,13 +478,12 @@ namespace Wargon.Nukecs
             if (componentTypeData.isDisposable) DisposeComponent(componentIndex, ref chunk);
             if (!componentTypeData.isTag)
             {
-                UnsafeUtility.MemClear(
+                mem_clear(
                     chunk.buffer.cached + componentIndex * 
                     componentTypeData.size, componentTypeData.size);
                 // memcpy(chunk.buffer.cached + componentIndex * componentTypeData.size, 
                 //     componentTypeData.defaultValue, componentTypeData.size);
             }
-
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -524,13 +516,11 @@ namespace Wargon.Nukecs
                 ref var srcChunk = ref GetChunk(source);
                 ref var destChunk = ref GetChunk(destination);
                 
-                
                 if (componentTypeData.isCopyable)
                     CopyComponent(source, destination,
                         srcChunk.buffer.cached, destChunk.buffer.cached, srcIndex, destIndex);
                 else
                 {
-
                     memcpy(destChunk.buffer.cached + destIndex * componentTypeData.size,
                         srcChunk.buffer.cached + srcIndex * componentTypeData.size,
                         componentTypeData.size);
@@ -538,9 +528,23 @@ namespace Wargon.Nukecs
             }
         }
 
-        // public ComponentPool<T> AsComponentPool<T>() where T : unmanaged, IComponent
-        // {
-        //     return new ComponentPool<T>(ref this);
-        // }
+        public void BatchAdd<T>(int start, int end, in T data) where T : unmanaged, IComponent
+        {
+            var startChunkIndex = start / Chunk.MAX_CHUNK_SIZE;
+            var startComponentIndex = start % Chunk.MAX_CHUNK_SIZE;
+            
+            var endChunkIndex = end / Chunk.MAX_CHUNK_SIZE;
+            var endComponentIndex = end % Chunk.MAX_CHUNK_SIZE;
+            if (startChunkIndex == endChunkIndex)
+            {
+                ref var chunk = ref GetChunk(startChunkIndex);
+                
+            }
+            for (int i = startChunkIndex; i < endChunkIndex; i++)
+            {
+                ref var chunk = ref GetChunk(i);
+                
+            }
+        }
     }
 }

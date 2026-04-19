@@ -22,6 +22,7 @@ namespace Wargon.Nukecs.Editor
         private readonly List<PoolMemoryInfo> _poolInfos = new();
         private readonly List<WorldMemoryInfo> _worldInfos = new();
         private long _totalPoolsAllocated;
+        private long _poolsOverhead;
 
         private struct PoolMemoryInfo
         {
@@ -53,6 +54,7 @@ namespace Wargon.Nukecs.Editor
             public long entitiesMemory;
             public long archetypesMemory;
             public long queriesMemory;
+            public long poolsOverhead;
         }
 
         private bool _editorUpdateRegistered;
@@ -173,7 +175,8 @@ namespace Wargon.Nukecs.Editor
                 poolsCreated = w.UnsafeWorld->poolsCount,
                 entitiesMemory = CalculateEntitiesMemory(w.UnsafeWorld),
                 archetypesMemory = CalculateArchetypesMemory(w.UnsafeWorld),
-                queriesMemory = CalculateQueriesMemory(w.UnsafeWorld)
+                queriesMemory = CalculateQueriesMemory(w.UnsafeWorld),
+                poolsOverhead = _poolsOverhead
             };
 
             _worldInfos.Add(info);
@@ -253,10 +256,11 @@ namespace Wargon.Nukecs.Editor
             DrawInfoRow("Queries", info.queriesCount.ToString());
             DrawInfoRow("Queries Memory", FormatBytes(info.queriesMemory));
             DrawInfoRow("Pools Created", info.poolsCreated.ToString());
+            DrawInfoRow("Pools Overhead", FormatBytes(info.poolsOverhead));
 
             EditorGUILayout.Space(4);
             EditorGUILayout.LabelField("Untracked", EditorStyles.boldLabel);
-            var known = info.entitiesMemory + info.archetypesMemory + info.queriesMemory + _totalPoolsAllocated;
+            var known = info.entitiesMemory + info.archetypesMemory + info.queriesMemory + _totalPoolsAllocated + info.poolsOverhead;
             var untracked = info.allocatorUsed - known;
             if (untracked < 0) untracked = 0;
             DrawInfoRow("Untracked Memory", FormatBytes(untracked));
@@ -488,6 +492,46 @@ namespace Wargon.Nukecs.Editor
             _totalPoolsAllocated = 0;
             foreach (var p in _poolInfos)
                 _totalPoolsAllocated += p.allocatedBytes;
+
+            _poolsOverhead = CalculatePoolsOverhead();
+        }
+
+        private long CalculatePoolsOverhead()
+        {
+            var w = _world.UnsafeWorld;
+            long overhead = w->pools.GetMemorySizeUsed();
+
+            overhead += w->queriesHashToIndex.GetMemorySizeUsed();
+            overhead += w->DefaultNoneTypes.GetMemorySizeUsed();
+            overhead += w->entitiesDens.GetMemorySizeUsed();
+
+            var poolsPtr = w->pools;
+            for (var i = 0; i < _poolInfos.Count; i++)
+            {
+                var info = _poolInfos[i];
+                if (!info.isCreated || info.isTag) continue;
+                if (info.typeIndex >= poolsPtr.Capacity) continue;
+
+                ref var pool = ref poolsPtr.Ptr[info.typeIndex];
+                if (pool.UnsafeBuffer == null) continue;
+
+                var untyped = pool.UnsafeBuffer;
+                overhead += sizeof(ComponentPoolUntyped);
+                overhead += untyped->Chunks.GetMemorySizeUsed();
+            }
+
+            for (var i = 0; i < w->archetypesList.Length; i++)
+            {
+                overhead += sizeof(ArchetypeUnsafe);
+                var arch = w->archetypesList.Ptr[i].Ptr;
+                foreach (var kv in arch->transactions)
+                    overhead += sizeof(Edge);
+            }
+
+            for (var i = 0; i < w->queries.Length; i++)
+                overhead += sizeof(QueryUnsafe);
+
+            return overhead;
         }
 
         private PoolMemoryInfo CollectSinglePool(int typeIndex, ref GenericPool pool, ComponentTypeData typeData, string typeName, int overrideEntitiesUsing = -1)
