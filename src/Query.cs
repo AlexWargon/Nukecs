@@ -268,6 +268,40 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void BatchAdd(int* entityIds, int cnt)
+        {
+            if (cnt <= 0) return;
+            entities.EnsureCapacity(count + cnt, ref world->AllocatorRef);
+            var maxId = 0;
+            for (var i = 0; i < cnt; i++)
+            {
+                if (entityIds[i] > maxId) maxId = entityIds[i];
+            }
+            entitiesMap.EnsureCapacity(maxId + 1, ref world->AllocatorRef);
+            for (var i = 0; i < cnt; i++)
+            {
+                entities.ElementAt(count) = entityIds[i];
+                count++;
+                entitiesMap[entityIds[i]] = count;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void BatchAddRange(int startEntityId, int cnt)
+        {
+            if (cnt <= 0) return;
+            var endId = startEntityId + cnt;
+            entities.EnsureCapacity(count + cnt, ref world->AllocatorRef);
+            entitiesMap.EnsureCapacity(endId + 1, ref world->AllocatorRef);
+            for (var i = 0; i < cnt; i++)
+            {
+                entities.Ptr[count + i] = startEntityId + i;
+                entitiesMap.Ptr[startEntityId + i] = count + i + 1;
+            }
+            count += cnt;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity)
         {
             if (entity < 0 || entity >= entitiesMap.Capacity) return;

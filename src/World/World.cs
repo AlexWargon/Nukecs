@@ -66,6 +66,11 @@ namespace Wargon.Nukecs
             return ref UnsafeWorld->CreateEntity();
         }
 
+        public Span<Entity> BatchCreateEntity(int count)
+        {
+            return UnsafeWorldRef.BatchCreateEntity(count);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity SpawnPrefab(in Entity prefab)
         {

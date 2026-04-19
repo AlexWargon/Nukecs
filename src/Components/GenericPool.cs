@@ -533,7 +533,23 @@ namespace Wargon.Nukecs
         {
             new Span<T>(buf + compStart * sizeof(T), count).Fill(data);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchAdd(int start, int end)
+        {
+            if (componentTypeData.isTag) return;
+            var entity = start;
+            while (entity < end)
+            {
+                var compStart = entity & (Chunk.MAX_CHUNK_SIZE - 1);
+                var count = Chunk.MAX_CHUNK_SIZE - compStart;
+                if (entity + count > end) count = end - entity;
+                ref var chunk = ref GetChunk(entity);
+                mem_clear(
+                    chunk.buffer.cached + compStart * componentTypeData.size,
+                    count * componentTypeData.size);
+                entity += count;
+            }
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void BatchAdd<T>(int start, int end, in T data) where T : unmanaged
         {
@@ -567,6 +583,27 @@ namespace Wargon.Nukecs
                     curChunkIdx = chunkIndex;
                 }
                 write_element(curBuf, entity & (Chunk.MAX_CHUNK_SIZE - 1), data);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void BatchAdd(int* entities, int count)
+        {
+            if (componentTypeData.isTag) return;
+            var curChunkIdx = -1;
+            byte* curBuf = null;
+            for (var i = 0; i < count; i++)
+            {
+                var entity = entities[i];
+                var chunkIndex = entity >> Chunk.CHUNK_INDEX_BITSFIFT;
+                if (chunkIndex != curChunkIdx)
+                {
+                    ref var chunk = ref GetChunk(entity);
+                    curBuf = chunk.buffer.cached;
+                    curChunkIdx = chunkIndex;
+                }
+                var compIndex = entity & (Chunk.MAX_CHUNK_SIZE - 1);
+                mem_clear(curBuf + compIndex * componentTypeData.size, componentTypeData.size);
             }
         }
 

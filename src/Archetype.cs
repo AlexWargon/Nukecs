@@ -22,12 +22,10 @@ namespace Wargon.Nukecs
             return impl->Has(ComponentType<T>.Index);
         }
 
-        internal void Refresh()
+        public Span<Entity> BatchCreateEntity(int count)
         {
-            impl->queries.Clear();
-            impl->PopulateQueries(impl->world);
+            return ptr.Ref.BatchCreateEntity(count);
         }
-
         public void Dispose()
         {
             //ArchetypeUnsafe.Destroy(impl);
@@ -83,7 +81,12 @@ namespace Wargon.Nukecs
             worldPtr->_free(archetype);
             archetype->world = null;
         }
-
+        internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int index, ref Span<int> types)
+        {
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            *ptr.Ptr = new ArchetypeUnsafe(world, index, ref types);
+            return ptr;
+        }
         internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int index, int[] typesSpan = null)
         {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
@@ -98,8 +101,7 @@ namespace Wargon.Nukecs
             *ptr.Ptr = new ArchetypeUnsafe(world, ref typesSpan, index, copyList);
             return ptr;
         }
-
-        internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, int[] typesSpan = null)
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, int[] typesSpan = default)
         {
             spinner = new Spinner();
             this.world = world;
@@ -110,6 +112,35 @@ namespace Wargon.Nukecs
             {
                 types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
                 id = GetHashCode(typesSpan);
+                foreach (var type in typesSpan)
+                {
+                    mask.Add(type);
+                    types.Add(type, ref world->AllocatorRef);
+                }
+            }
+            else
+            {
+                // Root Archetype
+                types = new MemoryList<int>(1, ref world->AllocatorRef);
+            }
+
+            queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
+            transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
+            destroyEdge = default;
+            PopulateQueries(world);
+            destroyEdge = CreateDestroyEdge();
+        }
+        internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, ref Span<int> typesSpan)
+        {
+            spinner = new Spinner();
+            this.world = world;
+            mask = DynamicBitmask.CreateForComponents(world);
+            id = 0;
+            this.index = index;
+            if (typesSpan.Length > 0)
+            {
+                types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
+                id = GetHashCode(ref typesSpan);
                 foreach (var type in typesSpan)
                 {
                     mask.Add(type);
@@ -164,6 +195,32 @@ namespace Wargon.Nukecs
             var e = world->CreateEntity(index);
             for (var i = 0; i < queries.Length; i++) IdToQueryRef(queries.Ptr[i]).Add(e.id);
             return e;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void BatchCreateEntity(int count, int* outEntities)
+        {
+            world->BatchCreateEntity(count, outEntities, index);
+            for (var i = 0; i < queries.Length; i++)
+                IdToQueryRef(queries.Ptr[i]).BatchAdd(outEntities, count);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Span<Entity> BatchCreateEntity(int count)
+        {
+            return BatchCreateEntity(world->lastEntityIndex, world->lastEntityIndex + count);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Span<Entity> BatchCreateEntity(int start, int end)
+        {
+            var result = world->BatchCreateEntity(start, end, index);
+            var count = end - start;
+            for (var i = 0; i < queries.Length; i++)
+                IdToQueryRef(queries.Ptr[i]).BatchAddRange(start, count);
+            for (var i = 0; i < types.length; i++)
+                world->GetUntypedPool(types[i]).UnsafeBufferPtr.Ref.BatchAdd(start, end);
+            return result;
         }
 
         internal void Refresh()
@@ -566,6 +623,18 @@ namespace Wargon.Nukecs
         }
     }
 
+    public static class WorldArchetypeExtensions
+    {
+        public static unsafe Archetype GetArchetype(this World world, params Type[] types)
+        {
+            Span<int> span = stackalloc int[types.Length];
+            for (var i = span.Length - 1; i >= 0; i--)
+            {
+                span[i] = ComponentTypeMap.Index(types[i]);
+            }
+            return world.UnsafeWorldRef.GetOrCreateArchetype(ref span);
+        }
+    }
     [BurstCompile]
     public static class ArchetypePointerExtensions
     {

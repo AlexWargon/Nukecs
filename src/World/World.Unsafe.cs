@@ -355,6 +355,96 @@ namespace Wargon.Nukecs
                 e.Add(in c2);
                 return ref e;
             }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal void BatchCreateEntity(int count, int* outEntities)
+            {
+                BatchCreateEntity(count, outEntities, 0);
+            }
+
+            internal void BatchCreateEntity(int count, int* outEntities, int archetype)
+            {
+                var needed = lastEntityIndex + count;
+                if (needed >= entities.Capacity)
+                {
+                    var newCapacity = entities.Capacity * 2;
+                    if (newCapacity < needed) newCapacity = needed;
+                    entities.Resize(newCapacity, ref AllocatorRef);
+                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                }
+
+                entitiesAmount += count;
+                var created = 0;
+                var reservedCount = reservedEntities.length;
+                var fromReserved = reservedCount < count ? reservedCount : count;
+
+                for (var i = 0; i < fromReserved; i++)
+                {
+                    var id = reservedEntities.ElementAt(reservedCount - 1 - i);
+                    entities.ElementAt(id) = new Entity(id, Self, archetype);
+                    entitiesArchetypes.ElementAt(id) = archetype;
+                    outEntities[created++] = id;
+                }
+                reservedEntities.length -= fromReserved;
+
+                while (created < count)
+                {
+                    var id = lastEntityIndex++;
+                    entities.ElementAt(id) = new Entity(id, Self, archetype);
+                    entitiesArchetypes.ElementAt(id) = archetype;
+                    outEntities[created++] = id;
+                }
+
+#if NUKECS_DEBUG
+                for (var i = 0; i < count; i++)
+                    entitiesDens.Add(outEntities[i], ref AllocatorRef);
+#endif
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Span<Entity> BatchCreateEntity(int count)
+            {
+                var start = lastEntityIndex;
+                return BatchCreateEntity(start, start + count, 0);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Span<Entity> BatchCreateEntity(int start, int end)
+            {
+                return BatchCreateEntity(start, end, 0);
+            }
+
+            internal Span<Entity> BatchCreateEntity(int start, int end, int archetype)
+            {
+                var count = end - start;
+                if (count <= 0) return default;
+
+                if (end >= entities.Capacity)
+                {
+                    var newCapacity = entities.Capacity * 2;
+                    if (newCapacity < end + 1) newCapacity = end + 1;
+                    entities.Resize(newCapacity, ref AllocatorRef);
+                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                }
+
+                entitiesAmount += count;
+
+                new Span<int>(entitiesArchetypes.Ptr + start, count).Fill(archetype);
+
+                for (var i = start; i < end; i++)
+                {
+                    entities.Ptr[i] = new Entity(i, Self, archetype);
+                }
+
+                if (end > lastEntityIndex) lastEntityIndex = end;
+
+#if NUKECS_DEBUG
+                for (var i = start; i < end; i++)
+                    entitiesDens.Add(i, ref AllocatorRef);
+#endif
+
+                return new Span<Entity>(entities.Ptr + start, count);
+            }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -396,6 +486,18 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+            internal Archetype CreateArchetype(ref Span<int> types) {
+                var idx = archetypesList.length;
+                var ptr = ArchetypeUnsafe.CreatePtr(Self, idx, ref types);
+                Archetype archetype;
+                archetype.ptr = ptr;
+                archetypesList.Add(in ptr, ref AllocatorRef);
+                archetypesMap[ptr.Ptr->id] = archetype;
+                return archetype;
+            }
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
             internal void CreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
                 var idx = archetypesList.length;
                 var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx);
@@ -422,6 +524,16 @@ namespace Wargon.Nukecs
                 archetypesList.Add(in ptr, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->id] = archetype;
                 return archetype;
+            }
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+            internal Archetype GetOrCreateArchetype(ref Span<int> types) {
+                var hash = ArchetypeUnsafe.GetHashCode(ref types);
+                if (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    return archetype;
+                }
+                return CreateArchetype(ref types);
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
