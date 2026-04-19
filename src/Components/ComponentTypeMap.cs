@@ -43,6 +43,8 @@ namespace Wargon.Nukecs
                 BindingFlags.NonPublic | BindingFlags.Static)
                 ?.MakeGenericMethod(type).Invoke(null, null);
         }
+
+#region MAIN REGISTERS
         [BurstDiscard]
         internal static ComponentTypeData RegisterIfNeeded<T>() where T : unmanaged {
             EnsureInitialized();
@@ -85,7 +87,7 @@ namespace Wargon.Nukecs
                 }
             }
         }
-
+#endregion
         public static void ReRegisterFunctionPointers() {
             var types = new System.Collections.Generic.List<Type>(TypeToComponentType.Map.Keys);
             foreach (var type in types) {
@@ -123,7 +125,7 @@ namespace Wargon.Nukecs
             AddComponentType<T>(index);
         }
         
-        internal static unsafe ComponentTypeData AddComponentType<T>(int index) where T : unmanaged
+        internal static ComponentTypeData AddComponentType<T>(int index) where T : unmanaged
         {
             if (ComponentTypes.Data.ContainsKey(index)) return ComponentTypes.Data[index];
             var size = UnsafeUtility.SizeOf<T>();
@@ -141,6 +143,7 @@ namespace Wargon.Nukecs
             };
             ComponentTypes.Data.TryAdd(index, data);
             TypeToComponentType.Map.TryAdd(typeof(T), data);
+            cache.Add(typeof(T), index);
             return data;
         }
         

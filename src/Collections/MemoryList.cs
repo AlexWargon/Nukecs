@@ -267,6 +267,11 @@ namespace Wargon.Nukecs.Collections
                 PtrOffset = this.PtrOffset
             };
         }
+        
+        internal long GetMemorySizeUsed()
+        {
+            return sizeof(T) * capacity + sizeof(MemoryList<T>);
+        }
     }
 
     public static unsafe class Extensions

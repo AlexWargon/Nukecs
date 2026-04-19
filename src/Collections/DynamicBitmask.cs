@@ -15,6 +15,10 @@ namespace Wargon.Nukecs
         private int maxBits;
         private int arraySize;
         public bool IsCreated => bitmaskArray.cached != null;
+        public long GetMemorySizeUsed()
+        {
+            return sizeof(DynamicBitmask) + sizeof(ulong) * arraySize;
+        }
         internal void OnDeserialize(ref MemAllocator allocator)
         {
             bitmaskArray.OnDeserialize(ref allocator);

@@ -14,6 +14,7 @@ namespace Wargon.Nukecs.Collections
     {
         internal HashMapHelper<TKey> data;
 
+
         public HashMap(int initialCapacity, ref UnityAllocatorHandler allocatorHandler)
         {
             data = default;
@@ -146,6 +147,10 @@ namespace Wargon.Nukecs.Collections
             {
                 return new Enumerator { m_Enumerator = new HashMapHelper<TKey>.Enumerator(data) };
             }
+        }
+        public unsafe long GetMemorySizeUsed()
+        {
+            return data.GetMemorySizeUsed() + sizeof(HashMap<TKey, TValue>);
         }
         public struct Enumerator
         {
@@ -298,6 +303,10 @@ namespace Wargon.Nukecs.Collections
             Clear();
         }
 
+        internal long GetMemorySizeUsed()
+        {
+            return CalculateDataSize(Capacity, BucketCapacity, SizeOfTValue, out _, out _, out _);
+        }
         internal void Dispose()
         {
             AllocatorManager.Free(Allocator, Ptr);
@@ -377,6 +386,7 @@ namespace Wargon.Nukecs.Collections
             var capacity = CalcCapacityCeilPow2(Count);
             ResizeExact(capacity, GetBucketSize(capacity));
         }
+
 
         internal static int CalculateDataSize(int capacity, int bucketCapacity, int sizeOfTValue, out int outKeyOffset, out int outNextOffset, out int outBucketOffset)
         {
@@ -740,6 +750,7 @@ namespace Wargon.Nukecs.Collections
                 throw new InvalidOperationException($"Internal HashMap error. idx {idx}");
             }
         }
+        
     }
     
     [DebuggerDisplay("Key = {Key}, Value = {Value}")]
@@ -808,5 +819,7 @@ namespace Wargon.Nukecs.Collections
             value = default;
             return false;
         }
+
+
     }
 }

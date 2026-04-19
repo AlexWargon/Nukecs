@@ -236,7 +236,7 @@ namespace Wargon.Nukecs
 
         public const int MAX_CHUNK_SIZE = 64;
         public const int CHUNK_INDEX_BITSFIFT = 6;
-        public const int COMPONENT_INDEX_BITSHIFT = 64;
+        public const int COMPONENT_INDEX_BITSHIFT = 63;
         public bool IsCreated
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

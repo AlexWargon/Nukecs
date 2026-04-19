@@ -61,5 +61,10 @@ namespace Wargon.Nukecs.Collections
             PtrOffset = ptr_offset.NULL;
             capacity = 0;
         }
+
+        internal long GetMemorySizeUsed()
+        {
+            return sizeof(T) * capacity + sizeof(MemoryArray<T>);
+        }
     }
 }

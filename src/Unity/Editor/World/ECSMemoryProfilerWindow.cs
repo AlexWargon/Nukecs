@@ -16,9 +16,9 @@ namespace Wargon.Nukecs.Editor
         private Vector2 _scrollPos;
         private int _lastPoolCount = -1;
         private bool _autoRefresh = true;
-        private float _refreshInterval = 0.02f;
+        private float _refreshInterval = 0.1f;
         private double _lastRefreshTime;
-        private readonly Dictionary<string, bool> _foldoutStates = new();
+        private readonly Dictionary<int, bool> _foldoutStates = new();
         private readonly List<PoolMemoryInfo> _poolInfos = new();
         private readonly List<WorldMemoryInfo> _worldInfos = new();
 
@@ -34,6 +34,8 @@ namespace Wargon.Nukecs.Editor
             public int entitiesUsing;
             public bool isTag;
             public bool isArray;
+            public bool isElementPool;
+            public int parentArrayPoolIndex;
             public bool isCreated;
         }
 
@@ -167,13 +169,60 @@ namespace Wargon.Nukecs.Editor
                 archetypesCount = w.UnsafeWorld->archetypesList.Length,
                 queriesCount = w.UnsafeWorld->queries.Length,
                 poolsCreated = w.UnsafeWorld->poolsCount,
-                entitiesMemory = (long)w.UnsafeWorld->entities.Length * sizeof(Entity)
-                                 + (long)w.UnsafeWorld->entitiesArchetypes.Length * sizeof(int),
-                archetypesMemory = (long)w.UnsafeWorld->archetypesList.Length * System.Runtime.InteropServices.Marshal.SizeOf<ptr<ArchetypeUnsafe>>(),
-                queriesMemory = (long)w.UnsafeWorld->queries.Length * System.Runtime.InteropServices.Marshal.SizeOf<ptr<QueryUnsafe>>()
+                entitiesMemory = CalculateEntitiesMemory(w.UnsafeWorld),
+                archetypesMemory = CalculateArchetypesMemory(w.UnsafeWorld),
+                queriesMemory = CalculateQueriesMemory(w.UnsafeWorld)
             };
 
             _worldInfos.Add(info);
+        }
+
+        private static long CalculateEntitiesMemory(World.WorldUnsafe* w)
+        {
+            return w->entities.GetMemorySizeUsed()
+                 + w->entitiesArchetypes.GetMemorySizeUsed()
+                 + w->reservedEntities.GetMemorySizeUsed()
+                 + w->prefabsToSpawn.GetMemorySizeUsed();
+        }
+
+        private static long CalculateArchetypesMemory(World.WorldUnsafe* w)
+        {
+            long total = w->archetypesList.GetMemorySizeUsed();
+            total += w->archetypesMap.GetMemorySizeUsed();
+
+            for (int i = 0; i < w->archetypesList.Length; i++)
+            {
+                var arch = w->archetypesList.Ptr[i].Ptr;
+                total += arch->mask.GetMemorySizeUsed();
+                total += arch->types.GetMemorySizeUsed();
+                total += arch->queries.GetMemorySizeUsed();
+                total += arch->transactions.GetMemorySizeUsed();
+                total += arch->destroyEdge.AddEntity.GetMemorySizeUsed();
+                total += arch->destroyEdge.RemoveEntity.GetMemorySizeUsed();
+
+                foreach (var kv in arch->transactions)
+                {
+                    ref var edge = ref kv.Value.Ref;
+                    total += edge.AddEntity.GetMemorySizeUsed();
+                    total += edge.RemoveEntity.GetMemorySizeUsed();
+                }
+            }
+            return total;
+        }
+
+        private static long CalculateQueriesMemory(World.WorldUnsafe* w)
+        {
+            long total = w->queries.GetMemorySizeUsed();
+
+            for (int i = 0; i < w->queries.Length; i++)
+            {
+                var q = w->queries.Ptr[i].Ptr;
+                total += q->with.GetMemorySizeUsed();
+                total += q->none.GetMemorySizeUsed();
+                total += q->entities.GetMemorySizeUsed();
+                total += q->entitiesMap.GetMemorySizeUsed();
+            }
+            return total;
         }
 
         private void DrawWorldOverview()
@@ -233,14 +282,15 @@ namespace Wargon.Nukecs.Editor
             long totalAllocated = 0;
             long totalUsed = 0;
 
-            foreach (var pool in _poolInfos)
+            for (var i = 0; i < _poolInfos.Count; i++)
             {
+                var pool = _poolInfos[i];
                 if (!pool.isCreated) continue;
 
                 totalAllocated += pool.allocatedBytes;
                 totalUsed += pool.usedBytes;
 
-                var key = pool.typeName;
+                var key = pool.typeIndex;
                 if (!_foldoutStates.TryGetValue(key, out var open))
                 {
                     open = false;
@@ -250,8 +300,8 @@ namespace Wargon.Nukecs.Editor
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
                 var foldoutRect = EditorGUILayout.GetControlRect();
-                var indent = 16f;
-                var foRect = new Rect(foldoutRect.x, foldoutRect.y, 14f, foldoutRect.height);
+                var indent = pool.isElementPool ? 32f : 16f;
+                var foRect = new Rect(foldoutRect.x + (pool.isElementPool ? 16f : 0f), foldoutRect.y, 14f, foldoutRect.height);
                 var rowRect = new Rect(foldoutRect.x + indent, foldoutRect.y, foldoutRect.width - indent, foldoutRect.height);
                 var totalW = rowRect.width;
 
@@ -267,13 +317,19 @@ namespace Wargon.Nukecs.Editor
 
                 var typeStyle = pool.isTag
                     ? new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Italic }
-                    : EditorStyles.label;
+                    : pool.isElementPool
+                        ? new GUIStyle(EditorStyles.label) { fontStyle = FontStyle.Normal, fontSize = 10 }
+                        : EditorStyles.label;
 
-                var label = pool.isTag
-                    ? $"[T] {pool.typeName}"
-                    : pool.isArray
-                        ? $"[A] {pool.typeName}"
-                        : pool.typeName;
+                string label;
+                if (pool.isTag)
+                    label = $"[T] {pool.typeName}";
+                else if (pool.isElementPool)
+                    label = $"  └ elements ({pool.typeName})";
+                else if (pool.isArray)
+                    label = $"[A] {pool.typeName}";
+                else
+                    label = pool.typeName;
 
                 EditorGUI.LabelField(rType, label, typeStyle);
 
@@ -301,6 +357,7 @@ namespace Wargon.Nukecs.Editor
                 if (open && !pool.isTag)
                 {
                     EditorGUI.indentLevel++;
+                    EditorGUILayout.LabelField("Pool Index", pool.typeIndex.ToString());
                     EditorGUILayout.LabelField("Component Size", $"{pool.componentSize} bytes");
                     EditorGUILayout.LabelField("Chunk Count", pool.chunksCount.ToString());
                     EditorGUILayout.LabelField("Chunk Capacity", pool.chunksCapacity.ToString());
@@ -354,6 +411,9 @@ namespace Wargon.Nukecs.Editor
             if (indexes == null) return;
 
             var poolsPtr = _world.UnsafeWorld->pools;
+            var parents = new List<PoolMemoryInfo>();
+            var elementMap = new Dictionary<int, PoolMemoryInfo>();
+            var skipIndices = new HashSet<int>();
 
             foreach (var typeIndex in indexes)
             {
@@ -372,6 +432,8 @@ namespace Wargon.Nukecs.Editor
                     continue;
                 }
 
+                if (skipIndices.Contains(typeIndex)) continue;
+
                 var typeName = "Unknown";
                 try
                 {
@@ -380,55 +442,93 @@ namespace Wargon.Nukecs.Editor
                 }
                 catch { }
 
-                var chunksCount = 0;
-                var chunksCapacity = 0;
-                long allocatedBytes = 0;
-                long usedBytes = 0;
-                var entitiesUsing = 0;
+                var info = CollectSinglePool(typeIndex, ref pool, typeData, typeName);
+                info.isArray = typeData.isArray;
+                info.isElementPool = false;
+                info.parentArrayPoolIndex = -1;
+                parents.Add(info);
 
-                if (!typeData.isTag && pool.UnsafeBuffer != null)
+                if (!typeData.isArray || typeIndex + 1 >= poolsPtr.Capacity) continue;
+
+                ref var elementPool = ref poolsPtr.Ptr[typeIndex + 1];
+                if (!elementPool.IsCreated || elementPool.UnsafeBuffer == null) continue;
+
+                var elementData = elementPool.UnsafeBuffer->componentTypeData;
+
+                var elementTypeName = "Unknown";
+                try
                 {
-                    var untyped = pool.UnsafeBuffer;
-                    chunksCapacity = untyped->Chunks.Capacity;
-                    var itemSize = typeData.size;
-
-                    if (typeData.IsArrayElement)
-                    {
-                        itemSize *= ComponentArray.DEFAULT_MAX_CAPACITY;
-                    }
-
-                    for (var i = 0; i < untyped->Chunks.Capacity; i++)
-                    {
-                        ref var chunk = ref untyped->Chunks.ElementAt(i);
-                        if (chunk.IsCreated)
-                        {
-                            chunksCount++;
-                            var chunkByteSize = Chunk.MAX_CHUNK_SIZE * itemSize;
-                            allocatedBytes += chunkByteSize;
-                        }
-                    }
-
-                    entitiesUsing = CountEntitiesUsingPool(typeIndex);
-                    usedBytes = (long)entitiesUsing * itemSize;
+                    elementTypeName = elementData.ManagedType.Name;
                 }
+                catch { }
 
-                _poolInfos.Add(new PoolMemoryInfo
-                {
-                    typeIndex = typeIndex,
-                    typeName = typeName,
-                    componentSize = typeData.size,
-                    chunksCount = chunksCount,
-                    chunksCapacity = chunksCapacity,
-                    allocatedBytes = allocatedBytes,
-                    usedBytes = usedBytes,
-                    entitiesUsing = entitiesUsing,
-                    isTag = typeData.isTag,
-                    isArray = typeData.isArray,
-                    isCreated = true
-                });
+                var elementInfo = CollectSinglePool(typeIndex + 1, ref elementPool, elementData, elementTypeName, info.entitiesUsing);
+                elementInfo.isElementPool = true;
+                elementInfo.parentArrayPoolIndex = typeIndex;
+                elementMap[typeIndex] = elementInfo;
+                skipIndices.Add(typeIndex + 1);
             }
 
-            _poolInfos.Sort((a, b) => b.allocatedBytes.CompareTo(a.allocatedBytes));
+            //parents.Sort((a, b) => b.allocatedBytes.CompareTo(a.allocatedBytes));
+
+            foreach (var parent in parents)
+            {
+                _poolInfos.Add(parent);
+                if (elementMap.TryGetValue(parent.typeIndex, out var element))
+                    _poolInfos.Add(element);
+            }
+        }
+
+        private PoolMemoryInfo CollectSinglePool(int typeIndex, ref GenericPool pool, ComponentTypeData typeData, string typeName, int overrideEntitiesUsing = -1)
+        {
+            var chunksCount = 0;
+            var chunksCapacity = 0;
+            long allocatedBytes = 0;
+            long usedBytes = 0;
+            var entitiesUsing = 0;
+
+            if (!typeData.isTag && pool.UnsafeBuffer != null)
+            {
+                var untyped = pool.UnsafeBuffer;
+                chunksCapacity = untyped->Chunks.Capacity;
+                var itemSize = typeData.size;
+
+                if (typeData.IsArrayElement)
+                {
+                    itemSize *= ComponentArray.DEFAULT_MAX_CAPACITY;
+                }
+
+                for (var i = 0; i < untyped->Chunks.Capacity; i++)
+                {
+                    ref var chunk = ref untyped->Chunks.ElementAt(i);
+                    if (chunk.IsCreated)
+                    {
+                        chunksCount++;
+                        var chunkByteSize = Chunk.MAX_CHUNK_SIZE * itemSize;
+                        allocatedBytes += chunkByteSize;
+                    }
+                }
+
+                entitiesUsing = overrideEntitiesUsing >= 0 ? overrideEntitiesUsing : CountEntitiesUsingPool(typeIndex);
+                usedBytes = (long)entitiesUsing * itemSize;
+            }
+
+            return new PoolMemoryInfo
+            {
+                typeIndex = typeIndex,
+                typeName = typeName,
+                componentSize = typeData.size,
+                chunksCount = chunksCount,
+                chunksCapacity = chunksCapacity,
+                allocatedBytes = allocatedBytes,
+                usedBytes = usedBytes,
+                entitiesUsing = entitiesUsing,
+                isTag = typeData.isTag,
+                isArray = typeData.isArray,
+                isElementPool = false,
+                parentArrayPoolIndex = -1,
+                isCreated = true
+            };
         }
 
         private int CountEntitiesUsingPool(int typeIndex)
