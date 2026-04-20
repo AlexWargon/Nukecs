@@ -110,6 +110,7 @@ namespace Wargon.Nukecs
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    // ReSharper disable once InconsistentNaming
     public unsafe struct ptr<T> : IEquatable<ptr<T>> where T : unmanaged
     {
         public ptr_offset offset;

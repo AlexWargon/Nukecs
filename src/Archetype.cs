@@ -26,6 +26,11 @@ namespace Wargon.Nukecs
         {
             return ptr.Ref.BatchCreateEntity(count);
         }
+
+        public Entity CreateEntity()
+        {
+            return ptr.Ref.CreateEntity();
+        }
         public void Dispose()
         {
             //ArchetypeUnsafe.Destroy(impl);
@@ -701,12 +706,12 @@ namespace Wargon.Nukecs
             {
                 ptr.OnDeserialize(ref alloc);
             }
-
-            QueryTest<(C1,C2,C3,C4)> d = default;
-            foreach (var (C1, C2, C3, C4) in d.par_iter())
-            {
-                
-            }
+            //
+            // QueryTest<(C1,C2,C3,C4)> d = default;
+            // foreach (var (C1, C2, C3, C4) in d.par_iter())
+            // {
+            //     
+            // }
         }
     }
 
