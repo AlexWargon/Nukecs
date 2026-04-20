@@ -85,6 +85,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteData(int index, byte* src, int size)
+        {
+            UnsafeBufferPtr.Ref.WriteData(index, src, size);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteBytes(int index, byte[] value)
         {
             UnsafeBufferPtr.Ref.WriteBytes(index, value);
@@ -281,6 +287,7 @@ namespace Wargon.Nukecs
         public ptr<World.WorldUnsafe> world;
         public int componentSize;
         public ComponentTypeData componentTypeData;
+        internal Spinner chunkLock;
 
         public void OnDeserialization(ref MemAllocator allocator) {
             var idx = componentTypeData.index;
@@ -315,6 +322,7 @@ namespace Wargon.Nukecs
             where T : unmanaged, IComponent
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
+            ptr.Ref.chunkLock = default;
             ptr.Ref.Chunks = new MemoryList<Chunk>(
                 capacity:size / Chunk.MAX_CHUNK_SIZE, 
                 allocator:ref world.Ref.AllocatorRef, 
@@ -331,6 +339,7 @@ namespace Wargon.Nukecs
             in ComponentTypeData data)
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
+            ptr.Ref.chunkLock = default;
             ptr.Ref.Chunks =
                 new MemoryList<Chunk>(size / Chunk.MAX_CHUNK_SIZE, ref world.Ref.AllocatorRef, clear: true, 
                     lenAsCapacity:true);
@@ -339,29 +348,41 @@ namespace Wargon.Nukecs
             ptr.Ref.world = world;
             return ptr;
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Chunk GetChunk(int entity)
         {
             var chunkIndex = entity / Chunk.MAX_CHUNK_SIZE;
 
-            if (chunkIndex >= Chunks.capacity)
+            if (chunkIndex < Chunks.capacity)
             {
-                var newCapacity = Chunks.capacity * 2;
-                if (newCapacity <= chunkIndex) newCapacity = chunkIndex + 1;
-                Chunks.Resize(newCapacity, ref world.Ref.AllocatorRef);
-            }
-            ref var chunk = ref Chunks.ElementAt(chunkIndex);
-            if (chunk.isCreated == 0)
-            {
-                var size = componentTypeData.IsArrayElement
-                    ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
-                    : componentTypeData.size;
-                chunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
-                mem_clear(chunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
-                chunk.isCreated = 1;
+                ref var chunk = ref Chunks.ElementAt(chunkIndex);
+                if (chunk.isCreated == 1) return ref chunk;
             }
 
-            return ref chunk;
+            chunkLock.Acquire();
+            try {
+                if (chunkIndex >= Chunks.capacity)
+                {
+                    var newCapacity = Chunks.capacity * 2;
+                    if (newCapacity <= chunkIndex) newCapacity = chunkIndex + 1;
+                    Chunks.Resize(newCapacity, ref world.Ref.AllocatorRef);
+                }
+                ref var lockedChunk = ref Chunks.ElementAt(chunkIndex);
+                if (lockedChunk.isCreated == 0)
+                {
+                    var size = componentTypeData.IsArrayElement
+                        ? componentTypeData.size * ComponentArray.DEFAULT_MAX_CAPACITY
+                        : componentTypeData.size;
+                    lockedChunk.buffer = world.Ref.AllocatorRef.AllocatePtr<byte>(Chunk.MAX_CHUNK_SIZE * size);
+                    mem_clear(lockedChunk.buffer.cached, Chunk.MAX_CHUNK_SIZE * size);
+                    lockedChunk.isCreated = 1;
+                }
+                return ref lockedChunk;
+            }
+            finally {
+                chunkLock.Release();
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -392,6 +413,17 @@ namespace Wargon.Nukecs
             var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
             ref var chunk = ref GetChunk(entity);
             memcpy(chunk.buffer.Ptr + componentIndex * componentTypeData.size, data, componentTypeData.size);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void WriteData(int entity, byte* src, int size)
+        {
+            if (!componentTypeData.isTag)
+            {
+                var componentIndex = entity % Chunk.MAX_CHUNK_SIZE;
+                ref var chunk = ref GetChunk(entity);
+                memcpy(chunk.buffer.Ptr + componentIndex * componentTypeData.size, src, size);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

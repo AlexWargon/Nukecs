@@ -105,7 +105,7 @@ namespace Wargon.Nukecs
                 lastEntityIndex = FIRST_ENTITY_ID;
                 poolsCount = 0;
                 lastDestroyedEntity = 0;
-                EntityCommandBuffer = new EntityCommandBuffer(256, Allocator.Persistent);
+                EntityCommandBuffer = new EntityCommandBuffer(256, Allocator.Persistent, worldSelf.Ptr);
                 spinner = new Spinner();
                 aspects = new Aspects(ref AllocatorRef, id);
                 
