@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs {
+﻿using Wargon.Nukecs.Collections;
+
+namespace Wargon.Nukecs {
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
@@ -31,6 +33,8 @@
             *ecb = new ECBInternal();
             ecb->perThreadCommands = CreateCommandBuffers(startSize, this.allocator);
             ecb->world = world;
+            ecb->tempMask = new DynamicBitmask(
+                Unity.Mathematics.math.max(ComponentAmount.Value.Data, 256), world);
             ecb->isCreated = 1;
         }
 
@@ -73,6 +77,7 @@
             internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadCommands;
             [NativeDisableUnsafePtrRestriction]
             internal World.WorldUnsafe* world;
+            internal DynamicBitmask tempMask;
 
             public bool IsCreated => isCreated == 1;
 
@@ -223,15 +228,130 @@
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void Dispose() {
-                for (var i = 0; i < perThreadCommands->Length; i++) {
-                    UnsafeList<ECBCommand>.Destroy(perThreadCommands->ElementAt(i));
+            internal void ProcessEntityBatch(ref World world, int entity, ECBCommand* cmds, int count) {
+                var w = world.UnsafeWorld;
+                var originalArchIdx = w->entitiesArchetypes.Ptr[entity];
+                ref var originalArch = ref w->archetypesList.Ptr[originalArchIdx].Ref;
+
+                tempMask.CopyFrom(ref originalArch.mask);
+                var destroyed = false;
+
+                for (var i = 0; i < count; i++) {
+                    ref var cmd = ref cmds[i];
+                    switch (cmd.EcbCommandType) {
+                        case ECBCommand.Type.AddComponent:
+                            if (tempMask.Has(cmd.ComponentType)) {
+                                if (cmd.isDisposable != 0)
+                                    w->GetUntypedPool(cmd.ComponentType).DisposeComponent(entity);
+                                break;
+                            }
+                            tempMask.Add(cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.AddComponentNoData:
+                            if (tempMask.Has(cmd.ComponentType)) break;
+                            w->GetUntypedPool(cmd.ComponentType).Set(entity);
+                            tempMask.Add(cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.RemoveComponent:
+                            if (!tempMask.Has(cmd.ComponentType)) break;
+                            w->GetUntypedPool(cmd.ComponentType).Remove(entity);
+                            tempMask.Remove(cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.RemoveAndDispose:
+                            if (!tempMask.Has(cmd.ComponentType)) break;
+                            w->GetUntypedPool(cmd.ComponentType).DisposeComponent(entity);
+                            tempMask.Remove(cmd.ComponentType);
+                            break;
+                        case ECBCommand.Type.CreateEntity:
+                            world.Entity();
+                            break;
+                        case ECBCommand.Type.DestroyEntity:
+                            originalArch.Destroy(entity);
+                            destroyed = true;
+                            break;
+                        case ECBCommand.Type.Copy:
+                            w->archetypesList.Ptr[originalArchIdx].Ref.Copy(entity, cmd.AdditionalData);
+                            break;
+                        case ECBCommand.Type.CreateCopy:
+                            break;
+                    }
+                    if (destroyed) break;
                 }
-                UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadCommands);
-                isCreated = 0;
+
+                if (destroyed) return;
+
+                var targetArch = w->GetOrCreateArchetype(ref tempMask);
+                w->entitiesArchetypes.Ptr[entity] = targetArch.impl->index;
+
+                if (targetArch.impl->index != originalArchIdx) {
+                    ArchetypeUnsafe.BatchMigrateQueries(ref originalArch, ref *targetArch.impl, entity);
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal static void QuickSort(ECBCommand* arr, int left, int right) {
+                while (left < right) {
+                    var pivot = arr[(left + right) >> 1].Entity;
+                    var i = left - 1;
+                    var j = right + 1;
+                    while (true) {
+                        while (arr[++i].Entity < pivot) { }
+                        while (arr[--j].Entity > pivot) { }
+                        if (i >= j) break;
+                        var tmp = arr[i];
+                        arr[i] = arr[j];
+                        arr[j] = tmp;
+                    }
+                    if (j - left < right - j) {
+                        QuickSort(arr, left, j);
+                        left = j + 1;
+                    } else {
+                        QuickSort(arr, j + 1, right);
+                        right = j;
+                    }
+                }
+            }
+
+            public void Dispose() {
+                    for (var i = 0; i < perThreadCommands->Length; i++) {
+                        UnsafeList<ECBCommand>.Destroy(perThreadCommands->ElementAt(i));
+                    }
+                    UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadCommands);
+                    isCreated = 0;
             }
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void PlaybackBatched(ref World world) {
+            var totalCount = Count;
+            if (totalCount == 0) return;
 
+            var flat = UnsafeList<ECBCommand>.Create(totalCount, Allocator.Temp);
+            for (var i = 0; i < ecb->perThreadCommands->Length; i++) {
+                var threadCmds = ecb->perThreadCommands->ElementAt(i);
+                if (threadCmds->IsEmpty) continue;
+                flat->AddRange(threadCmds->Ptr, threadCmds->m_length);
+            }
+
+            if (flat->m_length == 0) {
+                flat->Dispose();
+                return;
+            }
+
+            ECBInternal.QuickSort(flat->Ptr, 0, flat->m_length - 1);
+
+            var cmdIdx = 0;
+            while (cmdIdx < flat->m_length) {
+                var entityId = flat->Ptr[cmdIdx].Entity;
+                var groupStart = cmdIdx;
+                while (cmdIdx < flat->m_length && flat->Ptr[cmdIdx].Entity == entityId)
+                    cmdIdx++;
+
+                ecb->ProcessEntityBatch(ref world, entityId, flat->Ptr + groupStart, cmdIdx - groupStart);
+            }
+
+            ecb->Clear();
+            flat->Dispose();
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear() {
             ecb->Clear();

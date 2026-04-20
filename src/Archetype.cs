@@ -46,7 +46,7 @@ namespace Wargon.Nukecs
         internal MemoryList<int> queries;
         internal HashMap<int, ptr<Edge>> transactions;
         internal Edge destroyEdge;
-        internal readonly int id;
+        internal int id;
         internal int index;
         internal bool IsCreated => world != null;
 
@@ -99,6 +99,26 @@ namespace Wargon.Nukecs
             return ptr;
         }
 
+        internal static ptr<ArchetypeUnsafe> CreatePtrFromBitmask(World.WorldUnsafe* world, int index, ref DynamicBitmask bitmask)
+        {
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            ref var arch = ref *ptr.Ptr;
+            arch.spinner = new Spinner();
+            arch.world = world;
+            arch.index = index;
+            arch.mask = DynamicBitmask.CreateForComponents(world);
+            arch.mask.CopyFrom(ref bitmask);
+            arch.id = bitmask.ComputeHash();
+            arch.types = new MemoryList<int>(bitmask.Count, ref world->AllocatorRef);
+            bitmask.ExtractSetBits(ref arch.types, ref world->AllocatorRef);
+            arch.queries = new MemoryList<int>(8, ref world->AllocatorRef);
+            arch.transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
+            arch.destroyEdge = default;
+            arch.PopulateQueries(world);
+            arch.destroyEdge = arch.CreateDestroyEdge();
+            return ptr;
+        }
+
         internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, int index,
             bool copyList = false)
         {
@@ -116,12 +136,12 @@ namespace Wargon.Nukecs
             if (typesSpan != null)
             {
                 types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
-                id = GetHashCode(typesSpan);
                 foreach (var type in typesSpan)
                 {
                     mask.Add(type);
                     types.Add(type, ref world->AllocatorRef);
                 }
+                id = mask.ComputeHash();
             }
             else
             {
@@ -145,12 +165,12 @@ namespace Wargon.Nukecs
             if (typesSpan.Length > 0)
             {
                 types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
-                id = GetHashCode(ref typesSpan);
                 foreach (var type in typesSpan)
                 {
                     mask.Add(type);
                     types.Add(type, ref world->AllocatorRef);
                 }
+                id = mask.ComputeHash();
             }
             else
             {
@@ -182,7 +202,7 @@ namespace Wargon.Nukecs
                 types = new MemoryList<int>(1, ref world->AllocatorRef);
             }
 
-            id = GetHashCode(ref typesSpan);
+            id = mask.ComputeHash();
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
             transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             destroyEdge = default;
@@ -470,6 +490,33 @@ namespace Wargon.Nukecs
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal int FollowEdge(int component)
+        {
+            if (transactions.TryGetValue(component, out var edge))
+                return edge.Ref.ToMove;
+            CreateTransaction(component);
+            return transactions[component].Ref.ToMove;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void BatchMigrateQueries(
+            ref ArchetypeUnsafe from, ref ArchetypeUnsafe to, int entity)
+        {
+            for (var i = 0; i < from.queries.Length; i++)
+            {
+                var qId = from.queries[i];
+                if (!to.queries.Contains(qId))
+                    from.IdToQueryRef(qId).Remove(entity);
+            }
+            for (var i = 0; i < to.queries.Length; i++)
+            {
+                var qId = to.queries[i];
+                if (!from.queries.Contains(qId))
+                    to.IdToQueryRef(qId).Add(entity);
+            }
+        }
+
         private void CreateTransaction(int component)
         {
             var remove = component < 0;
@@ -750,7 +797,17 @@ namespace Wargon.Nukecs
         {
             return ++cursor < len;
         }
+        public struct EachIter
+        {
+            public QueryUnsafe* Query;
+            public int Count => Query->count;
+        }
 
+        public bool each(out TTuple components)
+        {
+            components = data[cursor];
+            return cursor < len;
+        }
         public ParIter par_iter()
         {
             var threadIndex = JobsUtility.ThreadIndex;

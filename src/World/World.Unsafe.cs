@@ -529,7 +529,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal Archetype GetOrCreateArchetype(ref Span<int> types) {
-                var hash = ArchetypeUnsafe.GetHashCode(ref types);
+                var hash = DynamicBitmask.ComputeHash((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     return archetype;
                 }
@@ -539,7 +539,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal Archetype GetOrCreateArchetype(ref MemoryList<int> types, bool copyList = false) {
-                var hash = ArchetypeUnsafe.GetHashCode(ref types);
+                var hash = DynamicBitmask.ComputeHash(types.Ptr, types.length);
                 if (archetypesMap.TryGetValue(hash, out var archetype)) {
                     types.Dispose();
                     return archetype;
@@ -553,6 +553,25 @@ namespace Wargon.Nukecs
 #endif
             internal void GetOrCreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
                 archetype = GetOrCreateArchetype(ref types);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Archetype GetOrCreateArchetype(ref DynamicBitmask mask) {
+                var hash = mask.ComputeHash();
+                if (archetypesMap.TryGetValue(hash, out var archetype))
+                    return archetype;
+                return CreateArchetype(ref mask);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Archetype CreateArchetype(ref DynamicBitmask mask) {
+                var idx = archetypesList.length;
+                var archetypePtr = ArchetypeUnsafe.CreatePtrFromBitmask(Self, idx, ref mask);
+                Archetype archetype;
+                archetype.ptr = archetypePtr;
+                archetypesList.Add(in archetypePtr, ref AllocatorRef);
+                archetypesMap[archetypePtr.Ptr->id] = archetype;
+                return archetype;
             }
 
 #if !NUKECS_DEBUG

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
@@ -112,6 +113,76 @@ namespace Wargon.Nukecs
             {
                 bitmaskArray.Ptr[index] &= ~(1UL << bitPosition);
                 Count--;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CopyFrom(ref DynamicBitmask source)
+        {
+            var bytes = source.arraySize * sizeof(ulong);
+            UnsafeUtility.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, bytes);
+            Count = source.Count;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ExtractSetBits(ref MemoryList<int> output, ref MemAllocator allocator)
+        {
+            output.Clear();
+            for (var bitPos = 0; bitPos < maxBits; bitPos++)
+            {
+                var idx = bitPos / BitsPerUlong;
+                var shift = bitPos % BitsPerUlong;
+                if ((bitmaskArray.Ptr[idx] & (1UL << shift)) != 0)
+                    output.Add(bitPos, ref allocator);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal int ComputeHash()
+        {
+            unchecked
+            {
+                var hash = (int)2166136261;
+                const int p = 16777619;
+                var byteLen = arraySize * sizeof(ulong);
+                var ptr = (byte*)bitmaskArray.Ptr;
+                for (var i = 0; i < byteLen; i++)
+                    hash = (hash ^ ptr[i]) * p;
+                hash += hash << 13;
+                hash ^= hash >> 7;
+                hash += hash << 3;
+                hash ^= hash >> 17;
+                hash += hash << 5;
+                return hash;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static int ComputeHash(int* types, int count)
+        {
+            var maxBits = math.max(ComponentAmount.Value.Data, 256);
+            var sz = (maxBits + 63) / 64;
+            var bits = stackalloc ulong[sz];
+            UnsafeUtility.MemClear(bits, sz * sizeof(ulong));
+            for (var i = 0; i < count; i++)
+            {
+                var t = types[i];
+                bits[t / 64] |= 1UL << (t % 64);
+            }
+            unchecked
+            {
+                var hash = (int)2166136261;
+                const int p = 16777619;
+                var byteLen = sz * sizeof(ulong);
+                var ptr = (byte*)bits;
+                for (var i = 0; i < byteLen; i++)
+                    hash = (hash ^ ptr[i]) * p;
+                hash += hash << 13;
+                hash ^= hash >> 7;
+                hash += hash << 3;
+                hash ^= hash >> 17;
+                hash += hash << 5;
+                return hash;
             }
         }
 

@@ -26,11 +26,8 @@ namespace Wargon.Nukecs
             unsafeWorldPtr = default;
             //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
             worldCount--;
-            if (worldCount == 0)
-            {
-                DisposeStatic();
-            }
-            Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
+
+            //Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
     }
 }
