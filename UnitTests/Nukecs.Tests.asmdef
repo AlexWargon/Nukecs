@@ -5,7 +5,9 @@
         "Nukecs",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Unity.Burst"
+        "Unity.Burst",
+        "Unity.PerformanceTesting",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [
         "Editor"
