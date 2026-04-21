@@ -148,7 +148,7 @@ namespace Wargon.Nukecs {
         private readonly Dictionary<int, Type> _typeByIndex = new();
         private readonly Dictionary<Type, int> _indexByType = new();
         private readonly Dictionary<string, Type> _nameToType = new();
-        public readonly System.Collections.Generic.List<int> TypesIndexes = new();
+        public readonly List<int> TypesIndexes = new();
 
         public void Add(Type type, int index) {
             _typeByIndex[index] = type;
