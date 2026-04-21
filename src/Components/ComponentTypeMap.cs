@@ -27,6 +27,7 @@ namespace Wargon.Nukecs
             try {
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             } catch {}
+            Application.quitting += Dispose;
             _initialized = true;
         }
 
@@ -36,6 +37,7 @@ namespace Wargon.Nukecs
             {
                 ComponentTypes.Data.Dispose();
                 ComponentTypeData.ElementTypes.Dispose();
+                Application.quitting -= Dispose;
                 _initialized = false;
             }
         }
