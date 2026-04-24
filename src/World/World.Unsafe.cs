@@ -28,6 +28,7 @@ namespace Wargon.Nukecs
             internal MemoryList<int> reservedEntities;
             internal Archetype rootArchetype;
             internal MemoryList<int> entitiesArchetypes;
+            internal MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
             internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<GenericPool> pools;
@@ -92,6 +93,7 @@ namespace Wargon.Nukecs
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
                 entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
+                entityLocations = new MemoryList<EntityLocation>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
                 pools = new MemoryList<GenericPool>(200, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
@@ -131,6 +133,7 @@ namespace Wargon.Nukecs
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                    entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
                 ref Entity e = ref entities.ElementAt(lastEntityIndex);
                 entitiesAmount++;
@@ -140,6 +143,7 @@ namespace Wargon.Nukecs
                     reservedEntities.RemoveAt(reservedEntities.length - 1);
                     e = new Entity(last, Self);
                     entitiesArchetypes.ElementAt(e.id) = 0;
+                    entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
                     entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
@@ -147,6 +151,7 @@ namespace Wargon.Nukecs
                 }
                 e = new Entity(last, Self);
                 entitiesArchetypes.ElementAt(e.id) = 0;
+                entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
@@ -160,6 +165,7 @@ namespace Wargon.Nukecs
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                    entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
 
                 entitiesAmount++;
@@ -175,6 +181,7 @@ namespace Wargon.Nukecs
                 var e = new Entity(last, Self, archetype);
                 entities.ElementAt(last) = e;
                 entitiesArchetypes.ElementAt(last) = archetype;
+                entityLocations.ElementAt(last) = new EntityLocation { archetypeIndex = archetype, row = 0 };
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
@@ -204,7 +211,7 @@ namespace Wargon.Nukecs
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal ref GenericPool GetPool<T>() where T : unmanaged, IComponent {
+            internal ref GenericPool GetPool<T>() where T : unmanaged{
                 var poolIndex = ComponentType<T>.Index;
                 //if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
@@ -217,10 +224,11 @@ namespace Wargon.Nukecs
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref GenericPool GetUntypedPool(int poolIndex) {
-                //if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
-                if (!pool.IsCreated) 
+                if (!pool.IsCreated)
                 {
+                    var ctData = ComponentTypeMap.GetComponentType(poolIndex);
+                    if (ctData.storageType == StorageType.Archetype) return ref pool;
                     AddPool(ref pool, poolIndex);
                 }
                 return ref pool;
@@ -262,13 +270,13 @@ namespace Wargon.Nukecs
                 spinner.Release();
             }
 
-            private void AddPool<T>() where T : unmanaged, IComponent
+            private void AddPool<T>() where T : unmanaged
             {
                 var poolIndex = ComponentType<T>.Index;
                 pools.ElementAt(poolIndex) = GenericPool.Create<T>(config.StartPoolSize, ref selfPtr);
                 poolsCount++;
             }
-            private void AddPool<T>(ref GenericPool pool) where T : unmanaged, IComponent
+            private void AddPool<T>(ref GenericPool pool) where T : unmanaged
             {
                 spinner.Acquire();
                 try {
@@ -371,6 +379,7 @@ namespace Wargon.Nukecs
                     if (newCapacity < needed) newCapacity = needed;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                    entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
 
                 entitiesAmount += count;
@@ -383,6 +392,7 @@ namespace Wargon.Nukecs
                     var id = reservedEntities.ElementAt(reservedCount - 1 - i);
                     entities.ElementAt(id) = new Entity(id, Self, archetype);
                     entitiesArchetypes.ElementAt(id) = archetype;
+                    entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
                 reservedEntities.length -= fromReserved;
@@ -392,6 +402,7 @@ namespace Wargon.Nukecs
                     var id = lastEntityIndex++;
                     entities.ElementAt(id) = new Entity(id, Self, archetype);
                     entitiesArchetypes.ElementAt(id) = archetype;
+                    entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
 
@@ -425,6 +436,7 @@ namespace Wargon.Nukecs
                     if (newCapacity < end + 1) newCapacity = end + 1;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
+                    entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
 
                 entitiesAmount += count;
@@ -434,6 +446,7 @@ namespace Wargon.Nukecs
                 for (var i = start; i < end; i++)
                 {
                     entities.Ptr[i] = new Entity(i, Self, archetype);
+                    entityLocations.Ptr[i] = new EntityLocation { archetypeIndex = archetype };
                 }
 
                 if (end > lastEntityIndex) lastEntityIndex = end;

@@ -1,11 +1,56 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Jobs;
-using Wargon.Nukecs.Transforms;
 
 namespace Wargon.Nukecs
 {
+    public struct QueryParamInfo<T>
+    {
+        private static readonly SharedStatic<QueryParamData> isComponent = SharedStatic<QueryParamData>.GetOrCreate<QueryParamInfo<T>>();
+
+        public static bool IsComponent
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => isComponent.Data.IsComponent == 1;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => isComponent.Data.IsComponent = value ? (byte)1 : (byte)0;
+        }
+
+        public static int Index
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => isComponent.Data.Index;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => isComponent.Data.Index = value ;
+        }
+        public static StorageType StorageType
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => isComponent.Data.StorageType;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => isComponent.Data.StorageType = value;
+        }
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct QueryParamData
+    {
+        public byte IsComponent;
+        public int Index;
+        public StorageType StorageType;
+    }
+
+    public interface IQQuery<in T>
+    {
+        
+    }
+
+    public struct QQuery<T> : IQQuery<T>
+    {
+        
+    }
     public unsafe interface IFilter
     {
         void Setup(QueryUnsafe* query);

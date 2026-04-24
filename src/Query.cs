@@ -81,7 +81,7 @@ namespace Wargon.Nukecs
         {
             if (Count > 0)
             {
-                return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[0]];
+                return ref InternalPointer->GetEntity(0);
             }
 
             throw new Exception("No entities found");
@@ -91,20 +91,20 @@ namespace Wargon.Nukecs
         public (Entity entity, bool ok) FirstOk()
         {
             return Count > 0
-                ? (InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[0]], true)
+                ? (InternalPointer->GetEntity(0), true)
                 : (Entity.Null, false);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index)
         {
-            return ref InternalPointer->world->entities.Ptr[InternalPointer->entities.Ptr[index]];
+            return ref InternalPointer->GetEntity(index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index)
         {
-            return InternalPointer->entities.ElementAt(index);
+            return InternalPointer->GetEntity(index).id;
         }
 
         public override string ToString()
@@ -138,24 +138,6 @@ namespace Wargon.Nukecs
             RestoreIfNeed();
             return new QueryEnumerator(InternalPointer);
         }
-
-        public QueryIterator<T1, T2, T3> Iter<T1, T2, T3>()
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-            where T3 : unmanaged, IComponent
-        {
-            return new QueryIterator<T1, T2, T3>(0, Count, InternalPointer->world);
-        }
-
-        public Query ForceUpdate()
-        {
-            foreach (var ptr in InternalPointer->world->archetypesList)
-            {
-                ptr.Ref.TryAddQuery(InternalPointer);
-            }
-
-            return this;
-        }
     }
 
 
@@ -163,14 +145,10 @@ namespace Wargon.Nukecs
     {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
-        internal MemoryArray<int> entities;
 
-        internal MemoryArray<int> entitiesMap;
+        internal MemoryList<int> matchingArchetypes;
+        internal int matchingArchetypesCount;
 
-// #if UNITY_EDITOR
-//         internal MemoryList<int> withDebug;
-//         internal MemoryList<int> noneDebug;
-// #endif
         internal int count;
         internal ptr<World.WorldUnsafe> worldPtr;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
@@ -183,15 +161,10 @@ namespace Wargon.Nukecs
         {
             with.OnDeserialize(ref allocator);
             none.OnDeserialize(ref allocator);
-            entities.OnDeserialize(ref allocator);
-            entitiesMap.OnDeserialize(ref allocator);
+            matchingArchetypes.OnDeserialize(ref allocator);
             self.OnDeserialize(ref allocator);
             worldPtr.OnDeserialize(ref allocator);
             world = worldPtr.Ptr;
-// #if UNITY_EDITOR
-//             withDebug.OnDeserialize(ref allocator);
-//             noneDebug.OnDeserialize(ref allocator);
-// #endif
         }
 
         internal static void Free(QueryUnsafe* queryImpl)
@@ -204,8 +177,6 @@ namespace Wargon.Nukecs
         {
             with.Dispose();
             none.Dispose();
-            entities.Dispose();
-            entitiesMap.Dispose();
         }
 
         internal static ptr<QueryUnsafe> CreatePtrRef(ptr<World.WorldUnsafe> world, bool withDefaultNoneTypes = true)
@@ -221,15 +192,9 @@ namespace Wargon.Nukecs
             this.worldPtr = world;
             this.with = DynamicBitmask.CreateForComponents(world.Ptr);
             this.none = DynamicBitmask.CreateForComponents(world.Ptr);
-// #if UNITY_EDITOR
-//             this.withDebug = new MemoryList<int>(16, ref world->AllocatorRef);
-//             this.noneDebug = new MemoryList<int>(8, ref world->AllocatorRef);
-// #endif
             this.count = 0;
-            this.entities =
-                new MemoryArray<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, clear: true);
-            this.entitiesMap =
-                new MemoryArray<int>(world.Ptr->config.StartEntitiesAmount, ref world.Ptr->AllocatorRef, clear: true);
+            this.matchingArchetypes = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
+            this.matchingArchetypesCount = 0;
             this.Id = world.Ptr->queries.Length;
 
             this.self = self;
@@ -237,9 +202,6 @@ namespace Wargon.Nukecs
             {
                 foreach (var type in world.Ptr->DefaultNoneTypes)
                 {
-// #if UNITY_EDITOR
-//                     noneDebug.Add(type, ref world->AllocatorRef);
-// #endif
                     none.Add(type);
                 }
             }
@@ -248,84 +210,58 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index)
         {
-            return ref world->entities.ElementAt(entities.ElementAt(index));
+            var remaining = index;
+            for (var i = 0; i < matchingArchetypes.length; i++)
+            {
+                ref var arch = ref world->archetypesList.Ptr[matchingArchetypes.Ptr[i]].Ref;
+                if (remaining < arch.count)
+                    return ref world->entities.Ptr[arch.packedEntities.Ptr[remaining]];
+                remaining -= arch.count;
+            }
+            return ref world->entities.Ptr[0];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityID(int index)
         {
-            return entities.ElementAt(index);
+            var remaining = index;
+            for (var i = 0; i < matchingArchetypes.length; i++)
+            {
+                ref var arch = ref world->archetypesList.Ptr[matchingArchetypes.Ptr[i]].Ref;
+                if (remaining < arch.count)
+                    return arch.packedEntities.Ptr[remaining];
+                remaining -= arch.count;
+            }
+            return -1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity)
         {
-            entities.EnsureCapacity(count + 1, ref world->AllocatorRef);
-            entities.ElementAt(count) = entity;
             count++;
-            entitiesMap.EnsureCapacity(entity + 1, ref world->AllocatorRef);
-            entitiesMap[entity] = count;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BatchAdd(int* entityIds, int cnt)
         {
-            if (cnt <= 0) return;
-            entities.EnsureCapacity(count + cnt, ref world->AllocatorRef);
-            var maxId = 0;
-            for (var i = 0; i < cnt; i++)
-            {
-                if (entityIds[i] > maxId) maxId = entityIds[i];
-            }
-            entitiesMap.EnsureCapacity(maxId + 1, ref world->AllocatorRef);
-            for (var i = 0; i < cnt; i++)
-            {
-                entities.ElementAt(count) = entityIds[i];
-                count++;
-                entitiesMap[entityIds[i]] = count;
-            }
+            count += cnt;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BatchAddRange(int startEntityId, int cnt)
         {
-            if (cnt <= 0) return;
-            var endId = startEntityId + cnt;
-            entities.EnsureCapacity(count + cnt, ref world->AllocatorRef);
-            entitiesMap.EnsureCapacity(endId + 1, ref world->AllocatorRef);
-            for (var i = 0; i < cnt; i++)
-            {
-                entities.Ptr[count + i] = startEntityId + i;
-                entitiesMap.Ptr[startEntityId + i] = count + i + 1;
-            }
             count += cnt;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity)
         {
-            if (entity < 0 || entity >= entitiesMap.Capacity) return;
-            var index = entitiesMap[entity] - 1;
-            if (index < 0)
-            {
-                return;
-            }
-
-            entitiesMap[entity] = 0;
             count--;
-            if (count > index)
-            {
-                entities[index] = entities[count];
-                entitiesMap[entities[index]] = index + 1;
-            }
         }
 
         public QueryUnsafe* With(int type)
         {
             with.Add(type);
-// #if UNITY_EDITOR
-//             withDebug.Add(type, ref world->AllocatorRef);
-// #endif
             return self.Ptr;
         }
 
@@ -342,9 +278,6 @@ namespace Wargon.Nukecs
         public QueryUnsafe* None(int type)
         {
             none.Add(type);
-// #if UNITY_EDITOR
-//             noneDebug.Add(type, ref world->AllocatorRef);
-// #endif
             return self.Ptr;
         }
 
@@ -429,6 +362,83 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => Chunk.GetRef<TComponent>(chunks, index);
         }
+    }
+    
+    public unsafe struct ArchetypeRef<TComponent> where TComponent : unmanaged
+    {
+        [NativeDisableUnsafePtrRestriction] internal TComponent* ptr;
+
+        [NativeDisableUnsafePtrRestriction] internal byte* columnBase;
+        internal int componentSize;
+
+        [NativeDisableUnsafePtrRestriction] internal Chunk* chunks;
+        internal int poolEntityID;
+
+#pragma warning disable CS0169
+        [NativeDisableUnsafePtrRestriction] public ComponentPoolUntyped* pool;
+        public int index;
+#pragma warning restore CS0169
+
+        public ref TComponent Val
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *ptr;
+        }
+
+        public ref TComponent Get
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *ptr;
+        }
+
+        public TComponent Read
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => *ptr;
+        }
+
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetArchetype(byte* data, int offset, int size)
+        {
+            columnBase = data + offset;
+            componentSize = size;
+            ptr = (TComponent*)columnBase;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetPool(Chunk* poolChunks, int entityID)
+        {
+            chunks = poolChunks;
+            poolEntityID = entityID;
+            ptr = Chunk.GetPtr<TComponent>(chunks, entityID);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AdvanceArchetype(int row)
+        {
+            ptr = (TComponent*)(columnBase + row * componentSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AdvancePool(int entityID)
+        {
+            poolEntityID = entityID;
+            ptr = Chunk.GetPtr<TComponent>(chunks, entityID);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ResolveChunks() { }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Set(byte* data, int offset, int currentRow, int size)
+        {
+            columnBase = data + offset;
+            componentSize = size;
+            ptr = (TComponent*)(columnBase + currentRow * componentSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void SetRow(int currentRow) => ptr = (TComponent*)(columnBase + currentRow * componentSize);
     }
 
 

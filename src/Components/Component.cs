@@ -32,6 +32,7 @@ namespace Wargon.Nukecs
     }
     public interface IComponent { }
     public interface IArrayComponent { }
+    public interface IPoolComponent : IComponent{ }
     public interface IReactive { }
     public interface IComponentPtrFixer {
         void FixPtrs(ref MemAllocator allocator);
@@ -256,6 +257,7 @@ namespace Wargon.Nukecs
     public unsafe interface IUnsafeBufferWriter 
     {
         void Write(void* buffer, int index, int sizeInBytes, IComponent component);
+        void WritToArchetype(void* buffer, int entity, int componentType);
     }
     public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged 
     {
@@ -263,6 +265,11 @@ namespace Wargon.Nukecs
         public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) 
         {
             ((T*) buffer)[index] = (T)component;
+        }
+
+        public unsafe void WritToArchetype(void* buffer, int entity, int componentType)
+        {
+            
         }
     }
 
@@ -453,7 +460,7 @@ namespace Wargon.Nukecs
     //         Buffer = (T*)pool.UnsafeBuffer->buffer + entity.id;
     //     }
     // }
-    public unsafe struct AspectData<T> where T : unmanaged, IComponent
+    public unsafe struct AspectData<T> where T : unmanaged
     {
         internal ComponentPoolUntyped* PoolOwner;
         private int _entity;

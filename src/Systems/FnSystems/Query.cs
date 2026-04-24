@@ -22,7 +22,7 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
 
     {
-        private Ref<T1> _t1;
+        private ArchetypeRef<T1> _t1;
 
         private ptr<QueryUnsafe> _query;
 
@@ -30,7 +30,13 @@ namespace Wargon.Nukecs
 
         private int _current;
 
-        public readonly void Deconstruct(out Ref<T1> c)
+        private int _archIdx;
+        private int _archRow;
+        private int _archEntityEnd;
+
+        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+
+        public readonly void Deconstruct(out ArchetypeRef<T1> c)
         {
             c = _t1;
         }
@@ -54,11 +60,42 @@ namespace Wargon.Nukecs
         {
             if (++_current >= _range.end) return false;
 
-            var index = _query.Ref.GetEntityID(_current);
+            if (++_archRow >= _archEntityEnd)
+            {
+                _archIdx++;
+                SetupArchetypeRefs();
+                return true;
+            }
 
-            _t1.index = index;
-
+            AdvanceRefs();
             return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            _archRow = 0;
+            _archEntityEnd = arch.count;
+            if (T1IsPool)
+                _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AdvanceRefs()
+        {
+            if (T1IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t1.AdvanceArchetype(_archRow);
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -67,8 +104,6 @@ namespace Wargon.Nukecs
             _query = world.Ref.CreateQueryPtr();
 
             _query.Ref.With(ComponentType<T1>.Index);
-
-            _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -78,9 +113,30 @@ namespace Wargon.Nukecs
 
             _current = _range.start - 1;
 
-            _t1.pool = world.GetPool<T1>().UnsafeBuffer;
+            _archIdx = -1;
+            _archRow = 0;
+            _archEntityEnd = 0;
 
-            _t1.ResolveChunks();
+            if (_query.Ref.matchingArchetypes.length > 0)
+            {
+                _archIdx = 0;
+                SetupArchetypeRefsFirst(ref world);
+                _archRow = -1;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefsFirst(ref World world)
+        {
+            ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+            _archEntityEnd = arch.count;
+            if (T1IsPool)
+                _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
         }
 
         public IntPtr GetData()
@@ -101,13 +157,18 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
+            private ArchetypeRef<T1> _t1;
 
             private ptr<QueryUnsafe> _query;
 
             private Range _range;
 
             private int _current;
+            private int _archIdx;
+            private int _archRow;
+            private int _archEntityEnd;
+
+            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -130,19 +191,51 @@ namespace Wargon.Nukecs
             {
                 if (++_current >= _range.end) return false;
 
-                var index = _query.Ref.GetEntityID(_current);
+                if (++_archRow >= _archEntityEnd)
+                {
+                    _archIdx++;
+                    SetupArchetypeRefs();
+                    return true;
+                }
 
-                _t1.index = index;
-
+                AdvanceRefs();
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c)
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupArchetypeRefs()
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _archRow = 0;
+                _archEntityEnd = arch.count;
+                if (T1IsPool)
+                    _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void AdvanceRefs()
+            {
+                if (T1IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t1.AdvanceArchetype(_archRow);
+            }
+
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c)
 
             {
                 c = _t1;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
@@ -151,8 +244,6 @@ namespace Wargon.Nukecs
                 _query = world.Ref.CreateQueryPtr();
 
                 _query.Ref.With(ComponentType<T1>.Index);
-
-                _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
             }
 
             public void Update(ref World world, IntPtr data)
@@ -162,7 +253,30 @@ namespace Wargon.Nukecs
 
                 _current = _range.start - 1;
 
-                _t1.ResolveChunks();
+                _archIdx = -1;
+                _archRow = 0;
+                _archEntityEnd = 0;
+
+                if (_query.Ref.matchingArchetypes.length > 0)
+                {
+                    _archIdx = 0;
+                    SetupArchetypeRefsFirst(ref world);
+                    _archRow = -1;
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupArchetypeRefsFirst(ref World world)
+            {
+                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                _archEntityEnd = arch.count;
+                if (T1IsPool)
+                    _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
             }
 
             public IntPtr GetData()
@@ -192,9 +306,9 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
+        private ArchetypeRef<T1> _t1;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -202,14 +316,18 @@ namespace Wargon.Nukecs
 
         private Range _range;
 
+        private int _archIdx;
+        private int _archRow;
+        private int _archEntityEnd;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c)
         {
             c = _t1;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c, out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c, out ArchetypeRef<TOption> opt)
         {
             c = _t1;
             opt = _tOption;
@@ -224,16 +342,70 @@ namespace Wargon.Nukecs
             get => _query.Ref.count;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
 
         {
             if (++_current >= _range.end) return false;
 
-            _t1.index = _query.Ref.entities.Ptr[_current];
+            if (++_archRow >= _archEntityEnd)
+            {
+                _archIdx++;
+                SetupArchetypeRefs();
+                return true;
+            }
 
-            _tOption.index = _t1.index;
-
+            AdvanceRefs();
             return true;
+        }
+
+        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+        static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            _archRow = 0;
+            _archEntityEnd = arch.count;
+            SetupT1(ref arch);
+            if (QueryParamInfo<TOption>.IsComponent)
+                SetupTOption(ref arch);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT1(ref ArchetypeUnsafe arch)
+        {
+            if (T1IsPool)
+                _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupTOption(ref ArchetypeUnsafe arch)
+        {
+            var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+            if (li >= 0)
+                _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AdvanceRefs()
+        {
+            if (T1IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+            {
+                _t1.AdvanceArchetype(_archRow);
+            }
+            if (TOptIsComponent) _tOption.SetRow(_archRow);
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -242,8 +414,6 @@ namespace Wargon.Nukecs
             _query = world.Ref.CreateQueryPtr();
 
             _query.Ref.With(ComponentType<T1>.Index);
-
-            _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
 
             TOption option = default;
 
@@ -254,11 +424,7 @@ namespace Wargon.Nukecs
 
                     _query.Ref.With(ComponentType<TOption>.Index);
 
-                    _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
-                    _tOption.ResolveChunks();
 
                     break;
 
@@ -287,9 +453,26 @@ namespace Wargon.Nukecs
 
             _current = _range.start - 1;
 
-            _t1.ResolveChunks();
+            _archIdx = -1;
+            _archRow = 0;
+            _archEntityEnd = 0;
 
-            if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+            if (_query.Ref.matchingArchetypes.length > 0)
+            {
+                _archIdx = 0;
+                _archRow = -1;
+                SetupArchetypeRefsFirst(ref world);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefsFirst(ref World world)
+        {
+            ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+            _archEntityEnd = arch.count;
+            SetupT1(ref arch);
+            if (QueryParamInfo<TOption>.IsComponent)
+                SetupTOption(ref arch);
         }
 
         public IntPtr GetData()
@@ -309,15 +492,19 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
+            private ArchetypeRef<T1> _t1;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
             private int _current;
 
             private Range _range;
+
+            private int _archIdx;
+            private int _archRow;
+            private int _archEntityEnd;
 
             public void SetRange(Range range)
             {
@@ -348,30 +535,85 @@ namespace Wargon.Nukecs
             {
                 if (++_current >= _range.end) return false;
 
-                _t1.index = _query.Ref.entities.Ptr[_current];
+                if (++_archRow >= _archEntityEnd)
+                {
+                    _archIdx++;
+                    SetupArchetypeRefs();
+                    return true;
+                }
 
-                _tOption.index = _t1.index;
-
+                AdvanceRefs();
                 return true;
             }
 
+            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c)
+            private void SetupArchetypeRefs()
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _archRow = 0;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                if (QueryParamInfo<TOption>.IsComponent)
+                    SetupTOption(ref arch);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT1(ref ArchetypeUnsafe arch)
+            {
+                if (T1IsPool)
+                    _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupTOption(ref ArchetypeUnsafe arch)
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+                if (li >= 0)
+                    _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void AdvanceRefs()
+            {
+                if (T1IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                {
+                    _t1.AdvanceArchetype(_archRow);
+                }
+                if (TOptIsComponent) _tOption.SetRow(_archRow);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c)
 
             {
                 c = _t1;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c, out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c, out ArchetypeRef<TOption> opt)
 
             {
                 c = _t1;
                 opt = _tOption;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
@@ -380,8 +622,6 @@ namespace Wargon.Nukecs
                 _query = world.Ref.CreateQueryPtr();
 
                 _query.Ref.With(ComponentType<T1>.Index);
-
-                _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
 
                 TOption option = default;
 
@@ -392,11 +632,7 @@ namespace Wargon.Nukecs
 
                         _query.Ref.With(ComponentType<TOption>.Index);
 
-                        _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                         QueryParamInfo<TOption>.IsComponent = true;
-
-                        _tOption.ResolveChunks();
 
                         break;
 
@@ -426,9 +662,20 @@ namespace Wargon.Nukecs
 
                 _current = _range.start - 1;
 
-                _t1.ResolveChunks();
+                _archIdx = -1;
+                _archRow = 0;
+                _archEntityEnd = 0;
 
-                if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+                if (_query.Ref.matchingArchetypes.length > 0)
+                {
+                    _archIdx = 0;
+                    _archRow = -1;
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                    _archEntityEnd = arch.count;
+                    SetupT1(ref arch);
+                    if (QueryParamInfo<TOption>.IsComponent)
+                        SetupTOption(ref arch);
+                }
             }
 
             public void UpdateInner()
@@ -466,10 +713,10 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -477,15 +724,23 @@ namespace Wargon.Nukecs
 
         private Range _range;
 
+        private int _archIdx;
+        private int _archRow;
+        private int _archEntityEnd;
+
+        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+        static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
+        static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2)
         {
             c1 = _t1;
             c2 = _t2;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<TOption> opt)
         {
             c1 = _t1;
             c2 = _t2;
@@ -507,14 +762,79 @@ namespace Wargon.Nukecs
         {
             if (++_current >= _range.end) return false;
 
-            var index = _query.Ref.GetEntityID(_current);
+            if (++_archRow >= _archEntityEnd)
+            {
+                _archIdx++;
+                SetupArchetypeRefs();
+                return true;
+            }
 
-            _t1.index = index;
-            _t2.index = index;
-
-            _tOption.index = index;
-
+            AdvanceRefs();
             return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            _archRow = 0;
+            _archEntityEnd = arch.count;
+            SetupT1(ref arch);
+            SetupT2(ref arch);
+            if (QueryParamInfo<TOption>.IsComponent)
+                SetupTOption(ref arch);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT1(ref ArchetypeUnsafe arch)
+        {
+            if (T1IsPool)
+                _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT2(ref ArchetypeUnsafe arch)
+        {
+            if (T2IsPool)
+                _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T2>.Index);
+                _t2.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupTOption(ref ArchetypeUnsafe arch)
+        {
+            var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+            if (li >= 0)
+                _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AdvanceRefs()
+        {
+            if (T1IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t1.AdvanceArchetype(_archRow);
+            if (T2IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t2.AdvanceArchetype(_archRow);
+            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -526,10 +846,6 @@ namespace Wargon.Nukecs
 
             _query.Ref.With(ComponentType<T2>.Index);
 
-            _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-            _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
             TOption option = default;
 
             switch (option)
@@ -539,11 +855,7 @@ namespace Wargon.Nukecs
 
                     _query.Ref.With(ComponentType<TOption>.Index);
 
-                    _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
-                    _tOption.ResolveChunks();
 
                     break;
 
@@ -572,11 +884,27 @@ namespace Wargon.Nukecs
 
             _current = _range.start - 1;
 
-            _t1.ResolveChunks();
+            _archIdx = -1;
+            _archRow = 0;
+            _archEntityEnd = 0;
 
-            _t2.ResolveChunks();
+            if (_query.Ref.matchingArchetypes.length > 0)
+            {
+                _archIdx = 0;
+                _archRow = -1;
+                SetupArchetypeRefsFirst(ref world);
+            }
+        }
 
-            if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefsFirst(ref World world)
+        {
+            ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+            _archEntityEnd = arch.count;
+            SetupT1(ref arch);
+            SetupT2(ref arch);
+            if (QueryParamInfo<TOption>.IsComponent)
+                SetupTOption(ref arch);
         }
 
         public IntPtr GetData()
@@ -595,16 +923,24 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
             private int _current;
 
             private Range _range;
+
+            private int _archIdx;
+            private int _archRow;
+            private int _archEntityEnd;
+
+            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+            static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
+            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -622,33 +958,100 @@ namespace Wargon.Nukecs
             {
                 if (++_current >= _range.end) return false;
 
-                var index = _query.Ref.GetEntityID(_current);
+                if (++_archRow >= _archEntityEnd)
+                {
+                    _archIdx++;
+                    SetupArchetypeRefs();
+                    return true;
+                }
 
-                _t1.index = index;
-                _t2.index = index;
-
-                _tOption.index = index;
-
+                AdvanceRefs();
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2)
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupArchetypeRefs()
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _archRow = 0;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                SetupT2(ref arch);
+                if (QueryParamInfo<TOption>.IsComponent)
+                    SetupTOption(ref arch);
+            }
+
+            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT1(ref ArchetypeUnsafe arch)
+            {
+                if (T1IsPool)
+                    _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT2(ref ArchetypeUnsafe arch)
+            {
+                if (T2IsPool)
+                    _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T2>.Index);
+                    _t2.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupTOption(ref ArchetypeUnsafe arch)
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+                if (li >= 0)
+                    _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void AdvanceRefs()
+            {
+                if (T1IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t1.AdvanceArchetype(_archRow);
+                if (T2IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t2.AdvanceArchetype(_archRow);
+                if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
+            }
+
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2)
 
             {
                 c1 = _t1;
                 c2 = _t2;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<TOption> opt)
 
             {
                 c1 = _t1;
                 c2 = _t2;
                 opt = _tOption;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
@@ -660,10 +1063,6 @@ namespace Wargon.Nukecs
 
                 _query.Ref.With(ComponentType<T2>.Index);
 
-                _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-                _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
                 TOption option = default;
 
                 switch (option)
@@ -673,11 +1072,7 @@ namespace Wargon.Nukecs
 
                         _query.Ref.With(ComponentType<TOption>.Index);
 
-                        _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                         QueryParamInfo<TOption>.IsComponent = true;
-
-                        _tOption.ResolveChunks();
 
                         break;
 
@@ -705,11 +1100,27 @@ namespace Wargon.Nukecs
 
                 _current = _range.start - 1;
 
-                _t1.ResolveChunks();
+                _archIdx = -1;
+                _archRow = 0;
+                _archEntityEnd = 0;
 
-                _t2.ResolveChunks();
+                if (_query.Ref.matchingArchetypes.length > 0)
+                {
+                    _archIdx = 0;
+                    _archRow = -1;
+                    SetupArchetypeRefsFirst(ref world);
+                }
+            }
 
-                if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupArchetypeRefsFirst(ref World world)
+            {
+                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                SetupT2(ref arch);
+                if (QueryParamInfo<TOption>.IsComponent)
+                    SetupTOption(ref arch);
             }
 
             public IntPtr GetData()
@@ -741,11 +1152,11 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
-        private Ref<T3> _t3;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
+        private ArchetypeRef<T3> _t3;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -753,16 +1164,20 @@ namespace Wargon.Nukecs
 
         private Range _range;
 
+        private int _archIdx;
+        private int _archRow;
+        private int _archEntityEnd;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3)
         {
             c1 = _t1;
             c2 = _t2;
             c3 = _t3;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<TOption> opt)
         {
             c1 = _t1;
             c2 = _t2;
@@ -779,19 +1194,91 @@ namespace Wargon.Nukecs
             get => _query.Ref.count;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
+
         {
             if (++_current >= _range.end) return false;
 
-            var index = _query.Ref.GetEntityID(_current);
+            if (++_archRow >= _archEntityEnd)
+            {
+                _archIdx++;
+                SetupArchetypeRefs();
+                return true;
+            }
 
-            _t1.index = index;
-            _t2.index = index;
-            _t3.index = index;
-
-            _tOption.index = index;
-
+            AdvanceRefs();
             return true;
+        }
+
+        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+        static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
+        static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
+        static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT1(ref ArchetypeUnsafe arch)
+        {
+            if (T1IsPool)
+                _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT2(ref ArchetypeUnsafe arch)
+        {
+            if (T2IsPool)
+                _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T2>.Index);
+                _t2.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT3(ref ArchetypeUnsafe arch)
+        {
+            if (T3IsPool)
+                _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T3>.Index);
+                _t3.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupTOption(ref ArchetypeUnsafe arch)
+        {
+            var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+            if (li >= 0)
+                _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            _archRow = 0;
+            _archEntityEnd = arch.count;
+            SetupT1(ref arch);
+            SetupT2(ref arch);
+            SetupT3(ref arch);
+            if (QueryParamInfo<TOption>.IsComponent)
+                SetupTOption(ref arch);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AdvanceRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            var eid = arch.packedEntities.Ptr[_archRow];
+            if (T1IsPool) _t1.AdvancePool(eid); else _t1.AdvanceArchetype(_archRow);
+            if (T2IsPool) _t2.AdvancePool(eid); else _t2.AdvanceArchetype(_archRow);
+            if (T3IsPool) _t3.AdvancePool(eid); else _t3.AdvanceArchetype(_archRow);
+            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -805,12 +1292,6 @@ namespace Wargon.Nukecs
 
             _query.Ref.With(ComponentType<T3>.Index);
 
-            _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-            _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
-            _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
-
             TOption option = default;
 
             switch (option)
@@ -819,10 +1300,6 @@ namespace Wargon.Nukecs
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
-
-                    _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
-                    _tOption.ResolveChunks();
 
                     QueryParamInfo<TOption>.IsComponent = true;
 
@@ -845,6 +1322,7 @@ namespace Wargon.Nukecs
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
 
         {
@@ -852,13 +1330,22 @@ namespace Wargon.Nukecs
 
             _current = _range.start - 1;
 
-            _t1.ResolveChunks();
+            _archIdx = -1;
+            _archRow = 0;
+            _archEntityEnd = 0;
 
-            _t2.ResolveChunks();
-
-            _t3.ResolveChunks();
-
-            if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+            if (_query.Ref.matchingArchetypes.length > 0)
+            {
+                _archIdx = 0;
+                _archRow = -1;
+                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                SetupT2(ref arch);
+                SetupT3(ref arch);
+                if (QueryParamInfo<TOption>.IsComponent)
+                    SetupTOption(ref arch);
+            }
         }
 
         public IntPtr GetData()
@@ -875,17 +1362,21 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
-            private Ref<T3> _t3;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
+            private ArchetypeRef<T3> _t3;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
             private int _current;
 
             private Range _range;
+
+            private int _archIdx;
+            private int _archRow;
+            private int _archEntityEnd;
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -908,29 +1399,100 @@ namespace Wargon.Nukecs
             {
                 if (++_current >= _range.end) return false;
 
-                var index = _query.Ref.GetEntityID(_current);
+                if (++_archRow >= _archEntityEnd)
+                {
+                    _archIdx++;
+                    SetupArchetypeRefs();
+                    return true;
+                }
 
-                _t1.index = index;
-                _t2.index = index;
-                _t3.index = index;
-
-                _tOption.index = index;
-
+                AdvanceRefs();
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3)
+            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+            static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
+            static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
+            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT1(ref ArchetypeUnsafe arch)
+            {
+                if (T1IsPool)
+                    _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT2(ref ArchetypeUnsafe arch)
+            {
+                if (T2IsPool)
+                    _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T2>.Index);
+                    _t2.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT3(ref ArchetypeUnsafe arch)
+            {
+                if (T3IsPool)
+                    _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T3>.Index);
+                    _t3.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupTOption(ref ArchetypeUnsafe arch)
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+                if (li >= 0)
+                    _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupArchetypeRefs()
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _archRow = 0;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                SetupT2(ref arch);
+                SetupT3(ref arch);
+                if (QueryParamInfo<TOption>.IsComponent)
+                    SetupTOption(ref arch);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void AdvanceRefs()
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                var eid = arch.packedEntities.Ptr[_archRow];
+                if (T1IsPool) _t1.AdvancePool(eid); else _t1.AdvanceArchetype(_archRow);
+                if (T2IsPool) _t2.AdvancePool(eid); else _t2.AdvanceArchetype(_archRow);
+                if (T3IsPool) _t3.AdvancePool(eid); else _t3.AdvanceArchetype(_archRow);
+                if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
+            }
+
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3)
 
             {
                 c1 = _t1;
                 c2 = _t2;
                 c3 = _t3;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<TOption> opt)
 
             {
                 c1 = _t1;
@@ -938,7 +1500,8 @@ namespace Wargon.Nukecs
                 c3 = _t3;
                 opt = _tOption;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
@@ -952,12 +1515,6 @@ namespace Wargon.Nukecs
 
                 _query.Ref.With(ComponentType<T3>.Index);
 
-                _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-                _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
-                _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
-
                 TOption option = default;
 
                 switch (option)
@@ -967,11 +1524,7 @@ namespace Wargon.Nukecs
 
                         _query.Ref.With(ComponentType<TOption>.Index);
 
-                        _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                         QueryParamInfo<TOption>.IsComponent = true;
-
-                        _tOption.ResolveChunks();
 
                         break;
 
@@ -999,19 +1552,25 @@ namespace Wargon.Nukecs
 
                 _current = _range.start - 1;
 
-                _t1.pool = world.GetPool<T1>().UnsafeBuffer;
+                _archIdx = -1;
+                _archRow = 0;
+                _archEntityEnd = 0;
 
-                _t1.ResolveChunks();
-
-                _t2.pool = world.GetPool<T2>().UnsafeBuffer;
-
-                _t2.ResolveChunks();
-
-                _t3.pool = world.GetPool<T3>().UnsafeBuffer;
-
-                _t3.ResolveChunks();
-
-                if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+                if (_query.Ref.matchingArchetypes.length > 0)
+                {
+                    _archIdx = 0;
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                    _archRow = -1;
+                    _archEntityEnd = arch.count;
+                    _t1.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)), 0, arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                    _t2.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)), 0, arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                    _t3.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)), 0, arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                    if (QueryParamInfo<TOption>.IsComponent)
+                    {
+                        var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+                        if (li >= 0) _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+                    }
+                }
             }
 
             public IntPtr GetData()
@@ -1042,12 +1601,12 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
-        private Ref<T3> _t3;
-        private Ref<T4> _t4;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
+        private ArchetypeRef<T3> _t3;
+        private ArchetypeRef<T4> _t4;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -1055,9 +1614,13 @@ namespace Wargon.Nukecs
 
         private Range _range;
 
+        private int _archIdx;
+        private int _archRow;
+        private int _archEntityEnd;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4)
         {
             c1 = _t1;
             c2 = _t2;
@@ -1065,8 +1628,8 @@ namespace Wargon.Nukecs
             c4 = _t4;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4,
-            out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4,
+            out ArchetypeRef<TOption> opt)
         {
             c1 = _t1;
             c2 = _t2;
@@ -1084,20 +1647,118 @@ namespace Wargon.Nukecs
             get => _query.Ref.count;
         }
 
+        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+        static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
+        static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
+        static readonly bool T4IsPool = ComponentType<T4>.Data.storageType == StorageType.Pool;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT1(ref ArchetypeUnsafe arch)
+        {
+            if (T1IsPool)
+                _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT2(ref ArchetypeUnsafe arch)
+        {
+            if (T2IsPool)
+                _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T2>.Index);
+                _t2.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT3(ref ArchetypeUnsafe arch)
+        {
+            if (T3IsPool)
+                _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T3>.Index);
+                _t3.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupT4(ref ArchetypeUnsafe arch)
+        {
+            if (T4IsPool)
+                _t4.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T4>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+            else
+            {
+                var li = arch.GetComponentLocalIndex(ComponentType<T4>.Index);
+                _t4.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            _archRow = 0;
+            _archEntityEnd = arch.count;
+            SetupT1(ref arch);
+            SetupT2(ref arch);
+            SetupT3(ref arch);
+            SetupT4(ref arch);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void AdvanceRefs()
+        {
+            if (T1IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t1.AdvanceArchetype(_archRow);
+            if (T2IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t2.AdvanceArchetype(_archRow);
+            if (T3IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t3.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t3.AdvanceArchetype(_archRow);
+            if (T4IsPool)
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _t4.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+            }
+            else
+                _t4.AdvanceArchetype(_archRow);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
 
         {
             if (++_current >= _range.end) return false;
 
-            var index = _query.Ref.GetEntityID(_current);
+            if (++_archRow >= _archEntityEnd)
+            {
+                _archIdx++;
+                SetupArchetypeRefs();
+                return true;
+            }
 
-            _t1.index = index;
-            _t2.index = index;
-            _t3.index = index;
-            _t4.index = index;
-
-            _tOption.index = index;
-
+            AdvanceRefs();
             return true;
         }
 
@@ -1114,14 +1775,6 @@ namespace Wargon.Nukecs
 
             _query.Ref.With(ComponentType<T4>.Index);
 
-            _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-            _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
-            _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
-
-            _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
-
             TOption option = default;
 
             switch (option)
@@ -1131,11 +1784,7 @@ namespace Wargon.Nukecs
 
                     _query.Ref.With(ComponentType<TOption>.Index);
 
-                    _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
-                    _tOption.ResolveChunks();
 
                     break;
 
@@ -1156,6 +1805,7 @@ namespace Wargon.Nukecs
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
 
         {
@@ -1163,15 +1813,21 @@ namespace Wargon.Nukecs
 
             _current = _range.start - 1;
 
-            _t1.ResolveChunks();
+            _archIdx = -1;
+            _archRow = 0;
+            _archEntityEnd = 0;
 
-            _t2.ResolveChunks();
-
-            _t3.ResolveChunks();
-
-            _t4.ResolveChunks();
-
-            if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+            if (_query.Ref.matchingArchetypes.length > 0)
+            {
+                _archIdx = 0;
+                _archRow = -1;
+                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                SetupT2(ref arch);
+                SetupT3(ref arch);
+                SetupT4(ref arch);
+            }
         }
 
         public IntPtr GetData()
@@ -1188,18 +1844,27 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
-            private Ref<T3> _t3;
-            private Ref<T4> _t4;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
+            private ArchetypeRef<T3> _t3;
+            private ArchetypeRef<T4> _t4;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
             private int _current;
 
             private Range _range;
+
+            private int _archIdx;
+            private int _archRow;
+            private int _archEntityEnd;
+
+            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+            static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
+            static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
+            static readonly bool T4IsPool = ComponentType<T4>.Data.storageType == StorageType.Pool;
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1212,25 +1877,117 @@ namespace Wargon.Nukecs
                 get => _query.Ref.count;
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT1(ref ArchetypeUnsafe arch)
+            {
+                if (T1IsPool)
+                    _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT2(ref ArchetypeUnsafe arch)
+            {
+                if (T2IsPool)
+                    _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T2>.Index);
+                    _t2.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT3(ref ArchetypeUnsafe arch)
+            {
+                if (T3IsPool)
+                    _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T3>.Index);
+                    _t3.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupT4(ref ArchetypeUnsafe arch)
+            {
+                if (T4IsPool)
+                    _t4.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T4>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                else
+                {
+                    var li = arch.GetComponentLocalIndex(ComponentType<T4>.Index);
+                    _t4.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                }
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void SetupArchetypeRefs()
+            {
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                _archRow = 0;
+                _archEntityEnd = arch.count;
+                SetupT1(ref arch);
+                SetupT2(ref arch);
+                SetupT3(ref arch);
+                SetupT4(ref arch);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private void AdvanceRefs()
+            {
+                if (T1IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t1.AdvanceArchetype(_archRow);
+                if (T2IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t2.AdvanceArchetype(_archRow);
+                if (T3IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t3.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t3.AdvanceArchetype(_archRow);
+                if (T4IsPool)
+                {
+                    ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                    _t4.AdvancePool(arch.packedEntities.Ptr[_archRow]);
+                }
+                else
+                    _t4.AdvanceArchetype(_archRow);
+            }
+
             public bool MoveNext()
 
             {
                 if (++_current >= _range.end) return false;
 
-                var index = _query.Ref.GetEntityID(_current);
+                if (++_archRow >= _archEntityEnd)
+                {
+                    _archIdx++;
+                    SetupArchetypeRefs();
+                    return true;
+                }
 
-                _t1.index = index;
-                _t2.index = index;
-                _t3.index = index;
-                _t4.index = index;
-
-                _tOption.index = index;
-
+                AdvanceRefs();
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4)
 
             {
                 c1 = _t1;
@@ -1238,11 +1995,12 @@ namespace Wargon.Nukecs
                 c3 = _t3;
                 c4 = _t4;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<TOption> opt)
 
             {
                 c1 = _t1;
@@ -1251,7 +2009,8 @@ namespace Wargon.Nukecs
                 c4 = _t4;
                 opt = _tOption;
 
-                e = _query.cached->GetEntity(_current);
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
@@ -1267,14 +2026,6 @@ namespace Wargon.Nukecs
 
                 _query.Ref.With(ComponentType<T4>.Index);
 
-                _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-                _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
-                _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
-
-                _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
-
                 TOption option = default;
 
                 switch (option)
@@ -1284,11 +2035,7 @@ namespace Wargon.Nukecs
 
                         _query.Ref.With(ComponentType<TOption>.Index);
 
-                        _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                         QueryParamInfo<TOption>.IsComponent = true;
-
-                        _tOption.ResolveChunks();
 
                         break;
 
@@ -1316,15 +2063,21 @@ namespace Wargon.Nukecs
 
                 _current = _range.start - 1;
 
-                _t1.ResolveChunks();
+                _archIdx = -1;
+                _archRow = 0;
+                _archEntityEnd = 0;
 
-                _t2.ResolveChunks();
-
-                _t3.ResolveChunks();
-
-                _t4.ResolveChunks();
-
-                if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+                if (_query.Ref.matchingArchetypes.length > 0)
+                {
+                    _archIdx = 0;
+                    _archRow = -1;
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                    _archEntityEnd = arch.count;
+                    SetupT1(ref arch);
+                    SetupT2(ref arch);
+                    SetupT3(ref arch);
+                    SetupT4(ref arch);
+                }
             }
 
             public IntPtr GetData()
@@ -1356,13 +2109,13 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
-        private Ref<T3> _t3;
-        private Ref<T4> _t4;
-        private Ref<T5> _t5;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
+        private ArchetypeRef<T3> _t3;
+        private ArchetypeRef<T4> _t4;
+        private ArchetypeRef<T5> _t5;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -1370,9 +2123,14 @@ namespace Wargon.Nukecs
 
         private Range _range;
 
+        private int _archIdx;
+        private int _archRow;
+        private int _archEntityEnd;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+            out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5)
         {
             c1 = _t1;
             c2 = _t2;
@@ -1381,8 +2139,9 @@ namespace Wargon.Nukecs
             c5 = _t5;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5,
-            out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+            out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5,
+            out ArchetypeRef<TOption> opt)
         {
             c1 = _t1;
             c2 = _t2;
@@ -1401,22 +2160,50 @@ namespace Wargon.Nukecs
             get => _query.Ref.count;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
 
         {
             if (++_current >= _range.end) return false;
 
-            var index = _query.Ref.GetEntityID(_current);
+            if (++_archRow >= _archEntityEnd)
+            {
+                _archIdx++;
+                SetupArchetypeRefs();
+                return true;
+            }
 
-            _t1.index = index;
-            _t2.index = index;
-            _t3.index = index;
-            _t4.index = index;
-            _t5.index = index;
-
-            _tOption.index = index;
-
+            _t1.SetRow(_archRow);
+            _t2.SetRow(_archRow);
+            _t3.SetRow(_archRow);
+            _t4.SetRow(_archRow);
+            _t5.SetRow(_archRow);
+            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
             return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetupArchetypeRefs()
+        {
+            ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+            _archRow = 0;
+            _archEntityEnd = arch.count;
+            _t1.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)), 0,
+                arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            _t2.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)), 0,
+                arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+            _t3.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)), 0,
+                arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+            _t4.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index)), 0,
+                arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T4>.Index)));
+            _t5.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T5>.Index)), 0,
+                arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T5>.Index)));
+            if (QueryParamInfo<TOption>.IsComponent)
+            {
+                var localIdx = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+                if (localIdx >= 0)
+                    _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(localIdx), 0, arch.GetComponentSize(localIdx));
+            }
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -1434,16 +2221,6 @@ namespace Wargon.Nukecs
 
             _query.Ref.With(ComponentType<T5>.Index);
 
-            _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
-
-            _t2.pool = world.Ref.GetPool<T2>().UnsafeBuffer;
-
-            _t3.pool = world.Ref.GetPool<T3>().UnsafeBuffer;
-
-            _t4.pool = world.Ref.GetPool<T4>().UnsafeBuffer;
-
-            _t5.pool = world.Ref.GetPool<T5>().UnsafeBuffer;
-
             TOption option = default;
 
             switch (option)
@@ -1453,11 +2230,7 @@ namespace Wargon.Nukecs
 
                     _query.Ref.With(ComponentType<TOption>.Index);
 
-                    _tOption.pool = world.Ref.GetUntypedPool(ComponentType<TOption>.Index).UnsafeBuffer;
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
-                    _tOption.ResolveChunks();
 
                     break;
 
@@ -1478,6 +2251,7 @@ namespace Wargon.Nukecs
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
 
         {
@@ -1485,17 +2259,34 @@ namespace Wargon.Nukecs
 
             _current = _range.start - 1;
 
-            _t1.ResolveChunks();
+            _archIdx = -1;
+            _archRow = 0;
+            _archEntityEnd = 0;
 
-            _t2.ResolveChunks();
-
-            _t3.ResolveChunks();
-
-            _t4.ResolveChunks();
-
-            _t5.ResolveChunks();
-
-            if (QueryParamInfo<TOption>.IsComponent) _tOption.ResolveChunks();
+            if (_query.Ref.matchingArchetypes.length > 0)
+            {
+                _archIdx = 0;
+                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
+                _archRow = -1;
+                _archEntityEnd = arch.count;
+                _t1.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)), 0,
+                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                _t2.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)), 0,
+                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                _t3.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)), 0,
+                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                _t4.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index)), 0,
+                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T4>.Index)));
+                _t5.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T5>.Index)), 0,
+                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T5>.Index)));
+                if (QueryParamInfo<TOption>.IsComponent)
+                {
+                    var localIdx = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
+                    if (localIdx >= 0)
+                        _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(localIdx), 0,
+                            arch.GetComponentSize(localIdx));
+                }
+            }
         }
 
         public IntPtr GetData()
@@ -1510,15 +2301,14 @@ namespace Wargon.Nukecs
         }
 
         public struct WithEntity : IQuery, ISystemParam
-
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
-            private Ref<T3> _t3;
-            private Ref<T4> _t4;
-            private Ref<T5> _t5;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
+            private ArchetypeRef<T3> _t3;
+            private ArchetypeRef<T4> _t4;
+            private ArchetypeRef<T5> _t5;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
@@ -1526,9 +2316,46 @@ namespace Wargon.Nukecs
 
             private Range _range;
 
+            private int _archIdx;
+            private int _archRow;
+            private int _archEntityEnd;
+
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-            public WithEntity Current => this;
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2,
+                out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5)
+
+            {
+                c1 = _t1;
+                c2 = _t2;
+                c3 = _t3;
+                c4 = _t4;
+                c5 = _t5;
+
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]]
+                    .Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
+            }
+
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2,
+                out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5, out ArchetypeRef<TOption> opt)
+
+            {
+                c1 = _t1;
+                c2 = _t2;
+                c3 = _t3;
+                c4 = _t4;
+                c5 = _t5;
+                opt = _tOption;
+
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]]
+                    .Ref;
+                e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
+            }
+
+            public Query<T1, T2, T3, T4, T5, TOption>.WithEntity Current => this;
 
             public int Count
 
@@ -1555,42 +2382,19 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<T5> c5)
-
-            {
-                c1 = _t1;
-                c2 = _t2;
-                c3 = _t3;
-                c4 = _t4;
-                c5 = _t5;
-
-                e = _query.cached->GetEntity(_current);
-            }
-
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<T5> c5, out Ref<TOption> opt)
-
-            {
-                c1 = _t1;
-                c2 = _t2;
-                c3 = _t3;
-                c4 = _t4;
-                c5 = _t5;
-                opt = _tOption;
-
-                e = _query.cached->GetEntity(_current);
-            }
-
             public void Init(ref ptr<World.WorldUnsafe> world)
 
             {
                 _query = world.Ref.CreateQueryPtr();
 
                 _query.Ref.With(ComponentType<T1>.Index);
+
                 _query.Ref.With(ComponentType<T2>.Index);
+
                 _query.Ref.With(ComponentType<T3>.Index);
+
                 _query.Ref.With(ComponentType<T4>.Index);
+
                 _query.Ref.With(ComponentType<T5>.Index);
 
                 _t1.pool = world.Ref.GetPool<T1>().UnsafeBuffer;
@@ -1667,9 +2471,11 @@ namespace Wargon.Nukecs
                 query = _query;
                 return true;
             }
-        }
-    }
 
+
+        }
+
+    }
     // ===========================================================================
 
     // Query<T1..T6, TOption>
@@ -1687,14 +2493,14 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
-        private Ref<T3> _t3;
-        private Ref<T4> _t4;
-        private Ref<T5> _t5;
-        private Ref<T6> _t6;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
+        private ArchetypeRef<T3> _t3;
+        private ArchetypeRef<T4> _t4;
+        private ArchetypeRef<T5> _t5;
+        private ArchetypeRef<T6> _t6;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -1704,8 +2510,8 @@ namespace Wargon.Nukecs
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5,
-            out Ref<T6> c6)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5,
+            out ArchetypeRef<T6> c6)
 
         {
             c1 = _t1;
@@ -1716,8 +2522,8 @@ namespace Wargon.Nukecs
             c6 = _t6;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5,
-            out Ref<T6> c6, out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5,
+            out ArchetypeRef<T6> c6, out ArchetypeRef<TOption> opt)
 
         {
             c1 = _t1;
@@ -1852,14 +2658,14 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
-            private Ref<T3> _t3;
-            private Ref<T4> _t4;
-            private Ref<T5> _t5;
-            private Ref<T6> _t6;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
+            private ArchetypeRef<T3> _t3;
+            private ArchetypeRef<T4> _t4;
+            private ArchetypeRef<T5> _t5;
+            private ArchetypeRef<T6> _t6;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
@@ -1897,8 +2703,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<T5> c5, out Ref<T6> c6)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6)
 
             {
                 c1 = _t1;
@@ -1911,8 +2717,8 @@ namespace Wargon.Nukecs
                 e = _query.cached->GetEntity(_current);
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<T5> c5, out Ref<T6> c6, out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<TOption> opt)
 
             {
                 c1 = _t1;
@@ -2038,15 +2844,15 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
-        private Ref<T3> _t3;
-        private Ref<T4> _t4;
-        private Ref<T5> _t5;
-        private Ref<T6> _t6;
-        private Ref<T7> _t7;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
+        private ArchetypeRef<T3> _t3;
+        private ArchetypeRef<T4> _t4;
+        private ArchetypeRef<T5> _t5;
+        private ArchetypeRef<T6> _t6;
+        private ArchetypeRef<T7> _t7;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -2056,8 +2862,8 @@ namespace Wargon.Nukecs
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5,
-            out Ref<T6> c6, out Ref<T7> c7)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5,
+            out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7)
 
         {
             c1 = _t1;
@@ -2069,8 +2875,8 @@ namespace Wargon.Nukecs
             c7 = _t7;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4, out Ref<T5> c5,
-            out Ref<T6> c6, out Ref<T7> c7, out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5,
+            out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7, out ArchetypeRef<TOption> opt)
 
         {
             c1 = _t1;
@@ -2217,15 +3023,15 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
-            private Ref<T3> _t3;
-            private Ref<T4> _t4;
-            private Ref<T5> _t5;
-            private Ref<T6> _t6;
-            private Ref<T7> _t7;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
+            private ArchetypeRef<T3> _t3;
+            private ArchetypeRef<T4> _t4;
+            private ArchetypeRef<T5> _t5;
+            private ArchetypeRef<T6> _t6;
+            private ArchetypeRef<T7> _t7;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
@@ -2264,8 +3070,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<T5> c5, out Ref<T6> c6, out Ref<T7> c7)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7)
 
             {
                 c1 = _t1;
@@ -2279,8 +3085,8 @@ namespace Wargon.Nukecs
                 e = _query.cached->GetEntity(_current);
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4, out Ref<T5> c5, out Ref<T6> c6, out Ref<T7> c7, out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4, out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7, out ArchetypeRef<TOption> opt)
 
             {
                 c1 = _t1;
@@ -2418,17 +3224,17 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        private Ref<T1> _t1;
-        private Ref<T2> _t2;
-        private Ref<T3> _t3;
-        private Ref<T4> _t4;
+        private ArchetypeRef<T1> _t1;
+        private ArchetypeRef<T2> _t2;
+        private ArchetypeRef<T3> _t3;
+        private ArchetypeRef<T4> _t4;
 
-        private Ref<T5> _t5;
-        private Ref<T6> _t6;
-        private Ref<T7> _t7;
-        private Ref<T8> _t8;
+        private ArchetypeRef<T5> _t5;
+        private ArchetypeRef<T6> _t6;
+        private ArchetypeRef<T7> _t7;
+        private ArchetypeRef<T8> _t8;
 
-        private Ref<TOption> _tOption;
+        private ArchetypeRef<TOption> _tOption;
 
         private ptr<QueryUnsafe> _query;
 
@@ -2438,8 +3244,8 @@ namespace Wargon.Nukecs
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4,
-            out Ref<T5> c5, out Ref<T6> c6, out Ref<T7> c7, out Ref<T8> c8)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4,
+            out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7, out ArchetypeRef<T8> c8)
 
         {
             c1 = _t1;
@@ -2452,8 +3258,8 @@ namespace Wargon.Nukecs
             c8 = _t8;
         }
 
-        public readonly void Deconstruct(out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3, out Ref<T4> c4,
-            out Ref<T5> c5, out Ref<T6> c6, out Ref<T7> c7, out Ref<T8> c8, out Ref<TOption> opt)
+        public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4,
+            out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7, out ArchetypeRef<T8> c8, out ArchetypeRef<TOption> opt)
 
         {
             c1 = _t1;
@@ -2604,17 +3410,17 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
-            private Ref<T1> _t1;
-            private Ref<T2> _t2;
-            private Ref<T3> _t3;
-            private Ref<T4> _t4;
+            private ArchetypeRef<T1> _t1;
+            private ArchetypeRef<T2> _t2;
+            private ArchetypeRef<T3> _t3;
+            private ArchetypeRef<T4> _t4;
 
-            private Ref<T5> _t5;
-            private Ref<T6> _t6;
-            private Ref<T7> _t7;
-            private Ref<T8> _t8;
+            private ArchetypeRef<T5> _t5;
+            private ArchetypeRef<T6> _t6;
+            private ArchetypeRef<T7> _t7;
+            private ArchetypeRef<T8> _t8;
 
-            private Ref<TOption> _tOption;
+            private ArchetypeRef<TOption> _tOption;
 
             private ptr<QueryUnsafe> _query;
 
@@ -2655,9 +3461,9 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4,
-                out Ref<T5> c5, out Ref<T6> c6, out Ref<T7> c7, out Ref<T8> c8)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4,
+                out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7, out ArchetypeRef<T8> c8)
 
             {
                 c1 = _t1;
@@ -2672,9 +3478,9 @@ namespace Wargon.Nukecs
                 e = _query.cached->GetEntity(_current);
             }
 
-            public readonly void Deconstruct(out Entity e, out Ref<T1> c1, out Ref<T2> c2, out Ref<T3> c3,
-                out Ref<T4> c4,
-                out Ref<T5> c5, out Ref<T6> c6, out Ref<T7> c7, out Ref<T8> c8, out Ref<TOption> opt)
+            public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
+                out ArchetypeRef<T4> c4,
+                out ArchetypeRef<T5> c5, out ArchetypeRef<T6> c6, out ArchetypeRef<T7> c7, out ArchetypeRef<T8> c8, out ArchetypeRef<TOption> opt)
 
             {
                 c1 = _t1;
@@ -2792,22 +3598,6 @@ namespace Wargon.Nukecs
                 query = _query;
                 return true;
             }
-        }
-    }
-
-    public struct QueryParamInfo<T>
-
-    {
-        private static readonly SharedStatic<byte> isComponent = SharedStatic<byte>.GetOrCreate<QueryParamInfo<T>>();
-
-        public static bool IsComponent
-
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => isComponent.Data == 1;
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set => isComponent.Data = value ? (byte)1 : (byte)0;
         }
     }
 }

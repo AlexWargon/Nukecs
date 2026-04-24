@@ -83,6 +83,7 @@ namespace Wargon.Nukecs
         {
             return UnsafeUtility.As<TFrom, TTo>(ref u);
         }
+
         [MethodImpl(inline.YES)] 
         public static unsafe T* malloc<T>(Unity.Collections.Allocator allocator) where T : unmanaged
         {

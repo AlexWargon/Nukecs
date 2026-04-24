@@ -146,6 +146,9 @@ namespace Wargon.Nukecs
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>)),
                 isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>),
                 IsArrayElement = typeof(T).GetInterfaces().Any(i => i == typeof(IArrayComponent)),
+                storageType = typeof(IPoolComponent).IsAssignableFrom(typeof(T))
+                    ? StorageType.Pool
+                    : StorageType.Archetype
             };
             ComponentTypes.Data.TryAdd(index, data);
             TypeToComponentType.Map.TryAdd(typeof(T), data);

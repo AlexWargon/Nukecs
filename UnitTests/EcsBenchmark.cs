@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.PerformanceTesting;
@@ -12,6 +13,19 @@ namespace Wargon.Nukecs.Tests
     public struct BenchHealth : IComponent { public float Value; }
     public struct BenchTag : IComponent { }
 
+    [BurstCompile]
+    public static class BenchTestSystems
+    {
+        [System, BurstCompile]
+        public static void Iteration2(ref Query<BenchPosition, BenchVelocity> query)
+        {
+            dbug.log(query.Count);
+            foreach (var (pos, vel) in query)
+            {
+                pos.Get.Value += vel.Read.Value;
+            }
+        }
+    }
     [TestFixture]
     public class EcsBenchmark
     {
@@ -97,6 +111,67 @@ namespace Wargon.Nukecs.Tests
 
             _world.Dispose();
         }
+
+        [Test, Performance]
+        public void Iteration_2Components_Archetype_10K()
+        {
+            _world = World.Create(BenchConfig);
+            Systems systems = new Systems(ref _world);
+            systems.Add(BenchTestSystems.Iteration2, Threads.Main);
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>();
+            var queryNone = _world.Query().With<BenchPosition>().None<BenchVelocity>();
+            for (int i = 0; i < EntityCount; i++)
+                _world.Entity(new BenchPosition { Value = 0 }, new BenchVelocity { Value = new float3(1, 2, 3) });
+            _world.Update();
+            Assert.AreEqual(0, queryNone.Count);
+            Assert.AreEqual(EntityCount, query.Count);
+            Measure.Method(() =>
+            {
+                systems.OnUpdate(1f,1f);
+            })
+            .WarmupCount(10)
+            .MeasurementCount(100)
+            .IterationsPerMeasurement(1)
+            .Run();
+            foreach (ref var entity in query)
+            {
+                ref var pos = ref entity.Get<BenchPosition>();
+                Assert.AreEqual(new float3(110,220,330),pos.Value);
+            }
+            _world.Dispose();
+        }
+
+        [Test, Performance]
+        public void Iteration_3Components_Archetype_10K()
+        {
+            _world = World.Create(BenchConfig);
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            for (int i = 0; i < EntityCount; i++)
+            {
+                ref var e = ref _world.Entity();
+                e.Add(new BenchPosition { Value = 0 });
+                e.Add(new BenchVelocity { Value = new float3(1, 2, 3) });
+                e.Add(new BenchHealth { Value = 100 });
+            }
+            _world.Update();
+            Measure.Method(() =>
+            {
+                foreach (ref var e in query)
+                {
+                    ref var pos = ref e.Get<BenchPosition>();
+                    ref var vel = ref e.Get<BenchVelocity>();
+                    ref var hp = ref e.Get<BenchHealth>();
+                    pos.Value += vel.Value;
+                    hp.Value -= 1;
+                }
+            })
+            .WarmupCount(10)
+            .MeasurementCount(100)
+            .IterationsPerMeasurement(1)
+            .Run();
+
+            _world.Dispose();
+        }
         
         [Test, Performance]
         public void EntityCreation_10K()
@@ -149,6 +224,7 @@ namespace Wargon.Nukecs.Tests
         {
             _world = World.Create(BenchConfig);
             var query = _world.Query().With<BenchPosition>();
+            var query2 = _world.Query().With<BenchPosition>().With<BenchVelocity>();
             var worldId = _world.Id;
             for (var i = 0; i < EntityCount; i++)
                 _world.Entity(new BenchPosition { Value = 0 });
@@ -164,7 +240,7 @@ namespace Wargon.Nukecs.Tests
             .MeasurementCount(50)
             .IterationsPerMeasurement(1)
             .Run();
-
+            Assert.AreEqual(EntityCount, query2.Count);
             _world.Dispose();
         }
 

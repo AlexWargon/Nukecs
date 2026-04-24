@@ -47,7 +47,6 @@ namespace Wargon.Nukecs.Tests
         {
             World.DisposeStatic();
         }
-
         [Test]
         public unsafe void AddObject_BoxedOnlyTypes_NeverReferencedElsewhere()
         {

@@ -19,8 +19,8 @@ namespace Wargon.Nukecs
             Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
         {
             if (!entity.ArchetypeRef.Has<ComponentArray<T>>()) throw NoComponentException<T>();
-            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
-            return ref pool.GetRef<ComponentArray<T>>(entity.id);
+            //ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            return ref entity.ArchetypeRef.GetComponent<ComponentArray<T>>(entity.id);
         }
 
         /// <summary>

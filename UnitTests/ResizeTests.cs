@@ -394,7 +394,7 @@ namespace Wargon.Nukecs.Tests
             systems.OnUpdate(0.016f, 0.016f);
 
             Assert.AreEqual(0, query.Count, "All marked entities should be destroyed");
-
+            world.Update();
             const int nextBatch = 64;
             for (int i = 0; i < nextBatch; i++)
                 world.Entity(new ResizeTestValue { Value = 100 + i });

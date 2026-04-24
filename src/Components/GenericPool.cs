@@ -32,7 +32,7 @@ namespace Wargon.Nukecs
             UnsafeBufferPtr.Ref.OnDeserialization(ref allocator);
         }
         internal static GenericPool Create<T>(int size, ref ptr<World.WorldUnsafe> world)
-            where T : unmanaged, IComponent
+            where T : unmanaged
         {
             return new GenericPool
             {
@@ -184,7 +184,7 @@ namespace Wargon.Nukecs
             return new ComponentPool<T>(genericPool.UnsafeBufferPtr.Ptr);
         }
 
-        public static AspectData<T> AsAspectData<T>(in this GenericPool genericPool) where T : unmanaged, IComponent
+        public static AspectData<T> AsAspectData<T>(in this GenericPool genericPool) where T : unmanaged
         {
             return new AspectData<T>
             {
@@ -319,7 +319,7 @@ namespace Wargon.Nukecs
         }
 
         public static ptr<ComponentPoolUntyped> Create<T>(int size, ref ptr<World.WorldUnsafe> world)
-            where T : unmanaged, IComponent
+            where T : unmanaged
         {
             var ptr = world.Ref.AllocatorRef.AllocatePtr<ComponentPoolUntyped>();
             ptr.Ref.chunkLock = default;

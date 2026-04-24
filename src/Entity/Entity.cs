@@ -134,20 +134,38 @@ namespace Wargon.Nukecs
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
-            if (!entity.ArchetypeRef.Has(componentType))
+            ref var arch = ref entity.ArchetypeRef;
+            if (arch.Has(componentType))
             {
-                ref var pool = ref entity.worldPointer->GetPool<T>();
-                pool.Set(entity.id, default(T));
-                entity.worldPointer->ECB.Add(entity.id, componentType);
-                return ref pool.GetRef<T>(entity.id);
+                var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+                var ptr = arch.GetComponentDataPtr(componentType, loc.row);
+                return ref *(T*)ptr;
             }
+            throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
+        }
 
+        [BurstCompile]
+        public static ref T Get<T>(this Entity entity) where T : unmanaged, IPoolComponent
+        {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public static ref T TryGet<T>(this in Entity entity, out bool exist) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            exist = entity.ArchetypeRef.Has(componentType);
+            if (exist)
+            {
+                var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+                var ptr = entity.ArchetypeRef.GetComponentDataPtr(componentType, loc.row);
+                return ref *(T*)ptr;
+            }
+            return ref *(T*)null;
+        }
+
+        public static ref T TryGet<T>(this Entity entity, out bool exist) where T : unmanaged, IPoolComponent
         {
             exist = entity.ArchetypeRef.Has(ComponentType<T>.Index);
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
@@ -166,21 +184,37 @@ namespace Wargon.Nukecs
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
-            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
-            entity.worldPointer->ECB.Add<T>(entity.id);
+            entity.worldPointer->ECB.Add(entity.id, component);
         }
-
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Add<T>(this ref Entity entity) where T : unmanaged, IComponent
+        public static void Add<T>(this Entity entity, in T component) where T : unmanaged, IPoolComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if (entity.ArchetypeRef.Has(componentType)) return;
+            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
+            entity.worldPointer->ECB.Add<T>(entity.id);
+        }
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static void Add<T>(this in Entity entity) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if (entity.ArchetypeRef.Has(componentType)) return;
+            entity.worldPointer->ECB.Add(entity.id, componentType);
+        }
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static void Add<T>(this Entity entity) where T : unmanaged, IPoolComponent
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
-
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -197,6 +231,15 @@ namespace Wargon.Nukecs
         {
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType)) return;
+            ref var arch = ref entity.ArchetypeRef;
+            var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+            var ptr = arch.GetComponentDataPtr(componentType, loc.row);
+            if (ptr != null)
+                *(T*)ptr = component;
+        }
+
+        public static void Set<T>(this Entity entity, in T component) where T : unmanaged, IPoolComponent
+        {
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
         }
 
@@ -206,9 +249,10 @@ namespace Wargon.Nukecs
         internal static void AddBytes(this in Entity entity, byte[] component, int componentIndex)
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
-            entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add(entity.id, componentIndex);
+            var ctData = ComponentTypeMap.GetComponentType(componentIndex);
+            if (ctData.storageType == StorageType.Pool)
+                entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
+            entity.worldPointer->ECB.Add(entity.id, componentIndex);
         }
 
 #if !NUKECS_DEBUG
@@ -218,7 +262,9 @@ namespace Wargon.Nukecs
             int componentIndex)
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
-            entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
+            var ctData = ComponentTypeMap.GetComponentType(componentIndex);
+            if (ctData.storageType == StorageType.Pool)
+                entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
         }
 
 #if !NUKECS_DEBUG
@@ -226,17 +272,32 @@ namespace Wargon.Nukecs
 #endif
         public static void AddObject(this ref Entity entity, IComponent component)
         {
-            var componentIndex = ComponentTypeMap.Index(component.GetType());
-            if (entity.ArchetypeRef.Has(componentIndex)) return;
-            entity.worldPointer->GetUntypedPool(componentIndex).AddObject(entity.id, component);
+            var ctData = ComponentTypeMap.GetComponentType(component.GetType());
+            
+            if (entity.ArchetypeRef.Has(ctData.index)) return;
             ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add(entity.id, componentIndex);
+            if (ctData.storageType == StorageType.Pool)
+            {
+                entity.worldPointer->GetUntypedPool(ctData.index).AddObject(entity.id, component);
+                ecb.Add(entity.id, ctData);
+                return;
+            }
+            ecb.AddObject(entity.id, component, ctData);
         }
 
         public static void SetObject(this in Entity entity, IComponent component)
         {
-            var componentIndex = ComponentTypeMap.Index(component.GetType());
-            entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
+            var ctData = ComponentTypeMap.GetComponentType(component.GetType());
+            if (ctData.storageType == StorageType.Pool)
+            {
+                entity.worldPointer->GetUntypedPool(ctData.index).SetObject(entity.id, component);
+                return;
+            }
+            if (!entity.ArchetypeRef.Has(ctData.index)) return;
+            var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+            var ptr = entity.ArchetypeRef.GetComponentDataPtr(ctData.index, loc.row);
+            if (ptr != null)
+                ComponentHelpers.Write(ptr, 0, ctData.size, ctData.index, component);
         }
 
 #if !NUKECS_DEBUG

@@ -11,6 +11,11 @@ namespace Wargon.Nukecs {
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
+
+    public enum StorageType : byte {
+        Archetype = 0,
+        Pool = 1
+    }
     
     [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct ComponentTypeData
@@ -23,6 +28,7 @@ namespace Wargon.Nukecs {
         public bool isCopyable;
         public bool isArray;
         public bool IsArrayElement;
+        public StorageType storageType;
         [NativeDisableUnsafePtrRestriction]
         internal IntPtr disposeFn;
         [NativeDisableUnsafePtrRestriction]
