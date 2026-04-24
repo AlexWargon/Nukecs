@@ -15,11 +15,10 @@ namespace Wargon.Nukecs.Transforms
 
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            var (cref, tref, ltref) = entity.Get<ChildOf, Transform, LocalTransform>();
-            ref var transform = ref tref.Val;
-            ref var localTransform = ref ltref.Val;
+            ref var transform = ref entity.Get<Transform>();
+            ref var localTransform = ref entity.Get<LocalTransform>();
             ref readonly var parentTransform =
-                ref state.World.GetPool<Transform>().GetRef<Transform>(cref.Val.Value.id);
+                ref entity.Get<ChildOf>().Value.Get<Transform>();
 
             transform.Position = math.mul(parentTransform.Rotation, localTransform.Position * parentTransform.Scale) + parentTransform.Position;
             transform.Rotation = math.mul(parentTransform.Rotation, localTransform.Rotation);

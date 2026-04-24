@@ -97,6 +97,23 @@ namespace Wargon.Nukecs
             ref var loc = ref world->entityLocations.Ptr[entity];
             return ref *(T*)(data.Ptr + off + loc.row * d.size);
         }
+
+        public IComponent GetObject(int entity, int typeIndex)
+        {
+            var d = ComponentTypeMap.GetComponentType(typeIndex);
+            var off = componentOffsets.Ptr[d.index];
+            ref var loc = ref world->entityLocations.Ptr[entity];
+            var ptr = data.Ptr + off + loc.row * d.size;
+            return ComponentHelpers.Read(ptr, 0, d.size, typeIndex);
+        }
+        public void SetObject(int entity, int typeIndex, IComponent component)
+        {
+            var d = ComponentTypeMap.GetComponentType(typeIndex);
+            var off = componentOffsets.Ptr[d.index];
+            ref var loc = ref world->entityLocations.Ptr[entity];
+            var ptr = data.Ptr + off + loc.row * d.size;
+            ComponentHelpers.Write(ptr, 0, d.size, typeIndex, component);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal byte* GetComponentDataPtr(int componentTypeIndex, int row)
         {
@@ -533,42 +550,13 @@ namespace Wargon.Nukecs
             PopulateQueries(world);
         }
 
-        internal bool TryAddQuery(QueryUnsafe* q)
-        {
-            var matches = 0;
-            var hasNone = false;
-            foreach (var type in types)
-            {
-                if (q->HasNone(type))
-                {
-                    hasNone = true;
-                    break;
-                }
-            }
-
-            if (hasNone) return false;
-            foreach (var type in types)
-            {
-                if (q->HasWith(type))
-                {
-                    matches++;
-                    if (matches == q->with.Count)
-                    {
-                        queries.Add(q->Id, ref world->AllocatorRef);
-                        q->matchingArchetypes.Add(index, ref world->AllocatorRef);
-                        q->matchingArchetypesCount++;
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
         internal void PopulateQueries(World.WorldUnsafe* world)
         {
+            if(index == 0) return;
+            
             for (var i = 0; i < world->queries.Length; i++)
             {
-                var q = world->queries[i];
+                ref var q = ref world->queries[i];
                 var matches = 0;
                 var hasNone = false;
                 foreach (var type in types)
@@ -588,9 +576,10 @@ namespace Wargon.Nukecs
                         matches++;
                         if (matches == q.Ptr->with.Count)
                         {
-                            queries.Add(q.Ptr->Id, ref this.world->AllocatorRef);
-                            q.Ptr->matchingArchetypes.Add(index, ref world->AllocatorRef);
-                            q.Ptr->matchingArchetypesCount++;
+                            q.Ref.AddArchetype(index);
+                            queries.Add(q.Ptr->Id, ref world->AllocatorRef);
+                            // q.Ptr->matchingArchetypes.Add(index, ref world->AllocatorRef);
+                            // q.Ptr->matchingArchetypesCount++;
                             break;
                         }
                     }
@@ -737,21 +726,6 @@ namespace Wargon.Nukecs
             world->OnDestroyEntity(entity);
         }
 
-        // internal EntityData GetEntityData(Entity entity)
-        // {
-        //     EntityData data;
-        //     data.Entity = entity.id;
-        //     data.Components = new byte[types.length][];
-        //     data.SizeInBytes = 0;
-        //     for (var i = 0; i < types.length; i++)
-        //     {
-        //         ref var pool = ref world->GetUntypedPool(types[i]);
-        //         data.Components[i] = pool.Serialize(entity.id);
-        //         data.SizeInBytes += pool.UnsafeBuffer->componentTypeData.size;
-        //     }
-        //
-        //     return data;
-        // }
 
         internal void SetEntityData(EntityData data)
         {

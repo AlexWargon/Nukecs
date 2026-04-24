@@ -470,7 +470,7 @@ namespace Wargon.Nukecs.Editor
 
             foreach (var typeIndex in arch.types)
             {
-                var boxedComponent = _world.UnsafeWorldRef.GetUntypedPool(typeIndex).GetObject(entityId);
+                var boxedComponent = arch.GetObject(entityId, typeIndex);
                 if (boxedComponent == null)
                     continue;
                 
@@ -549,13 +549,12 @@ namespace Wargon.Nukecs.Editor
             
             foreach (var typeIndex in arch.types)
             {
-                ref var pool = ref _world.UnsafeWorldRef.GetUntypedPool(typeIndex);
-                var boxedComponentFromWorld = pool.GetObject(entityId);
+                var boxedComponentFromWorld = arch.GetObject(entityId, typeIndex);
                 if (boxedComponentFromWorld != null && _componentProxies.TryGetValue(typeIndex, out var proxy))
                 {
                     if (!EditorGUIUtility.editingTextField && !forceUpdate)
                     {
-                        proxy.boxedComponent = pool.GetObject(entityId);
+                        proxy.boxedComponent = arch.GetObject(entityId, typeIndex);
                     }
 
                     proxy.typeIndex = typeIndex;
@@ -572,8 +571,7 @@ namespace Wargon.Nukecs.Editor
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entity.id).Ref;
             foreach (var typeIndex in arch.types)
             {
-                ref var pool = ref _world.UnsafeWorldRef.GetUntypedPool(typeIndex);
-                var boxedComponent = pool.GetObject(entity.id);
+                var boxedComponent = arch.GetObject(entity.id, typeIndex);
                 if (boxedComponent == null) continue;
 
                 var proxy = GetOrCreateProxy(typeIndex);

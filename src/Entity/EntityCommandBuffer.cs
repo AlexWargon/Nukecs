@@ -165,7 +165,7 @@ namespace Wargon.Nukecs {
                 var thread = JobsUtility.ThreadIndex;
                 perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
                     Entity = entity,
-                    EcbCommandType = ECBCommand.Type.AddComponent,
+                    EcbCommandType = ECBCommand.Type.AddComponentNoData,
                     ComponentType = ctData.index,
                     isDisposable = ctData.isDisposable ? (byte)1 : (byte)0,
                 });

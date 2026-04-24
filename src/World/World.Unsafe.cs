@@ -92,8 +92,8 @@ namespace Wargon.Nukecs
                 entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
-                entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
-                entityLocations = new MemoryList<EntityLocation>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true);
+                entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true, lenAsCapacity:true);
+                entityLocations = new MemoryList<EntityLocation>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 pools = new MemoryList<GenericPool>(200, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
@@ -129,7 +129,7 @@ namespace Wargon.Nukecs
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref Entity CreateEntity() {
-                if (lastEntityIndex >= entities.Capacity) {
+                if (lastEntityIndex >= entities.Capacity - 1) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
@@ -472,18 +472,7 @@ namespace Wargon.Nukecs
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAt(id);
             }
-#if !NUKECS_DEBUG
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-            public Archetype CreateArchetype(params int[] types) {
-                var idx = archetypesList.length;
-                var ptr = ArchetypeUnsafe.CreatePtr(Self, idx, types);
-                Archetype archetype;
-                archetype.ptr = ptr;
-                archetypesList.Add(in ptr, ref AllocatorRef);
-                archetypesMap[ptr.Ptr->id] = archetype;
-                return archetype;
-            }
+
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif

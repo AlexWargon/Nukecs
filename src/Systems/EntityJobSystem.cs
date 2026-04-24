@@ -120,9 +120,9 @@ namespace Wargon.Nukecs
                     case Threads.Single:
                         for (var i = 0; i < fullData.query->count; i++) {
                             ref var e = ref fullData.query->GetEntity(i);
-                            //if (e.IsValid()) {
+                            if (e.IsValid()) {
                             fullData.JobData.OnUpdate(ref e, ref fullData.State);
-                            //}
+                            }
                         }
                         break;
                 }

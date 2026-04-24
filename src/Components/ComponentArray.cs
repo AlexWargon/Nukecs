@@ -48,7 +48,7 @@ namespace Wargon.Nukecs
                 casted->Restore(ref allocator);
         }
     }
-    public unsafe struct ComponentArray<T> : IComponent, IDisposable, ICopyable<ComponentArray<T>>
+    public unsafe struct ComponentArray<T> : IPoolComponent, IDisposable, ICopyable<ComponentArray<T>>
         where T : unmanaged, IArrayComponent
     {
         internal const int DEFAULT_MAX_CAPACITY = ComponentArray.DEFAULT_MAX_CAPACITY;

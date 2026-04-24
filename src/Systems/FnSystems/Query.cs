@@ -62,7 +62,7 @@ namespace Wargon.Nukecs
 
             if (++_archRow >= _archEntityEnd)
             {
-                _archIdx++;
+                if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
                 SetupArchetypeRefs();
                 return true;
             }
@@ -193,7 +193,7 @@ namespace Wargon.Nukecs
 
                 if (++_archRow >= _archEntityEnd)
                 {
-                    _archIdx++;
+                    if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
                     SetupArchetypeRefs();
                     return true;
                 }
@@ -350,7 +350,7 @@ namespace Wargon.Nukecs
 
             if (++_archRow >= _archEntityEnd)
             {
-                _archIdx++;
+                if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
                 SetupArchetypeRefs();
                 return true;
             }
@@ -537,7 +537,7 @@ namespace Wargon.Nukecs
 
                 if (++_archRow >= _archEntityEnd)
                 {
-                    _archIdx++;
+                    if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
                     SetupArchetypeRefs();
                     return true;
                 }
@@ -764,7 +764,7 @@ namespace Wargon.Nukecs
 
             if (++_archRow >= _archEntityEnd)
             {
-                _archIdx++;
+                if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
                 SetupArchetypeRefs();
                 return true;
             }
@@ -954,13 +954,12 @@ namespace Wargon.Nukecs
             }
 
             public bool MoveNext()
-
             {
                 if (++_current >= _range.end) return false;
 
                 if (++_archRow >= _archEntityEnd)
                 {
-                    _archIdx++;
+                    if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
                     SetupArchetypeRefs();
                     return true;
                 }
@@ -972,7 +971,18 @@ namespace Wargon.Nukecs
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupArchetypeRefs()
             {
-                ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
+                if (_archIdx < 0 || _archIdx >= _query.Ref.matchingArchetypes.length)
+                {
+                    UnityEngine.Debug.LogError($"Arch index {_archIdx} is out of range. Len {_query.Ref.matchingArchetypes.length}.");
+                    return;
+                }
+
+                var archIndex = _query.Ref.matchingArchetypes.Ptr[_archIdx];
+                if (archIndex == 0)
+                {
+                    UnityEngine.Debug.LogError($"Arch is root.");
+                }
+                ref var arch = ref _query.Ref.world->archetypesList.Ptr[archIndex].Ref;
                 _archRow = 0;
                 _archEntityEnd = arch.count;
                 SetupT1(ref arch);
@@ -989,6 +999,10 @@ namespace Wargon.Nukecs
                 else
                 {
                     var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                    if (li < 0 || arch.componentOffsets.Ptr == null)
+                    {
+                        UnityEngine.Debug.LogError($"Archetype has no component {typeof(T1).Name}. {arch.ToString()}");
+                    }
                     _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
                 }
             }

@@ -19,7 +19,6 @@ namespace Wargon.Nukecs.Tests
         [System, BurstCompile]
         public static void Iteration2(ref Query<BenchPosition, BenchVelocity> query)
         {
-            dbug.log(query.Count);
             foreach (var (pos, vel) in query)
             {
                 pos.Get.Value += vel.Read.Value;
@@ -76,7 +75,11 @@ namespace Wargon.Nukecs.Tests
             .MeasurementCount(100)
             .IterationsPerMeasurement(1)
             .Run();
-
+            foreach (ref var entity in query)
+            {
+                ref var pos = ref entity.Get<BenchPosition>();
+                Assert.AreEqual(new float3(110,220,330),pos.Value);
+            }
             _world.Dispose();
         }
 

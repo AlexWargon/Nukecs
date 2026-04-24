@@ -241,6 +241,11 @@ namespace Wargon.Nukecs
             count++;
         }
 
+        internal void AddArchetype(int archetypeIndex)
+        {
+            matchingArchetypes.Add(archetypeIndex, ref world->AllocatorRef);
+            matchingArchetypesCount++;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BatchAdd(int* entityIds, int cnt)
         {
@@ -307,32 +312,53 @@ namespace Wargon.Nukecs
     public unsafe ref struct QueryEnumerator
     {
         private int _lastIndex;
-
+        private int _lastArch;
+        private int _archRow;
+        private int _countInArch;
         private readonly QueryUnsafe* _query;
-
+        private ArchetypeUnsafe* _currentArchetype;
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal QueryEnumerator(QueryUnsafe* queryUnsafe)
         {
             _query = queryUnsafe;
             _lastIndex = -1;
+            _lastArch = -1;
+            _archRow = -1;
+            _countInArch = 0;
+            _currentArchetype = default;
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            _lastIndex++;
-            return _query->count > _lastIndex;
+            if (++_lastIndex >= _query->count) return false;
+            if (_lastArch < 0 || ++_archRow >= _countInArch)
+            {
+                if (++_lastArch >= _query->matchingArchetypes.length) return false;
+                var archIndex = _query->matchingArchetypes.Ptr[_lastArch];
+                _currentArchetype = _query->world->archetypesList.Ptr[archIndex].Ptr;
+                _countInArch = _currentArchetype->count;
+                _archRow = 0;
+            }
+            return true;
         }
 
         public void Reset()
         {
             _lastIndex = -1;
+            _lastArch = -1;
+            _archRow = -1;
+            _countInArch = 0;
         }
 
         public ref Entity Current
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref _query->GetEntity(_lastIndex);
+            get
+            {
+                ref var e = ref _query->world->entities.Ptr[_currentArchetype->packedEntities.Ptr[_archRow]];
+                return ref e;
+            }
         }
     }
 
