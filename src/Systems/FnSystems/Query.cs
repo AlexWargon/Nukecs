@@ -119,9 +119,26 @@ namespace Wargon.Nukecs
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
-                _archIdx = 0;
-                SetupArchetypeRefsFirst(ref world);
-                _archRow = -1;
+                var remaining = _range.start;
+                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                {
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                    if (remaining < arch.count)
+                    {
+                        _archIdx = i;
+                        _archEntityEnd = arch.count;
+                        if (T1IsPool)
+                            _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                        else
+                        {
+                            var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                            _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                        }
+                        _archRow = remaining - 1;
+                        break;
+                    }
+                    remaining -= arch.count;
+                }
             }
         }
 
@@ -259,9 +276,26 @@ namespace Wargon.Nukecs
 
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
-                    _archIdx = 0;
-                    SetupArchetypeRefsFirst(ref world);
-                    _archRow = -1;
+                    var remaining = _range.start;
+                    for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                    {
+                        ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                        if (remaining < arch.count)
+                        {
+                            _archIdx = i;
+                            _archEntityEnd = arch.count;
+                            if (T1IsPool)
+                                _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
+                            else
+                            {
+                                var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
+                                _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                            }
+                            _archRow = remaining - 1;
+                            break;
+                        }
+                        remaining -= arch.count;
+                    }
                 }
             }
 
@@ -360,8 +394,6 @@ namespace Wargon.Nukecs
         }
 
         static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-        static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupArchetypeRefs()
         {
@@ -405,7 +437,7 @@ namespace Wargon.Nukecs
             {
                 _t1.AdvanceArchetype(_archRow);
             }
-            if (TOptIsComponent) _tOption.SetRow(_archRow);
+            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -459,9 +491,22 @@ namespace Wargon.Nukecs
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
-                _archIdx = 0;
-                _archRow = -1;
-                SetupArchetypeRefsFirst(ref world);
+                var remaining = _range.start;
+                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                {
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                    if (remaining < arch.count)
+                    {
+                        _archIdx = i;
+                        _archEntityEnd = arch.count;
+                        SetupT1(ref arch);
+                        if (QueryParamInfo<TOption>.IsComponent)
+                            SetupTOption(ref arch);
+                        _archRow = remaining - 1;
+                        break;
+                    }
+                    remaining -= arch.count;
+                }
             }
         }
 
@@ -547,7 +592,6 @@ namespace Wargon.Nukecs
             }
 
             static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupArchetypeRefs()
@@ -592,7 +636,7 @@ namespace Wargon.Nukecs
                 {
                     _t1.AdvanceArchetype(_archRow);
                 }
-                if (TOptIsComponent) _tOption.SetRow(_archRow);
+                if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -668,13 +712,19 @@ namespace Wargon.Nukecs
 
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
-                    _archIdx = 0;
-                    _archRow = -1;
-                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                    _archEntityEnd = arch.count;
-                    SetupT1(ref arch);
-                    if (QueryParamInfo<TOption>.IsComponent)
-                        SetupTOption(ref arch);
+                    var remaining = _range.start;
+                    for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                    {
+                        ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                        if (remaining < arch.count)
+                        {
+                            _archIdx = i;
+                            SetupArchetypeRefs();
+                            _archRow = remaining - 1;
+                            break;
+                        }
+                        remaining -= arch.count;
+                    }
                 }
             }
 
@@ -890,9 +940,19 @@ namespace Wargon.Nukecs
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
-                _archIdx = 0;
-                _archRow = -1;
-                SetupArchetypeRefsFirst(ref world);
+                var remaining = _range.start;
+                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                {
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                    if (remaining < arch.count)
+                    {
+                        _archIdx = i;
+                        SetupArchetypeRefs();
+                        _archRow = remaining - 1;
+                        break;
+                    }
+                    remaining -= arch.count;
+                }
             }
         }
 
@@ -1120,9 +1180,19 @@ namespace Wargon.Nukecs
 
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
-                    _archIdx = 0;
-                    _archRow = -1;
-                    SetupArchetypeRefsFirst(ref world);
+                    var remaining = _range.start;
+                    for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                    {
+                        ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                        if (remaining < arch.count)
+                        {
+                            _archIdx = i;
+                            SetupArchetypeRefs();
+                            _archRow = remaining - 1;
+                            break;
+                        }
+                        remaining -= arch.count;
+                    }
                 }
             }
 
@@ -1350,15 +1420,19 @@ namespace Wargon.Nukecs
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
-                _archIdx = 0;
-                _archRow = -1;
-                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                _archEntityEnd = arch.count;
-                SetupT1(ref arch);
-                SetupT2(ref arch);
-                SetupT3(ref arch);
-                if (QueryParamInfo<TOption>.IsComponent)
-                    SetupTOption(ref arch);
+                var remaining = _range.start;
+                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                {
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                    if (remaining < arch.count)
+                    {
+                        _archIdx = i;
+                        SetupArchetypeRefs();
+                        _archRow = remaining - 1;
+                        break;
+                    }
+                    remaining -= arch.count;
+                }
             }
         }
 
@@ -1572,17 +1646,18 @@ namespace Wargon.Nukecs
 
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
-                    _archIdx = 0;
-                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                    _archRow = -1;
-                    _archEntityEnd = arch.count;
-                    _t1.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)), 0, arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
-                    _t2.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)), 0, arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
-                    _t3.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)), 0, arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
-                    if (QueryParamInfo<TOption>.IsComponent)
+                    var remaining = _range.start;
+                    for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
                     {
-                        var li = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
-                        if (li >= 0) _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(li), 0, arch.GetComponentSize(li));
+                        ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                        if (remaining < arch.count)
+                        {
+                            _archIdx = i;
+                            SetupArchetypeRefs();
+                            _archRow = remaining - 1;
+                            break;
+                        }
+                        remaining -= arch.count;
                     }
                 }
             }
@@ -1593,6 +1668,7 @@ namespace Wargon.Nukecs
             }
 
             public bool TryGetQuery(out ptr<QueryUnsafe> query)
+
             {
                 query = _query;
                 return true;
@@ -1833,14 +1909,19 @@ namespace Wargon.Nukecs
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
-                _archIdx = 0;
-                _archRow = -1;
-                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                _archEntityEnd = arch.count;
-                SetupT1(ref arch);
-                SetupT2(ref arch);
-                SetupT3(ref arch);
-                SetupT4(ref arch);
+                var remaining = _range.start;
+                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                {
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                    if (remaining < arch.count)
+                    {
+                        _archIdx = i;
+                        SetupArchetypeRefs();
+                        _archRow = remaining - 1;
+                        break;
+                    }
+                    remaining -= arch.count;
+                }
             }
         }
 
@@ -2083,14 +2164,19 @@ namespace Wargon.Nukecs
 
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
-                    _archIdx = 0;
-                    _archRow = -1;
-                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                    _archEntityEnd = arch.count;
-                    SetupT1(ref arch);
-                    SetupT2(ref arch);
-                    SetupT3(ref arch);
-                    SetupT4(ref arch);
+                    var remaining = _range.start;
+                    for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                    {
+                        ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                        if (remaining < arch.count)
+                        {
+                            _archIdx = i;
+                            SetupArchetypeRefs();
+                            _archRow = remaining - 1;
+                            break;
+                        }
+                        remaining -= arch.count;
+                    }
                 }
             }
 
@@ -2279,26 +2365,18 @@ namespace Wargon.Nukecs
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
-                _archIdx = 0;
-                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                _archRow = -1;
-                _archEntityEnd = arch.count;
-                _t1.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)), 0,
-                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
-                _t2.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)), 0,
-                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
-                _t3.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)), 0,
-                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
-                _t4.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index)), 0,
-                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T4>.Index)));
-                _t5.Set(arch.data.Ptr, arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T5>.Index)), 0,
-                    arch.GetComponentSize(arch.GetComponentLocalIndex(ComponentType<T5>.Index)));
-                if (QueryParamInfo<TOption>.IsComponent)
+                var remaining = _range.start;
+                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
                 {
-                    var localIdx = arch.GetComponentLocalIndex(ComponentType<TOption>.Index);
-                    if (localIdx >= 0)
-                        _tOption.Set(arch.data.Ptr, arch.GetComponentOffset(localIdx), 0,
-                            arch.GetComponentSize(localIdx));
+                    ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
+                    if (remaining < arch.count)
+                    {
+                        _archIdx = i;
+                        SetupArchetypeRefs();
+                        _archRow = remaining - 1;
+                        break;
+                    }
+                    remaining -= arch.count;
                 }
             }
         }

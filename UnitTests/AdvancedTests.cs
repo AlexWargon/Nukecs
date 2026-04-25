@@ -469,5 +469,42 @@ namespace Wargon.Nukecs.Tests
         //     Assert.IsTrue(!entity.Has<VelocityTest>());
         //     Assert.IsTrue(entity.Has<PositionTest>());
         // }
+
+        public struct TagTest : IComponent { }
+
+        [Test]
+        public void QueryT1TOption_WritesThroughArchetypeRef()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+            systems.Add(QueryT1TOptionTestSystems.WriteThroughVal, Threads.Main);
+
+            var entity = world.Entity(
+                new PositionTest { X = 0f, Y = 0f },
+                new TagTest()
+            );
+            world.Update();
+            systems.OnUpdate(1f, 1f);
+
+            ref var pos = ref entity.Get<PositionTest>();
+            Assert.AreEqual(42f, pos.X, "X should be written through inp.Val");
+            Assert.AreEqual(99f, pos.Y, "Y should be written through inp.Val");
+
+            world.Dispose();
+        }
+    }
+
+    public static class QueryT1TOptionTestSystems
+    {
+        [System]
+        public static void WriteThroughVal(ref Query<PositionTest, AdvancedTests.TagTest> query)
+        {
+            foreach (var (inp, _) in query)
+            {
+                ref var pos = ref inp.Val;
+                pos.X = 42f;
+                pos.Y = 99f;
+            }
+        }
     }
 }

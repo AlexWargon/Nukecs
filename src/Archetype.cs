@@ -101,7 +101,11 @@ namespace Wargon.Nukecs
         public IComponent GetObject(int entity, int typeIndex)
         {
             var d = ComponentTypeMap.GetComponentType(typeIndex);
-            var off = componentOffsets.Ptr[d.index];
+            if (d.storageType == StorageType.Pool)
+                return world->GetUntypedPool(typeIndex).GetObject(entity);
+            var localIdx = GetComponentLocalIndex(typeIndex);
+            if (localIdx < 0) return null;
+            var off = componentOffsets.Ptr[localIdx];
             ref var loc = ref world->entityLocations.Ptr[entity];
             var ptr = data.Ptr + off + loc.row * d.size;
             return ComponentHelpers.Read(ptr, 0, d.size, typeIndex);
@@ -109,7 +113,14 @@ namespace Wargon.Nukecs
         public void SetObject(int entity, int typeIndex, IComponent component)
         {
             var d = ComponentTypeMap.GetComponentType(typeIndex);
-            var off = componentOffsets.Ptr[d.index];
+            if (d.storageType == StorageType.Pool)
+            {
+                world->GetUntypedPool(typeIndex).SetObject(entity, component);
+                return;
+            }
+            var localIdx = GetComponentLocalIndex(typeIndex);
+            if (localIdx < 0) return;
+            var off = componentOffsets.Ptr[localIdx];
             ref var loc = ref world->entityLocations.Ptr[entity];
             var ptr = data.Ptr + off + loc.row * d.size;
             ComponentHelpers.Write(ptr, 0, d.size, typeIndex, component);
@@ -134,6 +145,7 @@ namespace Wargon.Nukecs
         {
             for (var i = 0; i < types.length; i++)
                 if (types.Ptr[i] == componentTypeIndex) return i;
+            throw new Exception("ComponentLocalIndex not found");
             return -1;
         }
 
@@ -518,6 +530,21 @@ namespace Wargon.Nukecs
         internal void BatchCreateEntity(int count, int* outEntities)
         {
             world->BatchCreateEntity(count, outEntities, index);
+            EnsureCapacity(count);
+            var baseRow = this.count;
+            for (int i = 0; i < count; i++)
+            {
+                packedEntities.Ptr[baseRow + i] = outEntities[i];
+                world->entityLocations.ElementAt(outEntities[i]) = new EntityLocation { archetypeIndex = index, row = baseRow + i };
+            }
+            for (var j = 0; j < types.length; j++)
+            {
+                var off = componentOffsets.Ptr[j];
+                if (off < 0) continue;
+                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[j]);
+                UnsafeUtility.MemClear(data.Ptr + off + baseRow * ctData.size, ctData.size * count);
+            }
+            this.count += count;
             for (var i = 0; i < queries.Length; i++)
                 IdToQueryRef(queries.Ptr[i]).BatchAdd(outEntities, count);
         }
@@ -532,9 +559,24 @@ namespace Wargon.Nukecs
         internal Span<Entity> BatchCreateEntity(int start, int end)
         {
             var result = world->BatchCreateEntity(start, end, index);
-            var count = end - start;
+            var cnt = end - start;
+            EnsureCapacity(cnt);
+            var baseRow = count;
+            for (int i = 0; i < cnt; i++)
+            {
+                packedEntities.Ptr[baseRow + i] = start + i;
+                world->entityLocations.ElementAt(start + i) = new EntityLocation { archetypeIndex = index, row = baseRow + i };
+            }
+            for (var j = 0; j < types.length; j++)
+            {
+                var off = componentOffsets.Ptr[j];
+                if (off < 0) continue;
+                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[j]);
+                UnsafeUtility.MemClear(data.Ptr + off + baseRow * ctData.size, ctData.size * cnt);
+            }
+            count += cnt;
             for (var i = 0; i < queries.Length; i++)
-                IdToQueryRef(queries.Ptr[i]).BatchAddRange(start, count);
+                IdToQueryRef(queries.Ptr[i]).BatchAddRange(start, cnt);
             for (var i = 0; i < types.length; i++)
             {
                 var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
@@ -606,10 +648,29 @@ namespace Wargon.Nukecs
                 Query(queryId).Ref.Add(to);
             }
 
-            foreach (var type in types)
+            var fromRow = world->entityLocations.Ptr[from].row;
+            var toRow = world->entityLocations.Ptr[to].row;
+
+            for (var i = 0; i < types.length; i++)
             {
-                ref var pool = ref world->GetUntypedPool(type);
-                pool.Copy(from, to);
+                var typeIndex = types.Ptr[i];
+                var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+                if (ctData.storageType == StorageType.Pool)
+                {
+                    ref var pool = ref world->GetUntypedPool(typeIndex);
+                    pool.Copy(from, to);
+                }
+                else
+                {
+                    var off = componentOffsets.Ptr[i];
+                    if (off >= 0)
+                    {
+                        UnsafeUtility.MemCpy(
+                            data.Ptr + off + toRow * ctData.size,
+                            data.Ptr + off + fromRow * ctData.size,
+                            ctData.size);
+                    }
+                }
             }
         }
 #if !NUKECS_DEBUG
@@ -618,23 +679,45 @@ namespace Wargon.Nukecs
         internal Entity Copy(int entity)
         {
             var newEntity = world->CreateEntity(index);
+            var newRow = AllocateEntity(newEntity.id);
+            world->entityLocations.Ptr[newEntity.id] = new EntityLocation {
+                archetypeIndex = index,
+                row = newRow
+            };
             for (var i = 0; i < queries.Length; i++)
             {
                 var queryId = queries.ElementAt(i);
                 Query(queryId).Ref.Add(newEntity.id);
             }
 
-            for (var index = 0; index < types.length; index++)
+            var srcRow = world->entityLocations.Ptr[entity].row;
+
+            for (var i = 0; i < types.length; i++)
             {
-                ref var pool = ref world->GetUntypedPool(types[index]);
-                pool.Copy(entity, newEntity.id);
+                var typeIndex = types.Ptr[i];
+                var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+                if (ctData.storageType == StorageType.Pool)
+                {
+                    ref var pool = ref world->GetUntypedPool(typeIndex);
+                    pool.Copy(entity, newEntity.id);
+                }
+                else
+                {
+                    var off = componentOffsets.Ptr[i];
+                    if (off >= 0)
+                    {
+                        UnsafeUtility.MemCpy(
+                            data.Ptr + off + newRow * ctData.size,
+                            data.Ptr + off + srcRow * ctData.size,
+                            ctData.size);
+                    }
+                }
             }
 
             if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
             {
-                ref var pool = ref world->GetPool<ComponentArray<Child>>();
-                ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity);
-                ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
+                ref var fromC = ref GetComponent<ComponentArray<Child>>(entity);
+                ref var to = ref GetComponent<ComponentArray<Child>>(newEntity.id);
 
                 for (var i = 0; i < fromC.Length; i++)
                 {
@@ -653,23 +736,45 @@ namespace Wargon.Nukecs
         internal Entity Copy(in Entity entity)
         {
             var newEntity = world->CreateEntity(index);
+            var newRow = AllocateEntity(newEntity.id);
+            world->entityLocations.Ptr[newEntity.id] = new EntityLocation {
+                archetypeIndex = index,
+                row = newRow
+            };
             for (var i = 0; i < queries.Length; i++)
             {
                 var queryId = queries.ElementAt(i);
                 Query(queryId).Ref.Add(newEntity.id);
             }
 
-            for (var index = 0; index < types.length; index++)
+            var srcRow = world->entityLocations.Ptr[entity.id].row;
+
+            for (var i = 0; i < types.length; i++)
             {
-                ref var pool = ref world->GetUntypedPool(types[index]);
-                pool.Copy(entity.id, newEntity.id);
+                var typeIndex = types.Ptr[i];
+                var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+                if (ctData.storageType == StorageType.Pool)
+                {
+                    ref var pool = ref world->GetUntypedPool(typeIndex);
+                    pool.Copy(entity.id, newEntity.id);
+                }
+                else
+                {
+                    var off = componentOffsets.Ptr[i];
+                    if (off >= 0)
+                    {
+                        UnsafeUtility.MemCpy(
+                            data.Ptr + off + newRow * ctData.size,
+                            data.Ptr + off + srcRow * ctData.size,
+                            ctData.size);
+                    }
+                }
             }
 
             if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
             {
-                ref var pool = ref world->GetPool<ComponentArray<Child>>();
-                ref var fromC = ref pool.GetRef<ComponentArray<Child>>(entity.id);
-                ref var to = ref pool.GetRef<ComponentArray<Child>>(newEntity.id);
+                ref var fromC = ref GetComponent<ComponentArray<Child>>(entity.id);
+                ref var to = ref GetComponent<ComponentArray<Child>>(newEntity.id);
 
                 for (var i = 0; i < fromC.Length; i++)
                 {
