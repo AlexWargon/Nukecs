@@ -88,7 +88,11 @@ namespace Wargon.Nukecs
 
         internal void SetArchetype(in Entity entity)
         {
-            MoveEntityTo(world->entityLocations.ElementAt(entity.id).row, ref this);
+            ref var loc = ref world->entityLocations.Ptr[entity.id];
+            ref var source = ref world->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            if (source.index == index) return;
+            BatchMigrateQueries(ref source, ref this, entity.id);
+            source.MoveEntityTo(loc.row, ref this);
         }
         internal ref T GetComponent<T>(int entity) where T : unmanaged, IComponent
         {
@@ -98,6 +102,10 @@ namespace Wargon.Nukecs
             return ref *(T*)(data.Ptr + off + loc.row * d.size);
         }
 
+        internal ref Entity GetEntity(int idx)
+        {
+            return ref world->entities.Ptr[packedEntities.Ptr[idx]];
+        }
         public IComponent GetObject(int entity, int typeIndex)
         {
             var d = ComponentTypeMap.GetComponentType(typeIndex);
@@ -527,29 +535,6 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void BatchCreateEntity(int count, int* outEntities)
-        {
-            world->BatchCreateEntity(count, outEntities, index);
-            EnsureCapacity(count);
-            var baseRow = this.count;
-            for (int i = 0; i < count; i++)
-            {
-                packedEntities.Ptr[baseRow + i] = outEntities[i];
-                world->entityLocations.ElementAt(outEntities[i]) = new EntityLocation { archetypeIndex = index, row = baseRow + i };
-            }
-            for (var j = 0; j < types.length; j++)
-            {
-                var off = componentOffsets.Ptr[j];
-                if (off < 0) continue;
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[j]);
-                UnsafeUtility.MemClear(data.Ptr + off + baseRow * ctData.size, ctData.size * count);
-            }
-            this.count += count;
-            for (var i = 0; i < queries.Length; i++)
-                IdToQueryRef(queries.Ptr[i]).BatchAdd(outEntities, count);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Span<Entity> BatchCreateEntity(int count)
         {
             return BatchCreateEntity(world->lastEntityIndex, world->lastEntityIndex + count);
@@ -763,10 +748,23 @@ namespace Wargon.Nukecs
                     var off = componentOffsets.Ptr[i];
                     if (off >= 0)
                     {
-                        UnsafeUtility.MemCpy(
-                            data.Ptr + off + newRow * ctData.size,
-                            data.Ptr + off + srcRow * ctData.size,
-                            ctData.size);
+                        if (ctData.isCopyable)
+                        {
+                            ctData.CopyFn().Invoke(
+                                data.Ptr + off + srcRow * ctData.size, 
+                                data.Ptr + off + newRow * ctData.size, 
+                                entity.id, 
+                                newEntity.id, 
+                                0, 
+                                0);
+                        }
+                        else
+                        {
+                            UnsafeUtility.MemCpy(
+                                data.Ptr + off + newRow * ctData.size,
+                                data.Ptr + off + srcRow * ctData.size,
+                                ctData.size);
+                        }
                     }
                 }
             }

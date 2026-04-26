@@ -143,6 +143,20 @@ namespace Wargon.Nukecs {
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void AddObject(int entity, IComponent component, ComponentTypeData data) {
+                var thread = JobsUtility.ThreadIndex;
+                var buf = perThreadData->ElementAt(thread);
+                var dataOffset = buf->m_length;
+                buf->AddRange((byte*)ComponentHelpers.Read(component, data.index), data.size);
+                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                    Entity = entity,
+                    EcbCommandType = ECBCommand.Type.AddComponent,
+                    ComponentType = data.index,
+                    AdditionalData = dataOffset,
+                    isDisposable = data.isDisposable ? (byte)1 : (byte)0,
+                });
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, int thread) where T : unmanaged {
                 perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
                     Entity = entity,
@@ -160,16 +174,6 @@ namespace Wargon.Nukecs {
                 });
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AddObject(int entity, IComponent component, ComponentTypeData ctData) {
-                var thread = JobsUtility.ThreadIndex;
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
-                    Entity = entity,
-                    EcbCommandType = ECBCommand.Type.AddComponentNoData,
-                    ComponentType = ctData.index,
-                    isDisposable = ctData.isDisposable ? (byte)1 : (byte)0,
-                });
-            }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Remove<T>(int entity, int thread) where T : unmanaged {

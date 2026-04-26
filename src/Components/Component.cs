@@ -252,6 +252,11 @@ namespace Wargon.Nukecs
         {
             return readers[type].Read(buffer, index, sizeInBytes);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe void* Read(IComponent component, int type)
+        {
+            return readers[type].Read(component);
+        }
     }
 
     public unsafe interface IUnsafeBufferWriter 
@@ -276,6 +281,7 @@ namespace Wargon.Nukecs
     public unsafe interface IUnsafeBufferReader
     {
         IComponent Read(void* buffer, int index, int sizeInBytes);
+        void* Read(IComponent component);
     }
 
     public class UnsafeBufferReader<T> : IUnsafeBufferReader  where T: unmanaged
@@ -283,6 +289,12 @@ namespace Wargon.Nukecs
         public unsafe IComponent Read(void* buffer, int index, int sizeInBytes)
         {
             return (IComponent)((T*) buffer)[index];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void* Read(IComponent component)
+        {
+            var strct = (T)component;
+            return &strct;
         }
     }
     

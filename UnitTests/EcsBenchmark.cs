@@ -11,6 +11,7 @@ namespace Wargon.Nukecs.Tests
     public struct BenchPosition : IComponent { public float3 Value; }
     public struct BenchVelocity : IComponent { public float3 Value; }
     public struct BenchHealth : IComponent { public float Value; }
+    public struct BenchDamage : IComponent { public int Value; }
     public struct BenchTag : IComponent { }
 
     [BurstCompile]
@@ -27,7 +28,15 @@ namespace Wargon.Nukecs.Tests
         [System, BurstCompile]
         public static void Iteration3(ref Query<BenchPosition, BenchVelocity, BenchHealth> query)
         {
-            foreach (var (pos, vel) in query)
+            foreach (var (pos, vel, hp) in query)
+            {
+                pos.Get.Value += vel.Read.Value;
+            }
+        }
+        [System, BurstCompile]
+        public static void Iteration4(ref Query<BenchPosition, BenchVelocity, BenchHealth, BenchDamage> query)
+        {
+            foreach (var (pos, vel,_,_) in query)
             {
                 pos.Get.Value += vel.Read.Value;
             }
@@ -183,7 +192,70 @@ namespace Wargon.Nukecs.Tests
             Assert.AreEqual(EntityCount, query.Count);
             _world.Dispose();
         }
-        
+        [Test, Performance]
+        public void Iteration_4Components_Archetype_10K()
+        {
+            _world = World.Create(BenchConfig);
+            Systems systems = new Systems(ref _world);
+            systems.Add(BenchTestSystems.Iteration4, Threads.Main);
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            for (int i = 0; i < EntityCount; i++)
+            {
+                ref var e = ref _world.Entity();
+                e.Add(new BenchPosition { Value = 0 });
+                e.Add(new BenchVelocity { Value = new float3(1, 2, 3) });
+                e.Add(new BenchHealth { Value = 100 });
+                e.Add(new BenchDamage { Value = 100 });
+            }
+            _world.Update();
+            Measure.Method(() =>
+                {
+                    systems.OnUpdate(1f,1f);
+                })
+                .WarmupCount(10)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            foreach (ref var entity in query)
+            {
+                ref var pos = ref entity.Get<BenchPosition>();
+                Assert.AreEqual(new float3(110,220,330),pos.Value);
+            }
+            Assert.AreEqual(EntityCount, query.Count);
+            _world.Dispose();
+        }
+        [Test, Performance]
+        public void Iteration_4Components_Archetype_10K_Parallel()
+        {
+            _world = World.Create(BenchConfig);
+            Systems systems = new Systems(ref _world);
+            systems.Add(BenchTestSystems.Iteration4);
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            for (int i = 0; i < EntityCount; i++)
+            {
+                ref var e = ref _world.Entity();
+                e.Add(new BenchPosition { Value = 0 });
+                e.Add(new BenchVelocity { Value = new float3(1, 2, 3) });
+                e.Add(new BenchHealth { Value = 100 });
+                e.Add(new BenchDamage { Value = 100 });
+            }
+            _world.Update();
+            Measure.Method(() =>
+                {
+                    systems.OnUpdate(1f,1f);
+                })
+                .WarmupCount(10)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            foreach (ref var entity in query)
+            {
+                ref var pos = ref entity.Get<BenchPosition>();
+                Assert.AreEqual(new float3(110,220,330),pos.Value);
+            }
+            Assert.AreEqual(EntityCount, query.Count);
+            _world.Dispose();
+        }
         [Test, Performance]
         public void EntityCreation_10K()
         {
@@ -216,16 +288,20 @@ namespace Wargon.Nukecs.Tests
             {
                 var entities = arch.BatchCreateEntity(EntityCount);
 
-                for (int i = 0; i < EntityCount; i++)
-                {
-                    ref var e = ref entities[i];
-                    e.Set(new BenchPosition { Value = new float3(i, 0, 0) });
-                    e.Set(new BenchVelocity { Value = new float3(1, 0, 0) });
-                }
+                // for (int i = 0; i < EntityCount; i++)
+                // {
+                //     ref var e = ref entities[i];
+                //     e.Set(new BenchPosition { Value = new float3(i, 0, 0) });
+                //     e.Set(new BenchVelocity { Value = new float3(1, 0, 0) });
+                // }
             })
             .WarmupCount(5)
             .MeasurementCount(20)
             .IterationsPerMeasurement(1)
+            .SetUp(() =>
+            {
+                
+            })
             .Run();
             _world.Dispose();
         }

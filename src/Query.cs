@@ -423,7 +423,7 @@ namespace Wargon.Nukecs
             get => *ptr;
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetArchetype(byte* data, int offset, int size)
         {
             columnBase = data + offset;

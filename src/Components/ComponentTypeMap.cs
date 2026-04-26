@@ -173,8 +173,15 @@ namespace Wargon.Nukecs
             ComponentType<T>.Data = componentTypeData;
         }
         
-        public static ComponentTypeData GetComponentType(Type type) => TypeToComponentType.Map[type];
-        
+        public static ComponentTypeData GetComponentType(Type type)
+        {
+            if (!cache.HasIndex(type))
+            {
+                RegisterByReflection(type);
+            }
+            return TypeToComponentType.Map[type];
+        }
+
         internal static void Add(Type type, int index) {
             cache.Add(type, index);
         }
