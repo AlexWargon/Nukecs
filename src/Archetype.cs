@@ -54,7 +54,7 @@ namespace Wargon.Nukecs
     }
 
     [BurstCompile(CompileSynchronously = true)]
-    internal unsafe struct ArchetypeUnsafe
+    public unsafe struct ArchetypeUnsafe
     {
         private Spinner spinner;
         internal DynamicBitmask mask;
@@ -1100,7 +1100,7 @@ namespace Wargon.Nukecs
 
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool Has(this ref ArchetypeUnsafe archetype, int type)
+        public static bool Has(this ref ArchetypeUnsafe archetype, int type)
         {
             return archetype.mask.Has(type);
         }

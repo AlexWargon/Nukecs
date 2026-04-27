@@ -27,7 +27,7 @@ namespace Wargon.Nukecs
             worldCount = 0;
             staticInited = true;
         }
-        
+        public static int WorldCapacity => worlds.Data.Capacity;
         public static ref World Get(int index)
         {
             if(worlds.UnsafeDataPointer != null)
