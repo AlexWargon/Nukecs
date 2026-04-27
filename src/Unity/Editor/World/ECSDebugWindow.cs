@@ -1,20 +1,43 @@
-﻿#pragma warning disable CS0618 // Type or member is obsolete
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
+
+#pragma warning disable CS0618 // Type or member is obsolete
 #if UNITY_EDITOR && NUKECS_DEBUG
 namespace Wargon.Nukecs.Editor
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Linq;
-    using UnityEditor;
-    using UnityEditor.UIElements;
-    using UnityEngine;
-    using UnityEngine.UIElements;
-    
     public unsafe class ECSDebugWindowUI : EditorWindow
     {
-        public static bool CanWriteToWorld = true;
         private const int BORDER_RADIUS = 6;
+        private const int ENTITY_NULL = -1;
+        public static bool CanWriteToWorld = true;
         private static ECSDebugWindowUI _instance;
+        private readonly List<DebugListItem> _items = new();
+        private readonly Dictionary<int, string> _queryNames = new();
+        private readonly Dictionary<string, bool> foldoutStates = new();
+        private Tab _activeTab = Tab.Entities;
+        private bool _archetypeChanged;
+
+        private readonly Dictionary<int, ComponentProxy> _componentProxies = new();
+        private Label _inspectorTitle;
+
+        private ScrollView _inspectorView;
+        private int _lastEntitiesCount = ENTITY_NULL;
+        private int? _lastEntityId;
+        private string _lastSearchValue = "";
+        private ListView _listView;
+
+        private ToolbarSearchField _searchField;
+        private int _selectedEntityArchetypeId;
+        private int? _selectedEntityId;
+        private World _world;
+        private ToolbarButton entitiesBtn;
+
+        private readonly byte worldId = 0;
 
         internal static ECSDebugWindowUI Instance
         {
@@ -26,72 +49,10 @@ namespace Wargon.Nukecs.Editor
             }
         }
 
-        private byte worldId = 0;
-        private World _world;
-
-        private ToolbarSearchField _searchField;
-        private ListView _listView;
-
-        private ScrollView _inspectorView;
-        private Label _inspectorTitle;
-
-        private enum Tab { Entities, Archetypes, Queries }
-        private Tab _activeTab = Tab.Entities;
-        private ToolbarButton entitiesBtn;
-        private readonly List<DebugListItem> _items = new();
-        private readonly Dictionary<int, string> _queryNames = new();
-        // private readonly Dictionary<int, ComponentDrawerProxy> _proxyCache = new();
-        // private readonly Dictionary<int, UnityEditor.Editor> _editorCache = new();
-        private readonly Dictionary<string, bool> foldoutStates = new();
-        private bool GetFoldoutState(string key)
-        {
-            if (foldoutStates.TryGetValue(key, out var state))
-            {
-                return state;
-            }
-            foldoutStates[key] = true;
-            return true;
-        }
-        private int? _lastEntityId;
-        private const int ENTITY_NULL = -1;
-        private int _lastEntitiesCount = ENTITY_NULL;
-        private string _lastSearchValue = "";
-        private int? _selectedEntityId = null;
-        private int _selectedEntityArchetypeId;
-        private bool _archetypeChanged = false;
-        
-        [MenuItem("Nuke.cs/ECS Debugger")]
-        public static void ShowWindow()
-        {
-            var wnd = GetWindow<ECSDebugWindowUI>();
-            wnd.titleContent = new GUIContent("ECS Debugger");
-            _instance = wnd;
-            wnd.minSize = new Vector2(800, 500);
-        }
-
-        public class DebugListItem
-        {
-            public enum ItemType { Entity, Archetype, Query }
-
-            public readonly ItemType type;
-            public readonly int id;
-            public readonly string displayName;
-            public bool isPrefab;
-            public DebugListItem(ItemType type, int id, string displayName, bool isPrefab = false)
-            {
-                this.type = type;
-                this.id = id;
-                this.displayName = displayName;
-                this.isPrefab = isPrefab;
-            }
-
-            public override string ToString() => displayName;
-        }
-
         public void CreateGUI()
         {
             _world = World.Get(worldId);
-            if(!_world.IsAlive) return;
+            if (!_world.IsAlive) return;
             var root = rootVisualElement;
             root.style.flexDirection = FlexDirection.Row;
 
@@ -129,7 +90,7 @@ namespace Wargon.Nukecs.Editor
                 style = { flexGrow = 1 }
             };
             _listView.onSelectionChange += OnItemSelected;
-            
+
             leftPanel.Add(_listView);
 
             root.Add(leftPanel);
@@ -176,8 +137,8 @@ namespace Wargon.Nukecs.Editor
                     _lastSearchValue = _searchField.value;
                     RefreshList();
                 }
-                entitiesBtn.text = $"[{_world.EntitiesAmount}]Entities";
 
+                entitiesBtn.text = $"[{_world.EntitiesAmount}]Entities";
             }).Every(100);
 
             root.schedule.Execute(() =>
@@ -187,9 +148,10 @@ namespace Wargon.Nukecs.Editor
                 {
                     RefreshList();
                     _inspectorView.Clear();
-                    
+
                     _selectedEntityId = null;
                 }
+
                 if (_selectedEntityId.HasValue)
                 {
                     _archetypeChanged = NeedRepaintEntityInspector();
@@ -203,11 +165,24 @@ namespace Wargon.Nukecs.Editor
                         UpdateProxies(_selectedEntityId.Value);
                         //_inspectorView.MarkDirtyRepaint();
                     }
-                    
                 }
-
-                
             }).Every(33);
+        }
+
+        private bool GetFoldoutState(string key)
+        {
+            if (foldoutStates.TryGetValue(key, out var state)) return state;
+            foldoutStates[key] = true;
+            return true;
+        }
+
+        [MenuItem("Nuke.cs/ECS Debugger")]
+        public static void ShowWindow()
+        {
+            var wnd = GetWindow<ECSDebugWindowUI>();
+            wnd.titleContent = new GUIContent("ECS Debugger");
+            _instance = wnd;
+            wnd.minSize = new Vector2(800, 500);
         }
 
         private VisualElement MakeListItem()
@@ -241,9 +216,9 @@ namespace Wargon.Nukecs.Editor
             var (icon, label) = ((Image, Label))element.userData;
             var item = _items[index];
             label.text = item.displayName;
-            if(item.isPrefab)
+            if (item.isPrefab)
                 label.style.color = new Color(0f, 0.56f, 0.78f);
-            
+
             icon.image = GetIconForTab(item.type switch
             {
                 DebugListItem.ItemType.Entity => Tab.Entities,
@@ -251,14 +226,19 @@ namespace Wargon.Nukecs.Editor
                 DebugListItem.ItemType.Query => Tab.Queries,
                 _ => Tab.Entities
             });
-            
-            element.RegisterCallback<MouseDownEvent>(evn => {
-                switch (item.type) {
-                    case DebugListItem.ItemType.Entity: {
-                        if (evn.button == 1) {
+
+            element.RegisterCallback<MouseDownEvent>(evn =>
+            {
+                switch (item.type)
+                {
+                    case DebugListItem.ItemType.Entity:
+                    {
+                        if (evn.button == 1)
+                        {
                             ShowContextMenuEntity(element, World.Get(worldId).GetEntity(item.id));
                             evn.StopPropagation();
                         }
+
                         break;
                     }
                     case DebugListItem.ItemType.Archetype:
@@ -268,25 +248,18 @@ namespace Wargon.Nukecs.Editor
                 }
             });
         }
-        
+
         private static void ShowContextMenuEntity(VisualElement targetElement, Entity e)
         {
             var menu = new ContextualMenuManipulator(evt =>
             {
-                evt.menu.AppendAction("Copy", action =>
-                {
-                    e.Copy();
-                });
-                
-                evt.menu.AppendAction("Destroy", action =>
-                {
-                    e.Destroy();
-                });
+                evt.menu.AppendAction("Copy", action => { e.Copy(); });
 
+                evt.menu.AppendAction("Destroy", action => { e.Destroy(); });
             });
             targetElement.AddManipulator(menu);
         }
-        
+
         private Texture2D GetIconForTab(Tab tab)
         {
             return tab switch
@@ -320,7 +293,7 @@ namespace Wargon.Nukecs.Editor
 
             _items.Clear();
 
-            string search = _searchField.value?.ToLower();
+            var search = _searchField.value?.ToLower();
 
             switch (_activeTab)
             {
@@ -331,34 +304,32 @@ namespace Wargon.Nukecs.Editor
                         var eId = entities[i];
                         var e = _world.GetEntity(eId);
                         if (!e.IsValid()) continue;
-                        
+
                         string displayName;
                         if (e.Has<Name>())
-                        {
                             displayName = $"(e:{e.id}) {e.Get<Name>().value.Value}";
-                        }
                         else
-                        {
                             displayName = $"(e:{e.id})";
-                        }
                         if (!string.IsNullOrEmpty(search) && !displayName.ToLower().Contains(search)) continue;
-                        _items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, displayName, e.Has<IsPrefab>()));
-                            
+                        _items.Add(new DebugListItem(DebugListItem.ItemType.Entity, e.id, displayName,
+                            e.Has<IsPrefab>()));
                     }
+
                     break;
 
                 case Tab.Archetypes:
-                    for (int i = 0; i < _world.UnsafeWorld->archetypesList.Length; i++)
+                    for (var i = 0; i < _world.UnsafeWorld->archetypesList.Length; i++)
                     {
                         var a = _world.UnsafeWorld->archetypesList.ElementAt(i).Ref;
                         var displayName = $"Archetype {a.id}";
                         if (!string.IsNullOrEmpty(search) && !displayName.ToLower().Contains(search)) continue;
                         _items.Add(new DebugListItem(DebugListItem.ItemType.Archetype, a.id, displayName));
                     }
+
                     break;
 
                 case Tab.Queries:
-                    for (int i = 0; i < _world.UnsafeWorld->queries.Length; i++)
+                    for (var i = 0; i < _world.UnsafeWorld->queries.Length; i++)
                     {
                         var q = _world.UnsafeWorld->queries.ElementAt(i).Ref;
                         if (!_queryNames.ContainsKey(q.Id))
@@ -367,6 +338,7 @@ namespace Wargon.Nukecs.Editor
                         if (!string.IsNullOrEmpty(search) && !queryName.ToLower().Contains(search)) continue;
                         _items.Add(new DebugListItem(DebugListItem.ItemType.Query, q.Id, queryName));
                     }
+
                     break;
             }
 
@@ -419,7 +391,7 @@ namespace Wargon.Nukecs.Editor
         //     proxy.boxedComponent = boxedComponent;
         //     return proxy;
         // }
-        
+
         // private Editor GetOrCreateEditor(ComponentDrawerProxy proxy, int typeIndex)
         // {
         //     if (!_editorCache.TryGetValue(typeIndex, out var editor) || editor == null)
@@ -438,12 +410,12 @@ namespace Wargon.Nukecs.Editor
             _selectedEntityArchetypeId = arch.id;
             return archChanged;
         }
-        
+
         private void DrawEntityInspector(int entityId)
         {
             var realE = _world.GetEntity(entityId);
-            
-            
+
+
             if (realE == Entity.Null)
             {
                 _selectedEntityId = null;
@@ -453,18 +425,18 @@ namespace Wargon.Nukecs.Editor
                 _listView.ClearSelection();
                 return;
             }
-            
-            
+
+
             if (_lastEntityId == entityId && !_archetypeChanged)
             {
                 UpdateProxies(entityId);
                 return;
             }
-            
-            
+
+
             _lastEntityId = entityId;
             //dbug.log("redraw all inspector", Color.red);
-            
+
             _inspectorView.Clear();
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entityId).Ref;
 
@@ -473,8 +445,8 @@ namespace Wargon.Nukecs.Editor
                 var boxedComponent = arch.GetObject(entityId, typeIndex);
                 if (boxedComponent == null)
                     continue;
-                
-                if(TryDrawComponentArrayBox(boxedComponent))
+
+                if (TryDrawComponentArrayBox(boxedComponent))
                     continue;
 
                 var componentContainer = new VisualElement
@@ -497,9 +469,9 @@ namespace Wargon.Nukecs.Editor
                         borderBottomRightRadius = BORDER_RADIUS
                     }
                 };
-                
+
                 var nm = boxedComponent.GetType().Name;
-                
+
                 var foldout = new Foldout
                 {
                     text = nm,
@@ -510,13 +482,13 @@ namespace Wargon.Nukecs.Editor
                         fontSize = 12
                     }
                 };
-                
+
                 foldout.RegisterValueChangedCallback(evt => foldoutStates[nm] = evt.newValue);
-                
+
                 var proxy = GetOrCreateProxy(typeIndex);
                 proxy.entity = entityId;
                 proxy.boxedComponent = boxedComponent;
-                
+
                 var btn = new Button(() =>
                 {
                     _world.GetEntity(entityId).RemoveIndex(typeIndex);
@@ -524,18 +496,19 @@ namespace Wargon.Nukecs.Editor
                 })
                 {
                     text = "  \u2715",
-                    style = {                         
+                    style =
+                    {
                         borderTopLeftRadius = BORDER_RADIUS,
                         borderTopRightRadius = BORDER_RADIUS,
                         borderBottomLeftRadius = BORDER_RADIUS,
-                        borderBottomRightRadius = BORDER_RADIUS 
+                        borderBottomRightRadius = BORDER_RADIUS
                     }
                 };
-                
+
                 var header = foldout.Q<Toggle>();
                 header.style.flexDirection = FlexDirection.Row;
                 header.Q<Label>().style.flexGrow = 1;
-                
+
                 header.Add(btn);
                 foldout.Add(proxy.imgui);
                 componentContainer.Add(foldout);
@@ -546,28 +519,26 @@ namespace Wargon.Nukecs.Editor
         private void UpdateProxies(int entityId, bool forceUpdate = false)
         {
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entityId).Ref;
-            
+
             foreach (var typeIndex in arch.types)
             {
                 var boxedComponentFromWorld = arch.GetObject(entityId, typeIndex);
                 if (boxedComponentFromWorld != null && _componentProxies.TryGetValue(typeIndex, out var proxy))
                 {
                     if (!EditorGUIUtility.editingTextField && !forceUpdate)
-                    {
                         proxy.boxedComponent = arch.GetObject(entityId, typeIndex);
-                    }
 
                     proxy.typeIndex = typeIndex;
                     proxy.entity = entityId;
                     proxy.imgui.MarkDirtyRepaint();
                 }
             }
-            
         }
+
         internal void SelectEntityFromField(Entity entity)
         {
             if (!entity.IsValid()) return;
-            
+
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entity.id).Ref;
             foreach (var typeIndex in arch.types)
             {
@@ -592,7 +563,7 @@ namespace Wargon.Nukecs.Editor
 
             DrawEntityInspector(entity.id);
         }
-        
+
         private bool TryDrawComponentArrayBox(object boxedComponent)
         {
             var type = boxedComponent.GetType();
@@ -601,7 +572,9 @@ namespace Wargon.Nukecs.Editor
                 return false;
 
             var elemType = typeData.generic_argument00;
-            var readAt = (Func<object, int, object>)boxedComponent.GetMethodDelegate<int>(type, nameof(ComponentArray<Child>.ReadAt), elemType.val); // public ref T ElementAt(int index)
+            var readAt =
+                (Func<object, int, object>)boxedComponent.GetMethodDelegate<int>(type,
+                    nameof(ComponentArray<Child>.ReadAt), elemType.val); // public ref T ElementAt(int index)
             var length = (int)boxedComponent.GetPropertyValue(type, nameof(ComponentArray<Child>.Length));
 
             var componentContainer = new VisualElement
@@ -621,7 +594,7 @@ namespace Wargon.Nukecs.Editor
                     borderBottomRightRadius = BORDER_RADIUS
                 }
             };
-            
+
             var foldout = new Foldout
             {
                 text = $"ComponentArray({elemType.name}) [{length}]",
@@ -666,17 +639,17 @@ namespace Wargon.Nukecs.Editor
                             ComponentDrawerProxyEditor.DrawField($"[{i}]", elemType, elem);
                         }
                     }
+
                     EditorGUI.indentLevel--;
                 });
                 container.Add(imgui);
                 foldout.Add(container);
             }
+
             componentContainer.Add(foldout);
             _inspectorView.Add(componentContainer);
             return true;
         }
-
-        private Dictionary<int, ComponentProxy> _componentProxies = new();
 
         private ComponentProxy GetOrCreateProxy(int typeIndex)
         {
@@ -704,24 +677,60 @@ namespace Wargon.Nukecs.Editor
                 EditorGUI.BeginChangeCheck();
                 proxy.boxedComponent = (IComponent)proxy.drawer.Invoke(proxy.boxedComponent);
                 if (EditorGUI.EndChangeCheck())
-                {
                     if (proxy.entity != ENTITY_NULL && CanWriteToWorld)
                     {
                         var e = _world.GetEntity(proxy.entity);
                         e.SetObject(proxy.boxedComponent);
                     }
-                }
             }
-            ECSDebugWindowUI.CanWriteToWorld = true;
+
+            CanWriteToWorld = true;
+        }
+
+        private enum Tab
+        {
+            Entities,
+            Archetypes,
+            Queries
+        }
+
+        public class DebugListItem
+        {
+            public enum ItemType
+            {
+                Entity,
+                Archetype,
+                Query
+            }
+
+            public readonly string displayName;
+            public readonly int id;
+
+            public readonly ItemType type;
+            public bool isPrefab;
+
+            public DebugListItem(ItemType type, int id, string displayName, bool isPrefab = false)
+            {
+                this.type = type;
+                this.id = id;
+                this.displayName = displayName;
+                this.isPrefab = isPrefab;
+            }
+
+            public override string ToString()
+            {
+                return displayName;
+            }
         }
     }
+
     public class ComponentProxy
     {
         public IComponent boxedComponent;
-        public IMGUIContainer imgui;
         public Func<object, object> drawer;
-        public int typeIndex;
         public int entity;
+        public IMGUIContainer imgui;
+        public int typeIndex;
     }
 }
 #endif
