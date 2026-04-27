@@ -707,7 +707,8 @@ namespace Wargon.Nukecs.Editor
                 {
                     if (proxy.entity != ENTITY_NULL && CanWriteToWorld)
                     {
-                        _world.unsafeWorldPtr.Ref.GetUntypedPool(proxy.typeIndex).SetObject(proxy.entity, proxy.boxedComponent);
+                        var e = _world.GetEntity(proxy.entity);
+                        e.SetObject(proxy.boxedComponent);
                     }
                 }
             }
