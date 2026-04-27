@@ -279,12 +279,12 @@ namespace Wargon.Nukecs
             if (ctData.storageType == StorageType.Pool)
             {
                 entity.worldPointer->GetUntypedPool(ctData.index).AddObject(entity.id, component);
-                ecb.Add(entity.id, ctData);
+                ecb.Add(entity.id, ctData.index);
                 return;
             }
             ecb.AddObject(entity.id, component, ctData);
         }
-
+        
         public static void SetObject(this in Entity entity, IComponent component)
         {
             var ctData = ComponentTypeMap.GetComponentType(component.GetType());

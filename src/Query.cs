@@ -322,8 +322,8 @@ namespace Wargon.Nukecs
         {
             _query = queryUnsafe;
             _lastIndex = -1;
-            _lastArch = -1;
-            _archRow = -1;
+            _lastArch = 0;
+            _archRow = 0;
             _countInArch = 0;
             _currentArchetype = default;
         }

@@ -147,7 +147,13 @@ namespace Wargon.Nukecs {
                 var thread = JobsUtility.ThreadIndex;
                 var buf = perThreadData->ElementAt(thread);
                 var dataOffset = buf->m_length;
-                buf->AddRange((byte*)ComponentHelpers.Read(component, data.index), data.size);
+                var size = data.size;
+                var newLen = buf->m_length + size;
+                if (newLen > buf->Capacity)
+                    buf->SetCapacity(Math.Max(buf->Capacity * 2, newLen));
+                ComponentHelpers.Write(buf->Ptr + dataOffset, 0, size, data.index, component);
+                buf->m_length = newLen;
+                
                 perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.AddComponent,

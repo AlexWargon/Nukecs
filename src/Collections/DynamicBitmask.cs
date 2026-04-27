@@ -5,6 +5,7 @@ using System.Text;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using Wargon.Nukecs.Collections;
+using static Wargon.Nukecs.UnsafeStatic;
 
 namespace Wargon.Nukecs
 {
@@ -45,6 +46,10 @@ namespace Wargon.Nukecs
             ClearBitmask();
         }
 
+        public void Clear()
+        {
+            mem_clear(bitmaskArray.Ptr, sizeof(ulong) * arraySize);
+        }
         private void ClearBitmask()
         {
             for (var i = 0; i < arraySize; i++) bitmaskArray.Ptr[i] = 0;

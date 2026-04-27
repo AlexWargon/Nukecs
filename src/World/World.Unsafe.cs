@@ -30,6 +30,7 @@ namespace Wargon.Nukecs
             internal MemoryList<int> entitiesArchetypes;
             internal MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
+            internal DynamicBitmask tempMask;
             internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
@@ -98,6 +99,7 @@ namespace Wargon.Nukecs
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                
                 DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef, clear:true);
                 config = worldConfig;
                 systemsUpdateJobDependencies = default;
@@ -112,7 +114,7 @@ namespace Wargon.Nukecs
                 aspects = new Aspects(ref AllocatorRef, id);
                 
                 selfPtr = worldSelf;
-                
+                tempMask = DynamicBitmask.CreateForComponents(Self);
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
@@ -442,20 +444,16 @@ namespace Wargon.Nukecs
                 entitiesAmount += count;
 
                 new Span<int>(entitiesArchetypes.Ptr + start, count).Fill(archetype);
-
+                new Span<EntityLocation>(entityLocations.Ptr + start, count).Fill(new EntityLocation { archetypeIndex = archetype });
                 for (var i = start; i < end; i++)
                 {
                     entities.Ptr[i] = new Entity(i, Self, archetype);
-                    entityLocations.Ptr[i] = new EntityLocation { archetypeIndex = archetype };
+#if NUKECS_DEBUG
+                    entitiesDens.Add(i, ref AllocatorRef);
+#endif
                 }
 
                 if (end > lastEntityIndex) lastEntityIndex = end;
-
-#if NUKECS_DEBUG
-                for (var i = start; i < end; i++)
-                    entitiesDens.Add(i, ref AllocatorRef);
-#endif
-
                 return new Span<Entity>(entities.Ptr + start, count);
             }
 #if !NUKECS_DEBUG
@@ -476,6 +474,15 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+            internal ref ArchetypeUnsafe GetArchetypeNoneIsPrefab(in Entity prefab)
+            {
+                ref var prefabArchetype = ref prefab.ArchetypeRef;
+                tempMask.CopyFrom(ref prefabArchetype.mask);
+                tempMask.Remove(ComponentType<IsPrefab>.Index);
+                ref var targetArch = ref GetOrCreateArchetype(ref tempMask).ptr.Ref;
+                tempMask.Clear();
+                return ref targetArch;
+            }
             internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx, copyList);
@@ -576,9 +583,7 @@ namespace Wargon.Nukecs
                 return archetype;
             }
 
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
             }

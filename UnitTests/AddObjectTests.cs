@@ -75,13 +75,9 @@ namespace Wargon.Nukecs.Tests
             Assert.IsTrue(entity.Has(idxC),
                 "RuntimeDiscoveredC should be present on entity after AddObject + Update.");
 
-            var poolA = entity.worldPointer->GetUntypedPool(idxA);
-            var poolB = entity.worldPointer->GetUntypedPool(idxB);
-            var poolC = entity.worldPointer->GetUntypedPool(idxC);
-
-            var readA = (RuntimeDiscoveredA)poolA.GetObject(entity.id);
-            var readB = (RuntimeDiscoveredB)poolB.GetObject(entity.id);
-            var readC = (RuntimeDiscoveredC)poolC.GetObject(entity.id);
+            var readA = (RuntimeDiscoveredA)world.GetArchetype(in entity).GetObject(in entity, typeof(RuntimeDiscoveredA));
+            var readB = (RuntimeDiscoveredB)world.GetArchetype(in entity).GetObject(in entity, typeof(RuntimeDiscoveredB));
+            var readC = (RuntimeDiscoveredC)world.GetArchetype(in entity).GetObject(in entity, typeof(RuntimeDiscoveredC));
             Assert.AreEqual(111, readA.Alpha,
                 "RuntimeDiscoveredA value should round-trip through boxing.");
             Assert.AreEqual(2.5f, readB.Beta,
@@ -296,16 +292,15 @@ namespace Wargon.Nukecs.Tests
         }
 
         [Test]
-        public unsafe void AddObject_GetObject_RoundTrip()
+        public void AddObject_GetObject_RoundTrip()
         {
             var world = World.Create(WorldConfig.Default256);
 
             var entity = world.Entity();
             entity.AddObject(new ScoreTest { Points = 77 });
             world.Update();
-            
-            var pool = entity.worldPointer->GetUntypedPool(ComponentType<ScoreTest>.Index);
-            var obj = (ScoreTest)pool.GetObject(entity.id);
+
+            var obj = (ScoreTest)world.GetArchetype(in entity).GetObject(in entity, typeof(ScoreTest));
 
             Assert.AreEqual(77, obj.Points,
                 "GetObject should return the stored component value.");

@@ -13,9 +13,36 @@ namespace Wargon.Nukecs.Tests
     public static class TestSystems
     {
         [System]
-        public static void Movement(ref Query<PositionTest, VelocityTest> query, ref State state)
+        public static void Movement2(ref Query<PositionTest, VelocityTest> query, ref State state)
         {
             foreach (var (pos, vel) in query)
+            {
+                pos.Get.X += vel.Read.X * state.Time.DeltaTime;
+                pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
+            }
+        }
+        [System]
+        public static void Movement3_2(ref Query<PositionTest, VelocityTest, DamageTest> query, ref State state)
+        {
+            foreach (var (pos, vel) in query)
+            {
+                pos.Get.X += vel.Read.X * state.Time.DeltaTime;
+                pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
+            }
+        }
+        [System]
+        public static void Movement3_3(ref Query<PositionTest, VelocityTest, DamageTest> query, ref State state)
+        {
+            foreach (var (pos, vel, dmg) in query)
+            {
+                pos.Get.X += vel.Read.X * state.Time.DeltaTime;
+                pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
+            }
+        }
+        [System]
+        public static void Movement4_4(ref Query<PositionTest, VelocityTest,DamageTest, HealthTest> query, ref State state)
+        {
+            foreach (var (pos, vel, dmg, hp) in query)
             {
                 pos.Get.X += vel.Read.X * state.Time.DeltaTime;
                 pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
@@ -126,7 +153,7 @@ namespace Wargon.Nukecs.Tests
             var world = World.Create(WorldConfig.Default256);
             var systems = new Systems(ref world);
 
-            systems.Add(TestSystems.Movement, Threads.Main);
+            systems.Add(TestSystems.Movement2, Threads.Main);
 
             var entity = world.Entity(
                 new PositionTest { X = 0f, Y = 0f },
@@ -147,7 +174,7 @@ namespace Wargon.Nukecs.Tests
             var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
 
-            systems.Add(TestSystems.Movement, Threads.Single);
+            systems.Add(TestSystems.Movement2, Threads.Single);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
 
             for (var i = 0; i < 1000; i++)
@@ -175,7 +202,7 @@ namespace Wargon.Nukecs.Tests
         {
             var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
-            systems.Add(TestSystems.Movement, Threads.Main);
+            systems.Add(TestSystems.Movement2, Threads.Main);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
 
             for (var i = 0; i < 1000; i++)
@@ -203,7 +230,7 @@ namespace Wargon.Nukecs.Tests
             var world = World.Create(WorldConfig.Default1024);
             var systems = new Systems(ref world);
 
-            systems.Add(TestSystems.Movement, Threads.Parallel);
+            systems.Add(TestSystems.Movement2, Threads.Parallel);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
 
             for (var i = 0; i < 1000; i++)
@@ -492,6 +519,82 @@ namespace Wargon.Nukecs.Tests
 
             world.Dispose();
         }
+        [Test]
+        public void OneEntityIterateSystem_1()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+
+            systems.Add(TestSystems.Movement2, Threads.Main);
+
+            var entity = world.Entity(
+                new PositionTest { X = 0f, Y = 0f },
+                new VelocityTest { X = 1f, Y = 2f }
+            );
+            world.Update();
+            systems.OnUpdate(1f, 1f);
+
+            ref var pos = ref entity.Get<PositionTest>();
+            Assert.AreEqual(1f, pos.X, "Position X should be updated by code-generated system");
+            Assert.AreEqual(2f, pos.Y, "Position Y should be updated by code-generated system");
+
+            world.Dispose();
+        }
+        [Test]
+        public void OneEntityIterateSystem_2()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+
+            systems.Add(TestSystems.Movement2, Threads.Main);
+            var arch = world.GetArchetype(typeof(PositionTest), typeof(VelocityTest));
+            var entity = arch.CreateEntity();
+            entity.Set(new VelocityTest { X = 1f, Y = 2f });
+
+            world.Update();
+            systems.OnUpdate(1f, 1f);
+
+            ref var pos = ref entity.Get<PositionTest>();
+            Assert.AreEqual(1f, pos.X, "Position X should be updated by code-generated system");
+            Assert.AreEqual(2f, pos.Y, "Position Y should be updated by code-generated system");
+
+            world.Dispose();
+        }
+        [Test]
+        public void TwoEntityIterateSystem_Query4_ForEach4()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+
+            systems.AddDefaults().Add(TestSystems.Movement4_4, Threads.Main);
+            var arch = world.GetArchetype(
+                typeof(PositionTest), 
+                typeof(VelocityTest),
+                typeof(DamageTest),
+                typeof(HealthTest),
+                typeof(IsPrefab));
+            var entity = arch.CreateEntity();
+            entity.Set(new VelocityTest { X = 1f, Y = 2f });
+            var entity2 = arch.CreateEntity();
+            entity2.Set(new VelocityTest { X = 1f, Y = 2f });
+            world.Update();
+
+            var spawnPrefab = world.SpawnPrefab(entity);
+
+            systems.OnUpdate(1f, 1f);
+            systems.OnUpdate(1f, 1f);
+            systems.OnUpdate(1f, 1f);
+            ref var pos = ref entity.Get<PositionTest>();
+            ref var pos2 = ref entity2.Get<PositionTest>();
+            ref var spawnedPos = ref spawnPrefab.Get<PositionTest>();
+            // Assert.AreEqual(2f, pos.X, "Position X should be updated by code-generated system");
+            // Assert.AreEqual(4f, pos.Y, "Position Y should be updated by code-generated system");
+            // Assert.AreEqual(2f, pos2.X, "Position X should be updated by code-generated system");
+            // Assert.AreEqual(4f, pos2.Y, "Position Y should be updated by code-generated system");
+            Assert.AreEqual(2f, spawnedPos.X, "Position X should be updated by code-generated system");
+            Assert.AreEqual(4f, spawnedPos.Y, "Position Y should be updated by code-generated system");
+            world.Dispose();
+        }
     }
 
     public static class QueryT1TOptionTestSystems
@@ -506,5 +609,6 @@ namespace Wargon.Nukecs.Tests
                 pos.Y = 99f;
             }
         }
+        
     }
 }

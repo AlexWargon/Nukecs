@@ -41,6 +41,11 @@ namespace Wargon.Nukecs
         {
             ptr.Ref.SetArchetype(entity);
         }
+
+        public IComponent GetObject(in Entity entity, Type type)
+        {
+            return ptr.Ref.GetObject(entity.id, ComponentTypeMap.GetComponentType(type).index);
+        }
     }
     [StructLayout(LayoutKind.Sequential)]
     internal struct EntityLocation {

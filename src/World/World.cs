@@ -120,6 +120,12 @@ namespace Wargon.Nukecs
         {
             return ref UnsafeWorld->GetPool<T>().GetSingleton<T>();
         }
+
+        public Archetype GetArchetype(in Entity entity)
+        {
+            var hash = entity.ArchetypeRef.id;
+            return UnsafeWorldRef.GetArchetype(hash);
+        }
     }
 
     public struct WorldConfig
