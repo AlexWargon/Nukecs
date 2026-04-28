@@ -361,7 +361,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add(BenchTestSystems.Iteration4, Threads.Main);
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -394,7 +394,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add(BenchTestSystems.Iteration4, Threads.Single);
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -427,7 +427,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add(BenchTestSystems.Iteration4);
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -460,7 +460,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add<BenchTestSystems.Iteration4_IEntityJobSystemMain>();
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -493,7 +493,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add<BenchTestSystems.Iteration4_IEntityJobSystemMainBurst>();
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -526,7 +526,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add<BenchTestSystems.Iteration4_IEntityJobSystemSingle>();
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -559,7 +559,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add<BenchTestSystems.Iteration4_IEntityJobSystemSingleBurst>();
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -592,7 +592,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add<BenchTestSystems.Iteration4_IEntityJobSystemParallel>();
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();
@@ -625,7 +625,7 @@ namespace Wargon.Nukecs.Tests
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
             systems.Add<BenchTestSystems.Iteration4_IEntityJobSystemParallelBurst>();
-            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
+            var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>().With<BenchDamage>();;
             for (var i = 0; i < EntityCount; i++)
             {
                 ref var e = ref _world.Entity();

@@ -417,10 +417,10 @@ namespace Wargon.Nukecs
             get => ref *ptr;
         }
 
-        public TComponent Read
+        public ref readonly TComponent Read
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => *ptr;
+            get => ref *ptr;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
