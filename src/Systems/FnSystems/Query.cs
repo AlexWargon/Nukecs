@@ -20,7 +20,6 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
-
     {
         private ArchetypeRef<T1> _t1;
 
@@ -70,7 +69,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            AdvanceRefs();
+            if (_archRow > 0)
+                AdvanceRefs();
             return true;
         }
 
@@ -100,6 +100,8 @@ namespace Wargon.Nukecs
             else
                 _t1.Bump();
         }
+
+        public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public void Init(ref ptr<World.WorldUnsafe> world)
 
@@ -146,6 +148,7 @@ namespace Wargon.Nukecs
                         {
                             var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
                             _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                            if (remaining > 0) _t1.SetRow(remaining - 1);
                         }
                         _archRow = remaining - 1;
                         break;
@@ -181,9 +184,6 @@ namespace Wargon.Nukecs
 
             return true;
         }
-
-        public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
         public struct WithEntity : IQuery, ISystemParam
 
         {
@@ -215,8 +215,7 @@ namespace Wargon.Nukecs
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => _query.Ref.count;
             }
-
-            public bool MoveNext()
+        public bool MoveNext()
 
             {
                 if (++_current >= _range.end) return false;
@@ -228,7 +227,8 @@ namespace Wargon.Nukecs
                     return true;
                 }
 
-                AdvanceRefs();
+                if (_archRow > 0)
+                    AdvanceRefs();
                 return true;
             }
 
@@ -303,6 +303,7 @@ namespace Wargon.Nukecs
                             {
                                 var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
                                 _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
+                                if (remaining > 0) _t1.SetRow(remaining - 1);
                             }
                             _archRow = remaining - 1;
                             break;
@@ -394,7 +395,6 @@ namespace Wargon.Nukecs
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
-
         {
             if (++_current >= _range.end) return false;
 
@@ -405,7 +405,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            AdvanceRefs();
+            if (_archRow > 0)
+                AdvanceRefs();
             return true;
         }
 
@@ -528,6 +529,11 @@ namespace Wargon.Nukecs
                         SetupT1(ref arch);
                         if (QueryParamInfo<TOption>.IsComponent)
                             SetupTOption(ref arch);
+                        if (remaining > 0)
+                        {
+                            if (!T1IsPool) _t1.SetRow(remaining - 1);
+                            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                        }
                         _archRow = remaining - 1;
                         break;
                     }
@@ -612,7 +618,8 @@ namespace Wargon.Nukecs
                     return true;
                 }
 
-                AdvanceRefs();
+                if (_archRow > 0)
+                    AdvanceRefs();
                 return true;
             }
 
@@ -745,6 +752,11 @@ namespace Wargon.Nukecs
                         {
                             _archIdx = i;
                             SetupArchetypeRefs();
+                            if (remaining > 0)
+                            {
+                                if (!T1IsPool) _t1.SetRow(remaining - 1);
+                                if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                            }
                             _archRow = remaining - 1;
                             break;
                         }
@@ -847,7 +859,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            AdvanceRefs();
+            if (_archRow > 0)
+                AdvanceRefs();
             return true;
         }
 
@@ -986,6 +999,12 @@ namespace Wargon.Nukecs
                     {
                         _archIdx = i;
                         SetupArchetypeRefs();
+                        if (remaining > 0)
+                        {
+                            if (!T1IsPool) _t1.SetRow(remaining - 1);
+                            if (!T2IsPool) _t2.SetRow(remaining - 1);
+                            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                        }
                         _archRow = remaining - 1;
                         break;
                     }
@@ -1062,7 +1081,8 @@ namespace Wargon.Nukecs
                     return true;
                 }
 
-                AdvanceRefs();
+                if (_archRow > 0)
+                    AdvanceRefs();
                 return true;
             }
 
@@ -1226,6 +1246,12 @@ namespace Wargon.Nukecs
                         {
                             _archIdx = i;
                             SetupArchetypeRefs();
+                            if (remaining > 0)
+                            {
+                                if (!T1IsPool) _t1.SetRow(remaining - 1);
+                                if (!T2IsPool) _t2.SetRow(remaining - 1);
+                                if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                            }
                             _archRow = remaining - 1;
                             break;
                         }
@@ -1332,7 +1358,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            AdvanceRefs();
+            if (_archRow > 0)
+                AdvanceRefs();
             return true;
         }
 
@@ -1469,6 +1496,13 @@ namespace Wargon.Nukecs
                     {
                         _archIdx = i;
                         SetupArchetypeRefs();
+                        if (remaining > 0)
+                        {
+                            if (!T1IsPool) _t1.SetRow(remaining - 1);
+                            if (!T2IsPool) _t2.SetRow(remaining - 1);
+                            if (!T3IsPool) _t3.SetRow(remaining - 1);
+                            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                        }
                         _archRow = remaining - 1;
                         break;
                     }
@@ -1535,7 +1569,8 @@ namespace Wargon.Nukecs
                     return true;
                 }
 
-                AdvanceRefs();
+                if (_archRow > 0)
+                    AdvanceRefs();
                 return true;
             }
 
@@ -1695,6 +1730,13 @@ namespace Wargon.Nukecs
                         {
                             _archIdx = i;
                             SetupArchetypeRefs();
+                            if (remaining > 0)
+                            {
+                                if (!T1IsPool) _t1.SetRow(remaining - 1);
+                                if (!T2IsPool) _t2.SetRow(remaining - 1);
+                                if (!T3IsPool) _t3.SetRow(remaining - 1);
+                                if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                            }
                             _archRow = remaining - 1;
                             break;
                         }
@@ -1892,7 +1934,8 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            AdvanceRefs();
+            if (_archRow > 0)
+                AdvanceRefs();
             return true;
         }
 
@@ -1971,6 +2014,13 @@ namespace Wargon.Nukecs
                     {
                         _archIdx = i;
                         SetupArchetypeRefs();
+                        if (remaining > 0)
+                        {
+                            if (!T1IsPool) _t1.SetRow(remaining - 1);
+                            if (!T2IsPool) _t2.SetRow(remaining - 1);
+                            if (!T3IsPool) _t3.SetRow(remaining - 1);
+                            if (!T4IsPool) _t4.SetRow(remaining - 1);
+                        }
                         _archRow = remaining - 1;
                         break;
                     }
@@ -2131,7 +2181,8 @@ namespace Wargon.Nukecs
                     return true;
                 }
 
-                AdvanceRefs();
+                if (_archRow > 0)
+                    AdvanceRefs();
                 return true;
             }
 
@@ -2226,6 +2277,13 @@ namespace Wargon.Nukecs
                         {
                             _archIdx = i;
                             SetupArchetypeRefs();
+                            if (remaining > 0)
+                            {
+                                if (!T1IsPool) _t1.SetRow(remaining - 1);
+                                if (!T2IsPool) _t2.SetRow(remaining - 1);
+                                if (!T3IsPool) _t3.SetRow(remaining - 1);
+                                if (!T4IsPool) _t4.SetRow(remaining - 1);
+                            }
                             _archRow = remaining - 1;
                             break;
                         }
@@ -2437,6 +2495,15 @@ namespace Wargon.Nukecs
                     {
                         _archIdx = i;
                         SetupArchetypeRefs();
+                        if (remaining > 0)
+                        {
+                            _t1.SetRow(remaining - 1);
+                            _t2.SetRow(remaining - 1);
+                            _t3.SetRow(remaining - 1);
+                            _t4.SetRow(remaining - 1);
+                            _t5.SetRow(remaining - 1);
+                            if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
+                        }
                         _archRow = remaining - 1;
                         break;
                     }
