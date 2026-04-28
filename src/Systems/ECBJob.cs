@@ -9,6 +9,7 @@ namespace Wargon.Nukecs
         public World world;
         public UpdateContext updateContext;
         public void Execute() {
+            if (!ECB.IsCreated || !ECB.HasCommands) return;
             ECB.Playback(ref world);
         }
     }

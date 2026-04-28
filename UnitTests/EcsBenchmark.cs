@@ -48,7 +48,8 @@ namespace Wargon.Nukecs.Tests
         [BurstCompile]
         public static void Iteration3(ref Query<BenchPosition, BenchVelocity, BenchHealth> query)
         {
-            foreach (var (pos, vel, hp) in query) pos.Get.Value += vel.Read.Value;
+            foreach (var (pos, vel, hp) in query) 
+                pos.Get.Value += vel.Read.Value;
         }
 
         [System]

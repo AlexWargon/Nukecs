@@ -18,8 +18,8 @@ namespace Wargon.Nukecs.Collections
     {
         public bool IsCreated => Ptr != null;
         public ptr_offset PtrOffset;
-        internal int capacity;
-        internal int length;
+        public int capacity;
+        public int length;
         [NativeDisableUnsafePtrRestriction]
         public T* Ptr;
         public MemoryList(int capacity, ref MemAllocator allocator, bool lenAsCapacity = false, bool clear = false)

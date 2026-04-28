@@ -118,7 +118,7 @@ namespace Wargon.Nukecs
             if (version != World.Get(worldId).UnsafeWorldRef.version)
             {
                 InternalPointer = World.Get(worldId).UnsafeWorldRef.queries.ElementAt(id).Ptr;
-                dbug.log("Q RESTORED");
+                //dbug.log("Q RESTORED");
                 version = World.Get(worldId).UnsafeWorldRef.version;
             }
         }
@@ -146,10 +146,10 @@ namespace Wargon.Nukecs
         internal DynamicBitmask with;
         internal DynamicBitmask none;
 
-        internal MemoryList<int> matchingArchetypes;
-        internal int matchingArchetypesCount;
+        public MemoryList<int> matchingArchetypes;
+        public int matchingArchetypesCount;
 
-        internal int count;
+        public int count;
         internal ptr<World.WorldUnsafe> worldPtr;
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal ptr<QueryUnsafe> self;
@@ -443,6 +443,18 @@ namespace Wargon.Nukecs
         public void AdvanceArchetype(int row)
         {
             ptr = (TComponent*)(columnBase + row * componentSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Bump()
+        {
+            ptr = (TComponent*)((byte*)ptr + componentSize);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Reset()
+        {
+            ptr = (TComponent*)columnBase;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

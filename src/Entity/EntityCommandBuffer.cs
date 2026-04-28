@@ -15,11 +15,13 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get {
                 if (!IsCreated) return 0;
-                int total = 0;
-                for (int i = 0; i < ecb->perThreadCommands->Length; i++)
-                    total += ecb->perThreadCommands->ElementAt(i)->m_length;
-                return total;
+                return ecb->totalCount;
             }
+        }
+
+        public bool HasCommands {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => IsCreated && ecb->totalCount > 0;
         }
 
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
@@ -84,6 +86,7 @@ namespace Wargon.Nukecs {
 
         internal struct ECBInternal {
             internal byte isCreated;
+            internal int totalCount;
             [NativeDisableUnsafePtrRestriction]
             internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadCommands;
             [NativeDisableUnsafePtrRestriction]
@@ -96,6 +99,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Clear() {
+                totalCount = 0;
                 for (var i = 0; i < perThreadCommands->Length; i++) {
                     perThreadCommands->ElementAt(i)->Clear();
                     perThreadData->ElementAt(i)->Clear();
@@ -125,6 +129,7 @@ namespace Wargon.Nukecs {
                     AdditionalData = dataOffset,
                     isDisposable = data.isDisposable ? (byte)1 : (byte)0,
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -140,6 +145,7 @@ namespace Wargon.Nukecs {
                     AdditionalData = dataOffset,
                     isDisposable = data.isDisposable ? (byte)1 : (byte)0,
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -161,6 +167,7 @@ namespace Wargon.Nukecs {
                     AdditionalData = dataOffset,
                     isDisposable = data.isDisposable ? (byte)1 : (byte)0,
                 });
+                totalCount++;
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, int thread) where T : unmanaged {
@@ -169,6 +176,7 @@ namespace Wargon.Nukecs {
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
                     ComponentType = ComponentType<T>.Index
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -178,6 +186,7 @@ namespace Wargon.Nukecs {
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
                     ComponentType = componentType
                 });
+                totalCount++;
             }
 
 
@@ -188,6 +197,7 @@ namespace Wargon.Nukecs {
                     EcbCommandType = ECBCommand.Type.RemoveComponent,
                     ComponentType = ComponentType<T>.Index
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -197,6 +207,7 @@ namespace Wargon.Nukecs {
                     EcbCommandType = ECBCommand.Type.RemoveComponent,
                     ComponentType = component
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -206,11 +217,13 @@ namespace Wargon.Nukecs {
                     EcbCommandType = ECBCommand.Type.RemoveAndDispose,
                     ComponentType = ComponentType<T>.Index
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Destroy(int entity, int thread) {
                 perThreadCommands->ElementAt(thread)->Add(new ECBCommand { Entity = entity, EcbCommandType = ECBCommand.Type.DestroyEntity });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -219,6 +232,7 @@ namespace Wargon.Nukecs {
                 perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
                     Entity = entity, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -232,6 +246,7 @@ namespace Wargon.Nukecs {
                 perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
                     Entity = entity, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -240,6 +255,7 @@ namespace Wargon.Nukecs {
                     Entity = entity,
                     EcbCommandType = ECBCommand.Type.CreateCopy
                 });
+                totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -249,6 +265,7 @@ namespace Wargon.Nukecs {
                     EcbCommandType = ECBCommand.Type.Copy,
                     AdditionalData = to
                 });
+                totalCount++;
             }
 
             internal void ProcessEntityBatch(ref World world, int entity, ECBCommand* cmds, int count, byte* dataBuffer) {

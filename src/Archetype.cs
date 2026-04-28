@@ -46,6 +46,17 @@ namespace Wargon.Nukecs
         {
             return ptr.Ref.GetObject(entity.id, ComponentTypeMap.GetComponentType(type).index);
         }
+        public struct Chunk
+        {
+            public MemoryArray<int> entities;
+            public NativeArray<ptr<byte>> components;
+            internal MemoryArray<int> componentOffsets;
+            //
+            // public ref T* GetComponent<T>(int entity, int size) where T : unmanaged, IComponent
+            // {
+            //     return components[componentOffsets.]
+            // }
+        }
     }
     [StructLayout(LayoutKind.Sequential)]
     internal struct EntityLocation {
@@ -66,12 +77,12 @@ namespace Wargon.Nukecs
         internal int hashId;
         internal int index;
 
-        internal int count;
-        internal int capacity;
-        internal MemoryArray<int> packedEntities;
-        internal ptr<byte> data;
-        internal MemoryArray<int> componentOffsets;
-        internal int entityStride;
+        public int count;
+        public int capacity;
+        public MemoryArray<int> packedEntities;
+        public ptr<byte> data;
+        public MemoryArray<int> componentOffsets;
+        public int entityStride;
 
         internal bool IsCreated => world != null;
 
@@ -154,7 +165,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int GetComponentLocalIndex(int componentTypeIndex)
+        public int GetComponentLocalIndex(int componentTypeIndex)
         {
             for (var i = 0; i < types.length; i++)
                 if (types.Ptr[i] == componentTypeIndex) return i;
@@ -163,7 +174,7 @@ namespace Wargon.Nukecs
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int GetComponentOffset(int localIndex)
+        public int GetComponentOffset(int localIndex)
         {
             return componentOffsets.Ptr[localIndex];
         }
@@ -298,6 +309,7 @@ namespace Wargon.Nukecs
         internal void MoveEntityTo(int row, ref ArchetypeUnsafe target)
         {
             if (packedEntities.Ptr == null || row < 0 || row >= count) return;
+            world->version++;
             var entityID = packedEntities.Ptr[row];
             var newRow = target.AllocateEntity(entityID);
 

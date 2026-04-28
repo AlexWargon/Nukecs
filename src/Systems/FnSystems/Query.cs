@@ -34,6 +34,9 @@ namespace Wargon.Nukecs
         private int _archRow;
         private int _archEntityEnd;
 
+        private int _cachedWorldVersion;
+        private byte _isInitialized;
+
         static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
 
         public readonly void Deconstruct(out ArchetypeRef<T1> c)
@@ -95,7 +98,7 @@ namespace Wargon.Nukecs
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t1.AdvanceArchetype(_archRow);
+                _t1.Bump();
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
@@ -116,6 +119,16 @@ namespace Wargon.Nukecs
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
+
+            var currentVersion = world.UnsafeWorld->version;
+            if (_isInitialized == 1 && _cachedWorldVersion == currentVersion && _range.start == 0)
+            {
+                _archRow = -1;
+                return;
+            }
+
+            _cachedWorldVersion = currentVersion;
+            _isInitialized = 1;
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
@@ -243,7 +256,7 @@ namespace Wargon.Nukecs
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t1.AdvanceArchetype(_archRow);
+                    _t1.Bump();
             }
 
             public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c)
@@ -354,6 +367,9 @@ namespace Wargon.Nukecs
         private int _archRow;
         private int _archEntityEnd;
 
+        private int _cachedWorldVersion;
+        private byte _isInitialized;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public readonly void Deconstruct(out ArchetypeRef<T1> c)
@@ -435,7 +451,7 @@ namespace Wargon.Nukecs
             }
             else
             {
-                _t1.AdvanceArchetype(_archRow);
+                _t1.Bump();
             }
             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
@@ -488,6 +504,16 @@ namespace Wargon.Nukecs
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
+
+            var currentVersion = world.UnsafeWorld->version;
+            if (_isInitialized == 1 && _cachedWorldVersion == currentVersion && _range.start == 0)
+            {
+                _archRow = -1;
+                return;
+            }
+
+            _cachedWorldVersion = currentVersion;
+            _isInitialized = 1;
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
@@ -633,7 +659,7 @@ namespace Wargon.Nukecs
                 }
                 else
                 {
-                    _t1.AdvanceArchetype(_archRow);
+                    _t1.Bump();
                 }
                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
             }
@@ -777,6 +803,9 @@ namespace Wargon.Nukecs
         private int _archRow;
         private int _archEntityEnd;
 
+        private int _cachedWorldVersion;
+        private byte _isInitialized;
+
         static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
         static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
         static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
@@ -875,14 +904,14 @@ namespace Wargon.Nukecs
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t1.AdvanceArchetype(_archRow);
+                _t1.Bump();
             if (T2IsPool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t2.AdvanceArchetype(_archRow);
+                _t2.Bump();
             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
 
@@ -936,6 +965,16 @@ namespace Wargon.Nukecs
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
+
+            var currentVersion = world.UnsafeWorld->version;
+            if (_isInitialized == 1 && _cachedWorldVersion == currentVersion && _range.start == 0)
+            {
+                _archRow = -1;
+                return;
+            }
+
+            _cachedWorldVersion = currentVersion;
+            _isInitialized = 1;
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
@@ -1095,14 +1134,14 @@ namespace Wargon.Nukecs
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t1.AdvanceArchetype(_archRow);
+                    _t1.Bump();
                 if (T2IsPool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t2.AdvanceArchetype(_archRow);
+                    _t2.Bump();
                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
             }
 
@@ -1251,6 +1290,9 @@ namespace Wargon.Nukecs
         private int _archRow;
         private int _archEntityEnd;
 
+        private int _cachedWorldVersion;
+        private byte _isInitialized;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3)
@@ -1358,9 +1400,9 @@ namespace Wargon.Nukecs
         {
             ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
             var eid = arch.packedEntities.Ptr[_archRow];
-            if (T1IsPool) _t1.AdvancePool(eid); else _t1.AdvanceArchetype(_archRow);
-            if (T2IsPool) _t2.AdvancePool(eid); else _t2.AdvanceArchetype(_archRow);
-            if (T3IsPool) _t3.AdvancePool(eid); else _t3.AdvanceArchetype(_archRow);
+            if (T1IsPool) _t1.AdvancePool(eid); else _t1.Bump();
+            if (T2IsPool) _t2.AdvancePool(eid); else _t2.Bump();
+            if (T3IsPool) _t3.AdvancePool(eid); else _t3.Bump();
             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
 
@@ -1561,9 +1603,9 @@ namespace Wargon.Nukecs
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 var eid = arch.packedEntities.Ptr[_archRow];
-                if (T1IsPool) _t1.AdvancePool(eid); else _t1.AdvanceArchetype(_archRow);
-                if (T2IsPool) _t2.AdvancePool(eid); else _t2.AdvanceArchetype(_archRow);
-                if (T3IsPool) _t3.AdvancePool(eid); else _t3.AdvanceArchetype(_archRow);
+                if (T1IsPool) _t1.AdvancePool(eid); else _t1.Bump();
+                if (T2IsPool) _t2.AdvancePool(eid); else _t2.Bump();
+                if (T3IsPool) _t3.AdvancePool(eid); else _t3.Bump();
                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
             }
 
@@ -1707,6 +1749,9 @@ namespace Wargon.Nukecs
         private int _archRow;
         private int _archEntityEnd;
 
+        private int _cachedWorldVersion;
+        private byte _isInitialized;
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3, out ArchetypeRef<T4> c4)
@@ -1810,28 +1855,28 @@ namespace Wargon.Nukecs
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t1.AdvanceArchetype(_archRow);
+                _t1.Bump();
             if (T2IsPool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t2.AdvanceArchetype(_archRow);
+                _t2.Bump();
             if (T3IsPool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t3.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t3.AdvanceArchetype(_archRow);
+                _t3.Bump();
             if (T4IsPool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t4.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
-                _t4.AdvanceArchetype(_archRow);
+                _t4.Bump();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1905,6 +1950,16 @@ namespace Wargon.Nukecs
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
+
+            var currentVersion = world.UnsafeWorld->version;
+            if (_isInitialized == 1 && _cachedWorldVersion == currentVersion && _range.start == 0)
+            {
+                _archRow = -1;
+                return;
+            }
+
+            _cachedWorldVersion = currentVersion;
+            _isInitialized = 1;
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
@@ -2040,28 +2095,28 @@ namespace Wargon.Nukecs
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t1.AdvanceArchetype(_archRow);
+                    _t1.Bump();
                 if (T2IsPool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t2.AdvanceArchetype(_archRow);
+                    _t2.Bump();
                 if (T3IsPool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t3.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t3.AdvanceArchetype(_archRow);
+                    _t3.Bump();
                 if (T4IsPool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t4.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
-                    _t4.AdvanceArchetype(_archRow);
+                    _t4.Bump();
             }
 
             public bool MoveNext()
@@ -2225,7 +2280,8 @@ namespace Wargon.Nukecs
         private int _archIdx;
         private int _archRow;
         private int _archEntityEnd;
-
+        private int _cachedWorldVersion;
+        private byte _isInitialized;
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3,
@@ -2345,7 +2401,6 @@ namespace Wargon.Nukecs
 
                         if (tuple[i] is IFilter f)
                             f.Setup(_query.Ptr);
-
                     break;
             }
         }
@@ -2361,6 +2416,16 @@ namespace Wargon.Nukecs
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
+
+            var currentVersion = world.UnsafeWorld->version;
+            if (_isInitialized == 1 && _cachedWorldVersion == currentVersion && _range.start == 0)
+            {
+                _archRow = -1;
+                return;
+            }
+
+            _cachedWorldVersion = currentVersion;
+            _isInitialized = 1;
 
             if (_query.Ref.matchingArchetypes.length > 0)
             {
@@ -2392,6 +2457,7 @@ namespace Wargon.Nukecs
         }
 
         public struct WithEntity : IQuery, ISystemParam
+
         {
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<T2> _t2;

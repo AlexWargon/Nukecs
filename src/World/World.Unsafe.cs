@@ -31,7 +31,7 @@ namespace Wargon.Nukecs
             internal MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
             internal DynamicBitmask tempMask;
-            internal MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
+            public MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
             internal MemoryList<ptr<QueryUnsafe>> queries;
@@ -131,6 +131,7 @@ namespace Wargon.Nukecs
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref Entity CreateEntity() {
+                version++;
                 if (lastEntityIndex >= entities.Capacity - 1) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
@@ -163,6 +164,7 @@ namespace Wargon.Nukecs
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Entity CreateEntity(int archetype) {
+                version++;
                 if (lastEntityIndex >= entities.capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
@@ -313,6 +315,7 @@ namespace Wargon.Nukecs
 #endif
             internal void OnDestroyEntity(int entity)
             {
+                version++;
                 ref var e = ref entities.ElementAt(entity);
                 e = Nukecs.Entity.Null;
                 reservedEntities.Add(entity, ref AllocatorRef);

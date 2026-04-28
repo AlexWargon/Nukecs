@@ -126,7 +126,7 @@ namespace Wargon.Nukecs {
             get => (*(ComponentTypeData*) ID.UnsafeDataPointer).index;
         }
 
-        internal static unsafe ref ComponentTypeData Data {
+        public static unsafe ref ComponentTypeData Data {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
         }

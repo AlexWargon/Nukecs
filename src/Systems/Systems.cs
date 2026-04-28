@@ -41,7 +41,7 @@ namespace Wargon.Nukecs
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
-            _state.Dependencies.Complete();
+            
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
             _state.Time.DeltaTime = dt;
@@ -51,6 +51,14 @@ namespace Wargon.Nukecs
             _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
             World.UnsafeWorld->timeData = _state.Time;
             
+            if (mtRunners.Count == 0 && fixedRunners.Count == 0 && mtFixedRunners.Count == 0 && runners.Count == 1)
+            {
+                _state.Dependencies = runners[0].Schedule(UpdateContext.Update, ref _state);
+                _state.Dependencies.Complete();
+                _allSystems.End();
+                return;
+            }
+
             for (var i = 0; i < mtRunners.Count; i++)
                 _state.Dependencies = mtRunners[i].Schedule(UpdateContext.Update, ref _state);
             for (var i = 0; i < runners.Count; i++)
@@ -65,6 +73,7 @@ namespace Wargon.Nukecs
                     _state.Dependencies = fixedRunners[i].Schedule(UpdateContext.Update, ref _state);
                 _timeSinceLastFixedUpdate = 0;
             }
+            _state.Dependencies.Complete();
             _allSystems.End();
         }
         
