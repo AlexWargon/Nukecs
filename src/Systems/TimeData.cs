@@ -6,5 +6,6 @@
         public float DeltaTimeFixed;
         public float Time;
         public double ElapsedTime;
+        public uint TickCount;
     }
 }

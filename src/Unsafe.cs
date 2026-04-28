@@ -177,12 +177,24 @@ namespace Wargon.Nukecs {
     public struct random
     {
         private uint state;
-
+        public static unsafe random New()
+        {
+            return new random(*UnsafeStatic.malloc_t<uint>(Allocator.Temp));
+        }
         public random(uint seed)
         {
-            state = seed != 0 ? seed : 1; // ноль не допускается
+            state = seed != 0 ? seed : 1;
         }
-
+        [BurstCompile]
+        public float range(float min, float max)
+        {
+            return NextFloat(min, max);
+        }
+        [BurstCompile]
+        public int range(int min, int max)
+        {
+            return NextInt(min, max);
+        }
         [BurstCompile]
         public uint NextUInt()
         {
@@ -211,5 +223,10 @@ namespace Wargon.Nukecs {
         {
             return math.lerp(min, max, NextFloat());
         }
+    }
+
+    public unsafe struct nString
+    {
+        private char* ptr;
     }
 }

@@ -576,7 +576,6 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             [BurstCompile]
             public bool MoveNext()
-
             {
                 if (++_current >= _range.end) return false;
 
@@ -1000,7 +999,7 @@ namespace Wargon.Nukecs
 
             static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
             static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.isComponent.Data.IsComponent == 1;
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1059,10 +1058,10 @@ namespace Wargon.Nukecs
                 else
                 {
                     var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
-                    if (li < 0 || arch.componentOffsets.Ptr == null)
-                    {
-                        UnityEngine.Debug.LogError($"Archetype has no component {typeof(T1).Name}. {arch.ToString()}");
-                    }
+                    // if (li < 0 || arch.componentOffsets.Ptr == null)
+                    // {
+                    //     UnityEngine.Debug.LogError($"Archetype has no component {typeof(T1).Name}. {arch.ToString()}");
+                    // }
                     _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
                 }
             }

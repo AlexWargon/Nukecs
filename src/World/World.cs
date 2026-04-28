@@ -123,7 +123,7 @@ namespace Wargon.Nukecs
 
         public Archetype GetArchetype(in Entity entity)
         {
-            var hash = entity.ArchetypeRef.id;
+            var hash = entity.ArchetypeRef.hashId;
             return UnsafeWorldRef.GetArchetype(hash);
         }
     }

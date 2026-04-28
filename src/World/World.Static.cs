@@ -30,8 +30,9 @@ namespace Wargon.Nukecs
         public static int WorldCapacity => worlds.Data.Capacity;
         public static ref World Get(int index)
         {
-            if(worlds.UnsafeDataPointer != null)
+            if(worlds.Data.IsCreated)
                 return ref worlds.Data.ElementAt(index);
+            dummyWorld.Data = default;
             return ref dummyWorld.Data;
         }
 

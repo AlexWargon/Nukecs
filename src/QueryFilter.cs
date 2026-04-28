@@ -8,14 +8,13 @@ namespace Wargon.Nukecs
 {
     public struct QueryParamInfo<T>
     {
-        private static readonly SharedStatic<QueryParamData> isComponent = SharedStatic<QueryParamData>.GetOrCreate<QueryParamInfo<T>>();
+        internal static readonly SharedStatic<QueryParamData> isComponent = SharedStatic<QueryParamData>.GetOrCreate<QueryParamInfo<T>>();
 
         public static bool IsComponent
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+
             get => isComponent.Data.IsComponent == 1;
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set => isComponent.Data.IsComponent = value ? (byte)1 : (byte)0;
         }
 

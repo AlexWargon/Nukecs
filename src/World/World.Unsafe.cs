@@ -489,7 +489,7 @@ namespace Wargon.Nukecs
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
-                archetypesMap[ptr.Ptr->id] = archetype;
+                archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
 #if !NUKECS_DEBUG
@@ -501,7 +501,7 @@ namespace Wargon.Nukecs
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
-                archetypesMap[ptr.Ptr->id] = archetype;
+                archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
 #if !NUKECS_DEBUG
@@ -513,7 +513,7 @@ namespace Wargon.Nukecs
                 archetype = new Archetype();
                 archetype.ptr = archetypePtr;
                 archetypesList.Add(in archetypePtr, ref AllocatorRef);
-                archetypesMap[archetypePtr.Ptr->id] = archetype;
+                archetypesMap[archetypePtr.Ptr->hashId] = archetype;
                 //return archetype;
             }
 #if !NUKECS_DEBUG
@@ -531,7 +531,7 @@ namespace Wargon.Nukecs
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
-                archetypesMap[ptr.Ptr->id] = archetype;
+                archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
 #if !NUKECS_DEBUG
@@ -579,7 +579,7 @@ namespace Wargon.Nukecs
                 Archetype archetype;
                 archetype.ptr = archetypePtr;
                 archetypesList.Add(in archetypePtr, ref AllocatorRef);
-                archetypesMap[archetypePtr.Ptr->id] = archetype;
+                archetypesMap[archetypePtr.Ptr->hashId] = archetype;
                 return archetype;
             }
 

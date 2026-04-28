@@ -108,7 +108,7 @@ namespace Wargon.Nukecs.Editor
             worldDropdown = new Button(() =>
             {
                 var gm = new GenericMenu();
-                for (var i = 0; i < World.WorldCapacity; i++)
+                for (var i = 0; i < 1; i++)
                 {
                     var w = World.Get(i);
                     if (!w.IsAlive) continue;
@@ -496,7 +496,7 @@ namespace Wargon.Nukecs.Editor
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(entityId).Ref;
             var compCount = 0;
             foreach (var _ in arch.types) compCount++;
-            _inspectorSubtitle.text = $"ID: {entityId}   Archetype: {arch.id}   Components: {compCount}";
+            _inspectorSubtitle.text = $"ID: {entityId}   Archetype: {arch.hashId}   Components: {compCount}";
         }
 
         private void DrawArchetypeInspector(int archetypeId)
@@ -504,13 +504,7 @@ namespace Wargon.Nukecs.Editor
             _inspectorView.Clear();
             _inspectorTitle.text = $"Archetype {archetypeId}";
 
-            if (archetypeId < 0 || archetypeId >= _world.UnsafeWorld->archetypesList.Length)
-            {
-                _inspectorSubtitle.text = "Invalid";
-                return;
-            }
-
-            ref var arch = ref _world.UnsafeWorld->archetypesList.Ptr[archetypeId].Ref;
+            ref var arch = ref _world.UnsafeWorld->archetypesMap[archetypeId].ptr.Ref;
             _inspectorSubtitle.text = $"Entities: {arch.count}";
 
             var sectionLabel = new Label("Component Types")
@@ -1017,9 +1011,9 @@ namespace Wargon.Nukecs.Editor
                     for (var i = 0; i < _world.UnsafeWorld->archetypesList.Length; i++)
                     {
                         var a = _world.UnsafeWorld->archetypesList.ElementAt(i).Ref;
-                        var displayName = $"Archetype {a.id}";
+                        var displayName = $"Archetype {a.hashId}";
                         if (!string.IsNullOrEmpty(search) && !displayName.ToLower().Contains(search)) continue;
-                        _items.Add(new DebugListItem(DebugListItem.ItemType.Archetype, a.id, displayName));
+                        _items.Add(new DebugListItem(DebugListItem.ItemType.Archetype, a.hashId, displayName));
                     }
 
                     break;
@@ -1078,8 +1072,8 @@ namespace Wargon.Nukecs.Editor
         {
             _world = World.Get(_selectedWorldId);
             ref var arch = ref _world.UnsafeWorldRef.GetEntityArchetypePtr(_selectedEntityId.Value).Ref;
-            var archChanged = arch.id != _selectedEntityArchetypeId;
-            _selectedEntityArchetypeId = arch.id;
+            var archChanged = arch.hashId != _selectedEntityArchetypeId;
+            _selectedEntityArchetypeId = arch.hashId;
             return archChanged;
         }
 
@@ -1116,7 +1110,7 @@ namespace Wargon.Nukecs.Editor
                     left = 0,
                     top = 0,
                     bottom = 0,
-                    width = 3,
+                    width = 5,
                     backgroundColor = accentColor,
                     borderTopLeftRadius = 8,
                     borderBottomLeftRadius = 8
@@ -1428,7 +1422,7 @@ namespace Wargon.Nukecs.Editor
 
         private void ComponentInspector(ComponentProxy proxy)
         {
-            if (proxy.boxedComponent != null)
+            if (proxy.boxedComponent != null && proxy.drawer != null)
             {
                 EditorGUI.BeginChangeCheck();
                 proxy.boxedComponent = (IComponent)proxy.drawer.Invoke(proxy.boxedComponent);

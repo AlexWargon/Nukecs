@@ -63,7 +63,7 @@ namespace Wargon.Nukecs
         internal MemoryList<int> queries;
         internal HashMap<int, ptr<Edge>> transactions;
         internal Edge destroyEdge;
-        internal int id;
+        internal int hashId;
         internal int index;
 
         internal int count;
@@ -398,7 +398,7 @@ namespace Wargon.Nukecs
             arch.entityStride = 0;
             arch.mask = DynamicBitmask.CreateForComponents(world);
             arch.mask.CopyFrom(ref bitmask);
-            arch.id = bitmask.ComputeHash();
+            arch.hashId = bitmask.ComputeHash();
             arch.types = new MemoryList<int>(bitmask.Count, ref world->AllocatorRef);
             bitmask.ExtractSetBits(ref arch.types, ref world->AllocatorRef);
             arch.queries = new MemoryList<int>(8, ref world->AllocatorRef);
@@ -422,7 +422,7 @@ namespace Wargon.Nukecs
             spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
-            id = 0;
+            hashId = 0;
             this.index = index;
             count = 0;
             capacity = 0;
@@ -438,7 +438,7 @@ namespace Wargon.Nukecs
                     mask.Add(type);
                     types.Add(type, ref world->AllocatorRef);
                 }
-                id = mask.ComputeHash();
+                hashId = mask.ComputeHash();
             }
             else
             {
@@ -458,7 +458,7 @@ namespace Wargon.Nukecs
             spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
-            id = 0;
+            hashId = 0;
             this.index = index;
             count = 0;
             capacity = 0;
@@ -474,7 +474,7 @@ namespace Wargon.Nukecs
                     mask.Add(type);
                     types.Add(type, ref world->AllocatorRef);
                 }
-                id = mask.ComputeHash();
+                hashId = mask.ComputeHash();
             }
             else
             {
@@ -513,7 +513,7 @@ namespace Wargon.Nukecs
                 types = new MemoryList<int>(1, ref world->AllocatorRef);
             }
 
-            id = mask.ComputeHash();
+            hashId = mask.ComputeHash();
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
             transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             destroyEdge = default;
@@ -961,28 +961,28 @@ namespace Wargon.Nukecs
 
             return buffer;
         }
-        [BurstDiscard]
-        public override string ToString()
-        {
-            var sb = new StringBuilder();
-            sb.Append("<color=#FFB200>Archetype</color>");
-            if (mask.Count == 0)
-            {
-                sb.Append(".Empty");
-                return sb.ToString();
-            }
-
-            for (var i = 0; i < types.Length; i++) sb.Append($"[{ComponentTypeMap.GetType(types[i]).Name}]");
-
-            sb.Append(Environment.NewLine);
-            for (var index = 0; index < queries.Length; index++)
-            {
-                ref var ptr = ref Query(queries.ElementAt(index));
-                sb.Append($"<color=#6CFF6C>{ptr.Ref.ToString()}</color>;{Environment.NewLine}");
-            }
-
-            return sb.ToString();
-        }
+        // [BurstDiscard]
+        // public override string ToString()
+        // {
+        //     var sb = new StringBuilder();
+        //     sb.Append("<color=#FFB200>Archetype</color>");
+        //     if (mask.Count == 0)
+        //     {
+        //         sb.Append(".Empty");
+        //         return sb.ToString();
+        //     }
+        //
+        //     for (var i = 0; i < types.Length; i++) sb.Append($"[{ComponentTypeMap.GetType(types[i]).Name}]");
+        //
+        //     sb.Append(Environment.NewLine);
+        //     for (var index = 0; index < queries.Length; index++)
+        //     {
+        //         ref var ptr = ref Query(queries.ElementAt(index));
+        //         sb.Append($"<color=#6CFF6C>{ptr.Ref.ToString()}</color>;{Environment.NewLine}");
+        //     }
+        //
+        //     return sb.ToString();
+        // }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int GetHashCode(int[] mask)
