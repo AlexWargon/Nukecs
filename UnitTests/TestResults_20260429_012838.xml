@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Failed(Child)" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0,1774874">
+  <test-suite type="TestSuite" id="1172" name="PorjectTests" fullname="PorjectTests" runstate="Runnable" testcasecount="141" result="Failed" site="Child" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.177487" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1158" name="Nukecs.Tests.dll" fullname="D:/Unity/NukecsSandbox/NukecsSandbox/Library/ScriptAssemblies/Nukecs.Tests.dll" runstate="Runnable" testcasecount="128" result="Failed" site="Child" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.168815" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="8624" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1159" name="Wargon" fullname="Wargon" runstate="Runnable" testcasecount="128" result="Failed" site="Child" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.168241" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1160" name="Nukecs" fullname="Wargon.Nukecs" runstate="Runnable" testcasecount="128" result="Failed" site="Child" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.167961" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1161" name="Tests" fullname="Wargon.Nukecs.Tests" runstate="Runnable" testcasecount="128" result="Failed" site="Child" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.167667" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1035" name="AdvancedTests" fullname="Wargon.Nukecs.Tests.AdvancedTests" classname="Wargon.Nukecs.Tests.AdvancedTests" runstate="Runnable" testcasecount="17" result="Failed" site="Child" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.166555" total="1" passed="0" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1041" name="CodeGeneratedSystemParallel" fullname="Wargon.Nukecs.Tests.AdvancedTests.CodeGeneratedSystemParallel" methodname="CodeGeneratedSystemParallel" classname="Wargon.Nukecs.Tests.AdvancedTests" runstate="Runnable" seed="97213242" result="Failed" start-time="2026-04-28 22:28:23Z" end-time="2026-04-28 22:28:23Z" duration="0.152067" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  All positions X should be updated in parallel
+  Expected: 1.0f
+  But was:  15.0f
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.AdvancedTests.CodeGeneratedSystemParallel () [0x000d2] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\AdvancedTests.cs:249
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[Created World 0
+Saving results to: C:/Users/user/AppData/LocalLow/Wargon/PorjectTests\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

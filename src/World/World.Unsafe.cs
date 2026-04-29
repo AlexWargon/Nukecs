@@ -163,7 +163,7 @@ namespace Wargon.Nukecs
             }
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Entity CreateEntity(int archetype) {
+            internal ref Entity CreateEntity(int archetype) {
                 version++;
                 if (lastEntityIndex >= entities.capacity) {
                     var newCapacity = lastEntityIndex * 2;
@@ -182,14 +182,15 @@ namespace Wargon.Nukecs
                 {
                     lastEntityIndex++;
                 }
-                var e = new Entity(last, Self, archetype);
-                entities.ElementAt(last) = e;
+
+                ref var e = ref entities.ElementAt(last);
+                e = new Entity(last, Self, archetype);
                 entitiesArchetypes.ElementAt(last) = archetype;
                 entityLocations.ElementAt(last) = new EntityLocation { archetypeIndex = archetype, row = 0 };
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
-                return e;
+                return ref e;
             }
             
             internal ptr<QueryUnsafe> CreateQueryPtr(bool withDefaultNoneTypes = true)
@@ -361,14 +362,43 @@ namespace Wargon.Nukecs
             }
             internal ref Entity CreateEntity<T1, T2>(in T1 c1, in T2 c2) 
                 where T1 : unmanaged, IComponent 
-                where T2 : unmanaged, IComponent 
+                where T2 : unmanaged, IComponent
             {
-                ref var e = ref CreateEntity();
-                e.Add(in c1);
-                e.Add(in c2);
+                Span<int> componentTypes = stackalloc int[2] { ComponentType<T1>.Index, ComponentType<T2>.Index };
+                var arch = GetOrCreateArchetype(ref componentTypes);
+                ref var e = ref arch.CreateEntity();
+                e.Set(in c1);
+                e.Set(in c2);
                 return ref e;
             }
-
+            internal ref Entity CreateEntity<T1, T2, T3>(in T1 c1, in T2 c2, in T3 c3) 
+                where T1 : unmanaged, IComponent 
+                where T2 : unmanaged, IComponent
+                where T3 : unmanaged, IComponent
+            {
+                Span<int> componentTypes = stackalloc int[2] { ComponentType<T1>.Index, ComponentType<T2>.Index };
+                var arch = GetOrCreateArchetype(ref componentTypes);
+                ref var e = ref arch.CreateEntity();
+                e.Set(in c1);
+                e.Set(in c2);
+                e.Set(in c3);
+                return ref e;
+            }
+            internal ref Entity CreateEntity<T1, T2, T3, T4>(in T1 c1, in T2 c2, in T3 c3, in T4 c4) 
+                where T1 : unmanaged, IComponent 
+                where T2 : unmanaged, IComponent
+                where T3 : unmanaged, IComponent
+                where T4 : unmanaged, IComponent
+            {
+                Span<int> componentTypes = stackalloc int[2] { ComponentType<T1>.Index, ComponentType<T2>.Index };
+                var arch = GetOrCreateArchetype(ref componentTypes);
+                ref var e = ref arch.CreateEntity();
+                e.Set(in c1);
+                e.Set(in c2);
+                e.Set(in c3);
+                e.Set(in c4);
+                return ref e;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal void BatchCreateEntity(int count, int* outEntities)
             {

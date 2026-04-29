@@ -602,4 +602,13 @@ namespace Wargon.Nukecs
             return other.ptr == ptr;
         }
     }
+    [AttributeUsage(AttributeTargets.GenericParameter)]
+    public class MetaDataAttribute : Attribute
+    {
+        public string icon;
+        public MetaDataAttribute(string icon)
+        {
+            this.icon = icon;
+        }
+    }
 }

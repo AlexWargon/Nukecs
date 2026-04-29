@@ -592,7 +592,6 @@ namespace Wargon.Nukecs
         [BurstCompile]
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            //dbug.log($"remove entity {entity}");
             state.World.ECB.Remove(entity.id, Type);
         }
     }
