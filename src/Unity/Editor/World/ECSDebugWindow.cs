@@ -234,7 +234,7 @@ namespace Wargon.Nukecs.Editor
             {
                 _world = World.Get(_selectedWorldId);
                 if (!_world.IsAlive) return;
-                ref var e = ref _world.Entity();
+                var e = _world.Entity();
                 RefreshList();
                 SwitchTab(Tab.Entities);
                 SelectEntityById(e.id);

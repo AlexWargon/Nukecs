@@ -97,6 +97,19 @@ namespace Wargon.Nukecs
                 transformRef.localScale = transform.Scale;
             }
         }
+        [System]
+        public static void SyncSystem(ref Query<Transform, TransformRef, None<NoneSyncTransform>> query)
+        {
+            foreach (var (tRef,tRefRef) in query)
+            {
+                var transformRef = tRefRef.Get.Value.Value;
+                ref var transform = ref tRef.Get;
+
+                transformRef.position = transform.Position;
+                transformRef.rotation = transform.Rotation;
+                transformRef.localScale = transform.Scale;
+            }
+        }
     }
     public struct Cube : IComponent { }
 }

@@ -186,12 +186,12 @@ namespace Wargon.Nukecs {
             state = seed != 0 ? seed : 1;
         }
         [BurstCompile]
-        public float range(float min, float max)
+        public float Range(float min, float max)
         {
             return NextFloat(min, max);
         }
         [BurstCompile]
-        public int range(int min, int max)
+        public int Range(int min, int max)
         {
             return NextInt(min, max);
         }

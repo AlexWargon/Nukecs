@@ -78,9 +78,9 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref Entity Entity<T1>(in T1 c1) where T1 : unmanaged, IComponent
+        public Entity Entity<T1>(in T1 c1) where T1 : unmanaged, IComponent
         {
-            return ref UnsafeWorld->CreateEntity(in c1);
+            return UnsafeWorld->CreateEntity(in c1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -90,11 +90,11 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref Entity Entity<T1, T2>(in T1 c1 = default(T1), in T2 c2 = default(T2))
+        public Entity Entity<T1, T2>(in T1 c1 = default(T1), in T2 c2 = default(T2))
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
         {
-            return ref UnsafeWorld->CreateEntity(in c1, in c2);
+            return UnsafeWorld->CreateEntity(in c1, in c2);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

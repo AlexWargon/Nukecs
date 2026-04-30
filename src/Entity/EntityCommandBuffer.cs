@@ -312,6 +312,13 @@ namespace Wargon.Nukecs {
 
                 if (destroyed) {
                     ref var arch = ref w->archetypesList.Ptr[w->entitiesArchetypes.Ptr[entity]].Ref;
+                    for (var index = 0; index < arch.types.length; index++) {
+                        if (ComponentTypeMap.GetComponentType(arch.types.Ptr[index]).storageType == StorageType.Pool)
+                        {
+                            ref var pool = ref w->GetUntypedPool(arch.types.Ptr[index]);
+                            pool.Remove(entity);
+                        }
+                    }
                     var loc = w->entityLocations.Ptr[entity];
                     arch.RemoveEntity(loc.row);
                     arch.destroyEdge.Execute(entity);

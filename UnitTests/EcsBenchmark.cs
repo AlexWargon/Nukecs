@@ -269,7 +269,7 @@ namespace Wargon.Nukecs.Tests
             var query = _world.Query().With<BenchPosition>().With<BenchVelocity>().With<BenchHealth>();
             for (var i = 0; i < EntityCount; i++)
             {
-                ref var e = ref _world.Entity();
+                var e = _world.Entity();
                 e.Add(new BenchPosition { Value = 0 });
                 e.Add(new BenchVelocity { Value = new float3(1, 2, 3) });
                 e.Add(new BenchHealth { Value = 100 });

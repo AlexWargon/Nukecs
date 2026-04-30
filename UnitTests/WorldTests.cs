@@ -323,7 +323,7 @@ namespace Wargon.Nukecs.Tests
             var systems = new Systems(ref world);
             var query = world.Query().With<HealthTest>();
             systems.AddDefaults();
-            ref var entity = ref world.Entity(new HealthTest { Value = 100 });
+            var entity = world.Entity(new HealthTest { Value = 100 });
             systems.OnUpdate(0.16f, 0.16f);
             
             Assert.AreEqual(1, query.Count);
@@ -387,8 +387,8 @@ namespace Wargon.Nukecs.Tests
             var query1 = world1.Query().With<HealthTest>();
             var query2 = world2.Query().With<HealthTest>();
             
-            ref var entity1 = ref world1.Entity(new HealthTest { Value = 1 });
-            ref var entity2 = ref world2.Entity(new HealthTest { Value = 2 });
+            var entity1 = world1.Entity(new HealthTest { Value = 1 });
+            var entity2 = world2.Entity(new HealthTest { Value = 2 });
 
             world1.Update();
             world2.Update();
@@ -407,7 +407,7 @@ namespace Wargon.Nukecs.Tests
         {
             var world = World.Create(WorldConfig.Default256);
 
-            ref var entity = ref world.Entity(new HealthTest { Value = 1 });
+            var entity = world.Entity(new HealthTest { Value = 1 });
             world.Update();
 
             Assert.IsTrue(world.IsAlive);
@@ -426,7 +426,7 @@ namespace Wargon.Nukecs.Tests
 
             for (int i = 0; i < total; i++)
             {
-                ref var entity = ref world.Entity(new HealthTest { Value = i });
+                var entity = world.Entity(new HealthTest { Value = i });
             }
 
             world.Update();
@@ -452,7 +452,7 @@ namespace Wargon.Nukecs.Tests
 
             for (int i = 0; i < initial; i++)
             {
-                ref var e = ref world.Entity(new HealthTest { Value = i });
+                var e = world.Entity(new HealthTest { Value = i });
                 ids[i] = e.id;
             }
             world.Update();

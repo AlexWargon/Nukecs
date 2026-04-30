@@ -138,30 +138,23 @@ namespace Wargon.Nukecs
                     entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
-                ref Entity e = ref entities.ElementAt(lastEntityIndex);
                 entitiesAmount++;
                 var last = lastEntityIndex;
                 if (reservedEntities.length > 0) {
                     last = reservedEntities.ElementAt(reservedEntities.length - 1);
                     reservedEntities.RemoveAt(reservedEntities.length - 1);
-                    e = new Entity(last, Self);
-                    entitiesArchetypes.ElementAt(e.id) = 0;
-                    entityLocations.ElementAt(e.id) = default;
-#if NUKECS_DEBUG
-                    entitiesDens.Add(e.id, ref AllocatorRef);
-#endif
-                    return ref e;
+                } else {
+                    lastEntityIndex++;
                 }
+                ref var e = ref entities.ElementAt(last);
                 e = new Entity(last, Self);
                 entitiesArchetypes.ElementAt(e.id) = 0;
                 entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
 #endif
-                lastEntityIndex++;
                 return ref e;
             }
-            
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref Entity CreateEntity(int archetype) {
                 version++;
