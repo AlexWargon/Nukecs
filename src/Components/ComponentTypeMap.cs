@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -155,9 +156,9 @@ namespace Wargon.Nukecs
             cache.Add(typeof(T), index);
             return data;
         }
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeData GetComponentType(int index) => ComponentTypes.Data[index];
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeData GetComponentType(int index, bool isArrayElement = false)
         {
             if (isArrayElement) return ComponentTypeData.ElementTypes[index];

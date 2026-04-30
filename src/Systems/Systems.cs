@@ -340,7 +340,7 @@ namespace Wargon.Nukecs
         // }
     }
 
-    public static class SystemsExtensions
+    public static partial class SystemsExtensions
     {
         public static unsafe Systems Add<T>(this Systems systems, Threads threads)
             where T : struct, IEntityJobSystem

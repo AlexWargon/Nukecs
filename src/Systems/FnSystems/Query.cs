@@ -22,20 +22,14 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
     {
         private ArchetypeRef<T1> _t1;
-
         private ptr<QueryUnsafe> _query;
-
         private Range _range;
-
         private int _current;
-
         private int _archIdx;
         private int _archRow;
         private int _archEntityEnd;
-
         private int _cachedWorldVersion;
         private byte _isInitialized;
-
         static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
 
         public readonly void Deconstruct(out ArchetypeRef<T1> c)
@@ -51,17 +45,14 @@ namespace Wargon.Nukecs
         public ref T1 Current => ref _t1.Val;
 
         public int Count
-
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
         }
 
         public bool MoveNext()
-
         {
             if (++_current >= _range.end) return false;
-
             if (++_archRow >= _archEntityEnd)
             {
                 if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
@@ -104,20 +95,15 @@ namespace Wargon.Nukecs
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public void Init(ref ptr<World.WorldUnsafe> world)
-
         {
             _query = world.Ref.CreateQueryPtr();
-
             _query.Ref.With(ComponentType<T1>.Index);
         }
 
         public void Update(ref World world, IntPtr data)
-
         {
             _range = *(Range*)data;
-
             _current = _range.start - 1;
-
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
@@ -260,29 +246,22 @@ namespace Wargon.Nukecs
             }
 
             public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c)
-
             {
                 c = _t1;
-
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
-
             {
                 _query = world.Ref.CreateQueryPtr();
-
                 _query.Ref.With(ComponentType<T1>.Index);
             }
 
             public void Update(ref World world, IntPtr data)
-
             {
                 _range = *(Range*)(void*)data;
-
                 _current = _range.start - 1;
-
                 _archIdx = -1;
                 _archRow = 0;
                 _archEntityEnd = 0;
@@ -313,30 +292,14 @@ namespace Wargon.Nukecs
                 }
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            private void SetupArchetypeRefsFirst(ref World world)
-            {
-                ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-                _archEntityEnd = arch.count;
-                if (T1IsPool)
-                    _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
-                else
-                {
-                    var li = arch.GetComponentLocalIndex(ComponentType<T1>.Index);
-                    _t1.SetArchetype(arch.data.Ptr, arch.GetComponentOffset(li), arch.GetComponentSize(li));
-                }
-            }
-
             public IntPtr GetData()
             {
                 return (IntPtr)UnsafeUtility.AddressOf(ref _range);
             }
 
             public bool TryGetQuery(out ptr<QueryUnsafe> query)
-
             {
                 query = _query;
-
                 return true;
             }
         }
@@ -461,51 +424,33 @@ namespace Wargon.Nukecs
 
         {
             _query = world.Ref.CreateQueryPtr();
-
             _query.Ref.With(ComponentType<T1>.Index);
-
             TOption option = default;
-
             switch (option)
-
             {
                 case IComponent _:
-
                     _query.Ref.With(ComponentType<TOption>.Index);
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
                     break;
-
                 case IFilter filter:
-
                     filter.Setup(_query.Ptr);
-
                     break;
-
                 case ITuple tuple:
-
                     for (var i = 0; i < tuple.Length; i++)
-
                         if (tuple[i] is IFilter f)
                             f.Setup(_query.Ptr);
-
                     break;
             }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
-
         {
             _range = *(Range*)(void*)data;
-
             _current = _range.start - 1;
-
             _archIdx = -1;
             _archRow = 0;
             _archEntityEnd = 0;
-
             var currentVersion = world.UnsafeWorld->version;
             if (_isInitialized == 1 && _cachedWorldVersion == currentVersion && _range.start == 0)
             {
@@ -519,7 +464,7 @@ namespace Wargon.Nukecs
             if (_query.Ref.matchingArchetypes.length > 0)
             {
                 var remaining = _range.start;
-                for (int i = 0; i < _query.Ref.matchingArchetypes.length; i++)
+                for (var i = 0; i < _query.Ref.matchingArchetypes.length; i++)
                 {
                     ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[i]].Ref;
                     if (remaining < arch.count)
@@ -542,47 +487,28 @@ namespace Wargon.Nukecs
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SetupArchetypeRefsFirst(ref World world)
-        {
-            ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
-            _archEntityEnd = arch.count;
-            SetupT1(ref arch);
-            if (QueryParamInfo<TOption>.IsComponent)
-                SetupTOption(ref arch);
-        }
-
         public IntPtr GetData()
         {
             return (IntPtr)UnsafeUtility.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
-
         {
             query = _query;
-
             return true;
         }
 
-        [BurstCompile]
         public struct WithEntity : IQuery, ISystemParam
-
         {
             private ArchetypeRef<T1> _t1;
-
             private ArchetypeRef<TOption> _tOption;
-
             private ptr<QueryUnsafe> _query;
-
             private int _current;
-
             private Range _range;
-
             private int _archIdx;
             private int _archRow;
             private int _archEntityEnd;
-
+            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
             public void SetRange(Range range)
             {
                 _range = range;
@@ -591,26 +517,21 @@ namespace Wargon.Nukecs
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
             public WithEntity Current
-
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                [BurstCompile]
                 get => this;
             }
 
             public int Count
-
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => _query.Ref.count;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            [BurstCompile]
             public bool MoveNext()
             {
                 if (++_current >= _range.end) return false;
-
                 if (++_archRow >= _archEntityEnd)
                 {
                     if (++_archIdx >= _query.Ref.matchingArchetypes.length) return false;
@@ -623,7 +544,6 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupArchetypeRefs()
@@ -673,58 +593,41 @@ namespace Wargon.Nukecs
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c)
-
             {
                 c = _t1;
-
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly void Deconstruct(out Entity e, out ArchetypeRef<T1> c, out ArchetypeRef<TOption> opt)
-
             {
                 c = _t1;
                 opt = _tOption;
-
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 e = _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[_archRow]];
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
-
             {
                 _query = world.Ref.CreateQueryPtr();
-
                 _query.Ref.With(ComponentType<T1>.Index);
-
                 TOption option = default;
-
                 switch (option)
-
                 {
                     case IComponent _:
-
                         _query.Ref.With(ComponentType<TOption>.Index);
-
                         QueryParamInfo<TOption>.IsComponent = true;
-
                         break;
 
                     case IFilter filter:
-
                         filter.Setup(_query.Ptr);
-
                         break;
 
                     case ITuple tuple:
-
                         for (var i = 0; i < tuple.Length; i++)
-
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
-
                         break;
                 }
             }
@@ -732,16 +635,12 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             [BurstCompile]
             public void Update(ref World world, IntPtr data)
-
             {
                 _range = *(Range*)(void*)data;
-
                 _current = _range.start - 1;
-
                 _archIdx = -1;
                 _archRow = 0;
                 _archEntityEnd = 0;
-
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
                     var remaining = _range.start;
@@ -765,12 +664,6 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void UpdateInner()
-
-            {
-                _current = _range.start - 1;
-            }
-
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public IntPtr GetData()
             {
@@ -778,10 +671,8 @@ namespace Wargon.Nukecs
             }
 
             public bool TryGetQuery(out ptr<QueryUnsafe> query)
-
             {
                 query = _query;
-
                 return true;
             }
         }

@@ -107,7 +107,8 @@ namespace Wargon.Nukecs
 #endif
         public bool IsValid()
         {
-            return id != 0;
+            if (id == 0) return false;
+            return World.Get(worldIndex).unsafeWorldPtr.Ptr->entities.ElementAt(id).id != 0;
         }
     }
 
@@ -429,6 +430,14 @@ namespace Wargon.Nukecs
 #endif
         public static void Destroy(this in Entity entity)
         {
+#if NUKECS_DEBUG
+            entity.worldPointer->AddComponentChange(new World.ComponentChange
+            {
+                command = EntityCommandBuffer.ECBCommand.Type.DestroyEntity,
+                entityId = entity.id,
+                timeStamp = entity.worldPointer->timeData.ElapsedTime
+            });
+#endif
             entity.Add(new DestroyEntity());
         }
 
@@ -438,6 +447,14 @@ namespace Wargon.Nukecs
         public static void DestroyNow(this in Entity entity)
         {
             ref var ecb = ref entity.worldPointer->ECB;
+#if NUKECS_DEBUG
+            entity.worldPointer->AddComponentChange(new World.ComponentChange
+            {
+                command = EntityCommandBuffer.ECBCommand.Type.DestroyEntity,
+                entityId = entity.id,
+                timeStamp = entity.worldPointer->timeData.ElapsedTime
+            });
+#endif
             ecb.Destroy(entity.id);
         }
 

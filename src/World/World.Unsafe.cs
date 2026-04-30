@@ -23,7 +23,7 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
             internal AliveEntitiesSet entitiesDens;
 #endif
-            internal MemoryList<Entity> entities;
+            public MemoryList<Entity> entities;
             public MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
             internal Archetype rootArchetype;
@@ -205,7 +205,6 @@ namespace Wargon.Nukecs
             private void SetDefaultNone() {
                 DefaultNoneTypes.Add(ComponentType<IsPrefab>.Index, ref AllocatorRef);
                 DefaultNoneTypes.Add(ComponentType<DestroyEntity>.Index, ref AllocatorRef);
-                AddPool<DestroyEntity>();
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

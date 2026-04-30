@@ -1,5 +1,6 @@
 using System;
 using NUnit.Framework;
+using Unity.Burst;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Tests
@@ -12,7 +13,7 @@ namespace Wargon.Nukecs.Tests
     
     public static class TestSystems
     {
-        [System]
+        [System][BurstCompile]
         public static void Movement2(ref Query<PositionTest, VelocityTest> query, ref State state)
         {
             foreach (var (pos, vel) in query)

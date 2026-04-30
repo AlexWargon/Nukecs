@@ -173,13 +173,13 @@ namespace Wargon.Nukecs
             return -1;
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetComponentOffset(int localIndex)
         {
             return componentOffsets.Ptr[localIndex];
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int GetComponentSize(int localIndex)
         {
             return ComponentTypeMap.GetComponentType(types.Ptr[localIndex]).size;

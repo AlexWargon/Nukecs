@@ -328,7 +328,7 @@ namespace Wargon.Nukecs.Tests
             
             Assert.AreEqual(1, query.Count);
 
-            entity.Destroy();
+            entity.DestroyNow();
             systems.OnUpdate(0.16f, 0.16f);
             systems.OnUpdate(0.16f, 0.16f);
             Assert.AreEqual(0, query.Count);
