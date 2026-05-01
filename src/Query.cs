@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Collections;
 
 namespace Wargon.Nukecs
@@ -388,8 +389,11 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => Chunk.GetRef<TComponent>(chunks, index);
         }
+
+
+
     }
-    
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ArchetypeRef<TComponent> where TComponent : unmanaged
     {
         [NativeDisableUnsafePtrRestriction] internal TComponent* ptr;
@@ -401,8 +405,8 @@ namespace Wargon.Nukecs
         internal int poolEntityID;
 
 #pragma warning disable CS0169
-        [NativeDisableUnsafePtrRestriction] public ComponentPoolUntyped* pool;
-        public int index;
+        [NativeDisableUnsafePtrRestriction] internal ComponentPoolUntyped* pool;
+        internal int index;
 #pragma warning restore CS0169
 
         public ref TComponent Val
@@ -424,7 +428,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetArchetype(byte* data, int offset, int size)
+        internal void SetArchetype(byte* data, int offset, int size)
         {
             columnBase = data + offset;
             componentSize = size;
@@ -432,7 +436,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetPool(Chunk* poolChunks, int entityID)
+        internal void SetPool(Chunk* poolChunks, int entityID)
         {
             chunks = poolChunks;
             poolEntityID = entityID;
@@ -440,35 +444,35 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AdvanceArchetype(int row)
+        internal void AdvanceArchetype(int row)
         {
             ptr = (TComponent*)(columnBase + row * componentSize);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Bump()
+        internal void Bump()
         {
             ptr = (TComponent*)((byte*)ptr + componentSize);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Reset()
+        internal void Reset()
         {
             ptr = (TComponent*)columnBase;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AdvancePool(int entityID)
+        internal void AdvancePool(int entityID)
         {
             poolEntityID = entityID;
             ptr = Chunk.GetPtr<TComponent>(chunks, entityID);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ResolveChunks() { }
+        internal void ResolveChunks() { }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Set(byte* data, int offset, int currentRow, int size)
+        internal void Set(byte* data, int offset, int currentRow, int size)
         {
             columnBase = data + offset;
             componentSize = size;
@@ -477,6 +481,11 @@ namespace Wargon.Nukecs
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetRow(int currentRow) => ptr = (TComponent*)(columnBase + currentRow * componentSize);
+        
+        public static implicit operator TComponent(ArchetypeRef<TComponent> r)
+        {
+            return r.Val;
+        }
     }
 
 

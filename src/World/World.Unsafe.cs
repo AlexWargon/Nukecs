@@ -60,7 +60,10 @@ namespace Wargon.Nukecs
             internal UpdateContext CurrentContext {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)] get => UpdateContext.Update;
             }
-
+            public ref MemoryList<EntityLocation> EntityLocations {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref Self->entityLocations;
+            }
             internal static WorldUnsafe* Create(byte id, WorldConfig config)
             {
                 var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);

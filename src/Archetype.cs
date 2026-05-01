@@ -59,9 +59,9 @@ namespace Wargon.Nukecs
         }
     }
     [StructLayout(LayoutKind.Sequential)]
-    internal struct EntityLocation {
-        internal int archetypeIndex;
-        internal int row;
+    public struct EntityLocation {
+        public int archetypeIndex;
+        public int row;
     }
 
     [BurstCompile(CompileSynchronously = true)]
@@ -150,7 +150,7 @@ namespace Wargon.Nukecs
             ComponentHelpers.Write(ptr, 0, d.size, typeIndex, component);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal byte* GetComponentDataPtr(int componentTypeIndex, int row)
+        public byte* GetComponentDataPtr(int componentTypeIndex, int row)
         {
             for (var i = 0; i < types.length; i++)
             {

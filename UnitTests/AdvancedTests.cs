@@ -22,6 +22,11 @@ namespace Wargon.Nukecs.Tests
                 pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;
             }
         }
+        [System][BurstCompile]
+        public static void OnlyState(ref State state)
+        {
+
+        }
         [System]
         public static void Movement3_2(ref Query<PositionTest, VelocityTest, DamageTest> query, ref State state)
         {
@@ -176,6 +181,7 @@ namespace Wargon.Nukecs.Tests
             var systems = new Systems(ref world);
 
             systems.Add(TestSystems.Movement2, Threads.Single);
+            systems.Add(TestSystems.OnlyState);
             var query = world.Query().With<PositionTest>().With<VelocityTest>();
 
             for (var i = 0; i < 1000; i++)

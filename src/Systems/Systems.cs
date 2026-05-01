@@ -362,8 +362,36 @@ namespace Wargon.Nukecs
             systems.runners.Add(runner);
             return systems;
         }
+        public static Systems AddSystem(this Systems systems, Action system)
+        {
+            return systems;
+        }
+
+        public static Systems AddRes<T>(this Systems systems, in T res) where T : struct
+        {
+            var resRef = new Res<T>(in res);
+            
+            return systems;
+        }
     }
 
+    public class SystemType
+    {
+        private Action Delegate;
+
+        public static implicit operator Action(SystemType systemType)
+        {
+            return systemType.Delegate;
+        }
+
+        public static explicit operator SystemType(Action systemDelegate)
+        {
+            return new SystemType()
+            {
+                Delegate = systemDelegate
+            };
+        }
+    }
     public interface IQueryHolder {
         unsafe void UpdateQueryPointer(World.WorldUnsafe* world);
     }
@@ -451,116 +479,6 @@ namespace Wargon.Nukecs
 
     public interface IOnWorldDeserialize {
         void OnWorldDeserialize(ref World world);
-    }
-
-    public abstract class System<T> : ISystem, IOnCreate where T : unmanaged, IComponent
-    {
-        private Query Query;
-
-        public void OnCreate(ref World world)
-        {
-            Query = world.Query().With<T>();
-        }
-
-        public void OnUpdate(ref State state)
-        {
-            foreach (ref var entity in Query) OnUpdate(ref entity, ref entity.Get<T>(), ref state);
-        }
-
-        public abstract void OnUpdate(ref Entity entity, ref T component, ref State state);
-    }
-
-    [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]
-    public interface IEntityIndexJobSystem
-    {
-        Threads Mode { get; }
-        void OnUpdate<T1>(ref T1 c1, ref State state) where T1 : unmanaged, IComponent;
-    }
-
-    public static class EntityIndexJobSystemExtensions<T1> where T1 : unmanaged, IComponent
-    {
-        public static void EarlyJobInit<T>() where T : struct, IEntityIndexJobSystem
-        {
-            EntityJobStruct<T>.Initialize();
-        }
-
-        public static IntPtr GetReflectionData<T>() where T : struct, IEntityIndexJobSystem
-        {
-            EntityJobStruct<T>.Initialize();
-            return EntityJobStruct<T>.JobReflectionData.Data;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct EntityJobStruct<TJob> where TJob : struct, IEntityIndexJobSystem
-        {
-            public TJob JobData;
-            public Query query;
-            public State State;
-
-            internal static readonly SharedStatic<IntPtr> JobReflectionData =
-                SharedStatic<IntPtr>.GetOrCreate<EntityJobStruct<TJob>>();
-
-            [BurstDiscard]
-            internal static void Initialize()
-            {
-                if (JobReflectionData.Data == IntPtr.Zero)
-                    JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(EntityJobStruct<TJob>),
-                        typeof(TJob), new ExecuteJobFunction(Execute));
-            }
-
-            private delegate void ExecuteJobFunction(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
-                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
-
-            public static void Execute(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
-                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
-            {
-                if (fullData.query.Count == 0) return;
-                while (true)
-                {
-                    if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
-                        break;
-                    //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
-                    ref var c1pool = ref fullData.State.World.GetPool<T1>();
-                    for (var i = begin; i < end; i++)
-                        unsafe
-                        {
-                            var e = fullData.query.InternalPointer->GetEntityID(i);
-                            fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), ref fullData.State);
-                        }
-                }
-            }
-        }
-    }
-
-    public static class EXT
-    {
-        public static unsafe JobHandle Schedule<TJob, T>(this TJob jobData, ref Query query, ref State state,
-            Threads mode, JobHandle dependsOn = default)
-            where TJob : struct, IEntityIndexJobSystem
-            where T : unmanaged, IComponent
-        {
-            var fullData = new EntityIndexJobSystemExtensions<T>.EntityJobStruct<TJob>
-            {
-                JobData = jobData,
-                query = query,
-                State = state
-            };
-
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
-                EntityIndexJobSystemExtensions<T>.GetReflectionData<TJob>(), dependsOn,
-                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
-            switch (mode)
-            {
-                case Threads.Single:
-                    return JobsUtility.Schedule(ref scheduleParams);
-                case Threads.Parallel:
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
-            }
-
-            //var workers = JobsUtility.JobWorkerCount;
-            //var batchCount = query.Count > workers ? query.Count / workers : 1;
-            return dependsOn;
-        }
     }
 
     [BurstCompile]

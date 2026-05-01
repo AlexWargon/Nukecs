@@ -26,7 +26,7 @@ namespace Wargon.Nukecs
             get => unsafeWorldPtr.Ptr;
         }
 
-        internal ref WorldUnsafe UnsafeWorldRef
+        public ref WorldUnsafe UnsafeWorldRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref unsafeWorldPtr.Ref;

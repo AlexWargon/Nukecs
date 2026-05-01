@@ -1191,6 +1191,15 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
+        public QueryIter<T1, T2, T3, TOption> Iter()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        public QueryParIter<T1, T2, T3, TOption> ParIter()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
         private ArchetypeRef<T3> _t3;
