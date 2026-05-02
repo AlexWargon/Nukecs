@@ -550,8 +550,7 @@ namespace Wargon.Nukecs {
 
         public void Dispose() {
             ecb->Dispose();
-            UnsafeUtility.Free(ecb, allocator);
-            dbug.log("ECB DISPOSED");
+            UnsafeUtility.FreeTracked(ecb, allocator);
         }
     }
 }
