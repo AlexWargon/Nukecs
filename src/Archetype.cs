@@ -995,98 +995,19 @@ namespace Wargon.Nukecs
         //
         //     return sb.ToString();
         // }
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public readonly struct ArchetypeComponentMetaData
+    {
+        public readonly int localIndex;
+        public readonly int offset;
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int GetHashCode(int[] mask)
+        public ArchetypeComponentMetaData(int localIndex, int offset)
         {
-            unchecked
-            {
-                if (mask.Length == 0) return 0;
-                var hash = (int)2166136261;
-                const int p = 16777619;
-                for (var index = 0; index < mask.Length; index++)
-                {
-                    var i = mask[index];
-                    hash = (hash ^ i) * p;
-                }
-
-                hash += hash << 13;
-                hash ^= hash >> 7;
-                hash += hash << 3;
-                hash ^= hash >> 17;
-                hash += hash << 5;
-                return hash;
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetHashCode(ref UnsafeList<int> mask)
-        {
-            unchecked
-            {
-                if (mask.Length == 0) return 0;
-                var hash = (int)2166136261;
-                const int p = 16777619;
-                for (var index = 0; index < mask.Length; index++)
-                {
-                    var i = mask[index];
-                    hash = (hash ^ i) * p;
-                }
-
-                hash += hash << 13;
-                hash ^= hash >> 7;
-                hash += hash << 3;
-                hash ^= hash >> 17;
-                hash += hash << 5;
-                return hash;
-            }
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetHashCode(ref MemoryList<int> mask)
-        {
-            unchecked
-            {
-                if (mask.Length == 0) return 0;
-                var hash = (int)2166136261;
-                const int p = 16777619;
-                for (var index = 0; index < mask.Length; index++)
-                {
-                    var i = mask[index];
-                    hash = (hash ^ i) * p;
-                }
-
-                hash += hash << 13;
-                hash ^= hash >> 7;
-                hash += hash << 3;
-                hash ^= hash >> 17;
-                hash += hash << 5;
-                return hash;
-            }
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int GetHashCode(ref Span<int> mask)
-        {
-            unchecked
-            {
-                if (mask.Length == 0) return 0;
-                var hash = (int)2166136261;
-                const int p = 16777619;
-                for (var index = 0; index < mask.Length; index++)
-                {
-                    var i = mask[index];
-                    hash = (hash ^ i) * p;
-                }
-
-                hash += hash << 13;
-                hash ^= hash >> 7;
-                hash += hash << 3;
-                hash ^= hash >> 17;
-                hash += hash << 5;
-                return hash;
-            }
+            this.localIndex = localIndex;
+            this.offset = offset;
         }
     }
-
     public static class WorldArchetypeExtensions
     {
         public static unsafe Archetype GetArchetype(this ref World world, params Type[] types)

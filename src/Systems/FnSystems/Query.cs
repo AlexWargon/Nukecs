@@ -171,14 +171,14 @@ namespace Wargon.Nukecs
             return true;
         }
         public struct WithEntity : IQuery, ISystemParam
-
         {
+            public QueryIter<T1> iter()
+            {
+                return new(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
             private ArchetypeRef<T1> _t1;
-
             private ptr<QueryUnsafe> _query;
-
             private Range _range;
-
             private int _current;
             private int _archIdx;
             private int _archRow;
@@ -1191,12 +1191,13 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        public QueryIter<T1, T2, T3, TOption> Iter()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIter<T1, T2, T3, TOption> iter()
         {
             return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
-
-        public QueryParIter<T1, T2, T3, TOption> ParIter()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryParIter<T1, T2, T3, TOption> par_iter()
         {
             return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
@@ -1672,7 +1673,6 @@ namespace Wargon.Nukecs
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
         where TOption : unmanaged
-
     {
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
