@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Allocators;
 
@@ -77,14 +78,22 @@ namespace Wargon.Nukecs
             throw new NotImplementedException();
         }
     }
-    public readonly struct Res<TRes> : ISystemParam where TRes : struct
-    {
-        private readonly TRes _reference;
 
+    public interface IResource
+    {
+        void Init(ref World world);
+        void Update(ref World world);
+    }
+    [Serializable, StructLayout(LayoutKind.Sequential)]
+    public struct Res<TRes> : ISystemParam where TRes : struct, IResource
+    {
+        private TRes _reference;
+        public readonly TRes val => _reference;
         public Res(in TRes resource)
         {
             _reference = resource;
         }
+        
         public static implicit operator TRes(in Res<TRes> res)
         {
             return res._reference;
@@ -97,12 +106,13 @@ namespace Wargon.Nukecs
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            
+            _reference.Init(ref World.Get(world.Ref.Id));
+            dbug.log("INIT");
         }
 
         public void Update(ref World world, IntPtr data)
         {
-            
+            _reference.Update(ref world);
         }
 
         public IntPtr GetData()

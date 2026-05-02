@@ -366,13 +366,6 @@ namespace Wargon.Nukecs
         {
             return systems;
         }
-
-        public static Systems AddRes<T>(this Systems systems, in T res) where T : struct
-        {
-            var resRef = new Res<T>(in res);
-            
-            return systems;
-        }
     }
 
     public class SystemType

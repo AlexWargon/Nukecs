@@ -929,6 +929,16 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityPtrTuple<T1,T2,TOption>> iter_unsafe()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityPtrTuple<T1,T2,TOption>> par_iter_unsafe()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<T2> _t2;
 
@@ -1076,55 +1086,37 @@ namespace Wargon.Nukecs
             }
 
             public void Init(ref ptr<World.WorldUnsafe> world)
-
             {
                 _query = world.Ref.CreateQueryPtr();
-
                 _query.Ref.With(ComponentType<T1>.Index);
-
                 _query.Ref.With(ComponentType<T2>.Index);
 
                 TOption option = default;
 
                 switch (option)
-
                 {
                     case IComponent _:
-
                         _query.Ref.With(ComponentType<TOption>.Index);
-
                         QueryParamInfo<TOption>.IsComponent = true;
-
                         break;
-
                     case IFilter filter:
-
                         filter.Setup(_query.Ptr);
-
                         break;
-
                     case ITuple tuple:
-
                         for (var i = 0; i < tuple.Length; i++)
-
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
-
                         break;
                 }
             }
 
             public void Update(ref World world, IntPtr data)
-
             {
                 _range = *(Range*)(void*)data;
-
                 _current = _range.start - 1;
-
                 _archIdx = -1;
                 _archRow = 0;
                 _archEntityEnd = 0;
-
                 if (_query.Ref.matchingArchetypes.length > 0)
                 {
                     var remaining = _range.start;
@@ -1425,7 +1417,7 @@ namespace Wargon.Nukecs
 
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityPtrTuple<T1,T2,T3,TOption>> iter()
+            public readonly QueryIterWithEntity<EntityPtrTuple<T1,T2,T3,TOption>> iter_unsafe()
             {
                 return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
             }

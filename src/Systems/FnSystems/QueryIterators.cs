@@ -14,7 +14,6 @@ namespace Wargon.Nukecs
         private int _archIndex;
         private int _remaining;
         private TTuple _tuple;
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIter(in MemoryList<int> arches, World.WorldUnsafe* world)
         {
