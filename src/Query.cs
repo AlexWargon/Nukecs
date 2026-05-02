@@ -362,32 +362,27 @@ namespace Wargon.Nukecs
             }
         }
     }
-
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Ref<TComponent> where TComponent : unmanaged
     {
-        public int index;
-        [NativeDisableUnsafePtrRestriction] public ComponentPoolUntyped* pool;
-        [NativeDisableUnsafePtrRestriction] internal Chunk* chunks;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ResolveChunks() { if ((IntPtr)pool != IntPtr.Zero) chunks = pool->Chunks.Ptr; }
+        internal TComponent* data;
 
         public ref TComponent Val
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Chunk.GetRef<TComponent>(chunks, index);
+            get => ref *data;
         }
 
         public ref TComponent Get
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref Chunk.GetRef<TComponent>(chunks, index);
+            get => ref *data;
         }
 
-        public TComponent Read
+        public readonly ref readonly TComponent Read
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Chunk.GetRef<TComponent>(chunks, index);
+            get => ref *data;
         }
 
 

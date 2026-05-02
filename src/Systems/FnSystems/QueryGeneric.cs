@@ -29,6 +29,14 @@ namespace Wargon.Nukecs {
         {
             return query;
         }
+
+        public static TQueryIterator iterator<TQuery, TQueryIterator>(this TQuery query)
+            where TQuery : struct, IQuery
+            where TQueryIterator : unmanaged
+        {
+            TQueryIterator iterator = default;
+            return iterator;
+        }
     }
 
     public enum SystemParamMetaType : byte
@@ -187,5 +195,8 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator T*(Ptr<T> ptr) => ptr.data;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator Ptr<T>(T* ptr) => new Ptr<T>(ptr);
     }
 }

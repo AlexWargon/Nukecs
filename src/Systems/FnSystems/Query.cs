@@ -9,14 +9,12 @@ using Unity.Collections.LowLevel.Unsafe;
 // ReSharper disable SuspiciousTypeConversion.Global
 
 namespace Wargon.Nukecs
-
 {
     // ===========================================================================
 
     // Query<T1>
 
     // ===========================================================================
-
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
@@ -172,7 +170,7 @@ namespace Wargon.Nukecs
         }
         public struct WithEntity : IQuery, ISystemParam
         {
-            public QueryIter<T1> iter()
+            public QueryIterWithEntity<EntityPtrTuple<T1>> iter()
             {
                 return new(in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
@@ -1189,39 +1187,39 @@ namespace Wargon.Nukecs
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
         where TOption : unmanaged
-
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<T1, T2, T3, TOption> iter()
+        public readonly QueryIter<PtrTuple<T1,T2,T3,TOption>> iter_unsafe()
         {
             return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<T1, T2, T3, TOption> par_iter()
+        public readonly QueryParIter<PtrTuple<T1,T2,T3,TOption>> par_iter_unsafe()
         {
             return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1,T2,T3,TOption>> iter()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
         private ArchetypeRef<T3> _t3;
-
         private ArchetypeRef<TOption> _tOption;
-
         private ptr<QueryUnsafe> _query;
-
         private int _current;
-
         private Range _range;
-
         private int _archIdx;
         private int _archRow;
         private int _archEntityEnd;
-
         private int _cachedWorldVersion;
         private byte _isInitialized;
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
+        
         public readonly void Deconstruct(out ArchetypeRef<T1> c1, out ArchetypeRef<T2> c2, out ArchetypeRef<T3> c3)
         {
             c1 = _t1;
@@ -1426,6 +1424,12 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
 
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityPtrTuple<T1,T2,T3,TOption>> iter()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<T2> _t2;
             private ArchetypeRef<T3> _t3;
@@ -1451,11 +1455,6 @@ namespace Wargon.Nukecs
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => _query.Ref.count;
-            }
-
-            public WithEntity GetEnumerator()
-            {
-                return this;
             }
 
             public bool MoveNext()

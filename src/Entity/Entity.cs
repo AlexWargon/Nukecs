@@ -318,49 +318,6 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Remove(entity.id, componentType);
         }
 
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity)
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-        {
-            return (
-                new Ref<T1> { index = entity.id, chunks = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr->Chunks.Ptr },
-                new Ref<T2> { index = entity.id, chunks = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr->Chunks.Ptr });
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static (Ref<T1>, Ref<T2>, Ref<T3>) Get<T1, T2, T3>(this in Entity entity)
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-            where T3 : unmanaged, IComponent
-        {
-            return (
-                new Ref<T1> { index = entity.id, chunks = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr->Chunks.Ptr },
-                new Ref<T2> { index = entity.id, chunks = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr->Chunks.Ptr },
-                new Ref<T3> { index = entity.id, chunks = entity.worldPointer->GetPool<T3>().UnsafeBufferPtr.Ptr->Chunks.Ptr });
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>) Get<T1, T2, T3, T4>(this in Entity entity)
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-            where T3 : unmanaged, IComponent
-            where T4 : unmanaged, IComponent
-        {
-            return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBufferPtr.Ptr },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBufferPtr.Ptr },
-                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBufferPtr.Ptr },
-                new Ref<T4> { index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBufferPtr.Ptr });
-        }
-
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -464,24 +421,6 @@ namespace Wargon.Nukecs
         internal static void Free(this in Entity entity)
         {
             entity.ArchetypeRef.OnEntityFree(entity.id);
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static bool TryGetRef<T>(this in Entity entity, out Ref<T> component) where T : unmanaged, IComponent
-        {
-            if (entity.ArchetypeRef.Has<T>())
-            {
-                component.index = entity.id;
-                component.pool = entity.worldPointer->GetPool<T>().UnsafeBufferPtr.Ptr;
-                component.chunks = component.pool->Chunks.Ptr;
-                
-                return true;
-            }
-
-            component = default;
-            return false;
         }
 
 #if !NUKECS_DEBUG

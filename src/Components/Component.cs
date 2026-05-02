@@ -499,20 +499,6 @@ namespace Wargon.Nukecs
             _entity = entity.id;
         }
     }
-    public struct ComponentsTuple<T1, T2> : ITuple where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent
-    {
-        private int _entity;
-        public GetRef<T1> value1;
-        public GetRef<T2> value2;
-        public object this[int index] => null;
-
-        public int Length => 2;
-        public void Deconstruct(out GetRef<T1> v1, out GetRef<T2> v2)
-        {
-            v1 = value1;
-            v2 = value2;
-        }
-    }
 
     public readonly ref struct ComponentTupleRO<T1, T2, T3>
     {
