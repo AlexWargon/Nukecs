@@ -927,7 +927,6 @@ namespace Wargon.Nukecs
         }
 
         public struct WithEntity : IQuery, ISystemParam
-
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly QueryIterWithEntity<EntityPtrTuple<T1,T2,TOption>> iter_unsafe()

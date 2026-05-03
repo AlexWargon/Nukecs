@@ -47,12 +47,14 @@ namespace Wargon.Nukecs
             internal Spinner spinner;
             internal TimeData timeData;
             internal ptr<WorldUnsafe> selfPtr;
+            internal ResStorage _resStorage;
             internal ref WorldUnsafe SelfRef => ref selfPtr.Ref;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
             internal UnityAllocatorHandler AllocatorHandler;
             internal ref MemAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
             internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
+            public ptr<World> ManagedWorld;
             public ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref Self->EntityCommandBuffer;
@@ -124,7 +126,7 @@ namespace Wargon.Nukecs
                 SetDefaultNone();
                 //CreatePools();
                rootArchetype = CreateRootArchetype();
-
+               _resStorage = new ResStorage(ref AllocatorRef);
 #if NUKECS_DEBUG
                 CreateStoryLogList(1024);
                 entitiesDens = new AliveEntitiesSet(config.StartEntitiesAmount, ref AllocatorRef);
@@ -629,11 +631,44 @@ namespace Wargon.Nukecs
                 dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {type}");
                 return param.UntypedPointer;
             }
-            public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 :  unmanaged, ISystemParam
+            public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 : unmanaged, ISystemParam
             {
-                var param = AllocatorRef.AllocatePtr<TParam0>();
-                param.Ref.Init(ref selfPtr);
-                //dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {param.Ref.MetaType}");
+                TParam0 paramDefault = default;
+                var param = ptr<TParam0>.NULL;
+                switch (paramDefault.MetaType)
+                {
+                    case SystemParamMetaType.None:
+                        break;
+                    case SystemParamMetaType.Resource:
+                        if (_resStorage.Has<TParam0>())
+                        {
+                            param = _resStorage.Get<TParam0>();
+                        }
+                        else 
+                        {
+                            _resStorage.Add(in paramDefault, Self);
+                            param = _resStorage.Get<TParam0>();
+                            param.Ref = paramDefault;
+                            param.Ref.Init(ref selfPtr);
+                        }
+                        break;
+                    case SystemParamMetaType.Service:
+                    case SystemParamMetaType.Query:
+                    case SystemParamMetaType.Single:
+                    case SystemParamMetaType.Local:
+                        param = AllocatorRef.AllocatePtr<TParam0>();
+                        param.Ref = paramDefault;
+                        param.Ref.Init(ref selfPtr);
+                        break;
+                    case SystemParamMetaType.World:
+                        break;
+                    case SystemParamMetaType.State:
+                        break;
+                    
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+                
                 return param;
             }
         }

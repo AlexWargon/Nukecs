@@ -47,14 +47,14 @@ namespace Wargon.Nukecs {
                             break;
                         //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                         for (var i = begin; i < end; i++) {
-                            ref var e = ref fullData.query.InternalPointer->GetEntity(i);
+                            ref var e = ref fullData.query.queryUnsafe->GetEntity(i);
                             fullData.JobData.OnUpdate(ref e, pool1.UnsafeGetPtr(e.id), ref fullData.State);
                         }
                     }
                     break;
                 case Threads.Single:
                     for (var i = 0; i < fullData.query.Count; i++) {
-                        ref var e = ref fullData.query.InternalPointer->GetEntity(i);
+                        ref var e = ref fullData.query.queryUnsafe->GetEntity(i);
                         fullData.JobData.OnUpdate(ref e, pool1.UnsafeGetPtr(e.id), ref fullData.State);
                     }
                     break;

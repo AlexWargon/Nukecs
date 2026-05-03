@@ -48,6 +48,7 @@ namespace Wargon.Nukecs {
         Service = 4,
         State = 5,
         Resource = 6,
+        Local = 7
     }
 
     public interface ISystemParam {
@@ -178,25 +179,5 @@ namespace Wargon.Nukecs {
         {
             throw new NotImplementedException();
         }
-    }
-
-    public unsafe struct Ptr<T> where T : unmanaged
-    {
-        internal T* data;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Ptr(T* data) => this.data = data;
-
-        public ref T Value
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *data;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator T*(Ptr<T> ptr) => ptr.data;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static implicit operator Ptr<T>(T* ptr) => new Ptr<T>(ptr);
     }
 }

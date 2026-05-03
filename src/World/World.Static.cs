@@ -22,7 +22,7 @@ namespace Wargon.Nukecs
         internal static void InitStatic()
         {
             if(staticInited) return;
-            domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4);
+            domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4 + 1024*4);
             worlds.Data = new MemoryList<World>(4, ref domainAllocator.Data, true);
             worldCount = 0;
             staticInited = true;
@@ -89,6 +89,8 @@ namespace Wargon.Nukecs
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
             worlds.Data[id] = world;
+            world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
+            world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
             worldCount++;
             return world;
         }
@@ -101,6 +103,8 @@ namespace Wargon.Nukecs
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
+            world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
+            world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
             //Debug.Log($"Created World {id}");
             worldCount++;
             return world;
@@ -114,6 +118,8 @@ namespace Wargon.Nukecs
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
+            world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
+            world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
             //Debug.Log($"Created World {id}");
             worldCount++;
             return world;

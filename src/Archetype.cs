@@ -101,7 +101,7 @@ namespace Wargon.Nukecs
             }
             mask.OnDeserialize(ref allocator);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetArchetype(in Entity entity)
         {
             ref var loc = ref world->entityLocations.Ptr[entity.id];
@@ -110,14 +110,15 @@ namespace Wargon.Nukecs
             BatchMigrateQueries(ref source, ref this, entity.id);
             source.MoveEntityTo(loc.row, ref this);
         }
-        internal ref T GetComponent<T>(int entity) where T : unmanaged, IComponent
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T GetComponent<T>(int entity) where T : unmanaged, IComponent
         {
             ref var d = ref ComponentType<T>.Data;
-            var off = componentOffsets.Ptr[d.index];
+            var off = componentOffsets.Ptr[GetComponentLocalIndex(d.index)];
             ref var loc = ref world->entityLocations.Ptr[entity];
             return ref *(T*)(data.Ptr + off + loc.row * d.size);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref Entity GetEntity(int idx)
         {
             return ref world->entities.Ptr[packedEntities.Ptr[idx]];
@@ -170,7 +171,9 @@ namespace Wargon.Nukecs
             for (var i = 0; i < types.length; i++)
                 if (types.Ptr[i] == componentTypeIndex) return i;
             throw new Exception("ComponentLocalIndex not found");
+#pragma warning disable CS0162 // Unreachable code detected
             return -1;
+#pragma warning restore CS0162 // Unreachable code detected
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -184,7 +187,7 @@ namespace Wargon.Nukecs
         {
             return ComponentTypeMap.GetComponentType(types.Ptr[localIndex]).size;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void InitPackedArrays(int initialCapacity)
         {
             count = 0;
@@ -222,7 +225,7 @@ namespace Wargon.Nukecs
                 offset += ctData.size * capacity;
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureCapacity(int needed)
         {
             if (types.length == 0) return;
@@ -283,7 +286,7 @@ namespace Wargon.Nukecs
             return row;
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void RemoveEntity(int row)
         {
             count--;
@@ -677,7 +680,7 @@ namespace Wargon.Nukecs
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        #endif
+#endif
         internal Entity Copy(int entity)
         {
             var newEntity = world->CreateEntity(index);
@@ -734,7 +737,7 @@ namespace Wargon.Nukecs
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        #endif
+#endif
         internal Entity Copy(in Entity entity)
         {
             var newEntity = world->CreateEntity(index);

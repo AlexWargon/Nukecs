@@ -14,7 +14,7 @@ namespace Wargon.Nukecs
 
     public unsafe struct Query
     {
-        [NativeDisableUnsafePtrRestriction] internal QueryUnsafe* InternalPointer;
+        [NativeDisableUnsafePtrRestriction] internal QueryUnsafe* queryUnsafe;
         internal byte worldId;
         internal int id;
         internal int version;
@@ -22,26 +22,26 @@ namespace Wargon.Nukecs
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => InternalPointer->count;
+            get => queryUnsafe->count;
         }
 
         public bool IsEmpty
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => InternalPointer->count == 0;
+            get => queryUnsafe->count == 0;
         }
 
-        internal int CountMulti => InternalPointer->count / InternalPointer->world->job_worker_count;
+        internal int CountMulti => queryUnsafe->count / queryUnsafe->world->job_worker_count;
 
         public bool IsValid
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => InternalPointer != null;
+            get => queryUnsafe != null;
         }
 
         internal Query(ptr<QueryUnsafe> query)
         {
-            InternalPointer = query.Ptr;
+            queryUnsafe = query.Ptr;
             worldId = query.Ref.world->Id;
             id = query.Ref.Id;
             version = 0;
@@ -49,31 +49,31 @@ namespace Wargon.Nukecs
 
         public Query With<T>(ReadWrite readWrite = ReadWrite.ReadWrite) where T : unmanaged, IComponent
         {
-            InternalPointer->With(ComponentType<T>.Index);
+            queryUnsafe->With(ComponentType<T>.Index);
             return this;
         }
 
         public Query WithArray<T>() where T : unmanaged, IArrayComponent
         {
-            InternalPointer->With(ComponentType<ComponentArray<T>>.Index);
+            queryUnsafe->With(ComponentType<ComponentArray<T>>.Index);
             return this;
         }
 
         public Query None<T>() where T : unmanaged, IComponent
         {
-            InternalPointer->None(ComponentType<T>.Index);
+            queryUnsafe->None(ComponentType<T>.Index);
             return this;
         }
 
         internal Query With(int componentIndex)
         {
-            InternalPointer->With(componentIndex);
+            queryUnsafe->With(componentIndex);
             return this;
         }
 
         internal Query None(int componentIndex)
         {
-            InternalPointer->None(componentIndex);
+            queryUnsafe->None(componentIndex);
             return this;
         }
 
@@ -82,9 +82,18 @@ namespace Wargon.Nukecs
         {
             if (Count > 0)
             {
-                return ref InternalPointer->GetEntity(0);
+                var len = queryUnsafe->matchingArchetypes.length;
+                var ptr = queryUnsafe->matchingArchetypes.Ptr;
+                var arches = queryUnsafe->world->archetypesList.Ptr;
+                for (var i = 0; i < len; i++)
+                {
+                    ref var arch = ref arches[ptr[i]].Ref;
+                    if (arches[ptr[i]].Ref.count > 0)
+                    {
+                        return ref queryUnsafe->world->entities.Ptr[arch.packedEntities.Ptr[0]];
+                    }
+                }
             }
-
             throw new Exception("No entities found");
         }
 
@@ -92,25 +101,25 @@ namespace Wargon.Nukecs
         public (Entity entity, bool ok) FirstOk()
         {
             return Count > 0
-                ? (InternalPointer->GetEntity(0), true)
+                ? (queryUnsafe->GetEntity(0), true)
                 : (Entity.Null, false);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index)
         {
-            return ref InternalPointer->GetEntity(index);
+            return ref queryUnsafe->GetEntity(index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetEntityIndex(int index)
         {
-            return InternalPointer->GetEntity(index).id;
+            return queryUnsafe->GetEntity(index).id;
         }
 
         public override string ToString()
         {
-            return InternalPointer->ToString();
+            return queryUnsafe->ToString();
         }
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -118,7 +127,7 @@ namespace Wargon.Nukecs
         {
             if (version != World.Get(worldId).UnsafeWorldRef.version)
             {
-                InternalPointer = World.Get(worldId).UnsafeWorldRef.queries.ElementAt(id).Ptr;
+                queryUnsafe = World.Get(worldId).UnsafeWorldRef.queries.ElementAt(id).Ptr;
                 //dbug.log("Q RESTORED");
                 version = World.Get(worldId).UnsafeWorldRef.version;
             }
@@ -137,7 +146,7 @@ namespace Wargon.Nukecs
         public QueryEnumerator GetEnumerator()
         {
             RestoreIfNeed();
-            return new QueryEnumerator(InternalPointer);
+            return new QueryEnumerator(queryUnsafe);
         }
     }
 
