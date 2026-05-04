@@ -449,6 +449,11 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Copy(entity.id, e.id);
             return e;
         }
+
+        internal static string ToDebugString(this in Entity entity)
+        {
+            return $"#:{entity.id:D7}";
+        }
     }
 
     public ref struct EntityIndex
