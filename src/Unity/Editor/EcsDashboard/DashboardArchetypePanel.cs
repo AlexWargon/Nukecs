@@ -17,15 +17,42 @@ namespace Wargon.Nukecs.Editor
 
             container.Clear();
 
-            var archetypeCount = world.UnsafeWorldRef.archetypesList.Length;
-            for (var i = 0; i < archetypeCount; i++)
+            if (window.SelectedQueryId >= 0)
             {
-                var archPtr = world.UnsafeWorldRef.archetypesList.Ptr[i];
-                ref var arch = ref archPtr.Ref;
-                if (arch.count == 0) continue;
+                var queries = world.UnsafeWorld->queries;
+                QueryUnsafe* selectedQuery = null;
+                for (var i = 0; i < queries.Length; i++)
+                {
+                    if (queries.Ptr[i].Ptr->Id == window.SelectedQueryId)
+                    {
+                        selectedQuery = queries.Ptr[i].Ptr;
+                        break;
+                    }
+                }
 
-                var card = CreateArchetypeCard(ref arch, world, window);
-                container.Add(card);
+                if (selectedQuery != null)
+                {
+                    for (var ai = 0; ai < selectedQuery->matchingArchetypes.length; ai++)
+                    {
+                        var archIdx = selectedQuery->matchingArchetypes.Ptr[ai];
+                        ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[archIdx].Ref;
+                        if (arch.count == 0) continue;
+                        container.Add(CreateArchetypeCard(ref arch, world, window));
+                    }
+                }
+            }
+            else
+            {
+                var archetypeCount = world.UnsafeWorld->archetypesList.Length;
+                for (var i = 0; i < archetypeCount; i++)
+                {
+                    var archPtr = world.UnsafeWorld->archetypesList.Ptr[i];
+                    ref var arch = ref archPtr.Ref;
+                    if (arch.count == 0) continue;
+
+                    var card = CreateArchetypeCard(ref arch, world, window);
+                    container.Add(card);
+                }
             }
         }
 
@@ -35,39 +62,7 @@ namespace Wargon.Nukecs.Editor
             var borderColor = DashboardTheme.AccentForArchetype(arch.hashId);
             var selected = window.SelectedArchetypeIndex == arch.index;
 
-            var wrapper = new VisualElement
-            {
-                style =
-                {
-                    marginRight = 8,
-                    paddingTop = 2,
-                    paddingBottom = 2,
-                    paddingLeft = 2,
-                    paddingRight = 2,
-                    position = Position.Relative
-                }
-            };
-
-            if (selected)
-            {
-                var outerGlow = new VisualElement
-                {
-                    style =
-                    {
-                        position = Position.Absolute,
-                        left = -2, right = -2, top = -2, bottom = -2,
-                        backgroundColor = borderColor.WithAlpha(0.15f),
-                        borderTopLeftRadius = 14,
-                        borderTopRightRadius = 14,
-                        borderBottomLeftRadius = 14,
-                        borderBottomRightRadius = 14
-                    }
-                };
-                wrapper.Add(outerGlow);
-            }
-
-            var card = NukecsDashboardWindow.CreateGlowCard(
-                selected ? borderColor : borderColor.WithAlpha(0.3f), 12);
+            var card = NukecsDashboardWindow.CreateGlowCard(DashboardTheme.Separator, 12);
             card.style.width = 200;
             card.style.height = 120;
             card.style.paddingTop = 8;
@@ -79,9 +74,7 @@ namespace Wargon.Nukecs.Editor
             if (selected)
             {
                 card.style.borderLeftWidth = 2;
-                card.style.borderRightWidth = 2;
-                card.style.borderTopWidth = 2;
-                card.style.borderBottomWidth = 2;
+                card.style.borderLeftColor = borderColor;
             }
 
             var archIndex = arch.index;
@@ -115,13 +108,17 @@ namespace Wargon.Nukecs.Editor
             };
             headerRow.Add(idLabel);
 
-            var countBadge = DashboardStyles.PillBadge($"{arch.count}",
-                borderColor.WithAlpha(0.3f), DashboardTheme.TextWhite, DashboardTheme.FontSize.Small);
-            countBadge.style.paddingTop = 1;
-            countBadge.style.paddingBottom = 1;
-            countBadge.style.paddingLeft = 8;
-            countBadge.style.paddingRight = 8;
-            headerRow.Add(countBadge);
+            var countLabel = new Label($"{arch.count}")
+            {
+                style =
+                {
+                    fontSize = DashboardTheme.FontSize.Small,
+                    color = DashboardTheme.TextSecondary,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginLeft = 4
+                }
+            };
+            headerRow.Add(countLabel);
             card.Add(headerRow);
 
             var chipsContainer = new VisualElement
@@ -229,8 +226,8 @@ namespace Wargon.Nukecs.Editor
 
             card.Add(occupancyBg);
 
-            wrapper.Add(card);
-            return wrapper;
+            card.style.marginRight = 8;
+            return card;
         }
     }
 }

@@ -108,7 +108,40 @@ namespace Wargon.Nukecs
             return false;
         }
     }
-    
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe ref struct QueryIterObject<TTuple>
+        where TTuple : struct, IComponentEntityTupleRanged
+    {
+        private readonly World.WorldUnsafe* _world;
+        private int _remaining;
+        private TTuple _tuple;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIterObject(int archetype, World.WorldUnsafe* world, ref TTuple tuple, Range range)
+        {
+            _world = world;
+            _remaining = 0;
+            _tuple = tuple;
+            ref var arch = ref _world->archetypesList.Ptr[archetype].Ref;
+            _tuple.SetData(ref arch, arch.packedEntities.Ptr, _world->entities.Ptr, range);
+            _remaining = range.end - range.start + 1;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIterObject<TTuple> GetEnumerator() => this;
+        public readonly TTuple Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _tuple;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            if (_remaining <= 0) return false;
+            _remaining--;
+            _tuple.Add();
+            return true;
+        }
+    }
     public interface IComponentTuple
     {
         void Add();
@@ -121,7 +154,11 @@ namespace Wargon.Nukecs
         void SetData(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities);
         void SetDataParallel(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities, int localStart);
     }
-
+    public unsafe interface IComponentEntityTupleRanged
+    {
+        void Add();
+        void SetData(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities, Range range);
+    }
     public interface IRef<T> where T : unmanaged
     {
         void Add();

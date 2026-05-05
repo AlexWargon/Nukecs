@@ -26,7 +26,7 @@ namespace Wargon.Nukecs.Editor
             var eName = e.Has<Name>() ? e.Get<Name>().value.Value : "";
             var displayTitle = string.IsNullOrEmpty(eName) ? $"Entity {entityId}" : eName;
 
-            var titleCard = NukecsDashboardWindow.CreateGlowCard(DashboardTheme.AccentPurple, 10);
+            var titleCard = NukecsDashboardWindow.CreateGlowCard(DashboardTheme.Separator, 10);
             titleCard.style.paddingTop = 10;
             titleCard.style.paddingBottom = 10;
             titleCard.style.paddingLeft = 12;
@@ -231,7 +231,7 @@ namespace Wargon.Nukecs.Editor
                             borderRightWidth = 0,
                             borderTopWidth = 0,
                             borderBottomWidth = 0,
-                            backgroundColor = new Color(0.1f, 0.1f, 0.15f),
+                            backgroundColor = DashboardTheme.BgCard,
                             color = DashboardTheme.TextSecondary,
                             paddingTop = 0,
                             paddingBottom = 0,
@@ -247,7 +247,7 @@ namespace Wargon.Nukecs.Editor
                     removeBtn.RegisterCallback<MouseLeaveEvent>(_ =>
                     {
                         removeBtn.style.color = DashboardTheme.TextSecondary;
-                        removeBtn.style.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
+                        removeBtn.style.backgroundColor = DashboardTheme.BgCard;
                     });
                     headerRow.Add(removeBtn);
                 }
@@ -271,7 +271,6 @@ namespace Wargon.Nukecs.Editor
                     proxy.boxedComponent = boxedComponent;
                     proxy.typeIndex = typeIndex;
                     contentArea.Add(proxy.imgui);
-
                     card.Add(contentArea);
                 }
 

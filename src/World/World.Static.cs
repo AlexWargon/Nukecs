@@ -25,6 +25,7 @@ namespace Wargon.Nukecs
             domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4 + 1024*4);
             worlds.Data = new MemoryList<World>(4, ref domainAllocator.Data, true);
             worldCount = 0;
+            dummyWorld.Data = default;
             staticInited = true;
         }
         public static int WorldCapacity => worlds.Data.Capacity;
@@ -32,7 +33,6 @@ namespace Wargon.Nukecs
         {
             if(worlds.Data.IsCreated)
                 return ref worlds.Data.ElementAt(index);
-            dummyWorld.Data = default;
             return ref dummyWorld.Data;
         }
 

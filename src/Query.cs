@@ -165,6 +165,18 @@ namespace Wargon.Nukecs
         internal ptr<QueryUnsafe> self;
 
         internal int Id;
+        internal byte oldVersion;
+        internal byte newVersion;
+
+        public bool IsDirty()
+        {
+            if (oldVersion != newVersion)
+            {
+                oldVersion = newVersion;
+                return true;
+            }
+            return false;
+        }
         public bool IsCreated => world != null;
 
         internal void OnDeserialize(ref MemAllocator allocator)
@@ -215,8 +227,22 @@ namespace Wargon.Nukecs
                     none.Add(type);
                 }
             }
-        }
 
+            newVersion = byte.MinValue;
+            oldVersion = byte.MinValue;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public MultiArray<int> GetEntities(Allocator allocator)
+        {
+            var array = new MultiArray<int>(matchingArchetypes.length, allocator);
+            for (var index = 0; index < matchingArchetypes.Length; index++)
+            {
+                var matchingArchetype = matchingArchetypes[index];
+                ref var arch = ref world->archetypesList.ElementAt(matchingArchetype).Ref;
+                array.Add(arch.packedEntities.Ptr, arch.count);
+            }
+            return array;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity GetEntity(int index)
         {
@@ -249,6 +275,10 @@ namespace Wargon.Nukecs
         internal void Add(int entity)
         {
             count++;
+            unchecked
+            {
+                newVersion++;
+            }
         }
 
         internal void AddArchetype(int archetypeIndex)
@@ -260,20 +290,36 @@ namespace Wargon.Nukecs
         internal void BatchAdd(int* entityIds, int cnt)
         {
             count += cnt;
+            unchecked
+            {
+                newVersion++;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BatchAddRange(int startEntityId, int cnt)
         {
             count += cnt;
+            unchecked
+            {
+                newVersion++;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity)
         {
             count--;
+            unchecked
+            {
+                newVersion++;
+            }
         }
 
+        internal void SyncVersion()
+        {
+            oldVersion = newVersion;
+        }
         public QueryUnsafe* With(int type)
         {
             with.Add(type);

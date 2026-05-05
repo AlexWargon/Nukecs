@@ -108,20 +108,9 @@ namespace Wargon.Nukecs.Collections
         /// </summary>
         /// <param name="index"></param>
         /// <returns></returns>
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T ElementAt(int index)
         {
-// #if NUKECS_DEBUG
-//             if (Ptr == null)
-//             {
-//                 throw new Exception($"{nameof(MemoryList<T>)} is null");
-//             }
-//
-//             if (index >= capacity || index >= length)
-//             {
-//                 throw new IndexOutOfRangeException($"Index {index} is out of range. Capacity {capacity}, Length {length}");
-//             }
-// #endif
             return ref Ptr[index];
         }
         

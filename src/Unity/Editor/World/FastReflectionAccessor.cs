@@ -10,11 +10,25 @@ namespace Wargon.Nukecs.Editor
 {
     public static class FastReflectionAccessor
     {
+        private static readonly Dictionary<Type, Func<object, object>[]> indexedGetters = new();
+        private static readonly Dictionary<Type, Action<object, object>[]> indexedSetters = new();
         private static readonly Dictionary<string, Func<object, object>> getters = new();
         private static readonly Dictionary<string, Action<object, object>> setters = new();
         private static readonly Dictionary<(string, string), Delegate> methods = new();
         private static string GetKey(Type type, string fieldName) => $"{type.FullName}.{fieldName}";
-        
+        public static object GetValue(Type type, int fieldIndex, object instance)
+        {
+            BuildIndexedAccessors(type);
+
+            return indexedGetters[type][fieldIndex](instance);
+        }
+
+        public static void SetValue(Type type, int fieldIndex, object instance, object value)
+        {
+            BuildIndexedAccessors(type);
+
+            indexedSetters[type][fieldIndex](instance, value);
+        }
         public static object GetProperty(Type type, string propertyName, object instance)
         {
             var getter = GetPropertyGetter(type, propertyName);
@@ -133,9 +147,88 @@ namespace Wargon.Nukecs.Editor
             methods[key] = del;
             return del;
         }
+        private static void BuildIndexedAccessors(Type type)
+        {
+            if (indexedGetters.ContainsKey(type))
+                return;
+
+            var flags = BindingFlags.Instance |
+                        BindingFlags.Public |
+                        BindingFlags.NonPublic;
+
+            var fields = type.GetFields(flags);
+
+            var getters = new Func<object, object>[fields.Length];
+            var setters = new Action<object, object>[fields.Length];
+
+            for (int i = 0; i < fields.Length; i++)
+            {
+                getters[i] = CreateGetter(fields[i]);
+                setters[i] = CreateSetter(fields[i]);
+            }
+
+            indexedGetters[type] = getters;
+            indexedSetters[type] = setters;
+        }
+        private static Func<object, object> CreateGetter(FieldInfo field)
+        {
+            var instance = Expression.Parameter(typeof(object));
+
+            var fieldAccess = Expression.Field(
+                Expression.Convert(instance, field.DeclaringType),
+                field);
+
+            var convert = Expression.Convert(fieldAccess, typeof(object));
+
+            return Expression
+                .Lambda<Func<object, object>>(convert, instance)
+                .Compile();
+        }
+
+        private static Action<object, object> CreateSetter(FieldInfo field)
+        {
+            var instance = Expression.Parameter(typeof(object));
+            var value = Expression.Parameter(typeof(object));
+
+            var fieldAccess = Expression.Field(
+                Expression.Convert(instance, field.DeclaringType),
+                field);
+
+            var assign = Expression.Assign(
+                fieldAccess,
+                Expression.Convert(value, field.FieldType));
+
+            return Expression
+                .Lambda<Action<object, object>>(
+                    assign,
+                    instance,
+                    value)
+                .Compile();
+        }
+        
     }
     public static class ObjectReflectionExtensions
     {
+        public static object GetFieldValue(this object obj, Type objectType, int fieldIndex)
+        {
+            return FastReflectionAccessor.GetValue(objectType, fieldIndex, obj);
+        }
+
+        public static void SetFieldValue(this object obj, Type objectType, int fieldIndex, object value)
+        {
+            FastReflectionAccessor.SetValue(objectType, fieldIndex, obj, value);
+        }
+        
+        public static object GetFieldValue(this object obj, int fieldIndex)
+        {
+            return FastReflectionAccessor.GetValue(obj.GetType(), fieldIndex, obj);
+        }
+
+        public static void SetFieldValue(this object obj, int fieldIndex, object value)
+        {
+            FastReflectionAccessor.SetValue(obj.GetType(), fieldIndex, obj, value);
+        }
+        
         public static object GetFieldValue(this object obj, Type objType, string fieldName)
         {
             return FastReflectionAccessor.GetValue(objType, fieldName, obj);

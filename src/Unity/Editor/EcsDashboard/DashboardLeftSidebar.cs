@@ -1,7 +1,7 @@
 #pragma warning disable CS0618
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
-using System.Collections.Generic;
+using System.Text;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -10,31 +10,6 @@ namespace Wargon.Nukecs.Editor
 {
     public static class DashboardLeftSidebar
     {
-        private struct EntityGroup
-        {
-            public string name;
-            public string icon;
-            public Color color;
-            public Func<World, List<int>> getEntities;
-        }
-
-        private static readonly unsafe  EntityGroup[] Groups = {
-            new()
-            {
-                name = "All",
-                icon = "\u25C6",
-                color = DashboardTheme.AccentPurple,
-                getEntities = w =>
-                {
-                    var result = new List<int>();
-                    var entities = w.UnsafeWorld->entitiesDens.GetAliveEntities();
-                    for (var i = 0; i < entities.Length; i++)
-                        result.Add(entities[i]);
-                    return result;
-                }
-            }
-        };
-
         public static VisualElement Create(NukecsDashboardWindow window)
         {
             var sidebar = new VisualElement
@@ -51,7 +26,7 @@ namespace Wargon.Nukecs.Editor
                 }
             };
 
-            var header = DashboardStyles.SectionTitle("Groups", DashboardTheme.TextPrimary);
+            var header = DashboardStyles.SectionTitle("Queries", DashboardTheme.TextPrimary);
             sidebar.Add(header);
 
             var content = new ScrollView(ScrollViewMode.Vertical)
@@ -75,30 +50,51 @@ namespace Wargon.Nukecs.Editor
 
             var totalEntities = world.UnsafeWorld->entitiesAmount;
 
-            var allGroup = CreateGroupCard("All", "\u25C6", DashboardTheme.AccentPurple,
-                totalEntities, totalEntities, window.SelectedGroup == "All",
-                () => window.SelectGroup("All"), true);
-            content.Add(allGroup);
+            var allCard = CreateGroupCard("All", "\u25C6", DashboardTheme.AccentPurple,
+                totalEntities, totalEntities, window.SelectedQueryId < 0,
+                () => window.SelectQuery(-1), true);
+            content.Add(allCard);
 
-            var archetypeCount = world.UnsafeWorld->archetypesList.Length;
-            for (var i = 0; i < archetypeCount; i++)
+            var queries = world.UnsafeWorld->queries;
+            for (var i = 0; i < queries.Length; i++)
             {
-                var archPtr = world.UnsafeWorld->archetypesList.Ptr[i];
-                ref var arch = ref archPtr.Ref;
-                var entityCount = arch.count;
+                var qPtr = queries.Ptr[i].Ptr;
+                var queryId = qPtr->Id;
+                var entityCount = qPtr->count;
                 if (entityCount == 0) continue;
 
-                var archIdx = arch.index;
+                var label = BuildQueryLabel(qPtr);
+                var color = DashboardTheme.AccentForArchetype(queryId);
 
-                var displayHash = arch.hashId;
-                var color = DashboardTheme.AccentForArchetype(displayHash);
-
-                var card = CreateGroupCard(string.Empty, $"{displayHash}", color,
+                var card = CreateGroupCard(label, $"Q{queryId}", color,
                     entityCount, totalEntities,
-                    window.SelectedArchetypeIndex == archIdx && window.SelectedGroup == "All",
-                    () => window.SelectArchetype(archIdx), false);
+                    window.SelectedQueryId == queryId,
+                    () => window.SelectQuery(queryId), false);
                 content.Add(card);
             }
+        }
+
+        private static unsafe string BuildQueryLabel(QueryUnsafe* q)
+        {
+            var sb = new StringBuilder();
+            foreach (var typeIndex in ComponentTypeMap.TypesIndexes)
+            {
+                if (q->HasWith(typeIndex))
+                {
+                    var t = ComponentTypeMap.GetType(typeIndex);
+                    sb.Append('+');
+                    sb.Append(t != null ? t.Name : $"T{typeIndex}");
+                }
+                if (q->HasNone(typeIndex))
+                {
+                    var t = ComponentTypeMap.GetType(typeIndex);
+                    sb.Append('-');
+                    sb.Append(t != null ? t.Name : $"T{typeIndex}");
+                }
+            }
+            if (sb.Length == 0) return "Query";
+            var result = sb.ToString();
+            return result.Length > 22 ? result.Substring(0, 20) + ".." : result;
         }
 
         private static VisualElement CreateGroupCard(
@@ -233,10 +229,18 @@ namespace Wargon.Nukecs.Editor
             textCol.Add(barBg);
             card.Add(textCol);
 
-            var countBadge = DashboardStyles.PillBadge(count.ToString(),
-                accentColor.WithAlpha(0.2f), accentColor, DashboardTheme.FontSize.Small);
-            countBadge.style.minWidth = 30;
-            card.Add(countBadge);
+            var countLabel = new Label(count.ToString())
+            {
+                style =
+                {
+                    fontSize = DashboardTheme.FontSize.Body,
+                    color = accentColor,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    minWidth = 30,
+                    unityTextAlign = TextAnchor.MiddleRight
+                }
+            };
+            card.Add(countLabel);
 
             card.RegisterCallback<MouseEnterEvent>(_ =>
             {

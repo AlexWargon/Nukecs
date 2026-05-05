@@ -14,8 +14,8 @@ namespace Wargon.Nukecs.Editor
         private int _selectedWorldId;
         private int? _selectedEntityId;
         private int _selectedArchetypeIndex = -1;
-        private string _selectedGroup = "All";
-        private bool _paused;
+        private int _selectedQueryId = -1;
+
         private int _lastEntityCount = -1;
         private int _lastArchetypeCount = -1;
 
@@ -23,16 +23,13 @@ namespace Wargon.Nukecs.Editor
         private VisualElement _leftSidebar;
         private VisualElement _centerPanel;
         private VisualElement _rightPanel;
-        private VisualElement _bottomBar;
+
         private ScrollView _archetypeContainer;
         private ScrollView _entityTableContainer;
         private ScrollView _inspectorContainer;
         private VisualElement _archetypeSection;
         private VisualElement _entitySection;
 
-        private Label _entityCountBadge;
-        private Label _systemCountBadge;
-        private Label _liveIndicator;
 
         private readonly Dictionary<int, ComponentProxy> _componentProxies = new();
         private readonly Dictionary<string, bool> _foldoutStates = new();
@@ -45,8 +42,8 @@ namespace Wargon.Nukecs.Editor
         /// Selected Index (0,1,2,3....N), Not HashID (-68371923151)
         /// </summary>
         public int SelectedArchetypeIndex => _selectedArchetypeIndex;
-        public string SelectedGroup => _selectedGroup;
-        public bool Paused => _paused;
+        public int SelectedQueryId => _selectedQueryId;
+
         public Dictionary<int, ComponentProxy> ComponentProxies => _componentProxies;
         public Dictionary<string, bool> FoldoutStates => _foldoutStates;
 
@@ -68,8 +65,15 @@ namespace Wargon.Nukecs.Editor
             root.style.flexDirection = FlexDirection.Column;
             root.style.backgroundColor = DashboardTheme.BgDark;
 
-            var topGlowBar = DashboardStyles.CreateGradientLine(3);
-            topGlowBar.style.flexShrink = 0;
+            var topGlowBar = new VisualElement
+            {
+                style =
+                {
+                    height = 1,
+                    backgroundColor = DashboardTheme.Separator,
+                    flexShrink = 0
+                }
+            };
             root.Add(topGlowBar);
 
             _topBar = DashboardTopBar.Create(this);
@@ -89,8 +93,14 @@ namespace Wargon.Nukecs.Editor
             _leftSidebar = DashboardLeftSidebar.Create(this);
             mainArea.Add(_leftSidebar);
 
-            var separator1 = DashboardStyles.NeonSeparator(DashboardTheme.AccentPurple.WithAlpha(0.2f));
-            separator1.style.width = 1;
+            var separator1 = new VisualElement
+            {
+                style =
+                {
+                    width = 1,
+                    backgroundColor = DashboardTheme.Separator
+                }
+            };
             mainArea.Add(separator1);
 
             _centerPanel = new VisualElement
@@ -128,7 +138,14 @@ namespace Wargon.Nukecs.Editor
             _archetypeSection.Add(_archetypeContainer);
             _centerPanel.Add(_archetypeSection);
 
-            var archSep = DashboardStyles.NeonSeparator(DashboardTheme.AccentPurple.WithAlpha(0.3f));
+            var archSep = new VisualElement
+            {
+                style =
+                {
+                    height = 1,
+                    backgroundColor = DashboardTheme.Separator
+                }
+            };
             _centerPanel.Add(archSep);
 
             _entitySection = new VisualElement
@@ -145,8 +162,14 @@ namespace Wargon.Nukecs.Editor
             _entitySection.Add(_entityTableContainer);
             _centerPanel.Add(_entitySection);
 
-            var separator2 = DashboardStyles.NeonSeparator(DashboardTheme.AccentPurple.WithAlpha(0.2f));
-            separator2.style.width = 1;
+            var separator2 = new VisualElement
+            {
+                style =
+                {
+                    width = 1,
+                    backgroundColor = DashboardTheme.Separator
+                }
+            };
             mainArea.Add(separator2);
 
             _rightPanel = new VisualElement
@@ -175,11 +198,11 @@ namespace Wargon.Nukecs.Editor
                 }
             };
 
-            var cyanDot = DashboardStyles.GlowDot(DashboardTheme.AccentCyan, 8);
-            cyanDot.style.marginRight = 8;
-            inspectorHeader.Add(cyanDot);
+            // var cyanDot = DashboardStyles.GlowDot(DashboardTheme.AccentCyan, 8);
+            // cyanDot.style.marginRight = 8;
+            //inspectorHeader.Add(cyanDot);
 
-            var inspectorTitle = new Label("INSPECTOR")
+            var inspectorTitle = new Label("ENTITY INSPECTOR")
             {
                 style =
                 {
@@ -205,14 +228,11 @@ namespace Wargon.Nukecs.Editor
             _rightPanel.Add(_inspectorContainer);
             mainArea.Add(_rightPanel);
 
-            _bottomBar = DashboardBottomPanel.Create(this);
-            root.Add(_bottomBar);
-
             RefreshAll();
 
             root.schedule.Execute(() =>
             {
-                if (!_paused && EditorApplication.isPlaying)
+                if (EditorApplication.isPlaying)
                 {
                     _world = World.Get(_selectedWorldId);
                     if (!_world.IsAlive) return;
@@ -258,6 +278,14 @@ namespace Wargon.Nukecs.Editor
                     }
                 }
             }).Every(33);
+
+            root.schedule.Execute(() =>
+            {
+                if (EditorApplication.isPlaying)
+                {
+                    DashboardEntityTable.Update(_entityTableContainer, this);
+                }
+            }).Every(33);
         }
 
         public void RefreshAll()
@@ -268,7 +296,6 @@ namespace Wargon.Nukecs.Editor
             DashboardArchetypePanel.Refresh(_archetypeContainer, this);
             DashboardEntityTable.Refresh(_entityTableContainer, this);
             DashboardLeftSidebar.Refresh(_leftSidebar, this);
-            DashboardBottomPanel.Refresh(_bottomBar, this);
         }
 
         public void SelectEntity(int? entityId)
@@ -284,22 +311,19 @@ namespace Wargon.Nukecs.Editor
 
         public void SelectArchetype(int archetypeId)
         {
+            _selectedQueryId = -1;
             _selectedArchetypeIndex = _selectedArchetypeIndex == archetypeId ? -1 : archetypeId;
             DashboardEntityTable.Refresh(_entityTableContainer, this);
             DashboardArchetypePanel.Refresh(_archetypeContainer, this);
         }
 
-        public void SelectGroup(string group)
+        public void SelectQuery(int queryId)
         {
-            _selectedGroup = _selectedGroup == group ? "All" : group;
+            _selectedQueryId = queryId;
             _selectedArchetypeIndex = -1;
             DashboardEntityTable.Refresh(_entityTableContainer, this);
             DashboardLeftSidebar.Refresh(_leftSidebar, this);
-        }
-
-        public void TogglePause()
-        {
-            _paused = !_paused;
+            DashboardArchetypePanel.Refresh(_archetypeContainer, this);
         }
 
         public void SetWorld(int worldId)
@@ -308,7 +332,7 @@ namespace Wargon.Nukecs.Editor
             EditorPrefs.SetInt("NukecsDashboard.WorldId", worldId);
             _selectedEntityId = null;
             _selectedArchetypeIndex = -1;
-            _selectedGroup = "All";
+            _selectedQueryId = -1;
             _lastEntityCount = -1;
             _lastArchetypeCount = -1;
             _componentProxies.Clear();
@@ -319,7 +343,6 @@ namespace Wargon.Nukecs.Editor
         {
             if (_componentProxies.TryGetValue(typeIndex, out var proxy))
                 return proxy;
-
             var type = ComponentTypeMap.GetType(typeIndex);
             var drawer = ComponentDrawerGenerator.GetDrawer(type);
             proxy = new ComponentProxy
@@ -377,17 +400,14 @@ namespace Wargon.Nukecs.Editor
                     borderBottomWidth = 1,
                     borderLeftWidth = 1,
                     borderRightWidth = 1,
-                    borderTopColor = borderColor,
-                    borderBottomColor = borderColor,
-                    borderLeftColor = borderColor,
-                    borderRightColor = borderColor,
+                    borderTopColor = DashboardTheme.Separator,
+                    borderBottomColor = DashboardTheme.Separator,
+                    borderLeftColor = DashboardTheme.Separator,
+                    borderRightColor = DashboardTheme.Separator,
                     overflow = Overflow.Hidden,
                     position = Position.Relative
                 }
             };
-
-            var shine = DashboardStyles.ShineLine();
-            card.Add(shine);
 
             return card;
         }

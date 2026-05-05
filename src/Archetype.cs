@@ -135,6 +135,7 @@ namespace Wargon.Nukecs
             var ptr = data.Ptr + off + loc.row * d.size;
             return ComponentHelpers.Read(ptr, 0, d.size, typeIndex);
         }
+
         public void SetObject(int entity, int typeIndex, IComponent component)
         {
             var d = ComponentTypeMap.GetComponentType(typeIndex);

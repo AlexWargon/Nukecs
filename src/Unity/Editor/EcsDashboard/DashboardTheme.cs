@@ -14,49 +14,49 @@ namespace Wargon.Nukecs.Editor
     {
         [Header("Backgrounds")]
         [Tooltip("Main background — root, center panel, entity table area")]
-        public Color BgDark = new Color(17f / 255f, 20f / 255f, 22f / 255f);
+        public Color BgDark = new Color(0x2B / 255f, 0x2B / 255f, 0x2F / 255f);
 
         [Tooltip("Panel background — sidebars, top bar, bottom bar, inspector")]
-        public Color BgPanel = new Color(19f / 255f, 21f / 255f, 22f / 255f);
+        public Color BgPanel = new Color(0x33 / 255f, 0x33 / 255f, 0x38 / 255f);
 
         [Tooltip("Card / component card background")]
-        public Color BgCard = new Color(28f / 255f, 30f / 255f, 33f / 255f, 1f);
+        public Color BgCard = new Color(0x3C / 255f, 0x3C / 255f, 0x42 / 255f, 1f);
 
         [Tooltip("Hovered card background")]
-        public Color BgCardHover = new Color(38f / 255f, 40f / 255f, 46f / 255f, 1f);
+        public Color BgCardHover = new Color(0x4A / 255f, 0x4A / 255f, 0x50 / 255f, 1f);
 
         [Tooltip("Selected entity row / card")]
-        public Color BgCardSelected = new Color(50f / 255f, 36f / 255f, 70f / 255f, 0.95f);
+        public Color BgCardSelected = new Color(0x25 / 255f, 0x4B / 255f, 0x6E / 255f, 0.95f);
 
         [Header("Accent Colors")]
-        public Color AccentPurple = new Color(0xB8 / 255f, 0x4D / 255f, 0xFF / 255f);
+        public Color AccentPurple = new Color(0x5C / 255f, 0x9D / 255f, 0xFF / 255f);
         public Color AccentCyan = new Color(0x00 / 255f, 0xF0 / 255f, 0xFF / 255f);
         public Color AccentGreen = new Color(0x39 / 255f, 0xFF / 255f, 0x14 / 255f);
         public Color AccentOrange = new Color(0xFF / 255f, 0x6D / 255f, 0x00 / 255f);
         public Color AccentRed = new Color(0xFF / 255f, 0x2D / 255f, 0x2D / 255f);
         public Color AccentYellow = new Color(0xFF / 255f, 0xE5 / 255f, 0x00 / 255f);
-        public Color AccentPink = new Color(0xFF / 255f, 0x2D / 255f, 0x6B / 255f);
+        public Color AccentPink = new Color(0xE0 / 255f, 0x7A / 255f, 0x5F / 255f);
 
         [Header("Text")]
         [Tooltip("Primary text — component names, section titles")]
-        public Color TextPrimary = new Color(252f / 255f, 254f / 255f, 255f / 255f);
+        public Color TextPrimary = new Color(0xD0 / 255f, 0xD0 / 255f, 0xD0 / 255f);
 
         [Tooltip("Secondary / dimmed text")]
-        public Color TextSecondary = new Color(0x6B / 255f, 0x73 / 255f, 0x94 / 255f);
+        public Color TextSecondary = new Color(0x80 / 255f, 0x80 / 255f, 0x80 / 255f);
 
         public Color TextWhite = Color.white;
 
         [Header("Borders & Separators")]
-        public Color Border = new Color(0x3A / 255f, 0x3F / 255f, 0x5C / 255f, 0.5f);
-        public Color BorderGlow = new Color(0xB8 / 255f, 0x4D / 255f, 0xFF / 255f, 0.3f);
-        public Color Separator = new Color(38f / 255f, 38f / 255f, 44f / 255f);
+        public Color Border = new Color(0x55 / 255f, 0x55 / 255f, 0x55 / 255f, 1f);
+        public Color BorderGlow = new Color(0x55 / 255f, 0x55 / 255f, 0x55 / 255f, 0.5f);
+        public Color Separator = new Color(0x50 / 255f, 0x50 / 255f, 0x50 / 255f);
 
         [Header("Buttons")]
         public Color RemoveBtn = new Color(0.8f, 0.267f, 0.267f);
         public Color RemoveBtnHoverBg = new Color(0.8f, 0.267f, 0.267f, 0.2f);
 
         [Header("Progress Bars")]
-        public Color ProgressBarBg = new Color(20f / 255f, 20f / 255f, 24f / 255f);
+        public Color ProgressBarBg = new Color(0x2B / 255f, 0x2B / 255f, 0x2F / 255f);
         public Color ProgressBarFill = new Color(0x39 / 255f, 0xFF / 255f, 0x14 / 255f, 0.8f);
         public Color ProgressBarWarn = new Color(0xFF / 255f, 0x6D / 255f, 0x00 / 255f, 0.8f);
         public Color ProgressBarCritical = new Color(0xFF / 255f, 0x2D / 255f, 0x2D / 255f, 0.8f);
@@ -221,7 +221,7 @@ namespace Wargon.Nukecs.Editor
                     flexDirection = FlexDirection.Column,
                     paddingLeft = 12,
                     paddingTop = 8,
-                    paddingBottom = 4
+                    paddingBottom = 6
                 }
             };
 
@@ -236,30 +236,6 @@ namespace Wargon.Nukecs.Editor
                 }
             };
             container.Add(label);
-
-            var underline = new VisualElement
-            {
-                style =
-                {
-                    height = 2,
-                    backgroundColor = color.WithAlpha(0.6f),
-                    marginTop = 3,
-                    width = 60
-                }
-            };
-            container.Add(underline);
-
-            var glowLine = new VisualElement
-            {
-                style =
-                {
-                    height = 2,
-                    backgroundColor = color.WithAlpha(0.15f),
-                    marginTop = 0,
-                    width = 80
-                }
-            };
-            container.Add(glowLine);
 
             return container;
         }
@@ -289,37 +265,16 @@ namespace Wargon.Nukecs.Editor
 
         public static VisualElement NeonSeparator(Color color)
         {
-            var container = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Column,
-                    marginLeft = 8,
-                    marginRight = 8
-                }
-            };
-
-            var line = new VisualElement
+            return new VisualElement
             {
                 style =
                 {
                     height = 1,
-                    backgroundColor = color
+                    backgroundColor = color,
+                    marginLeft = 8,
+                    marginRight = 8
                 }
             };
-            container.Add(line);
-
-            var glow = new VisualElement
-            {
-                style =
-                {
-                    height = 3,
-                    backgroundColor = color.WithAlpha(Mathf.Max(color.a * 0.3f, 0.05f))
-                }
-            };
-            container.Add(glow);
-
-            return container;
         }
 
         public static VisualElement CreateSearchField(string placeholder, Action<string> onChanged)
@@ -331,7 +286,7 @@ namespace Wargon.Nukecs.Editor
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
                     flexGrow = 1,
-                    backgroundColor = new Color(0.06f, 0.07f, 0.12f),
+                    backgroundColor = DashboardTheme.BgCard,
                     borderTopLeftRadius = 8,
                     borderTopRightRadius = 8,
                     borderBottomLeftRadius = 8,
@@ -340,10 +295,10 @@ namespace Wargon.Nukecs.Editor
                     borderBottomWidth = 1,
                     borderLeftWidth = 1,
                     borderRightWidth = 1,
-                    borderTopColor = new Color(0.2f, 0.22f, 0.35f),
-                    borderBottomColor = new Color(0.2f, 0.22f, 0.35f),
-                    borderLeftColor = new Color(0.2f, 0.22f, 0.35f),
-                    borderRightColor = new Color(0.2f, 0.22f, 0.35f),
+                    borderTopColor = DashboardTheme.Separator,
+                    borderBottomColor = DashboardTheme.Separator,
+                    borderLeftColor = DashboardTheme.Separator,
+                    borderRightColor = DashboardTheme.Separator,
                     paddingLeft = 8,
                     paddingRight = 8,
                     paddingTop = 4,
@@ -431,10 +386,10 @@ namespace Wargon.Nukecs.Editor
             });
             textField.RegisterCallback<BlurEvent>(_ =>
             {
-                wrapper.style.borderTopColor = new Color(0.2f, 0.22f, 0.35f);
-                wrapper.style.borderBottomColor = new Color(0.2f, 0.22f, 0.35f);
-                wrapper.style.borderLeftColor = new Color(0.2f, 0.22f, 0.35f);
-                wrapper.style.borderRightColor = new Color(0.2f, 0.22f, 0.35f);
+                wrapper.style.borderTopColor = DashboardTheme.Separator;
+                wrapper.style.borderBottomColor = DashboardTheme.Separator;
+                wrapper.style.borderLeftColor = DashboardTheme.Separator;
+                wrapper.style.borderRightColor = DashboardTheme.Separator;
             });
 
             wrapper.Add(textField);
@@ -457,34 +412,6 @@ namespace Wargon.Nukecs.Editor
 
         public static VisualElement GlowDot(Color color, float size)
         {
-            var container = new VisualElement
-            {
-                style =
-                {
-                    width = size + 6,
-                    height = size + 6,
-                    alignItems = Align.Center,
-                    justifyContent = Justify.Center
-                }
-            };
-
-            var outerGlow = new VisualElement
-            {
-                style =
-                {
-                    width = size + 6,
-                    height = size + 6,
-                    borderTopLeftRadius = (size + 6) / 2f,
-                    borderTopRightRadius = (size + 6) / 2f,
-                    borderBottomLeftRadius = (size + 6) / 2f,
-                    borderBottomRightRadius = (size + 6) / 2f,
-                    backgroundColor = color.WithAlpha(0.2f),
-                    position = Position.Absolute,
-                    left = 0, top = 0
-                }
-            };
-            container.Add(outerGlow);
-
             var dot = new VisualElement
             {
                 name = "glow-dot-core",
@@ -499,54 +426,20 @@ namespace Wargon.Nukecs.Editor
                     backgroundColor = color
                 }
             };
-            container.Add(dot);
 
-            return container;
+            return dot;
         }
 
         public static VisualElement CreateGradientLine(float height = 2f)
         {
-            var container = new VisualElement
+            return new VisualElement
             {
                 style =
                 {
-                    flexDirection = FlexDirection.Row,
-                    height = height,
-                    overflow = Overflow.Hidden
+                    height = 1,
+                    backgroundColor = DashboardTheme.Separator
                 }
             };
-
-            var purple = new VisualElement
-            {
-                style =
-                {
-                    flexGrow = 1,
-                    backgroundColor = DashboardTheme.AccentPurple.WithAlpha(0.7f)
-                }
-            };
-            container.Add(purple);
-
-            var cyan = new VisualElement
-            {
-                style =
-                {
-                    flexGrow = 1,
-                    backgroundColor = DashboardTheme.AccentCyan.WithAlpha(0.5f)
-                }
-            };
-            container.Add(cyan);
-
-            var fade = new VisualElement
-            {
-                style =
-                {
-                    flexGrow = 1,
-                    backgroundColor = DashboardTheme.AccentCyan.WithAlpha(0.15f)
-                }
-            };
-            container.Add(fade);
-
-            return container;
         }
     }
 }
