@@ -29,29 +29,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement panel, EcsDebugV2Window window)
         {
+            var oldScroll = panel.Query<ScrollView>().First();
+            var savedOffset = oldScroll != null ? oldScroll.scrollOffset : Vector2.zero;
+
             panel.Clear();
-
-            var toolbar = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    justifyContent = Justify.FlexEnd,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 6,
-                    paddingBottom = 6,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
-                    flexShrink = 0
-                }
-            };
-
-            var newBtn = CreateActionBtn("+ New Entity", EcsDebugV2Theme.Lime, window.CreateEntity);
-            toolbar.Add(newBtn);
-            panel.Add(toolbar);
 
             switch (window.CurrentTab)
             {
@@ -84,6 +65,80 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         DrawEmptyState(panel);
                     break;
             }
+
+            var newScroll = panel.Query<ScrollView>().First();
+            if (newScroll != null) newScroll.scrollOffset = savedOffset;
+        }
+
+        public static void UpdateValues(VisualElement panel, EcsDebugV2Window window)
+        {
+            switch (window.CurrentTab)
+            {
+                case TabKey.Entities:
+                    var entity = window.Entities.FirstOrDefault(e => e.Id == window.SelectedEntityId);
+                    if (entity != null)
+                        UpdateEntityFieldValues(panel, entity, window);
+                    break;
+            }
+        }
+
+        private static void UpdateEntityFieldValues(VisualElement panel, EntityInfo entity, EcsDebugV2Window window)
+        {
+            foreach (var comp in entity.Components)
+            {
+                foreach (var field in comp.Fields)
+                {
+                    var editorEl = panel.Q($"editor-{comp.Name}-{field.Key}");
+                    if (editorEl == null) continue;
+
+                    if (editorEl is TextField tf)
+                    {
+                        try
+                        {
+                            var focused = tf.panel?.focusController?.focusedElement as VisualElement;
+                            if (focused != null && tf.Contains(focused))
+                                continue;
+                        }
+                        catch { }
+
+                        switch (field.Value.Type)
+                        {
+                            case FieldValueType.Number:
+                                tf.SetValueWithoutNotify(field.Value.NumberVal.ToString("G"));
+                                break;
+                            case FieldValueType.String:
+                                tf.SetValueWithoutNotify(field.Value.StringVal);
+                                break;
+                            case FieldValueType.EntityRef:
+                                tf.SetValueWithoutNotify(field.Value.EntityRefVal.ToString());
+                                break;
+                        }
+                    }
+                    else if (editorEl is Button btn && field.Value.Type == FieldValueType.Bool)
+                    {
+                        btn.text = field.Value.BoolVal.ToString();
+                        btn.style.color = field.Value.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red;
+                    }
+
+                    var rowEl = panel.Q($"frow-{comp.Name}-{field.Key}");
+                    if (rowEl != null)
+                    {
+                        var changeKey = $"{entity.Id}:{comp.Name}:{field.Key}";
+                        long ts;
+                        if (window.Changes.TryGetValue(changeKey, out ts))
+                        {
+                            var age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ts;
+                            rowEl.style.backgroundColor = age < 1200
+                                ? EcsDebugV2Theme.Yellow.WithAlpha(0.15f)
+                                : (Color)EcsDebugV2Theme.PanelElevated;
+                        }
+                        else
+                        {
+                            rowEl.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
+                        }
+                    }
+                }
+            }
         }
 
         private static void DrawEmptyState(VisualElement panel)
@@ -109,9 +164,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             panel.Add(empty);
         }
 
-        private static void DrawEntityInspector(VisualElement panel, MockEntity entity, EcsDebugV2Window window)
+        private static void DrawEntityInspector(VisualElement panel, EntityInfo entity, EcsDebugV2Window window)
         {
-            var header = CreateHeader("entity");
+            var header = EcsDebugV2Theme.CreateHeaderRow();
             var idLabel = new Label($"#{entity.Id}")
             {
                 style =
@@ -140,20 +195,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Micro,
+                    fontSize = EcsDebugV2Theme.Font.Mini,
                     color = EcsDebugV2Theme.MutedText,
                     marginLeft = UnityEngine.UIElements.Length.Auto()
                 }
             };
             header.Add(meta);
 
-            var destroyBtn = CreateActionBtn("Destroy", EcsDebugV2Theme.Red, () => window.DestroyEntity(entity.Id));
+            var destroyBtn = EcsDebugV2Theme.CreateActionBtn("Destroy", EcsDebugV2Theme.Red, () => window.DestroyEntity(entity.Id));
             destroyBtn.style.marginLeft = 8;
+            destroyBtn.tooltip = "Destroy entity";
             header.Add(destroyBtn);
             panel.Add(header);
 
             var scroll = new ScrollView(ScrollViewMode.Vertical)
             {
+                name = "inspector-scroll",
                 style =
                 {
                     flexGrow = 1,
@@ -171,7 +228,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             panel.Add(scroll);
         }
 
-        private static VisualElement DrawComponentCard(MockEntity entity, ComponentInstance comp, EcsDebugV2Window window)
+        private static VisualElement DrawComponentCard(EntityInfo entity, ComponentInfo comp, EcsDebugV2Window window)
         {
             var card = EcsDebugV2Theme.CreateCard();
             card.style.marginBottom = 6;
@@ -183,59 +240,54 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
                     paddingLeft = 10,
-                    paddingRight = 10,
+                    paddingRight = 4,
                     paddingTop = 4,
                     paddingBottom = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder
+                    backgroundColor = EcsDebugV2Theme.PanelElevated
                 }
             };
-            var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Lime, 6);
-            dot.style.marginRight = 6;
-            compHeader.Add(dot);
 
             var compName = new Label(comp.Name)
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Small,
+                    fontSize = EcsDebugV2Theme.Font.Body,
                     color = EcsDebugV2Theme.Foreground,
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             };
             compHeader.Add(compName);
 
-            var fieldCount = new Label($"{comp.Fields.Count} fields")
+            var sizeLabel = new Label($"{comp.ByteSize}B")
             {
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.MutedText,
-                    marginLeft = UnityEngine.UIElements.Length.Auto(),
-                    marginRight = 6
+                    marginLeft = 6
                 }
             };
-            compHeader.Add(fieldCount);
+            compHeader.Add(sizeLabel);
 
             var removeBtn = new Button(() => window.RemoveComponent(entity.Id, comp.Name))
             {
                 text = "\u2715",
+                tooltip = $"Remove {comp.Name}",
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Mini,
+                    fontSize = EcsDebugV2Theme.Font.Small,
                     color = EcsDebugV2Theme.MutedText,
                     backgroundColor = Color.clear,
-                    borderLeftWidth = 0,
-                    borderRightWidth = 0,
-                    borderTopWidth = 0,
-                    borderBottomWidth = 0,
-                    paddingLeft = 2,
-                    paddingRight = 2,
-                    paddingTop = 0,
-                    paddingBottom = 0
+                    paddingLeft = 4,
+                    paddingRight = 4,
+                    paddingTop = 2,
+                    paddingBottom = 2,
+                    marginLeft = UnityEngine.UIElements.Length.Auto(),
+                    width = 24,
+                    height = 24
                 }
             };
+            removeBtn.SetupBorder(Color.clear, 0);
             removeBtn.RegisterCallback<MouseEnterEvent>(_ => removeBtn.style.color = EcsDebugV2Theme.Red);
             removeBtn.RegisterCallback<MouseLeaveEvent>(_ => removeBtn.style.color = EcsDebugV2Theme.MutedText);
             compHeader.Add(removeBtn);
@@ -253,6 +305,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             var row = new VisualElement
             {
+                name = $"frow-{compName}-{fieldKey}",
                 style =
                 {
                     flexDirection = FlexDirection.Row,
@@ -260,7 +313,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingLeft = 10,
                     paddingRight = 10,
                     paddingTop = 2,
-                    paddingBottom = 2
+                    paddingBottom = 2,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated
                 }
             };
 
@@ -289,6 +343,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 window.SetFieldValue(entityId, compName, fieldKey, newVal);
             });
+            editor.name = $"editor-{compName}-{fieldKey}";
             editor.style.flexGrow = 1;
             row.Add(editor);
             return row;
@@ -307,18 +362,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             fontSize = EcsDebugV2Theme.Font.Small,
                             color = EcsDebugV2Theme.TypeNumber,
                             backgroundColor = Color.clear,
-                            borderLeftWidth = 0,
-                            borderRightWidth = 0,
-                            borderTopWidth = 0,
-                            borderBottomWidth = 0,
                             flexGrow = 1
                         }
                     };
+                    numTf.SetupBorder(Color.clear, 0);
                     numTf.Q("unity-text-input").style.backgroundColor = Color.clear;
-                    numTf.Q("unity-text-input").style.borderLeftWidth = 0;
-                    numTf.Q("unity-text-input").style.borderRightWidth = 0;
-                    numTf.Q("unity-text-input").style.borderTopWidth = 0;
-                    numTf.Q("unity-text-input").style.borderBottomWidth = 0;
+                    numTf.Q("unity-text-input").SetupBorder(Color.clear, 0);
                     numTf.Q("unity-text-input").style.paddingLeft = 2;
                     numTf.Q("unity-text-input").style.paddingRight = 2;
                     numTf.RegisterValueChangedCallback(evt =>
@@ -338,16 +387,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             color = value.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red,
                             unityFontStyleAndWeight = FontStyle.Bold,
                             backgroundColor = Color.clear,
-                            borderLeftWidth = 0,
-                            borderRightWidth = 0,
-                            borderTopWidth = 0,
-                            borderBottomWidth = 0,
                             paddingLeft = 2,
                             paddingRight = 2,
                             paddingTop = 1,
                             paddingBottom = 1
                         }
                     };
+                    boolBtn.SetupBorder(Color.clear, 0);
                     return boolBtn;
 
                 case FieldValueType.String:
@@ -359,18 +405,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             fontSize = EcsDebugV2Theme.Font.Small,
                             color = EcsDebugV2Theme.TypeString,
                             backgroundColor = Color.clear,
-                            borderLeftWidth = 0,
-                            borderRightWidth = 0,
-                            borderTopWidth = 0,
-                            borderBottomWidth = 0,
                             flexGrow = 1
                         }
                     };
+                    strTf.SetupBorder(Color.clear, 0);
                     strTf.Q("unity-text-input").style.backgroundColor = Color.clear;
-                    strTf.Q("unity-text-input").style.borderLeftWidth = 0;
-                    strTf.Q("unity-text-input").style.borderRightWidth = 0;
-                    strTf.Q("unity-text-input").style.borderTopWidth = 0;
-                    strTf.Q("unity-text-input").style.borderBottomWidth = 0;
+                    strTf.Q("unity-text-input").SetupBorder(Color.clear, 0);
                     strTf.Q("unity-text-input").style.paddingLeft = 2;
                     strTf.Q("unity-text-input").style.paddingRight = 2;
                     strTf.RegisterValueChangedCallback(evt =>
@@ -386,18 +426,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             fontSize = EcsDebugV2Theme.Font.Small,
                             color = EcsDebugV2Theme.TypeEntity,
                             backgroundColor = Color.clear,
-                            borderLeftWidth = 0,
-                            borderRightWidth = 0,
-                            borderTopWidth = 0,
-                            borderBottomWidth = 0,
                             flexGrow = 1
                         }
                     };
+                    refTf.SetupBorder(Color.clear, 0);
                     refTf.Q("unity-text-input").style.backgroundColor = Color.clear;
-                    refTf.Q("unity-text-input").style.borderLeftWidth = 0;
-                    refTf.Q("unity-text-input").style.borderRightWidth = 0;
-                    refTf.Q("unity-text-input").style.borderTopWidth = 0;
-                    refTf.Q("unity-text-input").style.borderBottomWidth = 0;
+                    refTf.Q("unity-text-input").SetupBorder(Color.clear, 0);
                     refTf.Q("unity-text-input").style.paddingLeft = 2;
                     refTf.Q("unity-text-input").style.paddingRight = 2;
                     refTf.RegisterValueChangedCallback(evt =>
@@ -412,30 +446,20 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
         }
 
-        private static VisualElement DrawAddComponentSection(MockEntity entity, EcsDebugV2Window window)
+        private static VisualElement DrawAddComponentSection(EntityInfo entity, EcsDebugV2Window window)
         {
             var section = new VisualElement
             {
                 style =
                 {
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = EcsDebugV2Theme.PanelBorder,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
-                    borderLeftColor = EcsDebugV2Theme.PanelBorder,
-                    borderRightColor = EcsDebugV2Theme.PanelBorder,
-                    borderTopLeftRadius = 6,
-                    borderTopRightRadius = 6,
-                    borderBottomLeftRadius = 6,
-                    borderBottomRightRadius = 6,
                     paddingLeft = 8,
                     paddingRight = 8,
                     paddingTop = 6,
                     paddingBottom = 6
                 }
             };
+            section.SetupRadius(EcsDebugV2Theme.CardRadius);
+            section.SetupBorder(Color.clear, 0);
 
             var pickerContainer = new VisualElement
             {
@@ -443,7 +467,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style = { display = DisplayStyle.None }
             };
             var existing = new HashSet<string>(entity.Components.Select(c => c.Name));
-            var available = MockData.ALL_COMPONENT_TYPES.Where(c => !existing.Contains(c)).ToList();
+            var available = window.Provider.AvailableComponentTypes.Where(c => !existing.Contains(c)).ToList();
 
             var pickerHeader = new VisualElement
             {
@@ -472,16 +496,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fontSize = EcsDebugV2Theme.Font.Mini,
                     color = EcsDebugV2Theme.MutedText,
                     backgroundColor = Color.clear,
-                    borderLeftWidth = 0,
-                    borderRightWidth = 0,
-                    borderTopWidth = 0,
-                    borderBottomWidth = 0,
                     paddingLeft = 2,
                     paddingRight = 2,
                     paddingTop = 0,
                     paddingBottom = 0
                 }
             };
+            closeBtn.SetupBorder(Color.clear, 0);
             pickerHeader.Add(closeBtn);
             pickerContainer.Add(pickerHeader);
 
@@ -508,18 +529,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         fontSize = EcsDebugV2Theme.Font.Micro,
                         color = EcsDebugV2Theme.Lime,
                         backgroundColor = EcsDebugV2Theme.Lime.WithAlpha(0.1f),
-                        borderTopWidth = 1,
-                        borderBottomWidth = 1,
-                        borderLeftWidth = 1,
-                        borderRightWidth = 1,
-                        borderTopColor = EcsDebugV2Theme.Lime.WithAlpha(0.3f),
-                        borderBottomColor = EcsDebugV2Theme.Lime.WithAlpha(0.3f),
-                        borderLeftColor = EcsDebugV2Theme.Lime.WithAlpha(0.3f),
-                        borderRightColor = EcsDebugV2Theme.Lime.WithAlpha(0.3f),
-                        borderTopLeftRadius = 4,
-                        borderTopRightRadius = 4,
-                        borderBottomLeftRadius = 4,
-                        borderBottomRightRadius = 4,
                         paddingLeft = 6,
                         paddingRight = 6,
                         paddingTop = 2,
@@ -528,6 +537,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         marginBottom = 3
                     }
                 };
+                tag.SetupRadius(EcsDebugV2Theme.BorderRadius);
+                tag.SetupBorder(EcsDebugV2Theme.Lime.WithAlpha(0.3f));
                 tagsRow.Add(tag);
             }
             pickerContainer.Add(tagsRow);
@@ -543,12 +554,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Lime,
-                    backgroundColor = Color.clear,
-                    borderLeftWidth = 0,
-                    borderRightWidth = 0,
-                    borderTopWidth = 0,
-                    borderBottomWidth = 0,
+                    color = EcsDebugV2Theme.Foreground,
+                    backgroundColor = EcsDebugV2Theme.Panel,
+                    unityFontStyleAndWeight = FontStyle.Bold,
                     paddingLeft = 0,
                     paddingRight = 0,
                     paddingTop = 4,
@@ -557,14 +565,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     unityTextAlign = TextAnchor.MiddleCenter
                 }
             };
+            addBtn.SetupBorder(Color.clear, 0);
             if (available.Count == 0) addBtn.SetEnabled(false);
             section.Add(addBtn);
             return section;
         }
 
-        private static void DrawArchetypeInspector(VisualElement panel, MockArchetype archetype, EcsDebugV2Window window)
+        private static void DrawArchetypeInspector(VisualElement panel, ArchetypeInfo archetype, EcsDebugV2Window window)
         {
-            var header = CreateHeader("archetype");
+            var header = EcsDebugV2Theme.CreateHeaderRow();
             header.Add(new Label($"archetype #{archetype.Id}")
             {
                 style =
@@ -641,6 +650,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var scroll = new ScrollView(ScrollViewMode.Vertical)
             {
+                name = "inspector-scroll",
                 style =
                 {
                     flexGrow = 1,
@@ -655,19 +665,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (names.Count != archetype.Components.Count || !names.All(n => matchSet.Contains(n)))
                     continue;
 
-                var row = new VisualElement
-                {
-                    style =
-                    {
-                        flexDirection = FlexDirection.Row,
-                        paddingLeft = 10,
-                        paddingRight = 10,
-                        paddingTop = 3,
-                        paddingBottom = 3,
-                        borderBottomWidth = 1,
-                        borderBottomColor = EcsDebugV2Theme.PanelBorder.WithAlpha(0.4f)
-                    }
-                };
+                var row = EcsDebugV2Theme.CreateRow();
+                row.style.borderBottomColor = EcsDebugV2Theme.PanelBorder.WithAlpha(0.4f);
                 row.Add(new Label($"#{e.Id}")
                 {
                     style =
@@ -701,16 +700,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var capturedId = e.Id;
                 row.RegisterCallback<ClickEvent>(_ =>
                 {
-                    window.SelectEntity(capturedId);
+                    window.SelectEntityFromArchetype(capturedId);
                 });
                 scroll.Add(row);
             }
             panel.Add(scroll);
         }
 
-        private static void DrawQueryInspector(VisualElement panel, MockQuery query, EcsDebugV2Window window)
+        private static void DrawQueryInspector(VisualElement panel, QueryInfo query, EcsDebugV2Window window)
         {
-            var header = CreateHeader("query");
+            var header = EcsDebugV2Theme.CreateHeaderRow();
             header.Add(new Label(query.Name)
             {
                 style =
@@ -763,6 +762,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var scroll = new ScrollView(ScrollViewMode.Vertical)
             {
+                name = "inspector-scroll",
                 style =
                 {
                     flexGrow = 1,
@@ -833,30 +833,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             paddingRight = 4,
                             paddingTop = 1,
                             paddingBottom = 1,
-                            borderTopLeftRadius = 3,
-                            borderTopRightRadius = 3,
-                            borderBottomLeftRadius = 3,
-                            borderBottomRightRadius = 3,
-                            borderTopWidth = 1,
-                            borderBottomWidth = 1,
-                            borderLeftWidth = 1,
-                            borderRightWidth = 1,
-                            borderTopColor = isWith
-                                ? EcsDebugV2Theme.Lime.WithAlpha(0.3f)
-                                : EcsDebugV2Theme.PanelBorder,
-                            borderBottomColor = isWith
-                                ? EcsDebugV2Theme.Lime.WithAlpha(0.3f)
-                                : EcsDebugV2Theme.PanelBorder,
-                            borderLeftColor = isWith
-                                ? EcsDebugV2Theme.Lime.WithAlpha(0.3f)
-                                : EcsDebugV2Theme.PanelBorder,
-                            borderRightColor = isWith
-                                ? EcsDebugV2Theme.Lime.WithAlpha(0.3f)
-                                : EcsDebugV2Theme.PanelBorder,
                             marginRight = 3,
                             marginBottom = 2
                         }
                     };
+                    tag.SetupRadius(EcsDebugV2Theme.BorderRadius);
+                    tag.SetupBorder(isWith
+                        ? EcsDebugV2Theme.Lime.WithAlpha(0.3f)
+                        : EcsDebugV2Theme.PanelBorder);
                     tagRow.Add(tag);
                 }
                 card.Add(tagRow);
@@ -865,9 +849,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             panel.Add(scroll);
         }
 
-        private static void DrawResourceInspector(VisualElement panel, MockResource resource)
+        private static void DrawResourceInspector(VisualElement panel, ResourceInfo resource)
         {
-            var header = CreateHeader("resource");
+            var header = EcsDebugV2Theme.CreateHeaderRow();
             header.Add(new Label(resource.Name)
             {
                 style =
@@ -994,26 +978,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
         }
 
-        private static VisualElement CreateHeader(string kind)
-        {
-            return new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    paddingLeft = 10,
-                    paddingRight = 10,
-                    paddingTop = 8,
-                    paddingBottom = 8,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
-                    flexShrink = 0
-                }
-            };
-        }
-
         private static VisualElement CreateFilterRow(string label, List<string> items, bool positive)
         {
             var row = new VisualElement
@@ -1061,36 +1025,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return row;
         }
 
-        private static Button CreateActionBtn(string text, Color color, Action onClick)
-        {
-            return new Button(onClick)
-            {
-                text = text,
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Micro,
-                    color = color,
-                    backgroundColor = color.WithAlpha(0.15f),
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = color.WithAlpha(0.3f),
-                    borderBottomColor = color.WithAlpha(0.3f),
-                    borderLeftColor = color.WithAlpha(0.3f),
-                    borderRightColor = color.WithAlpha(0.3f),
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 3,
-                    paddingBottom = 3,
-                    letterSpacing = 1
-                }
-            };
-        }
     }
 }
 #endif

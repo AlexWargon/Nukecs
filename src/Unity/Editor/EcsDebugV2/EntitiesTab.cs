@@ -38,13 +38,38 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            var searchField = EcsDebugV2Theme.CreateSearchField("filter entities\u2026", (q) =>
+            var searchContainer = new VisualElement
+            {
+                style =
+                {
+                    position = Position.Relative,
+                    flexGrow = 1,
+                    maxWidth = 240
+                }
+            };
+
+            var searchField = EcsDebugV2Theme.CreateSearchField("", (q) =>
             {
                 window.SearchQuery = q;
                 Refresh(container, window);
             });
             searchField.name = "entity-search";
-            toolbar.Add(searchField);
+            searchContainer.Add(searchField);
+
+            var placeholder = new Label("filter entities\u2026")
+            {
+                name = "search-placeholder",
+                pickingMode = PickingMode.Ignore
+            };
+            placeholder.style.fontSize = EcsDebugV2Theme.Font.Small;
+            placeholder.style.color = EcsDebugV2Theme.MutedText.WithAlpha(0.5f);
+            placeholder.style.position = Position.Absolute;
+            placeholder.style.left = 7;
+            placeholder.style.top = 0;
+            placeholder.style.bottom = 0;
+            placeholder.style.unityTextAlign = TextAnchor.MiddleLeft;
+            searchContainer.Add(placeholder);
+            toolbar.Add(searchContainer);
 
             var filterRow = new VisualElement
             {
@@ -103,6 +128,23 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     overflow = Overflow.Hidden
                 }
             };
+            scroll.focusable = true;
+            scroll.RegisterCallback<KeyDownEvent>(evt =>
+            {
+                if (window.FilteredEntityIds.Count == 0) return;
+                var currentIdx = window.FilteredEntityIds.IndexOf(window.SelectedEntityId ?? -1);
+
+                if (evt.keyCode == KeyCode.UpArrow && currentIdx > 0)
+                {
+                    window.SelectEntity(window.FilteredEntityIds[currentIdx - 1]);
+                    evt.StopPropagation();
+                }
+                else if (evt.keyCode == KeyCode.DownArrow && currentIdx < window.FilteredEntityIds.Count - 1)
+                {
+                    window.SelectEntity(window.FilteredEntityIds[currentIdx + 1]);
+                    evt.StopPropagation();
+                }
+            });
             container.Add(scroll);
 
             Refresh(container, window);
@@ -137,6 +179,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var scroll = container.Q("entity-scroll") as ScrollView;
             if (scroll == null) return;
+            var savedOffset = scroll.scrollOffset;
             scroll.Clear();
 
             var filtered = FilterEntities(window);
@@ -145,14 +188,44 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var row = CreateEntityRow(e, window);
                 scroll.Add(row);
             }
+            scroll.scrollOffset = savedOffset;
 
             if (container.Q("entity-count") is Label countLabel)
                 countLabel.text = $"{filtered.Count}/{window.Entities.Count}";
+
+            UpdatePlaceholder(container);
         }
 
-        private static List<MockEntity> FilterEntities(EcsDebugV2Window window)
+        public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
         {
-            var result = new List<MockEntity>();
+            if (window.CurrentTab != TabKey.Entities) return;
+            var container = leftPanel.Q("left-panel") ?? leftPanel;
+            var countLabel = container.Q("entity-count") as Label;
+            if (countLabel != null)
+                countLabel.text = $"{window.FilteredEntityIds.Count}/{window.Entities.Count}";
+        }
+
+        private static void UpdatePlaceholder(VisualElement container)
+        {
+            var searchField = container.Q("entity-search") as TextField;
+            var placeholder = container.Q("search-placeholder") as Label;
+            if (searchField == null || placeholder == null) return;
+            var hasText = !string.IsNullOrEmpty(searchField.value);
+            placeholder.style.display = hasText ? DisplayStyle.None : DisplayStyle.Flex;
+            if (!hasText)
+            {
+                searchField.RegisterCallback<FocusEvent>(_ => placeholder.style.display = DisplayStyle.None);
+                searchField.RegisterCallback<BlurEvent>(_ =>
+                {
+                    if (string.IsNullOrEmpty(searchField.value))
+                        placeholder.style.display = DisplayStyle.Flex;
+                });
+            }
+        }
+
+        private static List<EntityInfo> FilterEntities(EcsDebugV2Window window)
+        {
+            var result = new List<EntityInfo>();
             foreach (var e in window.Entities)
             {
                 if (window.ArchetypeFilter != null && e.Archetype != window.ArchetypeFilter)
@@ -165,14 +238,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 result.Add(e);
             }
+            window.FilteredEntityIds = result.Select(e => e.Id).ToList();
             return result;
         }
 
-        private static VisualElement CreateEntityRow(MockEntity e, EcsDebugV2Window window)
+        private static VisualElement CreateEntityRow(EntityInfo e, EcsDebugV2Window window)
         {
             bool selected = window.SelectedEntityId == e.Id;
             var row = new VisualElement
             {
+                name = $"erow-{e.Id}",
                 style =
                 {
                     flexDirection = FlexDirection.Row,
@@ -263,38 +338,21 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = 2,
                     paddingBottom = 2,
                     marginRight = 3,
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
                     letterSpacing = 1
                 }
             };
+            btn.SetupRadius(EcsDebugV2Theme.BorderRadius);
             if (active)
             {
                 btn.style.color = EcsDebugV2Theme.Orange;
                 btn.style.backgroundColor = EcsDebugV2Theme.Orange.WithAlpha(0.15f);
-                btn.style.borderTopWidth = 1;
-                btn.style.borderBottomWidth = 1;
-                btn.style.borderLeftWidth = 1;
-                btn.style.borderRightWidth = 1;
-                btn.style.borderTopColor = EcsDebugV2Theme.Orange;
-                btn.style.borderBottomColor = EcsDebugV2Theme.Orange;
-                btn.style.borderLeftColor = EcsDebugV2Theme.Orange;
-                btn.style.borderRightColor = EcsDebugV2Theme.Orange;
+                btn.SetupBorder(EcsDebugV2Theme.Orange);
             }
             else
             {
                 btn.style.color = EcsDebugV2Theme.MutedText;
                 btn.style.backgroundColor = EcsDebugV2Theme.Panel;
-                btn.style.borderTopWidth = 1;
-                btn.style.borderBottomWidth = 1;
-                btn.style.borderLeftWidth = 1;
-                btn.style.borderRightWidth = 1;
-                btn.style.borderTopColor = EcsDebugV2Theme.PanelBorder;
-                btn.style.borderBottomColor = EcsDebugV2Theme.PanelBorder;
-                btn.style.borderLeftColor = EcsDebugV2Theme.PanelBorder;
-                btn.style.borderRightColor = EcsDebugV2Theme.PanelBorder;
+                btn.SetupBorder(EcsDebugV2Theme.PanelBorder);
             }
             return btn;
         }

@@ -45,22 +45,49 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public override int GetHashCode() => Type.GetHashCode();
     }
 
-    public class ComponentInstance
+    public class ComponentInfo
     {
         public string Name;
-        public Dictionary<string, FieldValue> Fields = new Dictionary<string, FieldValue>();
+        public int ByteSize;
+        public List<(string Key, FieldValue Value)> Fields = new List<(string, FieldValue)>();
+
+        public FieldValue GetField(string key)
+        {
+            for (int i = 0; i < Fields.Count; i++)
+                if (Fields[i].Key == key) return Fields[i].Value;
+            return default;
+        }
+
+        public void SetField(string key, FieldValue val)
+        {
+            for (int i = 0; i < Fields.Count; i++)
+            {
+                if (Fields[i].Key == key)
+                {
+                    Fields[i] = (key, val);
+                    return;
+                }
+            }
+        }
+
+        public bool HasField(string key)
+        {
+            for (int i = 0; i < Fields.Count; i++)
+                if (Fields[i].Key == key) return true;
+            return false;
+        }
     }
 
-    public class MockEntity
+    public class EntityInfo
     {
         public int Id;
         public string Name;
         public string Archetype;
         public bool Alive = true;
-        public List<ComponentInstance> Components = new List<ComponentInstance>();
+        public List<ComponentInfo> Components = new List<ComponentInfo>();
     }
 
-    public class MockArchetype
+    public class ArchetypeInfo
     {
         public int Id;
         public List<string> Components = new List<string>();
@@ -68,7 +95,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int ChunkCount;
     }
 
-    public class MockQuery
+    public class QueryInfo
     {
         public string Id;
         public string Name;
@@ -78,7 +105,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public double LastRunMs;
     }
 
-    public class MockResource
+    public class ResourceInfo
     {
         public string Name;
         public string Type;
@@ -115,14 +142,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private static double Round2(double v) => Math.Round(v * 100) / 100.0;
 
-        public static List<MockEntity> BuildMockEntities(int count = 72)
+        public static List<EntityInfo> BuildMockEntities(int count = 72)
         {
             var seed = new Seed { V = 42 };
-            var entities = new List<MockEntity>(count);
+            var entities = new List<EntityInfo>(count);
             for (int i = 0; i < count; i++)
             {
                 var a = ArchetypeDefs[Mathf.FloorToInt(Rand(ref seed) * ArchetypeDefs.Length)];
-                var e = new MockEntity
+                var e = new EntityInfo
                 {
                     Id = 1000 + i,
                     Name = $"{a.name}_{i:D3}",
@@ -136,68 +163,79 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return entities;
         }
 
-        private static ComponentInstance MakeComponent(string name, ref Seed seed)
+        private static ComponentInfo MakeComponent(string name, ref Seed seed)
         {
-            var c = new ComponentInstance { Name = name };
+            var c = new ComponentInfo { Name = name };
 
             switch (name)
             {
                 case "Transform":
-                    c.Fields["x"] = FieldValue.FromNumber(RandRound(ref seed));
-                    c.Fields["y"] = FieldValue.FromNumber(RandRound(ref seed));
-                    c.Fields["z"] = FieldValue.FromNumber(RandRound(ref seed));
-                    c.Fields["rot"] = FieldValue.FromNumber(RandRound(ref seed));
+                    c.ByteSize = 16;
+                    c.Fields.Add(("x", FieldValue.FromNumber(RandRound(ref seed))));
+                    c.Fields.Add(("y", FieldValue.FromNumber(RandRound(ref seed))));
+                    c.Fields.Add(("z", FieldValue.FromNumber(RandRound(ref seed))));
+                    c.Fields.Add(("rot", FieldValue.FromNumber(RandRound(ref seed))));
                     break;
                 case "Velocity":
-                    c.Fields["vx"] = FieldValue.FromNumber(RandRound(ref seed) - 50);
-                    c.Fields["vy"] = FieldValue.FromNumber(RandRound(ref seed) - 50);
-                    c.Fields["vz"] = FieldValue.FromNumber(0);
+                    c.ByteSize = 12;
+                    c.Fields.Add(("vx", FieldValue.FromNumber(RandRound(ref seed) - 50)));
+                    c.Fields.Add(("vy", FieldValue.FromNumber(RandRound(ref seed) - 50)));
+                    c.Fields.Add(("vz", FieldValue.FromNumber(0)));
                     break;
                 case "Health":
-                    c.Fields["current"] = FieldValue.FromNumber(Mathf.FloorToInt(RandRound(ref seed)));
-                    c.Fields["max"] = FieldValue.FromNumber(100);
-                    c.Fields["regen"] = FieldValue.FromNumber(0.5);
+                    c.ByteSize = 12;
+                    c.Fields.Add(("current", FieldValue.FromNumber(Mathf.FloorToInt(RandRound(ref seed)))));
+                    c.Fields.Add(("max", FieldValue.FromNumber(100)));
+                    c.Fields.Add(("regen", FieldValue.FromNumber(0.5)));
                     break;
                 case "Sprite":
-                    c.Fields["texture"] = FieldValue.FromString("atlas_main.png");
-                    c.Fields["layer"] = FieldValue.FromNumber(Mathf.FloorToInt(RandRound(ref seed) / 10));
-                    c.Fields["tint"] = FieldValue.FromString("#ffffff");
+                    c.ByteSize = 24;
+                    c.Fields.Add(("texture", FieldValue.FromString("atlas_main.png")));
+                    c.Fields.Add(("layer", FieldValue.FromNumber(Mathf.FloorToInt(RandRound(ref seed) / 10))));
+                    c.Fields.Add(("tint", FieldValue.FromString("#ffffff")));
                     break;
                 case "PlayerController":
-                    c.Fields["speed"] = FieldValue.FromNumber(5.5);
-                    c.Fields["jumpHeight"] = FieldValue.FromNumber(2.4);
-                    c.Fields["grounded"] = FieldValue.FromBool(true);
+                    c.ByteSize = 13;
+                    c.Fields.Add(("speed", FieldValue.FromNumber(5.5)));
+                    c.Fields.Add(("jumpHeight", FieldValue.FromNumber(2.4)));
+                    c.Fields.Add(("grounded", FieldValue.FromBool(true)));
                     break;
                 case "AIBrain":
-                    c.Fields["state"] = FieldValue.FromString("patrol");
-                    c.Fields["aggroRange"] = FieldValue.FromNumber(12);
-                    c.Fields["target"] = FieldValue.FromEntityRef(1000);
+                    c.ByteSize = 20;
+                    c.Fields.Add(("state", FieldValue.FromString("patrol")));
+                    c.Fields.Add(("aggroRange", FieldValue.FromNumber(12)));
+                    c.Fields.Add(("target", FieldValue.FromEntityRef(1000)));
                     break;
                 case "Damage":
-                    c.Fields["amount"] = FieldValue.FromNumber(25);
-                    c.Fields["type"] = FieldValue.FromString("kinetic");
-                    c.Fields["crit"] = FieldValue.FromBool(false);
+                    c.ByteSize = 9;
+                    c.Fields.Add(("amount", FieldValue.FromNumber(25)));
+                    c.Fields.Add(("type", FieldValue.FromString("kinetic")));
+                    c.Fields.Add(("crit", FieldValue.FromBool(false)));
                     break;
                 case "Lifetime":
-                    c.Fields["remaining"] = FieldValue.FromNumber(RandRound(ref seed) / 10);
-                    c.Fields["total"] = FieldValue.FromNumber(5);
+                    c.ByteSize = 8;
+                    c.Fields.Add(("remaining", FieldValue.FromNumber(RandRound(ref seed) / 10)));
+                    c.Fields.Add(("total", FieldValue.FromNumber(5)));
                     break;
                 case "Pickup":
-                    c.Fields["kind"] = FieldValue.FromString("ammo");
-                    c.Fields["amount"] = FieldValue.FromNumber(10);
-                    c.Fields["respawn"] = FieldValue.FromBool(false);
+                    c.ByteSize = 14;
+                    c.Fields.Add(("kind", FieldValue.FromString("ammo")));
+                    c.Fields.Add(("amount", FieldValue.FromNumber(10)));
+                    c.Fields.Add(("respawn", FieldValue.FromBool(false)));
                     break;
                 case "Collider":
-                    c.Fields["shape"] = FieldValue.FromString("box");
-                    c.Fields["w"] = FieldValue.FromNumber(1);
-                    c.Fields["h"] = FieldValue.FromNumber(1);
-                    c.Fields["trigger"] = FieldValue.FromBool(false);
+                    c.ByteSize = 10;
+                    c.Fields.Add(("shape", FieldValue.FromString("box")));
+                    c.Fields.Add(("w", FieldValue.FromNumber(1)));
+                    c.Fields.Add(("h", FieldValue.FromNumber(1)));
+                    c.Fields.Add(("trigger", FieldValue.FromBool(false)));
                     break;
                 case "Camera":
-                    c.Fields["fov"] = FieldValue.FromNumber(60);
-                    c.Fields["near"] = FieldValue.FromNumber(0.1);
-                    c.Fields["far"] = FieldValue.FromNumber(1000);
-                    c.Fields["active"] = FieldValue.FromBool(true);
+                    c.ByteSize = 13;
+                    c.Fields.Add(("fov", FieldValue.FromNumber(60)));
+                    c.Fields.Add(("near", FieldValue.FromNumber(0.1)));
+                    c.Fields.Add(("far", FieldValue.FromNumber(1000)));
+                    c.Fields.Add(("active", FieldValue.FromBool(true)));
                     break;
             }
             return c;
@@ -208,15 +246,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return Mathf.RoundToInt(Rand(ref seed) * 10000) / 100f;
         }
 
-        public static ComponentInstance MakeComponentByName(string name)
+        public static ComponentInfo MakeComponentByName(string name)
         {
             var s = new Seed { V = (uint)(UnityEngine.Random.Range(0, int.MaxValue)) };
             return MakeComponent(name, ref s);
         }
 
-        public static List<MockArchetype> BuildArchetypes(List<MockEntity> entities)
+        public static List<ArchetypeInfo> BuildArchetypes(List<EntityInfo> entities)
         {
-            var map = new Dictionary<string, MockArchetype>();
+            var map = new Dictionary<string, ArchetypeInfo>();
             int id = 0;
             foreach (var e in entities)
             {
@@ -225,7 +263,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var key = string.Join("|", keys);
                 if (!map.TryGetValue(key, out var arch))
                 {
-                    arch = new MockArchetype
+                    arch = new ArchetypeInfo
                     {
                         Id = id++,
                         Components = new List<string>(key.Split('|'))
@@ -238,24 +276,24 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return map.Values.ToList();
         }
 
-        public static List<MockQuery> BuildQueries()
+        public static List<QueryInfo> BuildQueries()
         {
-            return new List<MockQuery>
+            return new List<QueryInfo>
             {
-                new MockQuery { Id = "q1", Name = "MovementQuery", With = { "Transform", "Velocity" }, LastRunMs = 0.42 },
-                new MockQuery { Id = "q2", Name = "RenderQuery", With = { "Transform", "Sprite" }, LastRunMs = 1.18 },
-                new MockQuery { Id = "q3", Name = "AITickQuery", With = { "AIBrain", "Transform" }, Without = { "Dead" }, LastRunMs = 0.83 },
-                new MockQuery { Id = "q4", Name = "DamageQuery", With = { "Damage", "Transform" }, LastRunMs = 0.21 },
-                new MockQuery { Id = "q5", Name = "PlayerInputQuery", With = { "PlayerController" }, LastRunMs = 0.07 },
-                new MockQuery { Id = "q6", Name = "LifetimeDecay", With = { "Lifetime" }, LastRunMs = 0.15 },
+                new QueryInfo { Id = "q1", Name = "MovementQuery", With = { "Transform", "Velocity" }, LastRunMs = 0.42 },
+                new QueryInfo { Id = "q2", Name = "RenderQuery", With = { "Transform", "Sprite" }, LastRunMs = 1.18 },
+                new QueryInfo { Id = "q3", Name = "AITickQuery", With = { "AIBrain", "Transform" }, Without = { "Dead" }, LastRunMs = 0.83 },
+                new QueryInfo { Id = "q4", Name = "DamageQuery", With = { "Damage", "Transform" }, LastRunMs = 0.21 },
+                new QueryInfo { Id = "q5", Name = "PlayerInputQuery", With = { "PlayerController" }, LastRunMs = 0.07 },
+                new QueryInfo { Id = "q6", Name = "LifetimeDecay", With = { "Lifetime" }, LastRunMs = 0.15 },
             };
         }
 
-        public static List<MockResource> BuildResources()
+        public static List<ResourceInfo> BuildResources()
         {
-            return new List<MockResource>
+            return new List<ResourceInfo>
             {
-                new MockResource
+                new ResourceInfo
                 {
                     Name = "Time", Type = "TimeRes", IsScalar = false,
                     Value =
@@ -265,7 +303,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         { "frame", FieldValue.FromNumber(77123) }
                     }
                 },
-                new MockResource
+                new ResourceInfo
                 {
                     Name = "Input", Type = "InputRes", IsScalar = false,
                     Value =
@@ -275,7 +313,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         { "buttons", FieldValue.FromNumber(0) }
                     }
                 },
-                new MockResource
+                new ResourceInfo
                 {
                     Name = "Gravity", Type = "Vec3", IsScalar = false,
                     Value =
@@ -285,17 +323,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         { "z", FieldValue.FromNumber(0) }
                     }
                 },
-                new MockResource
+                new ResourceInfo
                 {
                     Name = "Score", Type = "u32", IsScalar = true,
                     ScalarValue = FieldValue.FromNumber(14250)
                 },
-                new MockResource
+                new ResourceInfo
                 {
                     Name = "Paused", Type = "bool", IsScalar = true,
                     ScalarValue = FieldValue.FromBool(false)
                 },
-                new MockResource
+                new ResourceInfo
                 {
                     Name = "LevelName", Type = "string", IsScalar = true,
                     ScalarValue = FieldValue.FromString("arena_03")
@@ -303,7 +341,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
         }
 
-        public static void UpdateQueryMatches(List<MockQuery> queries, List<MockEntity> entities)
+        public static void UpdateQueryMatches(List<QueryInfo> queries, List<EntityInfo> entities)
         {
             foreach (var q in queries)
             {
@@ -317,7 +355,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
         }
 
-        public static void MutateRandomFields(List<MockEntity> entities, int touches, Dictionary<string, long> changes)
+        public static void MutateRandomFields(List<EntityInfo> entities, int touches, Dictionary<string, long> changes)
         {
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             for (int i = 0; i < touches; i++)
@@ -326,10 +364,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var e = entities[UnityEngine.Random.Range(0, entities.Count)];
                 if (e.Components.Count == 0) continue;
                 var c = e.Components[UnityEngine.Random.Range(0, e.Components.Count)];
-                var keys = c.Fields.Keys.ToList();
-                if (keys.Count == 0) continue;
-                var k = keys[UnityEngine.Random.Range(0, keys.Count)];
-                c.Fields[k] = Mutate(c.Fields[k]);
+                if (c.Fields.Count == 0) continue;
+                var fi = UnityEngine.Random.Range(0, c.Fields.Count);
+                var k = c.Fields[fi].Key;
+                c.SetField(k, Mutate(c.GetField(k)));
                 changes[$"{e.Id}:{c.Name}:{k}"] = now;
             }
         }

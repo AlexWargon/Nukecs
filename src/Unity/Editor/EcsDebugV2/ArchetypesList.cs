@@ -29,6 +29,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
+            var scroll = container as ScrollView;
+            var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
             container.Clear();
             if (window.Archetypes.Count == 0) return;
             int maxCount = 1;
@@ -40,9 +42,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var card = CreateArchetypeCard(arch, maxCount, window);
                 container.Add(card);
             }
+
+            if (scroll != null) scroll.scrollOffset = savedOffset;
         }
 
-        private static VisualElement CreateArchetypeCard(MockArchetype arch, int maxCount, EcsDebugV2Window window)
+        public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
+        {
+        }
+
+        private static VisualElement CreateArchetypeCard(ArchetypeInfo arch, int maxCount, EcsDebugV2Window window)
         {
             bool selected = window.SelectedArchetypeId == arch.Id;
             var card = EcsDebugV2Theme.CreateCard();
@@ -55,10 +63,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (selected)
             {
-                card.style.borderTopColor = EcsDebugV2Theme.Orange;
-                card.style.borderBottomColor = EcsDebugV2Theme.Orange;
-                card.style.borderLeftColor = EcsDebugV2Theme.Orange;
-                card.style.borderRightColor = EcsDebugV2Theme.Orange;
+                card.SetupBorder(EcsDebugV2Theme.Orange);
                 card.style.backgroundColor = EcsDebugV2Theme.Orange.WithAlpha(0.1f);
             }
 
@@ -123,13 +128,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     height = 4,
                     backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    borderTopLeftRadius = 2,
-                    borderTopRightRadius = 2,
-                    borderBottomLeftRadius = 2,
-                    borderBottomRightRadius = 2,
                     overflow = Overflow.Hidden
                 }
             };
+            barBg.SetupRadius(2);
             var pct = (float)arch.EntityCount / maxCount;
             var barFill = new VisualElement
             {
@@ -137,13 +139,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     height = 4,
                     width = UnityEngine.UIElements.Length.Percent(pct * 100),
-                    backgroundColor = EcsDebugV2Theme.Yellow,
-                    borderTopLeftRadius = 2,
-                    borderTopRightRadius = 2,
-                    borderBottomLeftRadius = 2,
-                    borderBottomRightRadius = 2
+                    backgroundColor = EcsDebugV2Theme.Yellow
                 }
             };
+            barFill.SetupRadius(2);
             barBg.Add(barFill);
             card.Add(barBg);
 

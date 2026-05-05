@@ -1,5 +1,7 @@
 #pragma warning disable CS0618
 #if UNITY_EDITOR && NUKECS_DEBUG
+using System;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -7,29 +9,149 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class EcsDebugV2Theme
     {
-        public static readonly Color Background = new Color(0x1A / 255f, 0x1C / 255f, 0x24 / 255f);
-        public static readonly Color Panel = new Color(0x1F / 255f, 0x21 / 255f, 0x29 / 255f);
-        public static readonly Color PanelElevated = new Color(0x26 / 255f, 0x27 / 255f, 0x2E / 255f);
-        public static readonly Color PanelBorder = new Color(0x32 / 255f, 0x34 / 255f, 0x3D / 255f);
-        public static readonly Color Lime = new Color(0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
-        public static readonly Color Orange = new Color(0xF5 / 255f, 0x80 / 255f, 0x0A / 255f);
-        public static readonly Color Red = new Color(0xD9 / 255f, 0x26 / 255f, 0x26 / 255f);
-        public static readonly Color Yellow = new Color(0xF5 / 255f, 0xD8 / 255f, 0x04 / 255f);
-        public static readonly Color TypeNumber = new Color(0x5C / 255f, 0xC8 / 255f, 0xE6 / 255f);
-        public static readonly Color TypeString = new Color(0xF5 / 255f, 0x9E / 255f, 0x38 / 255f);
-        public static readonly Color TypeBool = new Color(0xC0 / 255f, 0x5E / 255f, 0xDB / 255f);
-        public static readonly Color TypeEntity = new Color(0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
-        public static readonly Color MutedText = new Color(0x8A / 255f, 0x8D / 255f, 0x9A / 255f);
-        public static readonly Color Foreground = new Color(0xDD / 255f, 0xDE / 255f, 0xE3 / 255f);
+        private static EcsDebugV2ThemeData _data;
+        private static string _currentThemeName;
+
+        static EcsDebugV2Theme()
+        {
+            EcsDebugV2ThemeData.EnsureBuiltinThemes();
+            _data = EcsDebugV2ThemeData.Load("Default");
+            _currentThemeName = "Default";
+        }
+
+        public static string CurrentThemeName => _currentThemeName;
+        public static string[] AvailableThemes => EcsDebugV2ThemeData.ListThemeNames();
+
+        public static void SwitchTheme(string name)
+        {
+            _data = EcsDebugV2ThemeData.Load(name);
+            _currentThemeName = name;
+        }
+
+        public static void ReloadCurrentTheme()
+        {
+            _data = EcsDebugV2ThemeData.Load(_currentThemeName);
+        }
+
+        public static Color Background => _data.Background;
+        public static Color Panel => _data.Panel;
+        public static Color PanelElevated => _data.PanelElevated;
+        public static Color PanelBorder => _data.PanelBorder;
+        public static Color Lime => _data.Lime;
+        public static Color Orange => _data.Orange;
+        public static Color Red => _data.Red;
+        public static Color Yellow => _data.Yellow;
+        public static Color TypeNumber => _data.TypeNumber;
+        public static Color TypeString => _data.TypeString;
+        public static Color TypeBool => _data.TypeBool;
+        public static Color TypeEntity => _data.TypeEntity;
+
+        public static Color MutedText => _data.AdaptiveSkin
+            ? (EditorGUIUtility.isProSkin ? _data.MutedTextDark : _data.MutedTextLight)
+            : _data.MutedText;
+
+        public static Color Foreground => _data.AdaptiveSkin
+            ? (EditorGUIUtility.isProSkin ? _data.ForegroundDark : _data.ForegroundLight)
+            : _data.Foreground;
+
+        public static int FontBody => _data.FontBody;
+        public static int FontSmall => _data.FontSmall;
+        public static int FontMicro => _data.FontMicro;
+        public static int FontMini => _data.FontMini;
+        public static int BorderRadius => _data.BorderRadius;
+        public static int CardRadius => _data.CardRadius;
+        public static int PaddingH => _data.PaddingH;
+        public static int PaddingV => _data.PaddingV;
+        public static int HeaderPaddingH => _data.HeaderPaddingH;
+        public static int HeaderPaddingV => _data.HeaderPaddingV;
 
         public static Color WithAlpha(this Color c, float a) => new Color(c.r, c.g, c.b, a);
 
         public static class Font
         {
-            public const int Body = 13;
-            public const int Small = 11;
-            public const int Micro = 10;
-            public const int Mini = 9;
+            public static int Body => _data.FontBody;
+            public static int Small => _data.FontSmall;
+            public static int Micro => _data.FontMicro;
+            public static int Mini => _data.FontMini;
+        }
+
+        public static Button CreateActionBtn(string text, Color color, Action onClick)
+        {
+            var btn = new Button(onClick)
+            {
+                text = text,
+                style =
+                {
+                    fontSize = Font.Small,
+                    color = color,
+                    backgroundColor = color.WithAlpha(0.15f),
+                    paddingLeft = 8,
+                    paddingRight = 8,
+                    paddingTop = 3,
+                    paddingBottom = 3,
+                    letterSpacing = 1
+                }
+            };
+            btn.SetupRadius(BorderRadius);
+            btn.SetupBorder(color.WithAlpha(0.3f));
+            return btn;
+        }
+
+        public static void SetupBorder(this VisualElement el, Color color, int width = 1)
+        {
+            el.style.borderTopWidth = width;
+            el.style.borderBottomWidth = width;
+            el.style.borderLeftWidth = width;
+            el.style.borderRightWidth = width;
+            el.style.borderTopColor = color;
+            el.style.borderBottomColor = color;
+            el.style.borderLeftColor = color;
+            el.style.borderRightColor = color;
+        }
+
+        public static void SetupRadius(this VisualElement el, float radius)
+        {
+            el.style.borderTopLeftRadius = radius;
+            el.style.borderTopRightRadius = radius;
+            el.style.borderBottomLeftRadius = radius;
+            el.style.borderBottomRightRadius = radius;
+        }
+
+        public static VisualElement CreateRow(FlexDirection dir = FlexDirection.Row)
+        {
+            return new VisualElement
+            {
+                style =
+                {
+                    flexDirection = dir,
+                    paddingLeft = PaddingH,
+                    paddingRight = PaddingH,
+                    paddingTop = PaddingV,
+                    paddingBottom = PaddingV,
+                    borderBottomWidth = 1,
+                    borderBottomColor = PanelBorder.WithAlpha(0.4f)
+                }
+            };
+        }
+
+        public static VisualElement CreateHeaderRow()
+        {
+            return new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    paddingLeft = HeaderPaddingH,
+                    paddingRight = HeaderPaddingH,
+                    paddingTop = HeaderPaddingV,
+                    paddingBottom = HeaderPaddingV,
+                    backgroundColor = PanelElevated,
+                    borderBottomWidth = 1,
+                    borderBottomColor = PanelBorder,
+                    flexShrink = 0
+                }
+            };
         }
 
         public static VisualElement CreateSeparator()
@@ -47,7 +169,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static Label CreateBadge(string text, Color bg, Color fg, int fontSize = 10)
         {
-            return new Label(text)
+            var label = new Label(text)
             {
                 style =
                 {
@@ -58,37 +180,26 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingBottom = 2,
                     paddingLeft = 8,
                     paddingRight = 8,
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
                     unityTextAlign = TextAnchor.MiddleCenter
                 }
             };
+            label.SetupRadius(BorderRadius);
+            return label;
         }
 
         public static VisualElement CreateCard()
         {
-            return new VisualElement
+            var el = new VisualElement
             {
                 style =
                 {
                     backgroundColor = Panel,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = PanelBorder,
-                    borderBottomColor = PanelBorder,
-                    borderLeftColor = PanelBorder,
-                    borderRightColor = PanelBorder,
-                    borderTopLeftRadius = 6,
-                    borderTopRightRadius = 6,
-                    borderBottomLeftRadius = 6,
-                    borderBottomRightRadius = 6,
                     overflow = Overflow.Hidden
                 }
             };
+            el.SetupBorder(PanelBorder);
+            el.SetupRadius(CardRadius);
+            return el;
         }
 
         public static Label CreateFilterTag(string text, bool positive)
@@ -106,42 +217,30 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = 1,
                     paddingBottom = 1,
                     paddingLeft = 6,
-                    paddingRight = 6,
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = borderColor,
-                    borderBottomColor = borderColor,
-                    borderLeftColor = borderColor,
-                    borderRightColor = borderColor
+                    paddingRight = 6
                 }
             };
+            label.SetupRadius(BorderRadius);
+            label.SetupBorder(borderColor);
             return label;
         }
 
         public static VisualElement CreateGlowDot(Color color, float size)
         {
-            return new VisualElement
+            var dot = new VisualElement
             {
                 style =
                 {
                     width = size,
                     height = size,
-                    borderTopLeftRadius = size / 2f,
-                    borderTopRightRadius = size / 2f,
-                    borderBottomLeftRadius = size / 2f,
-                    borderBottomRightRadius = size / 2f,
                     backgroundColor = color
                 }
             };
+            dot.SetupRadius(size / 2f);
+            return dot;
         }
 
-        public static TextField CreateSearchField(string placeholder, System.Action<string> onChanged)
+        public static TextField CreateSearchField(string placeholder, Action<string> onChanged)
         {
             var tf = new TextField
             {
@@ -151,18 +250,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     color = Foreground,
                     flexGrow = 1,
                     backgroundColor = Panel,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = PanelBorder,
-                    borderBottomColor = PanelBorder,
-                    borderLeftColor = PanelBorder,
-                    borderRightColor = PanelBorder,
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
                     paddingLeft = 6,
                     paddingRight = 4,
                     paddingTop = 4,
@@ -170,6 +257,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     maxWidth = 240
                 }
             };
+            tf.SetupBorder(PanelBorder);
+            tf.SetupRadius(BorderRadius);
             tf.Q("unity-text-input").style.backgroundColor = Color.clear;
             tf.Q("unity-text-input").style.borderLeftWidth = 0;
             tf.Q("unity-text-input").style.borderRightWidth = 0;

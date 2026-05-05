@@ -28,15 +28,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
+            var scroll = container as ScrollView;
+            var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
             container.Clear();
             foreach (var q in window.Queries)
             {
                 var card = CreateQueryCard(q, window);
                 container.Add(card);
             }
+            if (scroll != null) scroll.scrollOffset = savedOffset;
         }
 
-        private static VisualElement CreateQueryCard(MockQuery query, EcsDebugV2Window window)
+        public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
+        {
+        }
+
+        private static VisualElement CreateQueryCard(QueryInfo query, EcsDebugV2Window window)
         {
             bool selected = window.SelectedQueryId == query.Id;
             var card = EcsDebugV2Theme.CreateCard();
@@ -49,10 +56,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (selected)
             {
-                card.style.borderTopColor = EcsDebugV2Theme.Lime;
-                card.style.borderBottomColor = EcsDebugV2Theme.Lime;
-                card.style.borderLeftColor = EcsDebugV2Theme.Lime;
-                card.style.borderRightColor = EcsDebugV2Theme.Lime;
+                card.SetupBorder(EcsDebugV2Theme.Lime);
                 card.style.backgroundColor = EcsDebugV2Theme.Lime.WithAlpha(0.1f);
             }
 

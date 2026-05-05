@@ -28,15 +28,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
+            var scroll = container as ScrollView;
+            var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
             container.Clear();
             foreach (var r in window.Resources)
             {
                 var card = CreateResourceCard(r, window);
                 container.Add(card);
             }
+            if (scroll != null) scroll.scrollOffset = savedOffset;
         }
 
-        private static VisualElement CreateResourceCard(MockResource resource, EcsDebugV2Window window)
+        public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
+        {
+        }
+
+        private static VisualElement CreateResourceCard(ResourceInfo resource, EcsDebugV2Window window)
         {
             bool selected = window.SelectedResourceName == resource.Name;
             var card = EcsDebugV2Theme.CreateCard();
@@ -51,10 +58,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (selected)
             {
-                card.style.borderTopColor = EcsDebugV2Theme.Yellow;
-                card.style.borderBottomColor = EcsDebugV2Theme.Yellow;
-                card.style.borderLeftColor = EcsDebugV2Theme.Yellow;
-                card.style.borderRightColor = EcsDebugV2Theme.Yellow;
+                card.SetupBorder(EcsDebugV2Theme.Yellow);
                 card.style.backgroundColor = EcsDebugV2Theme.Yellow.WithAlpha(0.1f);
             }
 

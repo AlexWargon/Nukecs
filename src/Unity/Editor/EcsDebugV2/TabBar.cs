@@ -52,14 +52,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     name = "tab-" + tab.key,
                     style =
                     {
-                        fontSize = EcsDebugV2Theme.Font.Micro,
+                        fontSize = EcsDebugV2Theme.Font.Small,
                         letterSpacing = 2,
+                        unityFontStyleAndWeight = FontStyle.Bold,
                         paddingLeft = 10,
                         paddingRight = 10,
                         paddingTop = 6,
                         paddingBottom = 6,
-                        borderTopLeftRadius = 4,
-                        borderTopRightRadius = 4,
+                        borderTopLeftRadius = EcsDebugV2Theme.BorderRadius,
+                        borderTopRightRadius = EcsDebugV2Theme.BorderRadius,
                         borderBottomLeftRadius = 0,
                         borderBottomRightRadius = 0,
                         borderTopWidth = 0,

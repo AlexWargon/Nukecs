@@ -1,5 +1,6 @@
 #pragma warning disable CS0618
 #if UNITY_EDITOR && NUKECS_DEBUG
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -9,23 +10,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     {
         public static VisualElement Create(EcsDebugV2Window window)
         {
-            var header = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    justifyContent = Justify.SpaceBetween,
-                    paddingLeft = 12,
-                    paddingRight = 12,
-                    paddingTop = 8,
-                    paddingBottom = 8,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
-                    flexShrink = 0
-                }
-            };
+            var header = EcsDebugV2Theme.CreateHeaderRow();
+            header.style.paddingLeft = 12;
+            header.style.paddingRight = 12;
+            header.style.justifyContent = Justify.SpaceBetween;
 
             var leftGroup = new VisualElement
             {
@@ -37,8 +25,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
 
             var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Lime, 10);
-            dot.style.marginRight = 8;
             dot.name = "pulse-dot";
+            dot.style.marginRight = 8;
+            float dotOpacity = 1f;
+            dot.RegisterCallback<AttachToPanelEvent>(_ =>
+            {
+                dot.schedule.Execute(() =>
+                {
+                    if (dot.panel == null) return;
+                    dotOpacity = dotOpacity > 0.5f ? 0.35f : 1f;
+                    dot.style.opacity = dotOpacity;
+                }).Every(800);
+            });
             leftGroup.Add(dot);
 
             var worldLabel = new Label("WORLD")
@@ -54,7 +52,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             leftGroup.Add(worldLabel);
 
-            var worldId = new Label("world::main")
+            var worldId = new Label(window.Provider.WorldInfo.Name)
             {
                 name = "world-id",
                 style =
@@ -90,8 +88,52 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             statsGroup.Add(CreateStatBadge("\u25C9", "ENT", window.Entities.Count, EcsDebugV2Theme.Lime));
             statsGroup.Add(CreateStatBadge("\u25A0", "ARCH", window.Archetypes.Count, EcsDebugV2Theme.Orange));
             statsGroup.Add(CreateStatBadge("\u2315", "Q", window.Queries.Count, EcsDebugV2Theme.Yellow));
-            statsGroup.Add(CreateStatBadge("\u2630", "SYS", 12, EcsDebugV2Theme.TypeBool));
+            statsGroup.Add(CreateStatBadge("\u2630", "SYS", window.SystemCount, EcsDebugV2Theme.TypeBool));
             header.Add(statsGroup);
+
+            var newEntityBtn = EcsDebugV2Theme.CreateActionBtn("+ New Entity", EcsDebugV2Theme.Lime, window.CreateEntity);
+            header.Add(newEntityBtn);
+
+            var themeBtn = new Button()
+            {
+                name = "theme-btn",
+                style =
+                {
+                    fontSize = EcsDebugV2Theme.Font.Micro,
+                    color = EcsDebugV2Theme.MutedText,
+                    backgroundColor = EcsDebugV2Theme.Panel,
+                    paddingLeft = 8,
+                    paddingRight = 8,
+                    paddingTop = 4,
+                    paddingBottom = 4,
+                    letterSpacing = 1
+                }
+            };
+            themeBtn.SetupRadius(EcsDebugV2Theme.BorderRadius);
+            themeBtn.SetupBorder(EcsDebugV2Theme.PanelBorder);
+            UpdateThemeLabel(themeBtn);
+            themeBtn.clicked += () =>
+            {
+                var menu = new GenericMenu();
+                foreach (var name in EcsDebugV2Theme.AvailableThemes)
+                {
+                    var captured = name;
+                    bool current = name == EcsDebugV2Theme.CurrentThemeName;
+                    menu.AddItem(new GUIContent(captured), current, () =>
+                    {
+                        EcsDebugV2Theme.SwitchTheme(captured);
+                        window.CreateGUI();
+                    });
+                }
+                menu.AddSeparator("");
+                menu.AddItem(new GUIContent("Reload Current"), false, () =>
+                {
+                    EcsDebugV2Theme.ReloadCurrentTheme();
+                    window.CreateGUI();
+                });
+                menu.ShowAsContext();
+            };
+            header.Add(themeBtn);
 
             var pauseBtn = new Button(() => window.TogglePause())
             {
@@ -102,18 +144,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.Foreground,
                     backgroundColor = EcsDebugV2Theme.Panel,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = EcsDebugV2Theme.PanelBorder,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
-                    borderLeftColor = EcsDebugV2Theme.PanelBorder,
-                    borderRightColor = EcsDebugV2Theme.PanelBorder,
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4,
                     paddingLeft = 10,
                     paddingRight = 10,
                     paddingTop = 4,
@@ -121,6 +151,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     letterSpacing = 1
                 }
             };
+            pauseBtn.SetupRadius(EcsDebugV2Theme.BorderRadius);
+            pauseBtn.SetupBorder(EcsDebugV2Theme.PanelBorder);
             header.Add(pauseBtn);
             return header;
         }
@@ -136,7 +168,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 pauseBtn.text = window.Paused ? "\u25B6 Resume" : "\u23F8 Pause";
                 pauseBtn.style.color = window.Paused ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Orange;
+                pauseBtn.style.backgroundColor = window.Paused
+                    ? EcsDebugV2Theme.Orange.WithAlpha(0.15f)
+                    : EcsDebugV2Theme.Panel;
             }
+
+            var pulseDot = topPanel.Q("pulse-dot");
+            if (pulseDot != null)
+                pulseDot.style.backgroundColor = window.Paused
+                    ? EcsDebugV2Theme.Orange
+                    : EcsDebugV2Theme.Lime;
 
             var stats = topPanel.Q("stats-ent") as Label;
             if (stats != null) stats.text = window.Entities.Count.ToString();
@@ -144,6 +185,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (archStat != null) archStat.text = window.Archetypes.Count.ToString();
             var qStat = topPanel.Q("stats-q") as Label;
             if (qStat != null) qStat.text = window.Queries.Count.ToString();
+
+            var themeBtn = topPanel.Q("theme-btn") as Button;
+            if (themeBtn != null) UpdateThemeLabel(themeBtn);
+        }
+
+        private static void UpdateThemeLabel(Button btn)
+        {
+            btn.text = $"Theme: {EcsDebugV2Theme.CurrentThemeName} \u25BE";
         }
 
         private static VisualElement CreateStatBadge(string icon, string label, int value, Color color)
@@ -159,27 +208,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = 4,
                     paddingBottom = 4,
                     marginRight = 6,
-                    backgroundColor = EcsDebugV2Theme.Panel,
-                    borderTopWidth = 1,
-                    borderBottomWidth = 1,
-                    borderLeftWidth = 1,
-                    borderRightWidth = 1,
-                    borderTopColor = EcsDebugV2Theme.PanelBorder,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
-                    borderLeftColor = EcsDebugV2Theme.PanelBorder,
-                    borderRightColor = EcsDebugV2Theme.PanelBorder,
-                    borderTopLeftRadius = 4,
-                    borderTopRightRadius = 4,
-                    borderBottomLeftRadius = 4,
-                    borderBottomRightRadius = 4
+                    backgroundColor = EcsDebugV2Theme.Panel
                 }
             };
+            badge.SetupRadius(EcsDebugV2Theme.BorderRadius);
+            badge.SetupBorder(EcsDebugV2Theme.PanelBorder);
 
             var iconLabel = new Label(icon)
             {
                 style =
                 {
-                    fontSize = 10,
+                    fontSize = EcsDebugV2Theme.Font.Micro,
                     color = color,
                     marginRight = 4
                 }
