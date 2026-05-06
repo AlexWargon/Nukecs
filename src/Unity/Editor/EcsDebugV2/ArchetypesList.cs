@@ -1,6 +1,5 @@
 #pragma warning disable CS0618
 #if UNITY_EDITOR && NUKECS_DEBUG
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -8,6 +7,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class ArchetypesList
     {
+        private static int _lastCount = -1;
+
         public static VisualElement Create(EcsDebugV2Window window)
         {
             var scroll = new ScrollView(ScrollViewMode.Vertical)
@@ -29,15 +30,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
+            _lastCount = window.archetypes.Count;
             var scroll = container as ScrollView;
             var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
             container.Clear();
-            if (window.Archetypes.Count == 0) return;
+            if (window.archetypes.Count == 0) return;
             int maxCount = 1;
-            foreach (var a in window.Archetypes)
+            foreach (var a in window.archetypes)
                 if (a.EntityCount > maxCount) maxCount = a.EntityCount;
 
-            foreach (var arch in window.Archetypes)
+            foreach (var arch in window.archetypes)
             {
                 var card = CreateArchetypeCard(arch, maxCount, window);
                 container.Add(card);
@@ -48,12 +50,34 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
         {
+            if (window.archetypes.Count != _lastCount)
+            {
+                _lastCount = window.archetypes.Count;
+                var scroll = leftPanel as ScrollView ?? leftPanel.Q<ScrollView>();
+                if (scroll != null)
+                {
+                    Refresh(scroll, window);
+                    return;
+                }
+            }
+
+            int idx = 0;
+            foreach (var arch in window.archetypes)
+            {
+                var card = leftPanel.Q($"arch-card-{arch.Id}");
+                if (card == null) continue;
+                var countLabel = card.Q<Label>("arch-count");
+                if (countLabel != null)
+                    countLabel.text = $"{arch.EntityCount} ent \u00B7 {arch.ChunkCount} ch";
+                idx++;
+            }
         }
 
         private static VisualElement CreateArchetypeCard(ArchetypeInfo arch, int maxCount, EcsDebugV2Window window)
         {
-            bool selected = window.SelectedArchetypeId == arch.Id;
+            bool selected = window.selectedArchetypeId == arch.Id;
             var card = EcsDebugV2Theme.CreateCard();
+            card.name = $"arch-card-{arch.Id}";
             card.style.paddingLeft = 8;
             card.style.paddingRight = 8;
             card.style.paddingTop = 6;
@@ -64,7 +88,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (selected)
             {
                 card.SetupBorder(EcsDebugV2Theme.Orange);
-                card.style.backgroundColor = EcsDebugV2Theme.Orange.WithAlpha(0.1f);
+                card.style.backgroundColor = EcsDebugV2Theme.OrangeA01;
             }
 
             var topRow = new VisualElement
@@ -99,6 +123,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             topRow.Add(idLabel);
             var countLabel = new Label($"{arch.EntityCount} ent \u00B7 {arch.ChunkCount} ch")
             {
+                name = "arch-count",
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
@@ -149,15 +174,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             card.RegisterCallback<ClickEvent>(_ => window.SelectArchetype(arch.Id));
             card.RegisterCallback<MouseEnterEvent>(_ =>
             {
-                if (window.SelectedArchetypeId != arch.Id)
-                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.4f);
+                if (window.selectedArchetypeId != arch.Id)
+                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             card.RegisterCallback<MouseLeaveEvent>(_ =>
             {
-                if (window.SelectedArchetypeId != arch.Id)
+                if (window.selectedArchetypeId != arch.Id)
                     card.style.backgroundColor = EcsDebugV2Theme.Panel;
                 else
-                    card.style.backgroundColor = EcsDebugV2Theme.Orange.WithAlpha(0.1f);
+                    card.style.backgroundColor = EcsDebugV2Theme.OrangeA01;
             });
             return card;
         }

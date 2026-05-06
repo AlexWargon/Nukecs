@@ -8,6 +8,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class TopPanel
     {
+        private static int _lastTick = -1;
+        private static int _lastEntCount = -1;
+        private static int _lastArchCount = -1;
+        private static int _lastQCount = -1;
+        private static bool _lastPaused = true;
+
         public static VisualElement Create(EcsDebugV2Window window)
         {
             var header = EcsDebugV2Theme.CreateHeaderRow();
@@ -52,7 +58,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             leftGroup.Add(worldLabel);
 
-            var worldId = new Label(window.Provider.WorldInfo.Name)
+            var worldId = new Label(window.provider.WorldInfo.Name)
             {
                 name = "world-id",
                 style =
@@ -65,7 +71,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             worldId.RegisterCallback<MouseUpEvent>(evt =>
             {
                 if (evt.button != 0) return;
-                var info = window.Provider.WorldInfo;
+                var info = window.provider.WorldInfo;
                 if (info.WorldNames == null || info.WorldNames.Length <= 1) return;
                 var menu = new GenericMenu();
                 for (var i = 0; i < info.WorldNames.Length; i++)
@@ -104,10 +110,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     alignItems = Align.Center
                 }
             };
-            statsGroup.Add(CreateStatBadge("\u25C9", "ENT", window.Entities.Count, EcsDebugV2Theme.Lime));
-            statsGroup.Add(CreateStatBadge("\u25A0", "ARCH", window.Archetypes.Count, EcsDebugV2Theme.Orange));
-            statsGroup.Add(CreateStatBadge("\u2315", "Q", window.Queries.Count, EcsDebugV2Theme.Yellow));
-            statsGroup.Add(CreateStatBadge("\u2630", "SYS", window.SystemCount, EcsDebugV2Theme.TypeBool));
+            statsGroup.Add(CreateStatBadge("\u25C9", "ENT", window.entities.Count, EcsDebugV2Theme.Lime));
+            statsGroup.Add(CreateStatBadge("\u25A0", "ARCH", window.archetypes.Count, EcsDebugV2Theme.Orange));
+            statsGroup.Add(CreateStatBadge("\u2315", "Q", window.queries.Count, EcsDebugV2Theme.Yellow));
+            statsGroup.Add(CreateStatBadge("\u2630", "SYS", window.systemCount, EcsDebugV2Theme.TypeBool));
             header.Add(statsGroup);
 
             var newEntityBtn = EcsDebugV2Theme.CreateActionBtn("+ New Entity", EcsDebugV2Theme.Lime, window.CreateEntity);
@@ -178,36 +184,56 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Update(VisualElement topPanel, EcsDebugV2Window window)
         {
-            var tickLabel = topPanel.Q("tick-label") as Label;
-            if (tickLabel != null)
-                tickLabel.text = $"t={window.Tick}";
+            if (window.tick != _lastTick)
+            {
+                _lastTick = window.tick;
+                var tickLabel = topPanel.Q("tick-label") as Label;
+                if (tickLabel != null)
+                    tickLabel.text = $"t={window.tick}";
+            }
 
             var worldId = topPanel.Q("world-id") as Label;
             if (worldId != null)
-                worldId.text = window.Provider.WorldInfo.Name;
+                worldId.text = window.provider.WorldInfo.Name;
 
-            var pauseBtn = topPanel.Q("pause-btn") as Button;
-            if (pauseBtn != null)
+            if (window.paused != _lastPaused)
             {
-                pauseBtn.text = window.Paused ? "\u25B6 Resume" : "\u23F8 Pause";
-                pauseBtn.style.color = window.Paused ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Orange;
-                pauseBtn.style.backgroundColor = window.Paused
-                    ? EcsDebugV2Theme.Orange.WithAlpha(0.15f)
-                    : EcsDebugV2Theme.Panel;
+                _lastPaused = window.paused;
+                var pauseBtn = topPanel.Q("pause-btn") as Button;
+                if (pauseBtn != null)
+                {
+                    pauseBtn.text = window.paused ? "\u25B6 Resume" : "\u23F8 Pause";
+                    pauseBtn.style.color = window.paused ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Orange;
+                    pauseBtn.style.backgroundColor = window.paused
+                        ? EcsDebugV2Theme.OrangeA015
+                        : EcsDebugV2Theme.Panel;
+                }
+
+                var pulseDot = topPanel.Q("pulse-dot");
+                if (pulseDot != null)
+                    pulseDot.style.backgroundColor = window.paused
+                        ? EcsDebugV2Theme.Orange
+                        : EcsDebugV2Theme.Lime;
             }
 
-            var pulseDot = topPanel.Q("pulse-dot");
-            if (pulseDot != null)
-                pulseDot.style.backgroundColor = window.Paused
-                    ? EcsDebugV2Theme.Orange
-                    : EcsDebugV2Theme.Lime;
-
-            var stats = topPanel.Q("stats-ent") as Label;
-            if (stats != null) stats.text = window.Entities.Count.ToString();
-            var archStat = topPanel.Q("stats-arch") as Label;
-            if (archStat != null) archStat.text = window.Archetypes.Count.ToString();
-            var qStat = topPanel.Q("stats-q") as Label;
-            if (qStat != null) qStat.text = window.Queries.Count.ToString();
+            if (window.entities.Count != _lastEntCount)
+            {
+                _lastEntCount = window.entities.Count;
+                var stats = topPanel.Q("stats-ent") as Label;
+                if (stats != null) stats.text = _lastEntCount.ToString();
+            }
+            if (window.archetypes.Count != _lastArchCount)
+            {
+                _lastArchCount = window.archetypes.Count;
+                var archStat = topPanel.Q("stats-arch") as Label;
+                if (archStat != null) archStat.text = _lastArchCount.ToString();
+            }
+            if (window.queries.Count != _lastQCount)
+            {
+                _lastQCount = window.queries.Count;
+                var qStat = topPanel.Q("stats-q") as Label;
+                if (qStat != null) qStat.text = _lastQCount.ToString();
+            }
 
             var themeBtn = topPanel.Q("theme-btn") as Button;
             if (themeBtn != null) UpdateThemeLabel(themeBtn);

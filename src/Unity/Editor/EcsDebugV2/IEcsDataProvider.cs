@@ -14,6 +14,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     public interface IEcsDataProvider
     {
         List<EntityInfo> GetEntities();
+        List<EntityInfo> GetEntityList();
+        EntityInfo GetEntityDetails(int entityId);
         List<ArchetypeInfo> GetArchetypes();
         List<QueryInfo> GetQueries();
         List<ResourceInfo> GetResources();
@@ -22,7 +24,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         WorldInfo WorldInfo { get; }
         string[] AvailableComponentTypes { get; }
         int WorldCount { get; }
-
         EntityInfo CreateEntity();
         void DestroyEntity(int id);
         void AddComponent(int entityId, string compName);
@@ -30,6 +31,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         void SetFieldValue(int entityId, string compName, string fieldKey, FieldValue value);
         void SimulateTick(Dictionary<string, long> changes);
         void SetWorld(int worldIndex);
+        int GetEntityCount();
+        int GetArchetypeCount();
+        int GetEntityArchetypeIndex(int id);
     }
 }
 #endif

@@ -8,6 +8,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     public static class Footer
     {
         private const string Version = "v0.1";
+        private static int _lastTick = -1;
 
         public static VisualElement Create(EcsDebugV2Window window)
         {
@@ -69,9 +70,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Update(VisualElement footer, EcsDebugV2Window window)
         {
+            if (window.tick == _lastTick) return;
+            _lastTick = window.tick;
             var tickLabel = footer.Q("footer-tick") as Label;
             if (tickLabel != null)
-                tickLabel.text = $"tick {window.Tick}";
+                tickLabel.text = $"tick {window.tick}";
         }
 
         private static VisualElement CreateLegendDot(Color color, string label)

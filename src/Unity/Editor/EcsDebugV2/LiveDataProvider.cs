@@ -2,7 +2,6 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
@@ -13,6 +12,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     {
         private int _worldIndex;
         private string[] _cachedTypeArray;
+        private List<EntityInfo> _entityList = new List<EntityInfo>();
+        private List<ArchetypeInfo> _archetypeList = new List<ArchetypeInfo>();
+        private List<QueryInfo> _queryList = new List<QueryInfo>();
+        private List<ResourceInfo> _resourceList = new List<ResourceInfo>();
+        private WorldInfo _cachedWorldInfo;
+        private long _worldInfoTimestamp;
+        private const long WorldInfoCacheMs = 1000;
 
         public int SystemCount
         {
@@ -46,6 +52,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             get
             {
+                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                if (now - _worldInfoTimestamp < WorldInfoCacheMs && _cachedWorldInfo.Name != null)
+                    return _cachedWorldInfo;
+                _worldInfoTimestamp = now;
+
                 var names = new List<string>();
                 var slots = new List<int>();
                 try
@@ -72,12 +83,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 catch { }
 
-                return new WorldInfo
+                _cachedWorldInfo = new WorldInfo
                 {
                     Name = current,
                     WorldNames = names.ToArray(),
                     WorldSlots = slots.ToArray()
                 };
+                return _cachedWorldInfo;
             }
         }
 
@@ -122,6 +134,25 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             _worldIndex = worldIndex;
             _cachedTypeArray = null;
+            _worldInfoTimestamp = 0;
+        }
+
+        public int GetEntityCount()
+        {
+            if (!IsWorldValid()) return 0;
+            return GetWorld().UnsafeWorld->entitiesAmount;
+        }
+
+        public int GetArchetypeCount()
+        {
+            if (!IsWorldValid()) return 0;
+            return GetWorld().UnsafeWorld->archetypesList.Length;
+        }
+
+        public int GetEntityArchetypeIndex(int id)
+        {
+            if (!IsWorldValid()) return -1;
+            return GetWorld().UnsafeWorld->entityLocations.Ptr[id].archetypeIndex;
         }
 
         private ref World GetWorld()
@@ -137,8 +168,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public List<EntityInfo> GetEntities()
         {
-            var result = new List<EntityInfo>();
-            if (!IsWorldValid()) return result;
+            return GetEntityList();
+        }
+
+        public List<EntityInfo> GetEntityList()
+        {
+            _entityList.Clear();
+            if (!IsWorldValid()) return _entityList;
 
             ref var world = ref GetWorld();
             var uw = world.UnsafeWorld;
@@ -167,25 +203,61 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
 
                 var archetypeLabel = BuildArchetypeLabel(ref arch);
-                var components = ReadComponents(uw, ref arch, entityId);
 
-                result.Add(new EntityInfo
+                _entityList.Add(new EntityInfo
                 {
                     Id = entityId,
                     Name = entityName,
                     Archetype = archetypeLabel,
                     Alive = true,
-                    Components = components
+                    Components = null
                 });
             }
 
-            return result;
+            return _entityList;
+        }
+
+        public EntityInfo GetEntityDetails(int entityId)
+        {
+            if (!IsWorldValid()) return null;
+            ref var world = ref GetWorld();
+            var uw = world.UnsafeWorld;
+
+            ref var archPtr = ref uw->GetEntityArchetypePtr(entityId);
+            ref var arch = ref archPtr.Ref;
+
+            var nameTypeIndex = -1;
+            try { nameTypeIndex = ComponentType<Name>.Index; } catch { }
+
+            var entityName = $"Entity_{entityId}";
+            if (nameTypeIndex >= 0 && arch.Has(nameTypeIndex))
+            {
+                try
+                {
+                    var boxed = arch.GetObject(entityId, nameTypeIndex);
+                    if (boxed is Name nameComp && nameComp.value.Value != null)
+                        entityName = nameComp.value.Value;
+                }
+                catch { }
+            }
+
+            var archetypeLabel = BuildArchetypeLabel(ref arch);
+            var components = ReadComponents(uw, ref arch, entityId);
+
+            return new EntityInfo
+            {
+                Id = entityId,
+                Name = entityName,
+                Archetype = archetypeLabel,
+                Alive = true,
+                Components = components
+            };
         }
 
         public List<ArchetypeInfo> GetArchetypes()
         {
-            var result = new List<ArchetypeInfo>();
-            if (!IsWorldValid()) return result;
+            _archetypeList.Clear();
+            if (!IsWorldValid()) return _archetypeList;
 
             ref var world = ref GetWorld();
             var uw = world.UnsafeWorld;
@@ -199,22 +271,29 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     compNames.Add(t?.Name ?? $"Type_{typeIdx}");
                 }
 
-                result.Add(new ArchetypeInfo
+                var entityIds = new List<int>();
+                for (var ei = 0; ei < arch.count; ei++)
+                {
+                    entityIds.Add(arch.packedEntities.Ptr[ei]);
+                }
+
+                _archetypeList.Add(new ArchetypeInfo
                 {
                     Id = i,
                     Components = compNames,
                     EntityCount = arch.count,
-                    ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f))
+                    ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f)),
+                    EntityIds = entityIds
                 });
             }
 
-            return result;
+            return _archetypeList;
         }
 
         public List<QueryInfo> GetQueries()
         {
-            var result = new List<QueryInfo>();
-            if (!IsWorldValid()) return result;
+            _queryList.Clear();
+            if (!IsWorldValid()) return _queryList;
 
             ref var world = ref GetWorld();
             var uw = world.UnsafeWorld;
@@ -239,7 +318,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     }
                 }
 
-                result.Add(new QueryInfo
+                _queryList.Add(new QueryInfo
                 {
                     Id = $"q{q.Id}",
                     Name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
@@ -250,12 +329,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 });
             }
 
-            return result;
+            return _queryList;
         }
 
         public List<ResourceInfo> GetResources()
         {
-            return new List<ResourceInfo>();
+            _resourceList.Clear();
+            return _resourceList;
         }
 
         public EntityInfo CreateEntity()

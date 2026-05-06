@@ -83,7 +83,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var btn = nav.Q("tab-" + tab.key) as Button;
                 if (btn == null) continue;
-                bool active = window.CurrentTab == tab.key;
+                bool active = window.currentTab == tab.key;
                 btn.style.color = active ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
                 btn.style.borderBottomColor = active ? EcsDebugV2Theme.Lime : Color.clear;
                 btn.style.backgroundColor = active ? EcsDebugV2Theme.Panel : Color.clear;

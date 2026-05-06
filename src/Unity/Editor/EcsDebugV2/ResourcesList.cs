@@ -7,6 +7,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class ResourcesList
     {
+        private static int _lastCount = -1;
+
         public static VisualElement Create(EcsDebugV2Window window)
         {
             var scroll = new ScrollView(ScrollViewMode.Vertical)
@@ -28,10 +30,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
+            _lastCount = window.resources.Count;
             var scroll = container as ScrollView;
             var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
             container.Clear();
-            foreach (var r in window.Resources)
+            foreach (var r in window.resources)
             {
                 var card = CreateResourceCard(r, window);
                 container.Add(card);
@@ -41,11 +44,20 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
         {
+            if (window.resources.Count != _lastCount)
+            {
+                _lastCount = window.resources.Count;
+                var scroll = leftPanel as ScrollView ?? leftPanel.Q<ScrollView>();
+                if (scroll != null)
+                {
+                    Refresh(scroll, window);
+                }
+            }
         }
 
         private static VisualElement CreateResourceCard(ResourceInfo resource, EcsDebugV2Window window)
         {
-            bool selected = window.SelectedResourceName == resource.Name;
+            bool selected = window.selectedResourceName == resource.Name;
             var card = EcsDebugV2Theme.CreateCard();
             card.style.flexDirection = FlexDirection.Row;
             card.style.alignItems = Align.Center;
@@ -59,7 +71,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (selected)
             {
                 card.SetupBorder(EcsDebugV2Theme.Yellow);
-                card.style.backgroundColor = EcsDebugV2Theme.Yellow.WithAlpha(0.1f);
+                card.style.backgroundColor = EcsDebugV2Theme.YellowA01;
             }
 
             var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Yellow, 6);
@@ -91,15 +103,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             card.RegisterCallback<ClickEvent>(_ => window.SelectResource(resource.Name));
             card.RegisterCallback<MouseEnterEvent>(_ =>
             {
-                if (window.SelectedResourceName != resource.Name)
-                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.4f);
+                if (window.selectedResourceName != resource.Name)
+                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             card.RegisterCallback<MouseLeaveEvent>(_ =>
             {
-                if (window.SelectedResourceName != resource.Name)
+                if (window.selectedResourceName != resource.Name)
                     card.style.backgroundColor = EcsDebugV2Theme.Panel;
                 else
-                    card.style.backgroundColor = EcsDebugV2Theme.Yellow.WithAlpha(0.1f);
+                    card.style.backgroundColor = EcsDebugV2Theme.YellowA01;
             });
             return card;
         }

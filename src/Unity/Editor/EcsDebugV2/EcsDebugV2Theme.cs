@@ -12,6 +12,21 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static EcsDebugV2ThemeData _data;
         private static string _currentThemeName;
 
+        private static bool _alphaCacheInit;
+        private static Color _bgA04;
+        private static Color _limeA01;
+        private static Color _limeA03;
+        private static Color _limeA05;
+        private static Color _orangeA015;
+        private static Color _orangeA01;
+        private static Color _yellowA015;
+        private static Color _yellowA01;
+        private static Color _redA01;
+        private static Color _redA03;
+        private static Color _panelElevatedA04;
+        private static Color _panelBorderA04;
+        private static Color _mutedTextA05;
+
         static EcsDebugV2Theme()
         {
             EcsDebugV2ThemeData.EnsureBuiltinThemes();
@@ -26,11 +41,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             _data = EcsDebugV2ThemeData.Load(name);
             _currentThemeName = name;
+            _alphaCacheInit = false;
         }
 
         public static void ReloadCurrentTheme()
         {
             _data = EcsDebugV2ThemeData.Load(_currentThemeName);
+            _alphaCacheInit = false;
         }
 
         public static Color Background => _data.Background;
@@ -53,6 +70,39 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static Color Foreground => _data.AdaptiveSkin
             ? (EditorGUIUtility.isProSkin ? _data.ForegroundDark : _data.ForegroundLight)
             : _data.Foreground;
+
+        public static Color BgA04 { get { EnsureAlphaCache(); return _bgA04; } }
+        public static Color LimeA01 { get { EnsureAlphaCache(); return _limeA01; } }
+        public static Color LimeA03 { get { EnsureAlphaCache(); return _limeA03; } }
+        public static Color LimeA05 { get { EnsureAlphaCache(); return _limeA05; } }
+        public static Color OrangeA015 { get { EnsureAlphaCache(); return _orangeA015; } }
+        public static Color OrangeA01 { get { EnsureAlphaCache(); return _orangeA01; } }
+        public static Color YellowA015 { get { EnsureAlphaCache(); return _yellowA015; } }
+        public static Color YellowA01 { get { EnsureAlphaCache(); return _yellowA01; } }
+        public static Color RedA01 { get { EnsureAlphaCache(); return _redA01; } }
+        public static Color RedA03 { get { EnsureAlphaCache(); return _redA03; } }
+        public static Color PanelElevatedA04 { get { EnsureAlphaCache(); return _panelElevatedA04; } }
+        public static Color PanelBorderA04 { get { EnsureAlphaCache(); return _panelBorderA04; } }
+        public static Color MutedTextA05 { get { EnsureAlphaCache(); return _mutedTextA05; } }
+
+        private static void EnsureAlphaCache()
+        {
+            if (_alphaCacheInit) return;
+            _alphaCacheInit = true;
+            _bgA04 = Background.WithAlpha(0.4f);
+            _limeA01 = Lime.WithAlpha(0.1f);
+            _limeA03 = Lime.WithAlpha(0.3f);
+            _limeA05 = Lime.WithAlpha(0.5f);
+            _orangeA015 = Orange.WithAlpha(0.15f);
+            _orangeA01 = Orange.WithAlpha(0.1f);
+            _yellowA015 = Yellow.WithAlpha(0.15f);
+            _yellowA01 = Yellow.WithAlpha(0.1f);
+            _redA01 = Red.WithAlpha(0.1f);
+            _redA03 = Red.WithAlpha(0.3f);
+            _panelElevatedA04 = PanelElevated.WithAlpha(0.4f);
+            _panelBorderA04 = PanelBorder.WithAlpha(0.4f);
+            _mutedTextA05 = MutedText.WithAlpha(0.5f);
+        }
 
         public static int FontBody => _data.FontBody;
         public static int FontSmall => _data.FontSmall;
@@ -129,7 +179,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = PaddingV,
                     paddingBottom = PaddingV,
                     borderBottomWidth = 1,
-                    borderBottomColor = PanelBorder.WithAlpha(0.4f)
+                    borderBottomColor = PanelBorderA04
                 }
             };
         }
@@ -204,9 +254,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static Label CreateFilterTag(string text, bool positive)
         {
-            var bgColor = positive ? Lime.WithAlpha(0.1f) : Red.WithAlpha(0.1f);
+            var bgColor = positive ? LimeA01 : RedA01;
             var fgColor = positive ? Lime : Red;
-            var borderColor = positive ? Lime.WithAlpha(0.3f) : Red.WithAlpha(0.3f);
+            var borderColor = positive ? LimeA03 : RedA03;
             var label = new Label(text)
             {
                 style =

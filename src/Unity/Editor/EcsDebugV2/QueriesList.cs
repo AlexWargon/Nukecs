@@ -7,6 +7,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class QueriesList
     {
+        private static int _lastCount = -1;
+
         public static VisualElement Create(EcsDebugV2Window window)
         {
             var scroll = new ScrollView(ScrollViewMode.Vertical)
@@ -28,10 +30,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
+            _lastCount = window.queries.Count;
             var scroll = container as ScrollView;
             var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
             container.Clear();
-            foreach (var q in window.Queries)
+            foreach (var q in window.queries)
             {
                 var card = CreateQueryCard(q, window);
                 container.Add(card);
@@ -41,12 +44,35 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
         {
+            if (window.queries.Count != _lastCount)
+            {
+                _lastCount = window.queries.Count;
+                var scroll = leftPanel as ScrollView ?? leftPanel.Q<ScrollView>();
+                if (scroll != null)
+                {
+                    Refresh(scroll, window);
+                    return;
+                }
+            }
+
+            foreach (var q in window.queries)
+            {
+                var card = leftPanel.Q($"query-card-{q.Id}");
+                if (card == null) continue;
+                var matchedLabel = card.Q<Label>("query-matched");
+                if (matchedLabel != null)
+                    matchedLabel.text = $"{q.Matched} matched";
+                var timeLabel = card.Q<Label>("query-time");
+                if (timeLabel != null)
+                    timeLabel.text = $"last {q.LastRunMs:F2} ms";
+            }
         }
 
         private static VisualElement CreateQueryCard(QueryInfo query, EcsDebugV2Window window)
         {
-            bool selected = window.SelectedQueryId == query.Id;
+            bool selected = window.selectedQueryId == query.Id;
             var card = EcsDebugV2Theme.CreateCard();
+            card.name = $"query-card-{query.Id}";
             card.style.paddingLeft = 8;
             card.style.paddingRight = 8;
             card.style.paddingTop = 6;
@@ -57,7 +83,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (selected)
             {
                 card.SetupBorder(EcsDebugV2Theme.Lime);
-                card.style.backgroundColor = EcsDebugV2Theme.Lime.WithAlpha(0.1f);
+                card.style.backgroundColor = EcsDebugV2Theme.LimeA01;
             }
 
             var topRow = new VisualElement
@@ -81,6 +107,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             topRow.Add(nameLabel);
             var matchedLabel = new Label($"{query.Matched} matched")
             {
+                name = "query-matched",
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
@@ -108,6 +135,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var timeLabel = new Label($"last {query.LastRunMs:F2} ms")
             {
+                name = "query-time",
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
@@ -119,15 +147,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             card.RegisterCallback<ClickEvent>(_ => window.SelectQuery(query.Id));
             card.RegisterCallback<MouseEnterEvent>(_ =>
             {
-                if (window.SelectedQueryId != query.Id)
-                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.4f);
+                if (window.selectedQueryId != query.Id)
+                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             card.RegisterCallback<MouseLeaveEvent>(_ =>
             {
-                if (window.SelectedQueryId != query.Id)
+                if (window.selectedQueryId != query.Id)
                     card.style.backgroundColor = EcsDebugV2Theme.Panel;
                 else
-                    card.style.backgroundColor = EcsDebugV2Theme.Lime.WithAlpha(0.1f);
+                    card.style.backgroundColor = EcsDebugV2Theme.LimeA01;
             });
             return card;
         }

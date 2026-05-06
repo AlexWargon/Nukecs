@@ -2,7 +2,6 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -10,6 +9,21 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class InspectorPanel
     {
+        private struct FieldRowData
+        {
+            public string ChangeKey;
+            public VisualElement Editor;
+            public int CompIndex;
+            public int FieldIndex;
+            public double LastNumberVal;
+            public string LastStringVal;
+            public bool LastBoolVal;
+            public int LastEntityRefVal;
+        }
+
+        private static HashSet<string> _archMatchSet = new HashSet<string>();
+        private static HashSet<string> _queryMatchSet = new HashSet<string>();
+
         public static VisualElement Create(EcsDebugV2Window window)
         {
             var panel = new VisualElement
@@ -20,7 +34,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexDirection = FlexDirection.Column,
                     flexGrow = 1,
                     overflow = Overflow.Hidden,
-                    backgroundColor = EcsDebugV2Theme.Background.WithAlpha(0.4f)
+                    backgroundColor = EcsDebugV2Theme.BgA04
                 }
             };
             Refresh(panel, window);
@@ -34,32 +48,31 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             panel.Clear();
 
-            switch (window.CurrentTab)
+            switch (window.currentTab)
             {
                 case TabKey.Entities:
-                    var entity = window.Entities.FirstOrDefault(e => e.Id == window.SelectedEntityId);
-                    if (entity != null)
-                        DrawEntityInspector(panel, entity, window);
+                    if (window.selectedEntityId.HasValue && window.selectedEntityDetails != null)
+                        DrawEntityInspector(panel, window.selectedEntityDetails, window);
                     else
                         DrawEmptyState(panel);
                     break;
                 case TabKey.Archetypes:
-                    var arch = window.Archetypes.FirstOrDefault(a => a.Id == window.SelectedArchetypeId);
-                    if (arch != null)
+                    ArchetypeInfo arch;
+                    if (window.selectedArchetypeId.HasValue && window.archetypeMap.TryGetValue(window.selectedArchetypeId.Value.ToString(), out arch))
                         DrawArchetypeInspector(panel, arch, window);
                     else
                         DrawEmptyState(panel);
                     break;
                 case TabKey.Queries:
-                    var query = window.Queries.FirstOrDefault(q => q.Id == window.SelectedQueryId);
-                    if (query != null)
+                    QueryInfo query;
+                    if (window.selectedQueryId != null && window.queryMap.TryGetValue(window.selectedQueryId, out query))
                         DrawQueryInspector(panel, query, window);
                     else
                         DrawEmptyState(panel);
                     break;
                 case TabKey.Resources:
-                    var res = window.Resources.FirstOrDefault(r => r.Name == window.SelectedResourceName);
-                    if (res != null)
+                    ResourceInfo res;
+                    if (window.selectedResourceName != null && window.resourceMap.TryGetValue(window.selectedResourceName, out res))
                         DrawResourceInspector(panel, res);
                     else
                         DrawEmptyState(panel);
@@ -72,70 +85,102 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void UpdateValues(VisualElement panel, EcsDebugV2Window window)
         {
-            switch (window.CurrentTab)
+            switch (window.currentTab)
             {
                 case TabKey.Entities:
-                    var entity = window.Entities.FirstOrDefault(e => e.Id == window.SelectedEntityId);
-                    if (entity != null)
-                        UpdateEntityFieldValues(panel, entity, window);
+                    if (window.selectedEntityId.HasValue && window.selectedEntityDetails != null)
+                        UpdateEntityFieldValues(panel, window.selectedEntityDetails, window);
                     break;
             }
         }
 
         private static void UpdateEntityFieldValues(VisualElement panel, EntityInfo entity, EcsDebugV2Window window)
         {
-            foreach (var comp in entity.Components)
-            {
-                foreach (var field in comp.Fields)
-                {
-                    var editorEl = panel.Q($"editor-{comp.Name}-{field.Key}");
-                    if (editorEl == null) continue;
+            var scroll = panel.Q("inspector-scroll");
+            if (scroll == null) return;
+            if (entity.Components == null) return;
 
-                    if (editorEl is TextField tf)
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            for (int ci = 0; ci < scroll.childCount; ci++)
+            {
+                var card = scroll[ci];
+                if (card.name == "add-comp-section") continue;
+
+                for (int fi = 1; fi < card.childCount; fi++)
+                {
+                    var row = card[fi];
+                    var obj = row.userData;
+                    if (!(obj is FieldRowData)) continue;
+                    var fd = (FieldRowData)obj;
+
+                    if (fd.CompIndex >= entity.Components.Count) continue;
+                    var comp = entity.Components[fd.CompIndex];
+                    if (fd.FieldIndex >= comp.Fields.Count) continue;
+                    var fv = comp.Fields[fd.FieldIndex].Value;
+
+                    var editor = fd.Editor;
+                    if (editor is TextField tf)
                     {
                         try
                         {
                             var focused = tf.panel?.focusController?.focusedElement as VisualElement;
                             if (focused != null && tf.Contains(focused))
-                                continue;
+                                goto UpdateHighlight;
                         }
                         catch { }
 
-                        switch (field.Value.Type)
+                        switch (fv.Type)
                         {
                             case FieldValueType.Number:
-                                tf.SetValueWithoutNotify(field.Value.NumberVal.ToString("G"));
+                                if (Math.Abs(fv.NumberVal - fd.LastNumberVal) > 0.0001)
+                                {
+                                    fd.LastNumberVal = fv.NumberVal;
+                                    row.userData = fd;
+                                    tf.SetValueWithoutNotify(fv.NumberVal.ToString("G"));
+                                }
                                 break;
                             case FieldValueType.String:
-                                tf.SetValueWithoutNotify(field.Value.StringVal);
+                                if (fv.StringVal != fd.LastStringVal)
+                                {
+                                    fd.LastStringVal = fv.StringVal;
+                                    row.userData = fd;
+                                    tf.SetValueWithoutNotify(fv.StringVal);
+                                }
                                 break;
                             case FieldValueType.EntityRef:
-                                tf.SetValueWithoutNotify(field.Value.EntityRefVal.ToString());
+                                if (fv.EntityRefVal != fd.LastEntityRefVal)
+                                {
+                                    fd.LastEntityRefVal = fv.EntityRefVal;
+                                    row.userData = fd;
+                                    tf.SetValueWithoutNotify(fv.EntityRefVal.ToString());
+                                }
                                 break;
                         }
                     }
-                    else if (editorEl is Button btn && field.Value.Type == FieldValueType.Bool)
+                    else if (editor is Button btn && fv.Type == FieldValueType.Bool)
                     {
-                        btn.text = field.Value.BoolVal.ToString();
-                        btn.style.color = field.Value.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red;
+                        if (fv.BoolVal != fd.LastBoolVal)
+                        {
+                            fd.LastBoolVal = fv.BoolVal;
+                            row.userData = fd;
+                            btn.text = fv.BoolVal.ToString();
+                            btn.style.color = fv.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red;
+                        }
                     }
 
-                    var rowEl = panel.Q($"frow-{comp.Name}-{field.Key}");
-                    if (rowEl != null)
+                    UpdateHighlight:
+                    long ts;
+                    if (window.changes.TryGetValue(fd.ChangeKey, out ts))
                     {
-                        var changeKey = $"{entity.Id}:{comp.Name}:{field.Key}";
-                        long ts;
-                        if (window.Changes.TryGetValue(changeKey, out ts))
-                        {
-                            var age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ts;
-                            rowEl.style.backgroundColor = age < 1200
-                                ? EcsDebugV2Theme.Yellow.WithAlpha(0.15f)
-                                : (Color)EcsDebugV2Theme.PanelElevated;
-                        }
-                        else
-                        {
-                            rowEl.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
-                        }
+                        var age = now - ts;
+                        row.style.backgroundColor = age < 1200
+                            ? EcsDebugV2Theme.YellowA015
+                            : (Color)EcsDebugV2Theme.PanelElevated;
+                    }
+                    else
+                    {
+                        row.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
                     }
                 }
             }
@@ -189,9 +234,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             header.Add(nameLabel);
             header.Add(EcsDebugV2Theme.CreateBadge(entity.Archetype.ToUpper(),
-                EcsDebugV2Theme.Orange.WithAlpha(0.15f), EcsDebugV2Theme.Orange, EcsDebugV2Theme.Font.Mini));
+                EcsDebugV2Theme.OrangeA015, EcsDebugV2Theme.Orange, EcsDebugV2Theme.Font.Mini));
 
-            var meta = new Label($"{entity.Components.Count} components")
+            var meta = new Label($"{(entity.Components?.Count ?? 0)} components")
             {
                 style =
                 {
@@ -221,14 +266,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            foreach (var comp in entity.Components)
-                scroll.Add(DrawComponentCard(entity, comp, window));
+            var compCount = entity.Components?.Count ?? 0;
+            for (int ci = 0; ci < compCount; ci++)
+                scroll.Add(DrawComponentCard(entity, entity.Components[ci], window, ci));
 
             scroll.Add(DrawAddComponentSection(entity, window));
             panel.Add(scroll);
         }
 
-        private static VisualElement DrawComponentCard(EntityInfo entity, ComponentInfo comp, EcsDebugV2Window window)
+        private static VisualElement DrawComponentCard(EntityInfo entity, ComponentInfo comp, EcsDebugV2Window window, int compIdx)
         {
             var card = EcsDebugV2Theme.CreateCard();
             card.style.marginBottom = 6;
@@ -293,15 +339,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             compHeader.Add(removeBtn);
             card.Add(compHeader);
 
-            foreach (var kv in comp.Fields)
+            for (int fi = 0; fi < comp.Fields.Count; fi++)
             {
-                var row = DrawFieldRow(entity.Id, comp.Name, kv.Key, kv.Value, window);
+                var kv = comp.Fields[fi];
+                var row = DrawFieldRow(entity.Id, comp.Name, kv.Key, kv.Value, window, compIdx, fi);
                 card.Add(row);
             }
             return card;
         }
 
-        private static VisualElement DrawFieldRow(int entityId, string compName, string fieldKey, FieldValue value, EcsDebugV2Window window)
+        private static VisualElement DrawFieldRow(int entityId, string compName, string fieldKey, FieldValue value, EcsDebugV2Window window, int compIndex, int fieldIndex)
         {
             var row = new VisualElement
             {
@@ -332,11 +379,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var changeKey = $"{entityId}:{compName}:{fieldKey}";
             long ts;
-            if (window.Changes.TryGetValue(changeKey, out ts))
+            if (window.changes.TryGetValue(changeKey, out ts))
             {
                 var age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ts;
                 if (age < 1200)
-                    row.style.backgroundColor = EcsDebugV2Theme.Yellow.WithAlpha(0.15f);
+                    row.style.backgroundColor = EcsDebugV2Theme.YellowA015;
             }
 
             var editor = CreateFieldEditor(value, (newVal) =>
@@ -346,6 +393,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             editor.name = $"editor-{compName}-{fieldKey}";
             editor.style.flexGrow = 1;
             row.Add(editor);
+
+            row.userData = new FieldRowData
+            {
+                ChangeKey = changeKey,
+                Editor = editor,
+                CompIndex = compIndex,
+                FieldIndex = fieldIndex,
+                LastNumberVal = value.Type == FieldValueType.Number ? value.NumberVal : 0,
+                LastStringVal = value.Type == FieldValueType.String ? value.StringVal : null,
+                LastBoolVal = value.Type == FieldValueType.Bool && value.BoolVal,
+                LastEntityRefVal = value.Type == FieldValueType.EntityRef ? value.EntityRefVal : 0
+            };
             return row;
         }
 
@@ -466,8 +525,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 name = "add-comp-picker",
                 style = { display = DisplayStyle.None }
             };
-            var existing = new HashSet<string>(entity.Components.Select(c => c.Name));
-            var available = window.Provider.AvailableComponentTypes.Where(c => !existing.Contains(c)).ToList();
+            var existing = new HashSet<string>();
+            if (entity.Components != null)
+                foreach (var c in entity.Components) existing.Add(c.Name);
+            var available = new List<string>();
+            foreach (var c in window.provider.AvailableComponentTypes)
+                if (!existing.Contains(c)) available.Add(c);
 
             var pickerHeader = new VisualElement
             {
@@ -528,7 +591,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     {
                         fontSize = EcsDebugV2Theme.Font.Micro,
                         color = EcsDebugV2Theme.Lime,
-                        backgroundColor = EcsDebugV2Theme.Lime.WithAlpha(0.1f),
+                        backgroundColor = EcsDebugV2Theme.LimeA01,
                         paddingLeft = 6,
                         paddingRight = 6,
                         paddingTop = 2,
@@ -538,7 +601,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     }
                 };
                 tag.SetupRadius(EcsDebugV2Theme.BorderRadius);
-                tag.SetupBorder(EcsDebugV2Theme.Lime.WithAlpha(0.3f));
+                tag.SetupBorder(EcsDebugV2Theme.LimeA03);
                 tagsRow.Add(tag);
             }
             pickerContainer.Add(tagsRow);
@@ -658,15 +721,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            var matchSet = new HashSet<string>(archetype.Components);
-            foreach (var e in window.Entities)
+            _archMatchSet.Clear();
+            foreach (var c in archetype.Components) _archMatchSet.Add(c);
+            foreach (var entityId in archetype.EntityIds)
             {
-                var names = e.Components.Select(c => c.Name).ToList();
-                if (names.Count != archetype.Components.Count || !names.All(n => matchSet.Contains(n)))
-                    continue;
+                EntityInfo e;
+                if (!window.entityMap.TryGetValue(entityId, out e)) continue;
 
                 var row = EcsDebugV2Theme.CreateRow();
-                row.style.borderBottomColor = EcsDebugV2Theme.PanelBorder.WithAlpha(0.4f);
+                row.style.borderBottomColor = EcsDebugV2Theme.PanelBorderA04;
                 row.Add(new Label($"#{e.Id}")
                 {
                     style =
@@ -772,10 +835,30 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            foreach (var arch in window.Archetypes)
+            foreach (var arch in window.archetypes)
             {
-                var archSet = new HashSet<string>(arch.Components);
-                bool match = query.With.All(w => archSet.Contains(w)) && query.Without.All(w => !archSet.Contains(w));
+                _queryMatchSet.Clear();
+                foreach (var c in arch.Components) _queryMatchSet.Add(c);
+                bool match = true;
+                for (int wi = 0; wi < query.With.Count; wi++)
+                {
+                    if (!_queryMatchSet.Contains(query.With[wi]))
+                    {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match)
+                {
+                    for (int wi = 0; wi < query.Without.Count; wi++)
+                    {
+                        if (_queryMatchSet.Contains(query.Without[wi]))
+                        {
+                            match = false;
+                            break;
+                        }
+                    }
+                }
                 if (!match) continue;
 
                 var card = EcsDebugV2Theme.CreateCard();
@@ -827,7 +910,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             fontSize = EcsDebugV2Theme.Font.Mini,
                             color = isWith ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText,
                             backgroundColor = isWith
-                                ? EcsDebugV2Theme.Lime.WithAlpha(0.1f)
+                                ? EcsDebugV2Theme.LimeA01
                                 : EcsDebugV2Theme.PanelElevated,
                             paddingLeft = 4,
                             paddingRight = 4,
@@ -839,7 +922,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     };
                     tag.SetupRadius(EcsDebugV2Theme.BorderRadius);
                     tag.SetupBorder(isWith
-                        ? EcsDebugV2Theme.Lime.WithAlpha(0.3f)
+                        ? EcsDebugV2Theme.LimeA03
                         : EcsDebugV2Theme.PanelBorder);
                     tagRow.Add(tag);
                 }
@@ -908,7 +991,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             paddingTop = 4,
                             paddingBottom = 4,
                             borderBottomWidth = 1,
-                            borderBottomColor = EcsDebugV2Theme.PanelBorder.WithAlpha(0.4f)
+                            borderBottomColor = EcsDebugV2Theme.PanelBorderA04
                         }
                     };
                     row.Add(new Label(kv.Key)

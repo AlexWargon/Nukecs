@@ -2,33 +2,40 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+// ReSharper disable HeapView.CanAvoidClosure
+// ReSharper disable EmptyGeneralCatchClause
+// ReSharper disable ParameterHidesMember
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public class EcsDebugV2Window : EditorWindow
     {
-        public IEcsDataProvider Provider;
-        public List<EntityInfo> Entities;
-        public List<ArchetypeInfo> Archetypes;
-        public List<QueryInfo> Queries;
-        public List<ResourceInfo> Resources;
-        public Dictionary<string, long> Changes = new Dictionary<string, long>();
+        public IEcsDataProvider provider;
+        public List<EntityInfo> entities;
+        public List<ArchetypeInfo> archetypes;
+        public List<QueryInfo> queries;
+        public List<ResourceInfo> resources;
+        public Dictionary<string, long> changes = new ();
+        public Dictionary<int, EntityInfo> entityMap = new ();
+        public Dictionary<string, ArchetypeInfo> archetypeMap = new ();
+        public Dictionary<string, QueryInfo> queryMap = new ();
+        public Dictionary<string, ResourceInfo> resourceMap = new ();
 
-        public TabKey CurrentTab = TabKey.Entities;
-        public bool Paused;
-        public int Tick;
-        public int SystemCount;
-        public int? SelectedEntityId;
-        public int? SelectedArchetypeId;
-        public string SelectedQueryId;
-        public string SelectedResourceName;
-        public string SearchQuery;
-        public string ArchetypeFilter;
-        public List<int> FilteredEntityIds = new List<int>();
+        public TabKey currentTab = TabKey.Entities;
+        public bool paused;
+        public int tick;
+        public int systemCount;
+        public int? selectedEntityId;
+        public EntityInfo selectedEntityDetails;
+        public int? selectedArchetypeId;
+        public string selectedQueryId;
+        public string selectedResourceName;
+        public string searchQuery;
+        public string archetypeFilter;
+        public List<int> filteredEntityIds = new ();
 
         private VisualElement _topPanel;
         private VisualElement _tabBar;
@@ -43,7 +50,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private float _dragStartWidth;
         private float _leftPanelWidth = 380f;
         private int _lastEntityCount = -1;
-        private int _lastComponentHash = -1;
+        private int _lastArchetypeIndex = -1;
+        private int _lastArchetypeCount = -1;
+        private readonly List<string> _changesCleanupKeys = new List<string>();
 
         [MenuItem("Nuke.cs/ECS Debug V2")]
         public static void ShowWindow()
@@ -55,27 +64,30 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void CreateGUI()
         {
-            if (Provider == null)
+            if (provider == null)
             {
                 if (EditorApplication.isPlaying && World.HasActiveWorlds())
-                    Provider = new LiveDataProvider();
+                    provider = new LiveDataProvider();
                 else
                 {
-                    Provider = new MockDataProvider();
-                    ((MockDataProvider)Provider).Initialize(72);
+                    provider = new MockDataProvider();
+                    ((MockDataProvider)provider).InitializeEmpty();
                 }
             }
 
-            Entities = Provider.GetEntities();
-            Queries = Provider.GetQueries();
-            Resources = Provider.GetResources();
-            Archetypes = Provider.GetArchetypes();
-            SystemCount = Provider.SystemCount;
+            entities = provider.GetEntityList();
+            queries = provider.GetQueries();
+            resources = provider.GetResources();
+            archetypes = provider.GetArchetypes();
+            RebuildMaps();
+            systemCount = provider.SystemCount;
 
-            SelectedEntityId = Entities.Count > 0 ? Entities[0].Id : (int?)null;
-            if (Archetypes.Count > 0) SelectedArchetypeId = Archetypes[0].Id;
-            if (Queries.Count > 0) SelectedQueryId = Queries[0].Id;
-            if (Resources.Count > 0) SelectedResourceName = Resources[0].Name;
+            selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
+            if (selectedEntityId.HasValue)
+                selectedEntityDetails = provider.GetEntityDetails(selectedEntityId.Value);
+            if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].Id;
+            if (queries.Count > 0) selectedQueryId = queries[0].Id;
+            if (resources.Count > 0) selectedResourceName = resources[0].Name;
 
             var root = rootVisualElement;
             root.Clear();
@@ -134,7 +146,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             _splitter.RegisterCallback<MouseEnterEvent>(_ =>
-                _splitter.style.backgroundColor = EcsDebugV2Theme.Lime.WithAlpha(0.5f));
+                _splitter.style.backgroundColor = EcsDebugV2Theme.LimeA05);
             _splitter.RegisterCallback<MouseLeaveEvent>(_ =>
             {
                 if (!_isDraggingSplitter)
@@ -157,7 +169,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexGrow = 1,
                     flexDirection = FlexDirection.Column,
                     overflow = Overflow.Hidden,
-                    backgroundColor = EcsDebugV2Theme.Background.WithAlpha(0.4f)
+                    backgroundColor = EcsDebugV2Theme.BgA04
                 }
             };
             mainArea.Add(_inspectorPanel);
@@ -170,7 +182,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 _leftPanelWidth = Mathf.Clamp(_dragStartWidth + delta, 250f, 800f);
                 _leftPanel.style.width = _leftPanelWidth;
             });
-            root.RegisterCallback<MouseUpEvent>(evt =>
+            root.RegisterCallback<MouseUpEvent>(_ =>
             {
                 if (_isDraggingSplitter)
                 {
@@ -187,75 +199,103 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             root.schedule.Execute(() =>
             {
-                if (_disposed || Paused) return;
+                if (_disposed || paused) return;
+                if (rootVisualElement.panel == null) return;
 
                 try
                 {
-                    if (Provider is MockDataProvider)
+                    if (provider is MockDataProvider)
                     {
-                        Tick++;
-                        Provider.Tick = Tick;
-                        Provider.SimulateTick(Changes);
+                        tick++;
+                        provider.Tick = tick;
+                        provider.SimulateTick(changes);
                     }
                     else
                     {
-                        Tick = Provider.Tick;
+                        tick = provider.Tick;
                     }
                 }
                 catch { }
 
                 try
                 {
-                    if (Tick % 60 == 0)
+                    if (tick % 60 == 0)
                     {
                         var cutoff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 2000;
-                        var oldKeys = Changes.Where(kv => kv.Value < cutoff).Select(kv => kv.Key).ToList();
-                        foreach (var k in oldKeys) Changes.Remove(k);
+                        _changesCleanupKeys.Clear();
+                        foreach (var kv in changes)
+                            if (kv.Value < cutoff) _changesCleanupKeys.Add(kv.Key);
+                        for (int i = 0; i < _changesCleanupKeys.Count; i++)
+                            changes.Remove(_changesCleanupKeys[i]);
                     }
                 }
                 catch { }
 
-                try { Entities = Provider.GetEntities(); } catch { }
-                try { Queries = Provider.GetQueries(); } catch { }
-                try { Resources = Provider.GetResources(); } catch { }
-                try { Archetypes = Provider.GetArchetypes(); } catch { }
+                var currentEntityCount = provider.GetEntityCount();
+                var currentArchCount = provider.GetArchetypeCount();
+                var entitiesChanged = currentEntityCount != _lastEntityCount || _lastArchetypeCount != currentArchCount;
 
-                var entityCount = Entities != null ? Entities.Count : 0;
-                if (entityCount != _lastEntityCount)
+                if (entitiesChanged)
                 {
-                    _lastEntityCount = entityCount;
+                    _lastEntityCount = currentEntityCount;
+                    _lastArchetypeCount = currentArchCount;
+                    try { entities = provider.GetEntityList(); } catch { }
+                    try { archetypes = provider.GetArchetypes(); } catch { }
+                    if (currentTab == TabKey.Queries)
+                        try { queries = provider.GetQueries(); } catch { }
+                    if (currentTab == TabKey.Resources)
+                        try { resources = provider.GetResources(); } catch { }
+                    RebuildMaps();
                     try { RefreshLeftPanel(); } catch { }
                 }
 
-                var compHash = GetSelectedEntityComponentHash();
-                if (compHash != _lastComponentHash)
+                if (selectedEntityId.HasValue && !EditingTextField(_inspectorPanel))
                 {
-                    _lastComponentHash = compHash;
-                    try { RefreshInspector(); } catch { }
-                }
-                else if (!EditingTextField(_inspectorPanel))
-                {
-                    try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                    try { selectedEntityDetails = provider.GetEntityDetails(selectedEntityId.Value); } catch { }
+
+                    var archIndex = provider.GetEntityArchetypeIndex(selectedEntityId.Value);
+                    if (archIndex != _lastArchetypeIndex)
+                    {
+                        _lastArchetypeIndex = archIndex;
+                        try { RefreshInspector(); } catch { }
+                    }
+                    else
+                    {
+                        try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                    }
                 }
 
-                try { TopPanel.Update(_topPanel, this); } catch { }
-                try { Footer.Update(_footer, this); } catch { }
-            }).Every(33);
+                if (tick % 10 == 0)
+                {
+                    try { TopPanel.Update(_topPanel, this); } catch { }
+                    try { Footer.Update(_footer, this); } catch { }
+
+                    if (currentTab == TabKey.Archetypes)
+                        try { ArchetypesList.UpdateValues(_leftPanel, this); } catch { }
+                    else if (currentTab == TabKey.Queries)
+                        try { QueriesList.UpdateValues(_leftPanel, this); } catch { }
+                    else if (currentTab == TabKey.Resources)
+                        try { ResourcesList.UpdateValues(_leftPanel, this); } catch { }
+                }
+            }).Every(100);
         }
 
         public void SwitchToWorld(int worldIndex)
         {
-            if (Provider is LiveDataProvider ldp)
+            if (provider is LiveDataProvider ldp)
                 ldp.SetWorld(worldIndex);
             InvalidateEntityCache();
-            Archetypes = Provider.GetArchetypes();
-            Queries = Provider.GetQueries();
-            Resources = Provider.GetResources();
-            SystemCount = Provider.SystemCount;
-            SelectedEntityId = Entities.Count > 0 ? Entities[0].Id : (int?)null;
-            if (Archetypes.Count > 0) SelectedArchetypeId = Archetypes[0].Id;
-            if (Queries.Count > 0) SelectedQueryId = Queries[0].Id;
-            if (Resources.Count > 0) SelectedResourceName = Resources[0].Name;
+            entities = provider.GetEntityList();
+            archetypes = provider.GetArchetypes();
+            queries = provider.GetQueries();
+            resources = provider.GetResources();
+            RebuildMaps();
+            systemCount = provider.SystemCount;
+            selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
+            selectedEntityDetails = selectedEntityId.HasValue ? provider.GetEntityDetails(selectedEntityId.Value) : null;
+            if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].Id;
+            if (queries.Count > 0) selectedQueryId = queries[0].Id;
+            if (resources.Count > 0) selectedResourceName = resources[0].Name;
             RefreshLeftPanel();
             RefreshInspector();
             TopPanel.Update(_topPanel, this);
@@ -268,10 +308,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void SetTab(TabKey tab)
         {
-            if (CurrentTab == tab) return;
-            CurrentTab = tab;
+            if (currentTab == tab) return;
+            currentTab = tab;
             _lastEntityCount = -1;
-            _lastComponentHash = -1;
+            _lastArchetypeIndex = -1;
+            if (selectedEntityId.HasValue)
+                selectedEntityDetails = provider.GetEntityDetails(selectedEntityId.Value);
             TabBar.Refresh(_tabBar, this);
             RefreshLeftPanel();
             RefreshInspector();
@@ -279,25 +321,27 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void TogglePause()
         {
-            Paused = !Paused;
+            paused = !paused;
             TopPanel.Update(_topPanel, this);
             Footer.Update(_footer, this);
         }
 
         public void SelectEntity(int id)
         {
-            SelectedEntityId = id;
-            _lastComponentHash = -1;
-            if (CurrentTab == TabKey.Entities)
-                RefreshLeftPanel();
+            selectedEntityId = id;
+            selectedEntityDetails = provider.GetEntityDetails(id);
+            _lastArchetypeIndex = -1;
+            if (currentTab == TabKey.Entities)
+                EntitiesTab.RefreshSelection(_leftPanel, this);
             RefreshInspector();
         }
 
         public void SelectEntityFromArchetype(int id)
         {
-            SelectedEntityId = id;
-            _lastComponentHash = -1;
-            CurrentTab = TabKey.Entities;
+            selectedEntityId = id;
+            selectedEntityDetails = provider.GetEntityDetails(id);
+            _lastArchetypeIndex = -1;
+            currentTab = TabKey.Entities;
             TabBar.Refresh(_tabBar, this);
             RefreshLeftPanel();
             RefreshInspector();
@@ -305,36 +349,38 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void SelectArchetype(int id)
         {
-            SelectedArchetypeId = id;
-            if (CurrentTab == TabKey.Archetypes)
+            selectedArchetypeId = id;
+            if (currentTab == TabKey.Archetypes)
                 RefreshLeftPanel();
             RefreshInspector();
         }
 
         public void SelectQuery(string id)
         {
-            SelectedQueryId = id;
-            if (CurrentTab == TabKey.Queries)
+            selectedQueryId = id;
+            if (currentTab == TabKey.Queries)
                 RefreshLeftPanel();
             RefreshInspector();
         }
 
         public void SelectResource(string name)
         {
-            SelectedResourceName = name;
-            if (CurrentTab == TabKey.Resources)
+            selectedResourceName = name;
+            if (currentTab == TabKey.Resources)
                 RefreshLeftPanel();
             RefreshInspector();
         }
 
         public void CreateEntity()
         {
-            var newEnt = Provider.CreateEntity();
-            Entities = Provider.GetEntities();
-            Archetypes = Provider.GetArchetypes();
-            Queries = Provider.GetQueries();
-            SelectedEntityId = newEnt.Id;
-            CurrentTab = TabKey.Entities;
+            var newEnt = provider.CreateEntity();
+            entities = provider.GetEntityList();
+            archetypes = provider.GetArchetypes();
+            queries = provider.GetQueries();
+            RebuildMaps();
+            selectedEntityId = newEnt.Id;
+            selectedEntityDetails = provider.GetEntityDetails(newEnt.Id);
+            currentTab = TabKey.Entities;
             TabBar.Refresh(_tabBar, this);
             RefreshLeftPanel();
             RefreshInspector();
@@ -343,12 +389,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void DestroyEntity(int id)
         {
-            Provider.DestroyEntity(id);
-            Entities = Provider.GetEntities();
-            Archetypes = Provider.GetArchetypes();
-            Queries = Provider.GetQueries();
-            if (SelectedEntityId == id)
-                SelectedEntityId = Entities.Count > 0 ? Entities[0].Id : (int?)null;
+            provider.DestroyEntity(id);
+            entities = provider.GetEntityList();
+            archetypes = provider.GetArchetypes();
+            queries = provider.GetQueries();
+            RebuildMaps();
+            if (selectedEntityId == id)
+            {
+                selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
+                selectedEntityDetails = selectedEntityId.HasValue
+                    ? provider.GetEntityDetails(selectedEntityId.Value)
+                    : null;
+            }
             RefreshLeftPanel();
             RefreshInspector();
             TopPanel.Update(_topPanel, this);
@@ -356,53 +408,85 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void RemoveComponent(int entityId, string compName)
         {
-            Provider.RemoveComponent(entityId, compName);
-            Entities = Provider.GetEntities();
-            Archetypes = Provider.GetArchetypes();
-            Queries = Provider.GetQueries();
+            provider.RemoveComponent(entityId, compName);
+            entities = provider.GetEntityList();
+            archetypes = provider.GetArchetypes();
+            queries = provider.GetQueries();
+            RebuildMaps();
+            selectedEntityDetails = provider.GetEntityDetails(entityId);
             RefreshInspector();
         }
 
         public void AddComponent(int entityId, string compName)
         {
-            Provider.AddComponent(entityId, compName);
-            Entities = Provider.GetEntities();
-            Archetypes = Provider.GetArchetypes();
-            Queries = Provider.GetQueries();
+            provider.AddComponent(entityId, compName);
+            entities = provider.GetEntityList();
+            archetypes = provider.GetArchetypes();
+            queries = provider.GetQueries();
+            RebuildMaps();
+            selectedEntityDetails = provider.GetEntityDetails(entityId);
             RefreshInspector();
         }
 
         public void SetFieldValue(int entityId, string compName, string fieldKey, FieldValue value)
         {
-            Provider.SetFieldValue(entityId, compName, fieldKey, value);
-            Changes[$"{entityId}:{compName}:{fieldKey}"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            provider.SetFieldValue(entityId, compName, fieldKey, value);
+            changes[$"{entityId}:{compName}:{fieldKey}"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            selectedEntityDetails = provider.GetEntityDetails(entityId);
             RefreshInspector();
         }
 
-        private int GetSelectedEntityComponentHash()
+        public void RebuildMaps()
         {
-            if (SelectedEntityId == null) return 0;
-            var entity = Entities.FirstOrDefault(e => e.Id == SelectedEntityId.Value);
-            if (entity == null) return 0;
-            int hash = SelectedEntityId.Value * 31;
-            foreach (var c in entity.Components)
-                hash ^= c.Name.GetHashCode();
-            return hash;
+            entityMap.Clear();
+            if (entities != null)
+            {
+                for (int i = 0; i < entities.Count; i++)
+                    entityMap[entities[i].Id] = entities[i];
+            }
+
+            archetypeMap.Clear();
+            if (archetypes != null)
+            {
+                for (int i = 0; i < archetypes.Count; i++)
+                    archetypeMap[archetypes[i].Id.ToString()] = archetypes[i];
+            }
+
+            queryMap.Clear();
+            if (queries != null)
+            {
+                for (int i = 0; i < queries.Count; i++)
+                    queryMap[queries[i].Id] = queries[i];
+            }
+
+            resourceMap.Clear();
+            if (resources != null)
+            {
+                for (int i = 0; i < resources.Count; i++)
+                    resourceMap[resources[i].Name] = resources[i];
+            }
         }
 
         private void InvalidateEntityCache()
         {
             _lastEntityCount = -1;
-            _lastComponentHash = -1;
+            _lastArchetypeIndex = -1;
+            _lastArchetypeCount = -1;
         }
 
         private void RefreshLeftPanel()
         {
+            if (currentTab == TabKey.Entities && _leftPanel.Q<ListView>("entity-list") != null)
+            {
+                EntitiesTab.Refresh(_leftPanel, this);
+                return;
+            }
+
             var oldScroll = _leftPanel.Query<ScrollView>().First();
-            var savedOffset = oldScroll != null ? oldScroll.scrollOffset : Vector2.zero;
+            var savedOffset = oldScroll?.scrollOffset ?? Vector2.zero;
 
             _leftPanel.Clear();
-            switch (CurrentTab)
+            switch (currentTab)
             {
                 case TabKey.Entities:
                     _leftPanel.Add(EntitiesTab.Create(this));
@@ -426,7 +510,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (_inspectorPanel == null) return;
             var oldScroll = _inspectorPanel.Query<ScrollView>().First();
-            var savedOffset = oldScroll != null ? oldScroll.scrollOffset : Vector2.zero;
+            var savedOffset = oldScroll?.scrollOffset ?? Vector2.zero;
 
             _inspectorPanel.Clear();
             _inspectorPanel.Add(InspectorPanel.Create(this));

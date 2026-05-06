@@ -93,6 +93,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public List<string> Components = new List<string>();
         public int EntityCount;
         public int ChunkCount;
+        public List<int> EntityIds = new List<int>();
     }
 
     public class QueryInfo
@@ -271,6 +272,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     map[key] = arch;
                 }
                 arch.EntityCount++;
+                arch.EntityIds.Add(e.Id);
                 arch.ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.EntityCount / 16f));
             }
             return map.Values.ToList();

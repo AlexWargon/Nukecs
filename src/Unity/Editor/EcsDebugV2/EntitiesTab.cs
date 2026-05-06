@@ -2,7 +2,6 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -10,8 +9,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class EntitiesTab
     {
+        private static HashSet<string> _lastArchetypeSet = new HashSet<string>();
+        private static HashSet<string> _currentArchetypeSet = new HashSet<string>();
+        private static List<string> _archetypeSortBuffer = new List<string>();
+        private static List<EntityInfo> _filteredBuffer = new List<EntityInfo>();
+        private static bool _suppressSelection;
+
         public static VisualElement Create(EcsDebugV2Window window)
         {
+            _lastArchetypeSet.Clear();
+            _suppressSelection = false;
+
             var container = new VisualElement
             {
                 style =
@@ -50,7 +58,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var searchField = EcsDebugV2Theme.CreateSearchField("", (q) =>
             {
-                window.SearchQuery = q;
+                window.searchQuery = q;
                 Refresh(container, window);
             });
             searchField.name = "entity-search";
@@ -62,7 +70,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 pickingMode = PickingMode.Ignore
             };
             placeholder.style.fontSize = EcsDebugV2Theme.Font.Small;
-            placeholder.style.color = EcsDebugV2Theme.MutedText.WithAlpha(0.5f);
+            placeholder.style.color = EcsDebugV2Theme.MutedTextA05;
             placeholder.style.position = Position.Absolute;
             placeholder.style.left = 7;
             placeholder.style.top = 0;
@@ -119,90 +127,218 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             tableHeader.Add(MakeHeaderCell("Archetype", 100));
             container.Add(tableHeader);
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical)
+            var filtered = FilterEntities(window);
+
+            ListView listView = null;
+            listView = new ListView(filtered, 24,
+                () =>
+                {
+                    var row = new VisualElement
+                    {
+                        style =
+                        {
+                            flexDirection = FlexDirection.Row,
+                            paddingLeft = 8,
+                            paddingRight = 8,
+                            paddingTop = 4,
+                            paddingBottom = 4,
+                            borderBottomWidth = 1,
+                            borderBottomColor = EcsDebugV2Theme.PanelBorderA04,
+                            overflow = Overflow.Hidden
+                        }
+                    };
+                    row.Add(MakeDataCell("", EcsDebugV2Theme.TypeEntity, 70));
+                    row.Add(MakeDataCell("", EcsDebugV2Theme.Foreground, 0, true));
+                    row.Add(MakeDataCell("", EcsDebugV2Theme.Orange, 100));
+                    row.RegisterCallback<MouseEnterEvent>(evt =>
+                    {
+                        var r = evt.currentTarget as VisualElement;
+                        if (r == null) return;
+                        var id = (int)r.userData;
+                            if (window.selectedEntityId != id)
+                            r.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                    });
+                    row.RegisterCallback<MouseLeaveEvent>(evt =>
+                    {
+                        var r = evt.currentTarget as VisualElement;
+                        if (r == null) return;
+                        var id = (int)r.userData;
+                        if (window.selectedEntityId != id)
+                            r.style.backgroundColor = Color.clear;
+                    });
+                    return row;
+                },
+                (ve, idx) =>
+                {
+                    if (idx < 0 || idx >= _filteredBuffer.Count) return;
+                    var e = _filteredBuffer[idx];
+                    ve.userData = e.Id;
+                    ve.name = $"erow-{e.Id}";
+                    bool selected = window.selectedEntityId == e.Id;
+                    ve.style.backgroundColor = selected
+                        ? EcsDebugV2Theme.LimeA01
+                        : Color.clear;
+                    int ci = 0;
+                    foreach (var child in ve.Children())
+                    {
+                        if (!(child is Label label)) continue;
+                        if (ci == 0) label.text = $"#{e.Id}";
+                        else if (ci == 1) label.text = e.Name;
+                        else if (ci == 2) label.text = e.Archetype;
+                        ci++;
+                    }
+                })
             {
-                name = "entity-scroll",
+                selectionType = SelectionType.Single,
+                name = "entity-list",
                 style =
                 {
                     flexGrow = 1,
                     overflow = Overflow.Hidden
                 }
             };
-            scroll.focusable = true;
-            scroll.RegisterCallback<KeyDownEvent>(evt =>
+
+            listView.onSelectionChange += objects =>
             {
-                if (window.FilteredEntityIds.Count == 0) return;
-                var currentIdx = window.FilteredEntityIds.IndexOf(window.SelectedEntityId ?? -1);
-
-                if (evt.keyCode == KeyCode.UpArrow && currentIdx > 0)
+                if (_suppressSelection) return;
+                foreach (var o in objects)
                 {
-                    window.SelectEntity(window.FilteredEntityIds[currentIdx - 1]);
-                    evt.StopPropagation();
+                    if (o is EntityInfo info)
+                    {
+                        window.SelectEntity(info.Id);
+                        break;
+                    }
                 }
-                else if (evt.keyCode == KeyCode.DownArrow && currentIdx < window.FilteredEntityIds.Count - 1)
+            };
+            listView.makeNoneElement = () => new VisualElement();
+            if (window.selectedEntityId.HasValue)
+            {
+                var idx = filtered.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                if (idx >= 0)
                 {
-                    window.SelectEntity(window.FilteredEntityIds[currentIdx + 1]);
-                    evt.StopPropagation();
+                    _suppressSelection = true;
+                    listView.selectedIndex = idx;
+                    _suppressSelection = false;
                 }
-            });
-            container.Add(scroll);
+            }
 
-            Refresh(container, window);
+            container.Add(listView);
+
+            BuildArchetypeFilters(container, window);
+
+            if (container.Q("entity-count") is Label cl)
+                cl.text = $"{filtered.Count}/{window.entities.Count}";
+
+            UpdatePlaceholder(container);
             return container;
+        }
+
+        public static void RefreshSelection(VisualElement leftPanel, EcsDebugV2Window window)
+        {
+            var container = leftPanel.Q("left-panel") ?? leftPanel;
+            var listView = container.Q<ListView>("entity-list");
+            if (listView == null) return;
+            _suppressSelection = true;
+            if (window.selectedEntityId.HasValue)
+            {
+                var idx = _filteredBuffer.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                listView.selectedIndex = idx >= 0 ? idx : -1;
+            }
+            else
+            {
+                listView.selectedIndex = -1;
+            }
+            _suppressSelection = false;
+            listView.Rebuild();
         }
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
-            var filterRow = container.Q("arch-filter-row");
-            if (filterRow != null)
-            {
-                filterRow.Clear();
-                var archetypes = new HashSet<string>();
-                foreach (var e in window.Entities) archetypes.Add(e.Archetype);
-                var allBtn = CreateFilterButton("ALL", window.ArchetypeFilter == null, () =>
-                {
-                    window.ArchetypeFilter = null;
-                    Refresh(container, window);
-                });
-                filterRow.Add(allBtn);
-                foreach (var a in archetypes.OrderBy(x => x))
-                {
-                    var name = a;
-                    var btn = CreateFilterButton(name.ToUpper(), window.ArchetypeFilter == name, () =>
-                    {
-                        window.ArchetypeFilter = window.ArchetypeFilter == name ? null : name;
-                        Refresh(container, window);
-                    });
-                    filterRow.Add(btn);
-                }
-            }
+            BuildArchetypeFilters(container, window);
 
-            var scroll = container.Q("entity-scroll") as ScrollView;
-            if (scroll == null) return;
-            var savedOffset = scroll.scrollOffset;
-            scroll.Clear();
+            var listView = container.Q<ListView>("entity-list");
+            if (listView == null) return;
 
             var filtered = FilterEntities(window);
-            foreach (var e in filtered)
+            listView.itemsSource = filtered;
+            listView.Rebuild();
+
+            if (window.selectedEntityId.HasValue)
             {
-                var row = CreateEntityRow(e, window);
-                scroll.Add(row);
+                var idx = filtered.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                _suppressSelection = true;
+                listView.selectedIndex = idx >= 0 ? idx : -1;
+                _suppressSelection = false;
             }
-            scroll.scrollOffset = savedOffset;
+            else
+            {
+                _suppressSelection = true;
+                listView.selectedIndex = -1;
+                _suppressSelection = false;
+            }
 
             if (container.Q("entity-count") is Label countLabel)
-                countLabel.text = $"{filtered.Count}/{window.Entities.Count}";
+                countLabel.text = $"{filtered.Count}/{window.entities.Count}";
 
             UpdatePlaceholder(container);
         }
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
         {
-            if (window.CurrentTab != TabKey.Entities) return;
+            if (window.currentTab != TabKey.Entities) return;
             var container = leftPanel.Q("left-panel") ?? leftPanel;
             var countLabel = container.Q("entity-count") as Label;
             if (countLabel != null)
-                countLabel.text = $"{window.FilteredEntityIds.Count}/{window.Entities.Count}";
+                countLabel.text = $"{window.filteredEntityIds.Count}/{window.entities.Count}";
+        }
+
+        private static void BuildArchetypeFilters(VisualElement container, EcsDebugV2Window window)
+        {
+            var filterRow = container.Q("arch-filter-row");
+            if (filterRow == null) return;
+
+            _currentArchetypeSet.Clear();
+            foreach (var e in window.entities) _currentArchetypeSet.Add(e.Archetype);
+
+            bool archetypesChanged = _currentArchetypeSet.Count != _lastArchetypeSet.Count;
+            if (!archetypesChanged)
+            {
+                foreach (var a in _currentArchetypeSet)
+                {
+                    if (!_lastArchetypeSet.Contains(a))
+                    {
+                        archetypesChanged = true;
+                        break;
+                    }
+                }
+            }
+
+            if (archetypesChanged)
+            {
+                _lastArchetypeSet.Clear();
+                foreach (var a in _currentArchetypeSet) _lastArchetypeSet.Add(a);
+
+                filterRow.Clear();
+                var allBtn = CreateFilterButton("ALL", window.archetypeFilter == null, () =>
+                {
+                    window.archetypeFilter = null;
+                    Refresh(container, window);
+                });
+                filterRow.Add(allBtn);
+                _archetypeSortBuffer.Clear();
+                foreach (var a in _currentArchetypeSet) _archetypeSortBuffer.Add(a);
+                _archetypeSortBuffer.Sort();
+                foreach (var a in _archetypeSortBuffer)
+                {
+                    var name = a;
+                    var btn = CreateFilterButton(name.ToUpper(), window.archetypeFilter == name, () =>
+                    {
+                        window.archetypeFilter = window.archetypeFilter == name ? null : name;
+                        Refresh(container, window);
+                    });
+                    filterRow.Add(btn);
+                }
+            }
         }
 
         private static void UpdatePlaceholder(VisualElement container)
@@ -225,64 +361,24 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private static List<EntityInfo> FilterEntities(EcsDebugV2Window window)
         {
-            var result = new List<EntityInfo>();
-            foreach (var e in window.Entities)
+            _filteredBuffer.Clear();
+            window.filteredEntityIds.Clear();
+            string q = null;
+            if (!string.IsNullOrEmpty(window.searchQuery))
+                q = window.searchQuery.ToLower();
+            foreach (var e in window.entities)
             {
-                if (window.ArchetypeFilter != null && e.Archetype != window.ArchetypeFilter)
+                if (window.archetypeFilter != null && e.Archetype != window.archetypeFilter)
                     continue;
-                if (!string.IsNullOrEmpty(window.SearchQuery))
+                if (q != null)
                 {
-                    var q = window.SearchQuery.ToLower();
                     if (!e.Name.ToLower().Contains(q) && !e.Id.ToString().Contains(q))
                         continue;
                 }
-                result.Add(e);
+                _filteredBuffer.Add(e);
+                window.filteredEntityIds.Add(e.Id);
             }
-            window.FilteredEntityIds = result.Select(e => e.Id).ToList();
-            return result;
-        }
-
-        private static VisualElement CreateEntityRow(EntityInfo e, EcsDebugV2Window window)
-        {
-            bool selected = window.SelectedEntityId == e.Id;
-            var row = new VisualElement
-            {
-                name = $"erow-{e.Id}",
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 4,
-                    paddingBottom = 4,
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder.WithAlpha(0.4f),
-                    backgroundColor = selected
-                        ? EcsDebugV2Theme.Lime.WithAlpha(0.1f)
-                        : Color.clear,
-                    overflow = Overflow.Hidden
-                }
-            };
-
-            row.RegisterCallback<MouseEnterEvent>(_ =>
-            {
-                if (window.SelectedEntityId != e.Id)
-                    row.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.4f);
-            });
-            row.RegisterCallback<MouseLeaveEvent>(_ =>
-            {
-                if (window.SelectedEntityId != e.Id)
-                    row.style.backgroundColor = Color.clear;
-            });
-            row.RegisterCallback<ClickEvent>(_ =>
-            {
-                window.SelectEntity(e.Id);
-            });
-
-            row.Add(MakeDataCell($"#{e.Id}", EcsDebugV2Theme.TypeEntity, 70));
-            row.Add(MakeDataCell(e.Name, EcsDebugV2Theme.Foreground, 0, true));
-            row.Add(MakeDataCell(e.Archetype, EcsDebugV2Theme.Orange, 100));
-            return row;
+            return _filteredBuffer;
         }
 
         private static Label MakeHeaderCell(string text, int width, bool flex = false)
@@ -345,7 +441,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (active)
             {
                 btn.style.color = EcsDebugV2Theme.Orange;
-                btn.style.backgroundColor = EcsDebugV2Theme.Orange.WithAlpha(0.15f);
+                btn.style.backgroundColor = EcsDebugV2Theme.OrangeA015;
                 btn.SetupBorder(EcsDebugV2Theme.Orange);
             }
             else
