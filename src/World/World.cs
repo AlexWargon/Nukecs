@@ -31,7 +31,7 @@ namespace Wargon.Nukecs
             get => ref unsafeWorldPtr.Ref;
         }
         public int Id => UnsafeWorld->Id;
-        public bool IsAlive => !unsafeWorldPtr.IsNull;
+        public bool IsAlive => unsafeWorldPtr.cached != null;
         public WorldConfig Config => UnsafeWorld->config;
         public Allocator Allocator => UnsafeWorld->Allocator;
         public UnityAllocatorHandler AllocatorHandler => UnsafeWorld->AllocatorHandler;

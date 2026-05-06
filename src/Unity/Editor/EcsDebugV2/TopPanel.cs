@@ -62,6 +62,25 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             };
+            worldId.RegisterCallback<MouseUpEvent>(evt =>
+            {
+                if (evt.button != 0) return;
+                var info = window.Provider.WorldInfo;
+                if (info.WorldNames == null || info.WorldNames.Length <= 1) return;
+                var menu = new GenericMenu();
+                for (var i = 0; i < info.WorldNames.Length; i++)
+                {
+                    var slot = info.WorldSlots != null && i < info.WorldSlots.Length
+                        ? info.WorldSlots[i]
+                        : i;
+                    var capturedSlot = slot;
+                    var isCurrent = info.WorldNames[i] == info.Name;
+                    menu.AddItem(new GUIContent(info.WorldNames[i]), isCurrent,
+                        () => window.SwitchToWorld(capturedSlot));
+                }
+                menu.ShowAsContext();
+                evt.StopPropagation();
+            });
             leftGroup.Add(worldId);
 
             var tickLabel = new Label("t=0")
@@ -162,6 +181,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var tickLabel = topPanel.Q("tick-label") as Label;
             if (tickLabel != null)
                 tickLabel.text = $"t={window.Tick}";
+
+            var worldId = topPanel.Q("world-id") as Label;
+            if (worldId != null)
+                worldId.text = window.Provider.WorldInfo.Name;
 
             var pauseBtn = topPanel.Q("pause-btn") as Button;
             if (pauseBtn != null)

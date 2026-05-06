@@ -42,6 +42,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private float _dragStartX;
         private float _dragStartWidth;
         private float _leftPanelWidth = 380f;
+        private int _lastEntityCount = -1;
+        private int _lastComponentHash = -1;
 
         [MenuItem("Nuke.cs/ECS Debug V2")]
         public static void ShowWindow()
@@ -55,8 +57,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (Provider == null)
             {
-                Provider = new MockDataProvider();
-                ((MockDataProvider)Provider).Initialize(72);
+                if (EditorApplication.isPlaying && World.HasActiveWorlds())
+                    Provider = new LiveDataProvider();
+                else
+                {
+                    Provider = new MockDataProvider();
+                    ((MockDataProvider)Provider).Initialize(72);
+                }
             }
 
             Entities = Provider.GetEntities();
@@ -181,35 +188,77 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             root.schedule.Execute(() =>
             {
                 if (_disposed || Paused) return;
-                Tick++;
-                Provider.Tick = Tick;
 
-                Provider.SimulateTick(Changes);
-
-                if (Tick % 10 == 0)
+                try
                 {
-                    var cutoff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 2000;
-                    var oldKeys = Changes.Where(kv => kv.Value < cutoff).Select(kv => kv.Key).ToList();
-                    foreach (var k in oldKeys) Changes.Remove(k);
+                    if (Provider is MockDataProvider)
+                    {
+                        Tick++;
+                        Provider.Tick = Tick;
+                        Provider.SimulateTick(Changes);
+                    }
+                    else
+                    {
+                        Tick = Provider.Tick;
+                    }
+                }
+                catch { }
+
+                try
+                {
+                    if (Tick % 60 == 0)
+                    {
+                        var cutoff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 2000;
+                        var oldKeys = Changes.Where(kv => kv.Value < cutoff).Select(kv => kv.Key).ToList();
+                        foreach (var k in oldKeys) Changes.Remove(k);
+                    }
+                }
+                catch { }
+
+                try { Entities = Provider.GetEntities(); } catch { }
+                try { Queries = Provider.GetQueries(); } catch { }
+                try { Resources = Provider.GetResources(); } catch { }
+                try { Archetypes = Provider.GetArchetypes(); } catch { }
+
+                var entityCount = Entities != null ? Entities.Count : 0;
+                if (entityCount != _lastEntityCount)
+                {
+                    _lastEntityCount = entityCount;
+                    try { RefreshLeftPanel(); } catch { }
                 }
 
-                Entities = Provider.GetEntities();
-                Queries = Provider.GetQueries();
-                Resources = Provider.GetResources();
-                Archetypes = Provider.GetArchetypes();
+                var compHash = GetSelectedEntityComponentHash();
+                if (compHash != _lastComponentHash)
+                {
+                    _lastComponentHash = compHash;
+                    try { RefreshInspector(); } catch { }
+                }
+                else if (!EditingTextField(_inspectorPanel))
+                {
+                    try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                }
 
-                if (EditingTextField(_inspectorPanel))
-                    InspectorPanel.UpdateValues(_inspectorPanel, this);
-                else
-                    RefreshInspector();
+                try { TopPanel.Update(_topPanel, this); } catch { }
+                try { Footer.Update(_footer, this); } catch { }
+            }).Every(33);
+        }
 
-                TopPanel.Update(_topPanel, this);
-                Footer.Update(_footer, this);
-                EntitiesTab.UpdateValues(_leftPanel, this);
-                ArchetypesList.UpdateValues(_leftPanel, this);
-                QueriesList.UpdateValues(_leftPanel, this);
-                ResourcesList.UpdateValues(_leftPanel, this);
-            }).Every(600);
+        public void SwitchToWorld(int worldIndex)
+        {
+            if (Provider is LiveDataProvider ldp)
+                ldp.SetWorld(worldIndex);
+            InvalidateEntityCache();
+            Archetypes = Provider.GetArchetypes();
+            Queries = Provider.GetQueries();
+            Resources = Provider.GetResources();
+            SystemCount = Provider.SystemCount;
+            SelectedEntityId = Entities.Count > 0 ? Entities[0].Id : (int?)null;
+            if (Archetypes.Count > 0) SelectedArchetypeId = Archetypes[0].Id;
+            if (Queries.Count > 0) SelectedQueryId = Queries[0].Id;
+            if (Resources.Count > 0) SelectedResourceName = Resources[0].Name;
+            RefreshLeftPanel();
+            RefreshInspector();
+            TopPanel.Update(_topPanel, this);
         }
 
         void OnDestroy()
@@ -221,6 +270,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (CurrentTab == tab) return;
             CurrentTab = tab;
+            _lastEntityCount = -1;
+            _lastComponentHash = -1;
             TabBar.Refresh(_tabBar, this);
             RefreshLeftPanel();
             RefreshInspector();
@@ -236,6 +287,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public void SelectEntity(int id)
         {
             SelectedEntityId = id;
+            _lastComponentHash = -1;
             if (CurrentTab == TabKey.Entities)
                 RefreshLeftPanel();
             RefreshInspector();
@@ -244,6 +296,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public void SelectEntityFromArchetype(int id)
         {
             SelectedEntityId = id;
+            _lastComponentHash = -1;
             CurrentTab = TabKey.Entities;
             TabBar.Refresh(_tabBar, this);
             RefreshLeftPanel();
@@ -324,6 +377,23 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             Provider.SetFieldValue(entityId, compName, fieldKey, value);
             Changes[$"{entityId}:{compName}:{fieldKey}"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             RefreshInspector();
+        }
+
+        private int GetSelectedEntityComponentHash()
+        {
+            if (SelectedEntityId == null) return 0;
+            var entity = Entities.FirstOrDefault(e => e.Id == SelectedEntityId.Value);
+            if (entity == null) return 0;
+            int hash = SelectedEntityId.Value * 31;
+            foreach (var c in entity.Components)
+                hash ^= c.Name.GetHashCode();
+            return hash;
+        }
+
+        private void InvalidateEntityCache()
+        {
+            _lastEntityCount = -1;
+            _lastComponentHash = -1;
         }
 
         private void RefreshLeftPanel()

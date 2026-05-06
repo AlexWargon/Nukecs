@@ -15,8 +15,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public int SystemCount => 12;
         public int Tick { get => _tick; set => _tick = value; }
-        public WorldInfo WorldInfo => new WorldInfo { Name = "world::main", WorldNames = new[] { "world::main" } };
+        public WorldInfo WorldInfo => new WorldInfo { Name = "world::main", WorldNames = new[] { "world::main" }, WorldSlots = new[] { 0 } };
         public string[] AvailableComponentTypes => MockData.ALL_COMPONENT_TYPES;
+        public int WorldCount => 1;
 
         public void Initialize(int entityCount = 72)
         {
@@ -100,6 +101,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             _archetypes = MockData.BuildArchetypes(_entities);
         }
+
+        public void SetWorld(int worldIndex) { }
     }
 }
 #endif

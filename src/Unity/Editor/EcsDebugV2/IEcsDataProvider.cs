@@ -8,6 +8,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     {
         public string Name;
         public string[] WorldNames;
+        public int[] WorldSlots;
     }
 
     public interface IEcsDataProvider
@@ -20,6 +21,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         int Tick { get; set; }
         WorldInfo WorldInfo { get; }
         string[] AvailableComponentTypes { get; }
+        int WorldCount { get; }
 
         EntityInfo CreateEntity();
         void DestroyEntity(int id);
@@ -27,6 +29,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         void RemoveComponent(int entityId, string compName);
         void SetFieldValue(int entityId, string compName, string fieldKey, FieldValue value);
         void SimulateTick(Dictionary<string, long> changes);
+        void SetWorld(int worldIndex);
     }
 }
 #endif
