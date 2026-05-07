@@ -733,7 +733,7 @@ namespace Wargon.Nukecs.Tests
                 .Run();
             _world.Dispose();
         }
-
+        
         [Test]
         [Performance]
         public void ECB_AddComponent_10K()
@@ -854,25 +854,185 @@ namespace Wargon.Nukecs.Tests
             var worldID = _world.Id;
 
             Measure.Method(() =>
+            {
+                ref var world = ref World.Get(worldID);
+                for (var i = 0; i < EntityCount; i++)
                 {
-                    ref var world = ref World.Get(worldID);
-                    for (var i = 0; i < EntityCount; i++)
-                    {
-                        ref var e = ref world.GetEntity(entities[i]);
-                        if (i % 2 == 0)
-                            e.Add(new BenchVelocity { Value = new float3(1, 0, 0) });
-                        else
-                            e.Add(new BenchHealth { Value = 100 });
-                    }
+                    ref var e = ref world.GetEntity(entities[i]);
+                    if (i % 2 == 0)
+                        e.Add(new BenchVelocity { Value = new float3(1, 0, 0) });
+                    else
+                        e.Add(new BenchHealth { Value = 100 });
+                }
 
-                    world.Update();
-                })
-                .WarmupCount(5)
-                .MeasurementCount(20)
-                .IterationsPerMeasurement(1)
-                .Run();
+                world.Update();
+            })
+            .WarmupCount(5)
+            .MeasurementCount(20)
+            .IterationsPerMeasurement(1)
+            .Run();
 
             _world.Dispose();
+        }
+
+        [Test]
+        [Performance]
+        public unsafe void DynamicBitMask256()
+        {
+            _world  = World.Create(BenchConfig);
+            var mask = new DynamicBitmask(256, _world.UnsafeWorld);
+            dbug.log(mask.Size());
+            for (int i = 0; i < 255; i++)
+            {
+                mask.Add(i);
+            }
+            Measure.Method(() =>
+            {
+                for (int j = 0; j < 1000; j++)
+                for (int i = 0; i < 255; i++)
+                {
+                    if (mask.Has(i))
+                    {
+                        
+                    }
+                }
+            })
+            .WarmupCount(5)
+            .MeasurementCount(100)
+            .IterationsPerMeasurement(1)
+            .Run();
+            for (int i = 0; i < 255; i++)
+            {
+                Assert.True(mask.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public unsafe void HierarchicalBitMask256_1024()
+        {
+            var mask = new Bitmask1024();
+            dbug.log(mask.Size());
+            for (int i = 0; i < 255; i++)
+            {
+                mask.Add(i);
+            }
+            Measure.Method(() =>
+            {
+                for (int j = 0; j < 1000; j++)
+                for (int i = 0; i < 255; i++)
+                {
+                    if (mask.Has(i))
+                    {
+                        
+                    }
+                }
+            })
+            .WarmupCount(5)
+            .MeasurementCount(100)
+            .IterationsPerMeasurement(1)
+            .Run();
+            for (int i = 0; i < 255; i++)
+            {
+                Assert.True(mask.Has(i));
+            }
+        }
+        [Test]
+        [Performance]
+        public unsafe void HierarchicalBitMask256_4096()
+        {
+            var mask = new Bitmask4096();
+            dbug.log(mask.Size());
+            for (int i = 0; i < 255; i++)
+            {
+                mask.Add(i);
+            }
+            Measure.Method(() =>
+                {
+                    for (int j = 0; j < 1000; j++)
+                    for (int i = 0; i < 255; i++)
+                    {
+                        if (mask.Has(i))
+                        {
+                        
+                        }
+                    }
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 255; i++)
+            {
+                Assert.True(mask.Has(i));
+            }
+        }
+        [Test]
+        [Performance]
+        public unsafe void DynamicBitMask4096()
+        {
+            _world  = World.Create(BenchConfig);
+            var mask = new DynamicBitmask(4095, _world.UnsafeWorld);
+            dbug.log(mask.Size());
+            for (int i = 0; i < 4095; i++)
+            {
+                mask.Add(i);
+            }
+            Measure.Method(() => 
+            {
+                for (int j = 0; j < 1000; j++)
+                {
+                    for (int i = 0; i < 4095; i++)
+                    {
+                        if (mask.Has(i))
+                        {
+                            
+                        }
+                    }
+                }
+
+            })
+            .WarmupCount(5)
+            .MeasurementCount(100)
+            .IterationsPerMeasurement(1)
+            .Run();
+            for (int i = 0; i < 4095; i++)
+            {
+                Assert.True(mask.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void HierarchicalBitMask4096()
+        {
+            var mask = new Bitmask4096();
+            dbug.log(mask.Size());
+            for (int i = 0; i < 4095; i++)
+            {
+                mask.Add(i);
+            }
+            Measure.Method(() =>
+            {
+                for (int j = 0; j < 1000; j++)
+                {
+                    for (int i = 0; i < 4095; i++)
+                    {
+                        if (mask.Has(i))
+                        {
+                            
+                        }
+                    }
+                }
+            })
+            .WarmupCount(5)
+            .MeasurementCount(100)
+            .IterationsPerMeasurement(1)
+            .Run();
+            for (int i = 0; i < 4095; i++)
+            {
+                Assert.True(mask.Has(i));
+            }
         }
     }
 }

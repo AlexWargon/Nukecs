@@ -36,6 +36,12 @@ namespace Wargon.Nukecs
             return ref dummyWorld.Data;
         }
 
+        public static bool TryGet(int worldID, out World world)
+        {
+            var w = worlds.Data.ElementAt(worldID);
+            world = w;
+            return w.IsAlive;
+        }
         public static bool HasActiveWorlds()
         {
             for (var i = 0; i < worlds.Data.Length; i++)

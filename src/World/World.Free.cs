@@ -23,10 +23,10 @@ namespace Wargon.Nukecs
             UnsafeWorld->Free();
             //AllocatorManager.Free(allocator.AllocatorHandle, UnsafeWorld);
             allctr.Dispose();
-            unsafeWorldPtr = default;
+            unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
             //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
             worldCount--;
-
+            Get(id) = this;
             //Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
     }

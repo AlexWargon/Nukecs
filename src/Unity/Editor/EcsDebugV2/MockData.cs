@@ -98,7 +98,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
     public class QueryInfo
     {
-        public string Id;
+        public int Id;
         public string Name;
         public List<string> With = new List<string>();
         public List<string> Without = new List<string>();
@@ -282,12 +282,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             return new List<QueryInfo>
             {
-                new QueryInfo { Id = "q1", Name = "MovementQuery", With = { "Transform", "Velocity" }, LastRunMs = 0.42 },
-                new QueryInfo { Id = "q2", Name = "RenderQuery", With = { "Transform", "Sprite" }, LastRunMs = 1.18 },
-                new QueryInfo { Id = "q3", Name = "AITickQuery", With = { "AIBrain", "Transform" }, Without = { "Dead" }, LastRunMs = 0.83 },
-                new QueryInfo { Id = "q4", Name = "DamageQuery", With = { "Damage", "Transform" }, LastRunMs = 0.21 },
-                new QueryInfo { Id = "q5", Name = "PlayerInputQuery", With = { "PlayerController" }, LastRunMs = 0.07 },
-                new QueryInfo { Id = "q6", Name = "LifetimeDecay", With = { "Lifetime" }, LastRunMs = 0.15 },
+                new QueryInfo { Id = 0, Name = "MovementQuery", With = { "Transform", "Velocity" }, LastRunMs = 0.42 },
+                new QueryInfo { Id = 1, Name = "RenderQuery", With = { "Transform", "Sprite" }, LastRunMs = 1.18 },
+                new QueryInfo { Id = 2, Name = "AITickQuery", With = { "AIBrain", "Transform" }, Without = { "Dead" }, LastRunMs = 0.83 },
+                new QueryInfo { Id = 3, Name = "DamageQuery", With = { "Damage", "Transform" }, LastRunMs = 0.21 },
+                new QueryInfo { Id = 4, Name = "PlayerInputQuery", With = { "PlayerController" }, LastRunMs = 0.07 },
+                new QueryInfo { Id = 5, Name = "LifetimeDecay", With = { "Lifetime" }, LastRunMs = 0.15 },
             };
         }
 

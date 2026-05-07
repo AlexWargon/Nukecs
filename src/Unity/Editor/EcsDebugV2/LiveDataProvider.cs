@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
+// ReSharper disable EmptyGeneralCatchClause
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
@@ -139,8 +140,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public int GetEntityCount()
         {
-            if (!IsWorldValid()) return 0;
-            return GetWorld().UnsafeWorld->entitiesAmount;
+            return !World.TryGet(_worldIndex, out var world) ? 0 : world.UnsafeWorld->entitiesAmount;
         }
 
         public int GetArchetypeCount()
@@ -219,8 +219,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public EntityInfo GetEntityDetails(int entityId)
         {
-            if (!IsWorldValid()) return null;
-            ref var world = ref GetWorld();
+            if (!World.TryGet(_worldIndex, out var world))
+            {
+                return null;
+            }
+
             var uw = world.UnsafeWorld;
 
             ref var archPtr = ref uw->GetEntityArchetypePtr(entityId);
@@ -320,7 +323,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                 _queryList.Add(new QueryInfo
                 {
-                    Id = $"q{q.Id}",
+                    Id = q.Id,
                     Name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
                     With = withList,
                     Without = withoutList,

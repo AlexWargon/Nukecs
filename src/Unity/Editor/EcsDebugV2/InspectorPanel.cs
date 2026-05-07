@@ -58,7 +58,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     break;
                 case TabKey.Archetypes:
                     ArchetypeInfo arch;
-                    if (window.selectedArchetypeId.HasValue && window.archetypeMap.TryGetValue(window.selectedArchetypeId.Value.ToString(), out arch))
+                    if (window.selectedArchetypeId.HasValue && window.archetypeMap.TryGetValue(window.selectedArchetypeId.Value, out arch))
                         DrawArchetypeInspector(panel, arch, window);
                     else
                         DrawEmptyState(panel);

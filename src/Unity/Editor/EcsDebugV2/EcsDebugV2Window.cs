@@ -20,8 +20,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public List<ResourceInfo> resources;
         public Dictionary<string, long> changes = new ();
         public Dictionary<int, EntityInfo> entityMap = new ();
-        public Dictionary<string, ArchetypeInfo> archetypeMap = new ();
-        public Dictionary<string, QueryInfo> queryMap = new ();
+        public Dictionary<int, ArchetypeInfo> archetypeMap = new ();
+        public Dictionary<int, QueryInfo> queryMap = new ();
         public Dictionary<string, ResourceInfo> resourceMap = new ();
 
         public TabKey currentTab = TabKey.Entities;
@@ -31,7 +31,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int? selectedEntityId;
         public EntityInfo selectedEntityDetails;
         public int? selectedArchetypeId;
-        public string selectedQueryId;
+        public int selectedQueryId;
         public string selectedResourceName;
         public string searchQuery;
         public string archetypeFilter;
@@ -355,7 +355,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             RefreshInspector();
         }
 
-        public void SelectQuery(string id)
+        public void SelectQuery(int id)
         {
             selectedQueryId = id;
             if (currentTab == TabKey.Queries)
@@ -449,7 +449,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (archetypes != null)
             {
                 for (int i = 0; i < archetypes.Count; i++)
-                    archetypeMap[archetypes[i].Id.ToString()] = archetypes[i];
+                    archetypeMap[archetypes[i].Id] = archetypes[i];
             }
 
             queryMap.Clear();
