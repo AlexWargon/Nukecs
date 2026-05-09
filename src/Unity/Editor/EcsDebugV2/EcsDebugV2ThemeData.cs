@@ -33,6 +33,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int HeaderPaddingV = 8;
         public int FontBody = 13;
         public int FontSmall = 11;
+        public int FieldName = 12;
         public int FontMicro = 10;
         public int FontMini = 9;
         public bool AdaptiveSkin;

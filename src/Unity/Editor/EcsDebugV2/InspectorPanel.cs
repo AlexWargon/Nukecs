@@ -2,6 +2,7 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -9,18 +10,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class InspectorPanel
     {
-        private struct FieldRowData
-        {
-            public string ChangeKey;
-            public VisualElement Editor;
-            public int CompIndex;
-            public int FieldIndex;
-            public double LastNumberVal;
-            public string LastStringVal;
-            public bool LastBoolVal;
-            public int LastEntityRefVal;
-        }
-
         private static HashSet<string> _archMatchSet = new HashSet<string>();
         private static HashSet<string> _queryMatchSet = new HashSet<string>();
 
@@ -89,100 +78,26 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 case TabKey.Entities:
                     if (window.selectedEntityId.HasValue && window.selectedEntityDetails != null)
-                        UpdateEntityFieldValues(panel, window.selectedEntityDetails, window);
+                        UpdateEntityFieldValues(window.selectedEntityDetails, window);
                     break;
             }
         }
 
-        private static void UpdateEntityFieldValues(VisualElement panel, EntityInfo entity, EcsDebugV2Window window)
+        public static void ClearDrawerCache()
         {
-            var scroll = panel.Q("inspector-scroll");
-            if (scroll == null) return;
+            ComponentCardDrawer.ClearCache();
+        }
+
+        private static void UpdateEntityFieldValues(EntityInfo entity, EcsDebugV2Window window)
+        {
             if (entity.Components == null) return;
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-            for (int ci = 0; ci < scroll.childCount; ci++)
+            var count = ComponentCardDrawer.ActiveCount;
+            for (int i = 0; i < count; i++)
             {
-                var card = scroll[ci];
-                if (card.name == "add-comp-section") continue;
-
-                for (int fi = 1; fi < card.childCount; fi++)
-                {
-                    var row = card[fi];
-                    var obj = row.userData;
-                    if (!(obj is FieldRowData)) continue;
-                    var fd = (FieldRowData)obj;
-
-                    if (fd.CompIndex >= entity.Components.Count) continue;
-                    var comp = entity.Components[fd.CompIndex];
-                    if (fd.FieldIndex >= comp.Fields.Count) continue;
-                    var fv = comp.Fields[fd.FieldIndex].Value;
-
-                    var editor = fd.Editor;
-                    if (editor is TextField tf)
-                    {
-                        try
-                        {
-                            var focused = tf.panel?.focusController?.focusedElement as VisualElement;
-                            if (focused != null && tf.Contains(focused))
-                                goto UpdateHighlight;
-                        }
-                        catch { }
-
-                        switch (fv.Type)
-                        {
-                            case FieldValueType.Number:
-                                if (Math.Abs(fv.NumberVal - fd.LastNumberVal) > 0.0001)
-                                {
-                                    fd.LastNumberVal = fv.NumberVal;
-                                    row.userData = fd;
-                                    tf.SetValueWithoutNotify(fv.NumberVal.ToString("G"));
-                                }
-                                break;
-                            case FieldValueType.String:
-                                if (fv.StringVal != fd.LastStringVal)
-                                {
-                                    fd.LastStringVal = fv.StringVal;
-                                    row.userData = fd;
-                                    tf.SetValueWithoutNotify(fv.StringVal);
-                                }
-                                break;
-                            case FieldValueType.EntityRef:
-                                if (fv.EntityRefVal != fd.LastEntityRefVal)
-                                {
-                                    fd.LastEntityRefVal = fv.EntityRefVal;
-                                    row.userData = fd;
-                                    tf.SetValueWithoutNotify(fv.EntityRefVal.ToString());
-                                }
-                                break;
-                        }
-                    }
-                    else if (editor is Button btn && fv.Type == FieldValueType.Bool)
-                    {
-                        if (fv.BoolVal != fd.LastBoolVal)
-                        {
-                            fd.LastBoolVal = fv.BoolVal;
-                            row.userData = fd;
-                            btn.text = fv.BoolVal.ToString();
-                            btn.style.color = fv.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red;
-                        }
-                    }
-
-                    UpdateHighlight:
-                    long ts;
-                    if (window.changes.TryGetValue(fd.ChangeKey, out ts))
-                    {
-                        var age = now - ts;
-                        row.style.backgroundColor = age < 1200
-                            ? EcsDebugV2Theme.YellowA015
-                            : (Color)EcsDebugV2Theme.PanelElevated;
-                    }
-                    else
-                    {
-                        row.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
-                    }
-                }
+                if (i >= entity.Components.Count) break;
+                ComponentCardDrawer.GetActive(i).UpdateValues(entity.Components[i], now);
             }
         }
 
@@ -266,249 +181,26 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
+            ComponentCardDrawer.ResetActive();
             var compCount = entity.Components?.Count ?? 0;
             for (int ci = 0; ci < compCount; ci++)
-                scroll.Add(DrawComponentCard(entity, entity.Components[ci], window, ci));
+            {
+                var comp = entity.Components[ci];
+                var drawer = ComponentCardDrawer.GetOrCreate(comp);
+                drawer.Bind(entity.Id, comp.Name, window, ci, comp);
+                scroll.Add(drawer.Card);
+                ComponentCardDrawer.AddActive(drawer);
+            }
 
             scroll.Add(DrawAddComponentSection(entity, window));
             panel.Add(scroll);
-        }
-
-        private static VisualElement DrawComponentCard(EntityInfo entity, ComponentInfo comp, EcsDebugV2Window window, int compIdx)
-        {
-            var card = EcsDebugV2Theme.CreateCard();
-            card.style.marginBottom = 6;
-
-            var compHeader = new VisualElement
-            {
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    paddingLeft = 10,
-                    paddingRight = 4,
-                    paddingTop = 4,
-                    paddingBottom = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated
-                }
-            };
-
-            var compName = new Label(comp.Name)
-            {
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Body,
-                    color = EcsDebugV2Theme.Foreground,
-                    unityFontStyleAndWeight = FontStyle.Bold
-                }
-            };
-            compHeader.Add(compName);
-
-            var sizeLabel = new Label($"{comp.ByteSize}B")
-            {
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Micro,
-                    color = EcsDebugV2Theme.MutedText,
-                    marginLeft = 6
-                }
-            };
-            compHeader.Add(sizeLabel);
-
-            var removeBtn = new Button(() => window.RemoveComponent(entity.Id, comp.Name))
-            {
-                text = "\u2715",
-                tooltip = $"Remove {comp.Name}",
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.MutedText,
-                    backgroundColor = Color.clear,
-                    paddingLeft = 4,
-                    paddingRight = 4,
-                    paddingTop = 2,
-                    paddingBottom = 2,
-                    marginLeft = UnityEngine.UIElements.Length.Auto(),
-                    width = 24,
-                    height = 24
-                }
-            };
-            removeBtn.SetupBorder(Color.clear, 0);
-            removeBtn.RegisterCallback<MouseEnterEvent>(_ => removeBtn.style.color = EcsDebugV2Theme.Red);
-            removeBtn.RegisterCallback<MouseLeaveEvent>(_ => removeBtn.style.color = EcsDebugV2Theme.MutedText);
-            compHeader.Add(removeBtn);
-            card.Add(compHeader);
-
-            for (int fi = 0; fi < comp.Fields.Count; fi++)
-            {
-                var kv = comp.Fields[fi];
-                var row = DrawFieldRow(entity.Id, comp.Name, kv.Key, kv.Value, window, compIdx, fi);
-                card.Add(row);
-            }
-            return card;
-        }
-
-        private static VisualElement DrawFieldRow(int entityId, string compName, string fieldKey, FieldValue value, EcsDebugV2Window window, int compIndex, int fieldIndex)
-        {
-            var row = new VisualElement
-            {
-                name = $"frow-{compName}-{fieldKey}",
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    paddingLeft = 10,
-                    paddingRight = 10,
-                    paddingTop = 2,
-                    paddingBottom = 2,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated
-                }
-            };
-
-            var keyLabel = new Label(fieldKey)
-            {
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.MutedText,
-                    width = 130,
-                    flexShrink = 0
-                }
-            };
-            row.Add(keyLabel);
-
-            var changeKey = $"{entityId}:{compName}:{fieldKey}";
-            long ts;
-            if (window.changes.TryGetValue(changeKey, out ts))
-            {
-                var age = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - ts;
-                if (age < 1200)
-                    row.style.backgroundColor = EcsDebugV2Theme.YellowA015;
-            }
-
-            var editor = CreateFieldEditor(value, (newVal) =>
-            {
-                window.SetFieldValue(entityId, compName, fieldKey, newVal);
-            });
-            editor.name = $"editor-{compName}-{fieldKey}";
-            editor.style.flexGrow = 1;
-            row.Add(editor);
-
-            row.userData = new FieldRowData
-            {
-                ChangeKey = changeKey,
-                Editor = editor,
-                CompIndex = compIndex,
-                FieldIndex = fieldIndex,
-                LastNumberVal = value.Type == FieldValueType.Number ? value.NumberVal : 0,
-                LastStringVal = value.Type == FieldValueType.String ? value.StringVal : null,
-                LastBoolVal = value.Type == FieldValueType.Bool && value.BoolVal,
-                LastEntityRefVal = value.Type == FieldValueType.EntityRef ? value.EntityRefVal : 0
-            };
-            return row;
-        }
-
-        private static VisualElement CreateFieldEditor(FieldValue value, Action<FieldValue> onChange)
-        {
-            switch (value.Type)
-            {
-                case FieldValueType.Number:
-                    var numTf = new TextField
-                    {
-                        value = value.NumberVal.ToString("G"),
-                        style =
-                        {
-                            fontSize = EcsDebugV2Theme.Font.Small,
-                            color = EcsDebugV2Theme.TypeNumber,
-                            backgroundColor = Color.clear,
-                            flexGrow = 1
-                        }
-                    };
-                    numTf.SetupBorder(Color.clear, 0);
-                    numTf.Q("unity-text-input").style.backgroundColor = Color.clear;
-                    numTf.Q("unity-text-input").SetupBorder(Color.clear, 0);
-                    numTf.Q("unity-text-input").style.paddingLeft = 2;
-                    numTf.Q("unity-text-input").style.paddingRight = 2;
-                    numTf.RegisterValueChangedCallback(evt =>
-                    {
-                        if (double.TryParse(evt.newValue, out var n))
-                            onChange(FieldValue.FromNumber(n));
-                    });
-                    return numTf;
-
-                case FieldValueType.Bool:
-                    var boolBtn = new Button(() => onChange(FieldValue.FromBool(!value.BoolVal)))
-                    {
-                        text = value.BoolVal.ToString(),
-                        style =
-                        {
-                            fontSize = EcsDebugV2Theme.Font.Small,
-                            color = value.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red,
-                            unityFontStyleAndWeight = FontStyle.Bold,
-                            backgroundColor = Color.clear,
-                            paddingLeft = 2,
-                            paddingRight = 2,
-                            paddingTop = 1,
-                            paddingBottom = 1
-                        }
-                    };
-                    boolBtn.SetupBorder(Color.clear, 0);
-                    return boolBtn;
-
-                case FieldValueType.String:
-                    var strTf = new TextField
-                    {
-                        value = value.StringVal,
-                        style =
-                        {
-                            fontSize = EcsDebugV2Theme.Font.Small,
-                            color = EcsDebugV2Theme.TypeString,
-                            backgroundColor = Color.clear,
-                            flexGrow = 1
-                        }
-                    };
-                    strTf.SetupBorder(Color.clear, 0);
-                    strTf.Q("unity-text-input").style.backgroundColor = Color.clear;
-                    strTf.Q("unity-text-input").SetupBorder(Color.clear, 0);
-                    strTf.Q("unity-text-input").style.paddingLeft = 2;
-                    strTf.Q("unity-text-input").style.paddingRight = 2;
-                    strTf.RegisterValueChangedCallback(evt =>
-                        onChange(FieldValue.FromString(evt.newValue)));
-                    return strTf;
-
-                case FieldValueType.EntityRef:
-                    var refTf = new TextField
-                    {
-                        value = value.EntityRefVal.ToString(),
-                        style =
-                        {
-                            fontSize = EcsDebugV2Theme.Font.Small,
-                            color = EcsDebugV2Theme.TypeEntity,
-                            backgroundColor = Color.clear,
-                            flexGrow = 1
-                        }
-                    };
-                    refTf.SetupBorder(Color.clear, 0);
-                    refTf.Q("unity-text-input").style.backgroundColor = Color.clear;
-                    refTf.Q("unity-text-input").SetupBorder(Color.clear, 0);
-                    refTf.Q("unity-text-input").style.paddingLeft = 2;
-                    refTf.Q("unity-text-input").style.paddingRight = 2;
-                    refTf.RegisterValueChangedCallback(evt =>
-                    {
-                        if (int.TryParse(evt.newValue, out var n))
-                            onChange(FieldValue.FromEntityRef(n));
-                    });
-                    return refTf;
-
-                default:
-                    return new Label("\u2014") { style = { color = EcsDebugV2Theme.MutedText } };
-            }
         }
 
         private static VisualElement DrawAddComponentSection(EntityInfo entity, EcsDebugV2Window window)
         {
             var section = new VisualElement
             {
+                name = "add-comp-section",
                 style =
                 {
                     paddingLeft = 8,

@@ -123,6 +123,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             public static int Small => _data.FontSmall;
             public static int Micro => _data.FontMicro;
             public static int Mini => _data.FontMini;
+            public static int FieldName => _data.FieldName;
         }
 
         public static Button CreateActionBtn(string text, Color color, Action onClick)

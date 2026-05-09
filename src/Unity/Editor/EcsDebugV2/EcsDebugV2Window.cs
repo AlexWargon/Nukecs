@@ -54,6 +54,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private int _lastArchetypeCount = -1;
         private readonly List<string> _changesCleanupKeys = new List<string>();
 
+        public const int INSPECTOR_FIELD_REFRESH_MS = 16;
+        private const int UI_LOW_PRIORITY_MS = 500;
+        private long _lastValuePollTs;
+        private long _lastUiLowPriTs;
+        private int _lastDetailsTick = -1;
+
         [MenuItem("Nuke.cs/ECS Debug V2")]
         public static void ShowWindow()
         {
@@ -202,6 +208,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (_disposed || paused) return;
                 if (rootVisualElement.panel == null) return;
 
+                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
                 try
                 {
                     if (provider is MockDataProvider)
@@ -221,7 +229,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     if (tick % 60 == 0)
                     {
-                        var cutoff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - 2000;
+                        var cutoff = now - 2000;
                         _changesCleanupKeys.Clear();
                         foreach (var kv in changes)
                             if (kv.Value < cutoff) _changesCleanupKeys.Add(kv.Key);
@@ -249,24 +257,38 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     try { RefreshLeftPanel(); } catch { }
                 }
 
-                if (selectedEntityId.HasValue && !EditingTextField(_inspectorPanel))
+                if (now - _lastValuePollTs >= INSPECTOR_FIELD_REFRESH_MS)
                 {
-                    try { selectedEntityDetails = provider.GetEntityDetails(selectedEntityId.Value); } catch { }
+                    _lastValuePollTs = now;
+                    if (selectedEntityId.HasValue && !EditingTextField(_inspectorPanel))
+                    {
+                        var currentTick = tick;
+                        if (currentTick != _lastDetailsTick)
+                        {
+                            _lastDetailsTick = currentTick;
+                            try { selectedEntityDetails = provider.GetEntityDetails(selectedEntityId.Value); } catch { }
 
-                    var archIndex = provider.GetEntityArchetypeIndex(selectedEntityId.Value);
-                    if (archIndex != _lastArchetypeIndex)
-                    {
-                        _lastArchetypeIndex = archIndex;
-                        try { RefreshInspector(); } catch { }
-                    }
-                    else
-                    {
-                        try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                            var archIndex = provider.GetEntityArchetypeIndex(selectedEntityId.Value);
+                            if (archIndex != _lastArchetypeIndex)
+                            {
+                                _lastArchetypeIndex = archIndex;
+                                try { RefreshInspector(); } catch { }
+                            }
+                            else
+                            {
+                                try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                            }
+                        }
+                        else
+                        {
+                            try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                        }
                     }
                 }
 
-                if (tick % 10 == 0)
+                if (now - _lastUiLowPriTs >= UI_LOW_PRIORITY_MS)
                 {
+                    _lastUiLowPriTs = now;
                     try { TopPanel.Update(_topPanel, this); } catch { }
                     try { Footer.Update(_footer, this); } catch { }
 
@@ -277,13 +299,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     else if (currentTab == TabKey.Resources)
                         try { ResourcesList.UpdateValues(_leftPanel, this); } catch { }
                 }
-            }).Every(100);
+            }).Every(INSPECTOR_FIELD_REFRESH_MS);
         }
 
         public void SwitchToWorld(int worldIndex)
         {
             if (provider is LiveDataProvider ldp)
                 ldp.SetWorld(worldIndex);
+            InspectorPanel.ClearDrawerCache();
             InvalidateEntityCache();
             entities = provider.GetEntityList();
             archetypes = provider.GetArchetypes();

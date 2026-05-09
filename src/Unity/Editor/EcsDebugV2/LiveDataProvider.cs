@@ -18,6 +18,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private List<QueryInfo> _queryList = new List<QueryInfo>();
         private List<ResourceInfo> _resourceList = new();
         private IResource[] _resources = Array.Empty<IResource>();
+        private List<(string Key, FieldValue Value)> _resourceFields = new();
         private WorldInfo _cachedWorldInfo;
         private long _worldInfoTimestamp;
         private const long WorldInfoCacheMs = 1000;
@@ -141,7 +142,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public int GetEntityCount()
         {
-            return !World.TryGet(_worldIndex, out var world) ? 0 : world.UnsafeWorld->entitiesAmount;
+            return !IsWorldValid() ? 0 : GetWorld().UnsafeWorld->entitiesAmount;
         }
 
         public int GetArchetypeCount()
@@ -174,8 +175,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public List<EntityInfo> GetEntityList()
         {
-            _entityList.Clear();
-            if (!IsWorldValid()) return _entityList;
+            if (!IsWorldValid())
+            {
+                _entityList.Clear();
+                return _entityList;
+            }
 
             ref var world = ref GetWorld();
             var uw = world.UnsafeWorld;
@@ -183,36 +187,73 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var nameTypeIndex = -1;
             try { nameTypeIndex = ComponentType<Name>.Index; } catch { }
 
+            var aliveCount = 0;
             for (var i = 0; i < alive.Length; i++)
+                if (alive[i] != 0) aliveCount++;
+
+            if (_entityList.Count != aliveCount)
             {
-                var entityId = alive[i];
-                if (entityId == 0) continue;
-
-                ref var archPtr = ref uw->GetEntityArchetypePtr(entityId);
-                ref var arch = ref archPtr.Ref;
-
-                var entityName = $"Entity_{entityId}";
-                if (arch.Has(nameTypeIndex))
+                _entityList.Clear();
+                for (var i = 0; i < alive.Length; i++)
                 {
-                    try
+                    var entityId = alive[i];
+                    if (entityId == 0) continue;
+
+                    ref var archPtr = ref uw->GetEntityArchetypePtr(entityId);
+                    ref var arch = ref archPtr.Ref;
+
+                    var entityName = $"Entity_{entityId}";
+                    if (arch.Has(nameTypeIndex))
                     {
-                        var boxed = arch.GetObject(entityId, nameTypeIndex);
-                        if (boxed is Name nameComp && nameComp.value.Value != null)
-                            entityName = nameComp.value.Value;
+                        try
+                        {
+                            var boxed = arch.GetObject(entityId, nameTypeIndex);
+                            if (boxed is Name nameComp && nameComp.value.Value != null)
+                                entityName = nameComp.value.Value;
+                        }
+                        catch { }
                     }
-                    catch { }
+
+                    _entityList.Add(new EntityInfo
+                    {
+                        Id = entityId,
+                        Name = entityName,
+                        Archetype = BuildArchetypeLabel(ref arch),
+                        Alive = true,
+                        Components = null
+                    });
                 }
-
-                var archetypeLabel = BuildArchetypeLabel(ref arch);
-
-                _entityList.Add(new EntityInfo
+            }
+            else
+            {
+                var listIdx = 0;
+                for (var i = 0; i < alive.Length; i++)
                 {
-                    Id = entityId,
-                    Name = entityName,
-                    Archetype = archetypeLabel,
-                    Alive = true,
-                    Components = null
-                });
+                    var entityId = alive[i];
+                    if (entityId == 0) continue;
+
+                    ref var archPtr = ref uw->GetEntityArchetypePtr(entityId);
+                    ref var arch = ref archPtr.Ref;
+
+                    var entityName = $"Entity_{entityId}";
+                    if (arch.Has(nameTypeIndex))
+                    {
+                        try
+                        {
+                            var boxed = arch.GetObject(entityId, nameTypeIndex);
+                            if (boxed is Name nameComp && nameComp.value.Value != null)
+                                entityName = nameComp.value.Value;
+                        }
+                        catch { }
+                    }
+
+                    var info = _entityList[listIdx];
+                    info.Id = entityId;
+                    info.Name = entityName;
+                    info.Archetype = BuildArchetypeLabel(ref arch);
+                    info.Alive = true;
+                    listIdx++;
+                }
             }
 
             return _entityList;
@@ -260,35 +301,66 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public List<ArchetypeInfo> GetArchetypes()
         {
-            _archetypeList.Clear();
-            if (!IsWorldValid()) return _archetypeList;
+            if (!IsWorldValid())
+            {
+                _archetypeList.Clear();
+                return _archetypeList;
+            }
 
             ref var world = ref GetWorld();
             var uw = world.UnsafeWorld;
-            for (var i = 1; i < uw->archetypesList.Length; i++)
+            var archCount = uw->archetypesList.Length - 1;
+
+            if (_archetypeList.Count != archCount)
             {
-                ref var arch = ref uw->archetypesList.Ptr[i].Ref;
-                var compNames = new List<string>();
-                foreach (var typeIdx in arch.types)
+                _archetypeList.Clear();
+                for (var i = 1; i < uw->archetypesList.Length; i++)
                 {
-                    var t = ComponentTypeMap.GetType(typeIdx);
-                    compNames.Add(t?.Name ?? $"Type_{typeIdx}");
-                }
+                    ref var arch = ref uw->archetypesList.Ptr[i].Ref;
+                    var compNames = new List<string>();
+                    foreach (var typeIdx in arch.types)
+                    {
+                        var t = ComponentTypeMap.GetType(typeIdx);
+                        compNames.Add(t?.Name ?? $"Type_{typeIdx}");
+                    }
 
-                var entityIds = new List<int>();
-                for (var ei = 0; ei < arch.count; ei++)
-                {
-                    entityIds.Add(arch.packedEntities.Ptr[ei]);
-                }
+                    var entityIds = new List<int>();
+                    for (var ei = 0; ei < arch.count; ei++)
+                        entityIds.Add(arch.packedEntities.Ptr[ei]);
 
-                _archetypeList.Add(new ArchetypeInfo
+                    _archetypeList.Add(new ArchetypeInfo
+                    {
+                        Id = i,
+                        Components = compNames,
+                        EntityCount = arch.count,
+                        ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f)),
+                        EntityIds = entityIds
+                    });
+                }
+            }
+            else
+            {
+                for (var idx = 0; idx < _archetypeList.Count; idx++)
                 {
-                    Id = i,
-                    Components = compNames,
-                    EntityCount = arch.count,
-                    ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f)),
-                    EntityIds = entityIds
-                });
+                    var i = idx + 1;
+                    ref var arch = ref uw->archetypesList.Ptr[i].Ref;
+                    var info = _archetypeList[idx];
+
+                    info.Id = i;
+                    info.EntityCount = arch.count;
+                    info.ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f));
+
+                    info.Components.Clear();
+                    foreach (var typeIdx in arch.types)
+                    {
+                        var t = ComponentTypeMap.GetType(typeIdx);
+                        info.Components.Add(t?.Name ?? $"Type_{typeIdx}");
+                    }
+
+                    info.EntityIds.Clear();
+                    for (var ei = 0; ei < arch.count; ei++)
+                        info.EntityIds.Add(arch.packedEntities.Ptr[ei]);
+                }
             }
 
             return _archetypeList;
@@ -296,41 +368,62 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public List<QueryInfo> GetQueries()
         {
-            _queryList.Clear();
-            if (!IsWorldValid()) return _queryList;
-
-            ref var world = ref GetWorld();
-            var uw = world.UnsafeWorld;
-            for (var i = 0; i < uw->queries.Length; i++)
+            if (!World.TryGet(_worldIndex, out var world))
             {
-                ref var q = ref uw->queries.Ptr[i].Ref;
-                var withList = new List<string>();
-                var withoutList = new List<string>();
+                _queryList.Clear();
+                return _queryList;
+            }
 
-                foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
+            var uw = world.UnsafeWorld;
+            var qCount = uw->queries.Length;
+
+            if (_queryList.Count != qCount)
+            {
+                _queryList.Clear();
+                for (var i = 0; i < qCount; i++)
                 {
-                    if (q.with.Has(typeIdx))
+                    ref var q = ref uw->queries.Ptr[i].Ref;
+                    var withList = new List<string>();
+                    var withoutList = new List<string>();
+
+                    foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
                     {
-                        var t = ComponentTypeMap.GetType(typeIdx);
-                        withList.Add(t?.Name ?? $"Type_{typeIdx}");
+                        if (q.with.Has(typeIdx))
+                        {
+                            var t = ComponentTypeMap.GetType(typeIdx);
+                            withList.Add(t?.Name ?? $"Type_{typeIdx}");
+                        }
+
+                        if (q.none.Has(typeIdx))
+                        {
+                            var t = ComponentTypeMap.GetType(typeIdx);
+                            withoutList.Add(t?.Name ?? $"Type_{typeIdx}");
+                        }
                     }
 
-                    if (q.none.Has(typeIdx))
+                    _queryList.Add(new QueryInfo
                     {
-                        var t = ComponentTypeMap.GetType(typeIdx);
-                        withoutList.Add(t?.Name ?? $"Type_{typeIdx}");
-                    }
+                        Id = q.Id,
+                        Name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
+                        With = withList,
+                        Without = withoutList,
+                        Matched = q.count,
+                        LastRunMs = 0
+                    });
                 }
-
-                _queryList.Add(new QueryInfo
+            }
+            else
+            {
+                for (var i = 0; i < qCount; i++)
                 {
-                    Id = q.Id,
-                    Name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
-                    With = withList,
-                    Without = withoutList,
-                    Matched = q.count,
-                    LastRunMs = 0
-                });
+                    ref var q = ref uw->queries.Ptr[i].Ref;
+                    var info = _queryList[i];
+
+                    info.Id = q.Id;
+                    info.Matched = q.count;
+                    info.LastRunMs = 0;
+                    info.Name = info.With.Count > 0 ? string.Join("+", info.With) : $"Query_{q.Id}";
+                }
             }
 
             return _queryList;
@@ -338,11 +431,46 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public List<ResourceInfo> GetResources()
         {
-            if (_resourceList.Count != 0) return _resourceList;
             if (!World.TryGet(_worldIndex, out var world)) return _resourceList;
-            var (len, resArray) = world.UnsafeWorldRef._resStorage.GetAll(_resources);
+            var (len, resArray) = world.UnsafeWorldRef.resStorage.GetAll(_resources);
             _resources = resArray;
-            for (int i = 0; i < len; i++)
+
+            if (_resourceList.Count > 0 && _resourceList.Count == len)
+            {
+                for (var i = 0; i < len; i++)
+                {
+                    var res = _resources[i];
+                    var info = _resourceList[i];
+
+                    _resourceFields.Clear();
+                    try { ComponentFieldReader.ReadFields(res, _resourceFields); }
+                    catch { continue; }
+
+                    if (_resourceFields.Count == 1)
+                    {
+                        info.IsScalar = true;
+                        info.ScalarValue = _resourceFields[0].Value;
+                        info.Value.Clear();
+                    }
+                    else if (_resourceFields.Count == 0)
+                    {
+                        info.IsScalar = true;
+                        info.ScalarValue = FieldValue.FromBool(true);
+                        info.Value.Clear();
+                    }
+                    else
+                    {
+                        info.IsScalar = false;
+                        info.Value.Clear();
+                        foreach (var (key, val) in _resourceFields)
+                            info.Value[key] = val;
+                    }
+                }
+                return _resourceList;
+            }
+
+            _resourceList.Clear();
+            for (var i = 0; i < len; i++)
             {
                 var res = _resources[i];
                 var info = new ResourceInfo
@@ -350,14 +478,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     Name = res.GetType().Name,
                     Type = res.GetType().Name
                 };
-                var fields = new List<(string Key, FieldValue Value)>();
-                ComponentFieldReader.ReadFields(res, fields);
-                if (fields.Count == 1)
+                _resourceFields.Clear();
+                try { ComponentFieldReader.ReadFields(res, _resourceFields); }
+                catch { }
+
+                if (_resourceFields.Count == 1)
                 {
                     info.IsScalar = true;
-                    info.ScalarValue = fields[0].Value;
+                    info.ScalarValue = _resourceFields[0].Value;
                 }
-                else if (fields.Count == 0)
+                else if (_resourceFields.Count == 0)
                 {
                     info.IsScalar = true;
                     info.ScalarValue = FieldValue.FromBool(true);
@@ -365,7 +495,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 else
                 {
                     info.IsScalar = false;
-                    foreach (var (key, val) in fields)
+                    foreach (var (key, val) in _resourceFields)
                         info.Value[key] = val;
                 }
                 _resourceList.Add(info);
@@ -427,6 +557,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var typeIndex = FindTypeIndexByName(compName);
             if (typeIndex < 0) return;
 
+            try
+            {
+                var uw = world.UnsafeWorld;
+                byte* ptr = uw->GetComponentDataPtr(entityId, typeIndex);
+                if (ptr != null)
+                {
+                    ComponentFieldAccessorCache.WriteFieldPointer(typeIndex, ptr, fieldKey, value);
+                    return;
+                }
+            }
+            catch { }
+
             ref var archPtr = ref world.UnsafeWorld->GetEntityArchetypePtr(entityId);
             ref var arch = ref archPtr.Ref;
             var boxed = arch.GetObject(entityId, typeIndex);
@@ -443,14 +585,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private int FindTypeIndexByName(string name)
         {
-            foreach (var idx in ComponentTypeMap.TypesIndexes)
-            {
-                var t = ComponentTypeMap.GetType(idx);
-                if (t != null && t.Name == name)
-                    return idx;
-            }
-
-            return -1;
+            return ComponentTypeMap.Index(name);
         }
 
         private static string BuildArchetypeLabel(ref ArchetypeUnsafe arch)
@@ -471,6 +606,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var t = ComponentTypeMap.GetType(typeIdx);
                 var info = new ComponentInfo
                 {
+                    TypeIndex = typeIdx,
                     Name = t?.Name ?? $"Type_{typeIdx}",
                     ByteSize = ctData.size
                 };
@@ -483,11 +619,31 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     try
                     {
-                        var boxed = arch.GetObject(entityId, typeIdx);
-                        if (boxed != null)
-                            ComponentFieldReader.ReadFields(boxed, info.Fields);
+                        byte* ptr;
+                        if (ctData.storageType == StorageType.Pool)
+                        {
+                            ref var pool = ref uw->GetUntypedPool(typeIdx);
+                            ptr = pool.UnsafeGetPtr(entityId);
+                        }
+                        else
+                        {
+                            ref var loc = ref uw->entityLocations.Ptr[entityId];
+                            ptr = arch.GetComponentDataPtr(typeIdx, loc.row);
+                        }
+
+                        if (ptr != null)
+                            ComponentFieldAccessorCache.ReadFieldsPointer(typeIdx, ptr, info.Fields);
                     }
-                    catch { }
+                    catch
+                    {
+                        try
+                        {
+                            var boxed = arch.GetObject(entityId, typeIdx);
+                            if (boxed != null)
+                                ComponentFieldReader.ReadFields(boxed, info.Fields);
+                        }
+                        catch { }
+                    }
                 }
 
                 components.Add(info);
@@ -509,7 +665,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
         }
 
-        private static void ReadSingleField(FieldInfo fi, object obj,
+        internal static void ReadSingleField(FieldInfo fi, object obj,
             List<(string Key, FieldValue Value)> fields)
         {
             var ft = fi.FieldType;

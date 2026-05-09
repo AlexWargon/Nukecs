@@ -17,10 +17,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     {
         private static readonly (TabKey key, string label)[] Tabs =
         {
-            (TabKey.Entities, "Entities"),
-            (TabKey.Archetypes, "Archetypes"),
-            (TabKey.Queries, "Queries"),
-            (TabKey.Resources, "Resources")
+            (TabKey.Entities, "ENTITIES"),
+            (TabKey.Archetypes, "ARCHETYPES"),
+            (TabKey.Queries, "QUERIES"),
+            (TabKey.Resources, "RESOURCES")
         };
 
         public static VisualElement Create(EcsDebugV2Window window)

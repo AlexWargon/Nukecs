@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEngine;
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
@@ -47,6 +48,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
     public class ComponentInfo
     {
+        public int TypeIndex = -1;
         public string Name;
         public int ByteSize;
         public List<(string Key, FieldValue Value)> Fields = new List<(string, FieldValue)>();
