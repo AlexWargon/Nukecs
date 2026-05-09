@@ -186,10 +186,8 @@ namespace Wargon.Nukecs
         internal static void Add(Type type, int index) {
             cache.Add(type, index);
         }
-        
-
         public static Type GetType(int index) => cache.GetType(index);
-
+        public static int Index(string name) => cache.Index(name);
         public static int Index(Type type)
         {
             if (!cache.HasIndex(type))
@@ -199,11 +197,6 @@ namespace Wargon.Nukecs
 
             return cache.Index(type);
         }
-        
-        public static int Index(string name) {
-            return cache.Index(name);
-        }
-
         public static void Save() {
             //ComponentsMapCache.Save(cache);
         }

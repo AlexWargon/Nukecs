@@ -7,18 +7,23 @@ namespace Wargon.Nukecs
 {
     internal class ManagedResStorage
     {
-        internal static ConcurrentDictionary<int, IResource> _resources = new ();
-
+        internal static ConcurrentDictionary<int, IResource> resources = new ();
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int AddResource(IResource resource)
         {
             var hash = resource.GetType().FullName!.GetHashCode();
-            _resources[hash] = resource;
+            resources[hash] = resource;
             return hash;
         }
-        internal static T GetResource<T>(int hash)
-        {
-            return (T)_resources[hash];
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static T GetResource<T>(int hash) => (T)resources[hash];
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void RemoveResource(int hash) => resources.TryRemove(hash, out _);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool HasResource(int hash) => resources.ContainsKey(hash);
     }
     [StructLayout(LayoutKind.Sequential)]
     public struct ManagedResRef<T> : IEquatable<ManagedResRef<T>>, IDisposable where T : IResource, new()
@@ -85,7 +90,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsValid()
         {
-            return pointer != INVALID_POINTER && StaticObjectRefStorage.Objects[pointer] != null;
+            return pointer != INVALID_POINTER && ManagedResStorage.HasResource(pointer);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -104,7 +109,7 @@ namespace Wargon.Nukecs
         {
             if (pointer != INVALID_POINTER)
             {
-                StaticObjectRefStorage.Remove(pointer);
+                ManagedResStorage.RemoveResource(pointer);
                 pointer = INVALID_POINTER;
             }
         }
@@ -113,6 +118,5 @@ namespace Wargon.Nukecs
         {
             pointer = INVALID_POINTER;
         }
-        
     }
 }

@@ -161,15 +161,12 @@ namespace Wargon.Nukecs {
             _indexByType[type] = index;
             if (TypesIndexes.Contains(index) == false)
                 TypesIndexes.Add(index);
-            _nameToType[type.FullName] = type;
+            _nameToType[type.Name] = type;
         }
 
         public Type GetType(int index) => _typeByIndex[index];
-
-        public int Index(Type type)
-        {
-            return _indexByType[type];
-        }
+        public int Index(Type type) => _indexByType[type];
+        public int Index(string name) => _indexByType[_nameToType[name]];
         public bool HasIndex(Type type) => _indexByType.ContainsKey(type);
         public bool TryGetIndex(Type type, out int index)
         {
@@ -180,10 +177,7 @@ namespace Wargon.Nukecs {
             }
             return false;
         }
-        
-        public int Index(string name) {
-            return _indexByType[_nameToType[name]];
-        }
+
 
         public static void Save(ComponentsMapCache mapCache) {
             var dataStream =

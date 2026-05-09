@@ -47,7 +47,7 @@ namespace Wargon.Nukecs
             internal Spinner spinner;
             internal TimeData timeData;
             internal ptr<WorldUnsafe> selfPtr;
-            internal ResStorage _resStorage;
+            internal ResStorage resStorage;
             internal ref WorldUnsafe SelfRef => ref selfPtr.Ref;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
@@ -126,7 +126,7 @@ namespace Wargon.Nukecs
                 SetDefaultNone();
                 //CreatePools();
                rootArchetype = CreateRootArchetype();
-               _resStorage = new ResStorage(ref AllocatorRef);
+               resStorage = new ResStorage(ref AllocatorRef);
 #if NUKECS_DEBUG
                 CreateStoryLogList(1024);
                 entitiesDens = new AliveEntitiesSet(config.StartEntitiesAmount, ref AllocatorRef);
@@ -640,14 +640,14 @@ namespace Wargon.Nukecs
                     case SystemParamMetaType.None:
                         break;
                     case SystemParamMetaType.Resource:
-                        if (_resStorage.Has<TParam0>())
+                        if (resStorage.Has<TParam0>())
                         {
-                            param = _resStorage.Get<TParam0>();
+                            param = resStorage.Get<TParam0>();
                         }
                         else 
                         {
-                            _resStorage.Add(in paramDefault, Self);
-                            param = _resStorage.Get<TParam0>();
+                            resStorage.Add(in paramDefault, Self);
+                            param = resStorage.Get<TParam0>();
                             param.Ref = paramDefault;
                             param.Ref.Init(ref selfPtr);
                         }
@@ -670,6 +670,20 @@ namespace Wargon.Nukecs
                 }
                 
                 return param;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public byte* GetComponentDataPtr(int entityId, int typeIndex)
+            {
+                var d = ComponentTypeMap.GetComponentType(typeIndex);
+                if (d.storageType == StorageType.Pool)
+                {
+                    ref var pool = ref GetUntypedPool(typeIndex);
+                    return pool.UnsafeGetPtr(entityId);
+                }
+                ref var loc = ref entityLocations.Ptr[entityId];
+                ref var arch = ref archetypesList.Ptr[loc.archetypeIndex].Ref;
+                return arch.GetComponentDataPtr(typeIndex, loc.row);
             }
         }
     }
