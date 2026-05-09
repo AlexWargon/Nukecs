@@ -55,43 +55,18 @@ namespace Wargon.Nukecs
         void Setup(QueryUnsafe* query);
     }
 
-    public interface IFilterWith<T1> : IFilter 
-        where T1 : unmanaged, IComponent
+    public struct Filter<TWith, TNone> : IFilter
+        where TWith : unmanaged, IFilter
+        where TNone : unmanaged, IFilter
     {
-        ref T1 Get(int e);
+        public unsafe void Setup(QueryUnsafe* query)
+        {
+            TWith with = default;
+            TNone none = default;
+            with.Setup(query);
+            none.Setup(query);
+        }
     }
-    public interface IFilterWith<T1, T2> : IFilter
-        where T1 : unmanaged, IComponent
-        where T2 : unmanaged, IComponent
-    {
-        (Ref<T1>, Ref<T2>) Get(int e);
-    }
-    public interface IFilterWith<T1, T2, T3>  : IFilter
-        where T1 : unmanaged, IComponent
-        where T2 : unmanaged, IComponent
-        where T3 : unmanaged, IComponent
-    {
-        (Ref<T1>, Ref<T2>, Ref<T3>) Get(int e);
-    }
-    public interface IFilterWith<T1, T2, T3, T4>  : IFilter
-        where T1 : unmanaged, IComponent
-        where T2 : unmanaged, IComponent
-        where T3 : unmanaged, IComponent
-        where T4 : unmanaged, IComponent
-    {
-        (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>) Get(int e);
-    }
-    
-    public interface IFilterWith<T1, T2, T3, T4, T5>  : IFilter
-        where T1 : unmanaged, IComponent
-        where T2 : unmanaged, IComponent
-        where T3 : unmanaged, IComponent
-        where T4 : unmanaged, IComponent
-        where T5 : unmanaged, IComponent
-    {
-        (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>, Ref<T5>) Get(int e);
-    }
-    
     public struct With<T1> : IFilter where T1 : unmanaged, IComponent
     {
         public unsafe void Setup(QueryUnsafe* query)

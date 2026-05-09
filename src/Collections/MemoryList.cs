@@ -8,9 +8,9 @@ namespace Wargon.Nukecs.Collections
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
 
-    public struct NoCopyList<T> where T : unmanaged
+    public readonly struct NoCopyList<T> where T : unmanaged
     {
-        public MemoryList<ptr<MemoryList<T>>> list;
+        public readonly MemoryList<ptr<MemoryList<T>>> list;
     }
 
     [StructLayout(LayoutKind.Sequential)]

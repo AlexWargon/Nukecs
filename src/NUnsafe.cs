@@ -7,7 +7,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
-    public static unsafe class Unsafe {
+    public static unsafe class NUnsafe {
         public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged
         {
             return (T*) UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);

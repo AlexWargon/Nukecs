@@ -1,5 +1,7 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
@@ -172,6 +174,59 @@ namespace Wargon.Nukecs
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *_data;
+        }
+    }
+
+
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe ref struct QueryChunkIter<TChunk>
+        where TChunk : unmanaged, IChunk
+    {
+        private readonly int* _arches;
+        private readonly int _archesLen;
+        private readonly World.WorldUnsafe* _world;
+        private int _archIndex;
+        private TChunk _chunk;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryChunkIter(in MemoryList<int> arches, World.WorldUnsafe* world)
+        {
+            _arches = arches.Ptr;
+            _archesLen = arches.Length;
+            _world = world;
+            _archIndex = -1;
+            _chunk = default;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<TChunk> GetEnumerator() => this;
+
+        public readonly TChunk Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _chunk;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            while (++_archIndex < _archesLen)
+            {
+                ref var arch = ref _world->archetypesList.Ptr[_arches[_archIndex]].Ref;
+                var count = arch.count;
+                if (count <= 0) continue;
+                _chunk.SetData(ref arch);
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    public static class IterExtensions
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T GetEnumerator<T>(this T iter) where T : unmanaged, IChunk
+        {
+            return iter;
         }
     }
 }

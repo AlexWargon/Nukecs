@@ -21,7 +21,7 @@ namespace Wargon.Nukecs
             this.offset = new ptr_offset(0, offset);
             cached = basePtr + offset;
         }
-
+        
         public ptr(byte* regionBase, ptr_offset off)
         {
             this.offset = off;
@@ -47,6 +47,11 @@ namespace Wargon.Nukecs
         public ref T AsRef<T>() where T : unmanaged
         {
             return ref *(T*)cached;
+        }
+
+        public T AsObject<T>() 
+        {
+            return System.Runtime.CompilerServices.Unsafe.As<IntPtr,T>(ref *(IntPtr*)cached);
         }
         public void OnDeserialize(ref MemAllocator allocator)
         {

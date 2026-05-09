@@ -1,38 +1,47 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Wargon.Nukecs
 {
-    public unsafe struct Bitmask4096
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Bitmask1024
     {
         private const int BITS_PER_WORD = 64;
-        private const int WORD_COUNT = 64;
+        private const int WORD_COUNT = 16;
 
-        private ulong _summary;
-        private fixed ulong _words[WORD_COUNT];
+        private ulong summary;
+        private fixed ulong words[WORD_COUNT];
 
         public int Count { get; private set; }
 
         public int Size()
         {
-            return sizeof(Bitmask4096);
+            return sizeof(Bitmask1024);
         }
 
         public bool IsEmpty
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => _summary == 0;
+            get => summary == 0;
+        }
+
+        //no validation for bit
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool HasFast(int bit)
+        {
+            var wordIndex = bit >> 6;
+            var mask = 1UL << (bit & 63);
+            return (words[wordIndex] & mask) != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int bit)
         {
             Validate(bit);
-
             var wordIndex = bit >> 6;
             var mask = 1UL << (bit & 63);
-
-            return (_words[wordIndex] & mask) != 0;
+            return (words[wordIndex] & mask) != 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -44,7 +53,7 @@ namespace Wargon.Nukecs
             var bitMask = 1UL << (bit & 63);
             var summaryMask = 1UL << wordIndex;
 
-            ref var word = ref _words[wordIndex];
+            ref var word = ref words[wordIndex];
 
             var old = word;
 
@@ -54,7 +63,7 @@ namespace Wargon.Nukecs
             word |= bitMask;
 
             if (old == 0)
-                _summary |= summaryMask;
+                summary |= summaryMask;
 
             Count++;
 
@@ -70,7 +79,7 @@ namespace Wargon.Nukecs
             var bitMask = 1UL << (bit & 63);
             var summaryMask = 1UL << wordIndex;
 
-            ref var word = ref _words[wordIndex];
+            ref var word = ref words[wordIndex];
 
             var old = word;
 
@@ -80,7 +89,7 @@ namespace Wargon.Nukecs
             word &= ~bitMask;
 
             if (word == 0)
-                _summary &= ~summaryMask;
+                summary &= ~summaryMask;
 
             Count--;
 
@@ -90,24 +99,24 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
-            _summary = 0;
+            summary = 0;
             Count = 0;
 
             for (var i = 0; i < WORD_COUNT; i++)
-                _words[i] = 0;
+                words[i] = 0;
         }
 
         // O(k), где k = число set bits
         public void IterateSetBits(delegate*<int, void> callback)
         {
-            var summaryCopy = _summary;
+            var summaryCopy = summary;
 
             while (summaryCopy != 0)
             {
                 var wordIndex =
                     BitUtils.TrailingZeroCount(summaryCopy);
 
-                var word = _words[wordIndex];
+                var word = words[wordIndex];
 
                 while (word != 0)
                 {
@@ -126,7 +135,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Validate(int bit)
         {
-            if ((uint)bit >= 4096)
+            if ((uint)bit >= 1024)
                 throw new ArgumentOutOfRangeException(nameof(bit));
         }
     }

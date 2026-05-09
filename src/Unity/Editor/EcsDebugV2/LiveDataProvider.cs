@@ -16,7 +16,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private List<EntityInfo> _entityList = new List<EntityInfo>();
         private List<ArchetypeInfo> _archetypeList = new List<ArchetypeInfo>();
         private List<QueryInfo> _queryList = new List<QueryInfo>();
-        private List<ResourceInfo> _resourceList = new List<ResourceInfo>();
+        private List<ResourceInfo> _resourceList = new();
+        private IResource[] _resources = Array.Empty<IResource>();
         private WorldInfo _cachedWorldInfo;
         private long _worldInfoTimestamp;
         private const long WorldInfoCacheMs = 1000;
@@ -191,7 +192,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 ref var arch = ref archPtr.Ref;
 
                 var entityName = $"Entity_{entityId}";
-                if (nameTypeIndex >= 0 && arch.Has(nameTypeIndex))
+                if (arch.Has(nameTypeIndex))
                 {
                     try
                     {
@@ -337,7 +338,39 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public List<ResourceInfo> GetResources()
         {
-            _resourceList.Clear();
+            if (_resourceList.Count != 0) return _resourceList;
+            if (!World.TryGet(_worldIndex, out var world)) return _resourceList;
+            var (len, resArray) = world.UnsafeWorldRef._resStorage.GetAll(_resources);
+            _resources = resArray;
+            for (int i = 0; i < len; i++)
+            {
+                var res = _resources[i];
+                var info = new ResourceInfo
+                {
+                    Name = res.GetType().Name,
+                    Type = res.GetType().Name
+                };
+                var fields = new List<(string Key, FieldValue Value)>();
+                ComponentFieldReader.ReadFields(res, fields);
+                if (fields.Count == 1)
+                {
+                    info.IsScalar = true;
+                    info.ScalarValue = fields[0].Value;
+                }
+                else if (fields.Count == 0)
+                {
+                    info.IsScalar = true;
+                    info.ScalarValue = FieldValue.FromBool(true);
+                }
+                else
+                {
+                    info.IsScalar = false;
+                    foreach (var (key, val) in fields)
+                        info.Value[key] = val;
+                }
+                _resourceList.Add(info);
+            }
+
             return _resourceList;
         }
 

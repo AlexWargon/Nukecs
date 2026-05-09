@@ -46,17 +46,6 @@ namespace Wargon.Nukecs
         {
             return ptr.Ref.GetObject(entity.id, ComponentTypeMap.GetComponentType(type).index);
         }
-        public struct Chunk
-        {
-            public MemoryArray<int> entities;
-            public NativeArray<ptr<byte>> components;
-            internal MemoryArray<int> componentOffsets;
-            //
-            // public ref T* GetComponent<T>(int entity, int size) where T : unmanaged, IComponent
-            // {
-            //     return components[componentOffsets.]
-            // }
-        }
     }
     [StructLayout(LayoutKind.Sequential)]
     public struct EntityLocation {
@@ -151,6 +140,7 @@ namespace Wargon.Nukecs
             var ptr = data.Ptr + off + loc.row * d.size;
             ComponentHelpers.Write(ptr, 0, d.size, typeIndex, component);
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte* GetComponentDataPtr(int componentTypeIndex, int row)
         {

@@ -29,7 +29,7 @@ namespace Wargon.Nukecs
         private int _cachedWorldVersion;
         private byte _isInitialized;
         static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-
+        
         public readonly void Deconstruct(out ArchetypeRef<T1> c)
         {
             c = _t1;
@@ -170,10 +170,30 @@ namespace Wargon.Nukecs
         }
         public struct WithEntity : IQuery, ISystemParam
         {
-            public QueryIterWithEntity<EntityPtrTuple<T1>> iter()
+            public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityPtrTuple<T1>> iter_unsafe()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityPtrTuple<T1>> par_iter_unsafe()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityRefTuple<T1>> par_iter()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            public QueryIterWithEntity<EntityRefTuple<T1>> iter()
             {
                 return new(in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
+            
             private ArchetypeRef<T1> _t1;
             private ptr<QueryUnsafe> _query;
             private Range _range;
@@ -313,8 +333,31 @@ namespace Wargon.Nukecs
     public unsafe struct Query<T1, TOption> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
         where TOption : unmanaged
-
     {
+        public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1,TOption>> iter_unsafe()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1,TOption>> par_iter_unsafe()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1,TOption>> par_iter()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1,TOption>> iter()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
         private ArchetypeRef<T1> _t1;
 
         private ArchetypeRef<TOption> _tOption;
@@ -498,6 +541,31 @@ namespace Wargon.Nukecs
 
         public struct WithEntity : IQuery, ISystemParam
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityPtrTuple<T1,TOption>> iter_unsafe()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityPtrTuple<T1,TOption>> par_iter_unsafe()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityRefTuple<T1,TOption>> par_iter()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityRefTuple<T1,TOption>> iter()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<TOption> _tOption;
             private ptr<QueryUnsafe> _query;
@@ -689,6 +757,27 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<Chunk<T1,T2>> iter_chunk()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1,T2,TOption>> iter_unsafe()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1,T2,TOption>> par_iter_unsafe()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1,T2,TOption>> iter()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
 
@@ -1180,6 +1269,11 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<Chunk<T1,T2,T3>> iter_chunk()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryIter<PtrTuple<T1,T2,T3,TOption>> iter_unsafe()
         {
             return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
@@ -1187,6 +1281,11 @@ namespace Wargon.Nukecs
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryParIter<PtrTuple<T1,T2,T3,TOption>> par_iter_unsafe()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1,T2,T3,TOption>> par_iter()
         {
             return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
@@ -1421,6 +1520,27 @@ namespace Wargon.Nukecs
                 return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
             
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryChunkIter<Chunk<T1,T2,T3>> iter_chunk()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityPtrTuple<T1,T2,T3,TOption>> par_iter_unsafe()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityRefTuple<T1,T2,T3,TOption>> par_iter()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityRefTuple<T1,T2,T3,TOption>> iter()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<T2> _t2;
             private ArchetypeRef<T3> _t3;
@@ -1664,6 +1784,31 @@ namespace Wargon.Nukecs
         where T4 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<Chunk<T1,T2,T3,T4>> iter_chunk()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1,T2,T3,T4,TOption>> iter_unsafe()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1,T2,T3,T4,TOption>> par_iter_unsafe()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1,T2,T3,T4,TOption>> par_iter()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1,T2,T3,T4,TOption>> iter()
+        {
+            return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
         private ArchetypeRef<T3> _t3;
@@ -1931,8 +2076,33 @@ namespace Wargon.Nukecs
         }
 
         public struct WithEntity : IQuery, ISystemParam
-
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryChunkIter<Chunk<T1,T2,T3,T4>> iter_chunk()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityPtrTuple<T1,T2,T3,T4,TOption>> iter_unsafe()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityPtrTuple<T1,T2,T3,T4,TOption>> par_iter_unsafe()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityRefTuple<T1,T2,T3,T4,TOption>> par_iter()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityRefTuple<T1,T2,T3,T4,TOption>> iter()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<T2> _t2;
             private ArchetypeRef<T3> _t3;
