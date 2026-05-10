@@ -11,20 +11,20 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     [Serializable]
     public class EcsDebugV2ThemeData
     {
-        public Color Background = new Color(0x1A / 255f, 0x1C / 255f, 0x24 / 255f);
-        public Color Panel = new Color(0x1F / 255f, 0x21 / 255f, 0x29 / 255f);
-        public Color PanelElevated = new Color(0x26 / 255f, 0x27 / 255f, 0x2E / 255f);
-        public Color PanelBorder = new Color(0x32 / 255f, 0x34 / 255f, 0x3D / 255f);
-        public Color Lime = new Color(0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
-        public Color Orange = new Color(0xF5 / 255f, 0x80 / 255f, 0x0A / 255f);
-        public Color Red = new Color(0xD9 / 255f, 0x26 / 255f, 0x26 / 255f);
-        public Color Yellow = new Color(0xF5 / 255f, 0xD8 / 255f, 0x04 / 255f);
-        public Color TypeNumber = new Color(0x5C / 255f, 0xC8 / 255f, 0xE6 / 255f);
-        public Color TypeString = new Color(0xF5 / 255f, 0x9E / 255f, 0x38 / 255f);
-        public Color TypeBool = new Color(0xC0 / 255f, 0x5E / 255f, 0xDB / 255f);
-        public Color TypeEntity = new Color(0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
-        public Color MutedText = new Color(0x8A / 255f, 0x8D / 255f, 0x9A / 255f);
-        public Color Foreground = new Color(0xDD / 255f, 0xDE / 255f, 0xE3 / 255f);
+        public Color Background = new (0x1A / 255f, 0x1C / 255f, 0x24 / 255f);
+        public Color Panel = new (0x1F / 255f, 0x21 / 255f, 0x29 / 255f);
+        public Color PanelElevated = new (0x26 / 255f, 0x27 / 255f, 0x2E / 255f);
+        public Color PanelBorder = new (0x32 / 255f, 0x34 / 255f, 0x3D / 255f);
+        public Color Lime = new (0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
+        public Color Orange = new (0xF5 / 255f, 0x80 / 255f, 0x0A / 255f);
+        public Color Red = new (0xD9 / 255f, 0x26 / 255f, 0x26 / 255f);
+        public Color Yellow = new (0xF5 / 255f, 0xD8 / 255f, 0x04 / 255f);
+        public Color TypeNumber = new (0x5C / 255f, 0xC8 / 255f, 0xE6 / 255f);
+        public Color TypeString = new (0xF5 / 255f, 0x9E / 255f, 0x38 / 255f);
+        public Color TypeBool = new (0xC0 / 255f, 0x5E / 255f, 0xDB / 255f);
+        public Color TypeEntity = new (0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
+        public Color MutedText = new (0x8A / 255f, 0x8D / 255f, 0x9A / 255f);
+        public Color Foreground = new (0xDD / 255f, 0xDE / 255f, 0xE3 / 255f);
 
         public int BorderRadius = 4;
         public int CardRadius = 6;
@@ -39,10 +39,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int FontMini = 9;
         public int ComponentHeaderHeight = 22;
         public bool AdaptiveSkin;
-        public Color ForegroundDark = new Color(0.88f, 0.88f, 0.88f, 1f);
-        public Color ForegroundLight = new Color(0f, 0f, 0f, 0.85f);
-        public Color MutedTextDark = new Color(0.55f, 0.55f, 0.6f, 1f);
-        public Color MutedTextLight = new Color(0.4f, 0.4f, 0.4f, 0.7f);
+        public Color ForegroundDark = new (0.88f, 0.88f, 0.88f, 1f);
+        public Color ForegroundLight = new (0f, 0f, 0f, 0.85f);
+        public Color MutedTextDark = new (0.55f, 0.55f, 0.6f, 1f);
+        public Color MutedTextLight = new (0.4f, 0.4f, 0.4f, 0.7f);
 
         private static string ThemesDir => Path.Combine(Application.dataPath, "Nukecs", "EcsDebugV2Themes");
 

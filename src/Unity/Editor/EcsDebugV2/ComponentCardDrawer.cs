@@ -2,6 +2,7 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
@@ -18,8 +19,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static Texture2D _resizeCursorTex;
         private static readonly Dictionary<int, ComponentCardDrawer> Cache = new();
         private static readonly List<ComponentCardDrawer> Active = new();
+        private static readonly Texture2D CursorResizeTexture = GetResizeCursorTexture();
+        private static readonly Vector2 CursorHotspot = new(12, 12);
 
-        public readonly VisualElement Card;
+        private static readonly StyleCursor ResizeCursor = new(new UnityEngine.UIElements.Cursor
+        {
+            hotspot = CursorHotspot,
+            texture = CursorResizeTexture,
+        });
+
+        public readonly VisualElement card;
         private string _compName;
         private readonly DragState[] _dragStates;
 
@@ -37,8 +46,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _compName = template.Name;
             var byteSize = template.ByteSize;
 
-            Card = EcsDebugV2Theme.CreateCard();
-            Card.style.marginBottom = 6;
+            card = EcsDebugV2Theme.CreateCard();
+            card.style.marginBottom = 6;
 
             var compHeader = new VisualElement
             {
@@ -101,7 +110,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             removeBtn.RegisterCallback<MouseLeaveEvent, Color>((_, color) => removeBtn.style.color = color,
                 EcsDebugV2Theme.MutedText);
             compHeader.Add(removeBtn);
-            Card.Add(compHeader);
+            card.Add(compHeader);
 
             var isTag = template.Fields.Count == 1 && template.Fields[0].Key == TAG_LABEL;
             if (isTag)
@@ -130,7 +139,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     BuildScalarRow(template.Fields[fi].Key, template.Fields[fi].Value, fi, gi);
                 }
 
-                Card.Add(_rows[gi].row);
+                card.Add(_rows[gi].row);
             }
         }
 
@@ -171,27 +180,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return _resizeCursorTex;
         }
 
-        private static void ApplyEwCursor(VisualElement el)
+        private static void ApplyEwCursor(VisualElement element)
         {
-            var tex = GetResizeCursorTexture();
-            var hotspot = new Vector2(16, 16);
-            el.pickingMode = PickingMode.Position;
-            var hovering = false;
-            el.RegisterCallback<MouseEnterEvent>(_ =>
+            element.pickingMode = PickingMode.Position;
+            element.RegisterCallback<MouseEnterEvent>(_ =>
             {
-                hovering = true;
-                Cursor.SetCursor(tex, hotspot, CursorMode.Auto);
+                element.style.cursor = ResizeCursor;
             });
-            el.RegisterCallback<MouseLeaveEvent>(_ =>
+            element.RegisterCallback<MouseLeaveEvent>(_ =>
             {
-                hovering = false;
+                element.style.cursor = StyleKeyword.Null;
                 Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
             });
-            el.schedule.Execute(() =>
-            {
-                if (hovering && el.panel != null)
-                    Cursor.SetCursor(tex, hotspot, CursorMode.Auto);
-            }).Every(1);
+            
         }
 
         public static ComponentCardDrawer GetOrCreate(ComponentInfo comp)
@@ -359,23 +360,26 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
 
                 Highlight:
+                Color bg;
                 if (r.isHovered)
                 {
-                    r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                    bg = EcsDebugV2Theme.PanelElevatedA04;
+                }
+                else if (_window != null && _window.changes.TryGetValue(r.changeKey, out var ts))
+                {
+                    var age = now - ts;
+                    bg = age < 1200 ? EcsDebugV2Theme.YellowA015 : EcsDebugV2Theme.PanelElevated;
                 }
                 else
                 {
-                    if (_window != null && _window.changes.TryGetValue(r.changeKey, out var ts))
-                    {
-                        var age = now - ts;
-                        r.row.style.backgroundColor = age < 1200
-                            ? EcsDebugV2Theme.YellowA015
-                            : EcsDebugV2Theme.PanelElevated;
-                    }
-                    else
-                    {
-                        r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
-                    }
+                    bg = EcsDebugV2Theme.PanelElevated;
+                }
+
+                if (r.lastBgColor != bg)
+                {
+                    r.lastBgColor = bg;
+                    _rows[i] = r;
+                    r.row.style.backgroundColor = bg;
                 }
             }
         }
@@ -418,7 +422,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (r.isHovered)
             {
-                r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                if (r.lastBgColor != EcsDebugV2Theme.PanelElevatedA04)
+                {
+                    r.lastBgColor = EcsDebugV2Theme.PanelElevatedA04;
+                    _rows[idx] = r;
+                    r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                }
                 return;
             }
 
@@ -438,9 +447,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             }
 
-            r.row.style.backgroundColor = anyHighlighted
+            var vecBg = anyHighlighted
                 ? EcsDebugV2Theme.YellowA015
                 : EcsDebugV2Theme.PanelElevated;
+            if (r.lastBgColor != vecBg)
+            {
+                r.lastBgColor = vecBg;
+                _rows[idx] = r;
+                r.row.style.backgroundColor = vecBg;
+            }
         }
 
         private void SetBoolVisuals(FieldRow r, bool isOn)
@@ -537,6 +552,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             unityTextAlign = TextAnchor.MiddleRight
                         }
                     };
+                    
                     tf.SetupBorder(Color.clear, 0);
                     tf.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
                     tf.Q(TEXT_INPUT).SetupBorder(Color.clear, 0);
@@ -770,7 +786,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         }
                     });
 
-                    var link = new Label($"#{value.EntityRefVal}")
+                    var link = new Label($"#{value.EntityRefVal}    ")
                     {
                         style =
                         {
@@ -815,7 +831,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             {
                                 _window.SetFieldValue(_entityId, _compName, capturedFieldKey,
                                     FieldValue.FromEntityRef(n));
-                                link.text = $"#{n}";
+                                link.text = $"#{n}  ";
                             }
                         });
                         popup.RegisterCallback<FocusOutEvent>(_ =>
@@ -909,6 +925,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var r = _rows[ri];
                 r.isHovered = true;
+                r.lastBgColor = EcsDebugV2Theme.PanelElevatedA04;
                 _rows[ri] = r;
                 r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
@@ -1022,7 +1039,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         marginRight = isLast ? 0 : 4
                     }
                 };
-
+                
                 var subLabel = new Label(subFieldNames[i])
                 {
                     style =
@@ -1037,26 +1054,28 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 ApplyEwCursor(subLabel);
                 subGroup.Add(subLabel);
 
-                var subTf = new TextField
+                var subTextField = new TextField
                 {
-                    value = (i < subValues.Length ? subValues[i].NumberVal : 0).ToString("G"),
+                    value = (i < subValues.Length ? subValues[i].NumberVal : 0).ToString(GENERAL_NUMBER_FORMAT),
                     style =
                     {
                         unityFontStyleAndWeight = FontStyle.Bold,
                         fontSize = EcsDebugV2Theme.Font.FieldName,
                         color = color,
                         backgroundColor = EcsDebugV2Theme.Background,
-                        flexGrow = 1
+                        flexGrow = 1,
+                        flexShrink = 1,
+                        minWidth = 0
                     }
                 };
-                subTf.SetupBorder(Color.clear, 0);
-                subTf.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
-                subTf.Q(TEXT_INPUT).SetupBorder(Color.clear, 0);
-                subTf.Q(TEXT_INPUT).style.paddingLeft = 2;
-                subTf.Q(TEXT_INPUT).style.paddingRight = 2;
+                subTextField.SetupBorder(Color.clear, 0);
+                subTextField.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
+                subTextField.Q(TEXT_INPUT).SetupBorder(Color.clear, 0);
+                subTextField.Q(TEXT_INPUT).style.paddingLeft = 2;
+                subTextField.Q(TEXT_INPUT).style.paddingRight = 2;
 
                 var capturedSubKey = subFieldKeys[i];
-                subTf.RegisterValueChangedCallback(evt =>
+                subTextField.RegisterValueChangedCallback(evt =>
                 {
                     if (double.TryParse(evt.newValue, out var n))
                         _window.SetFieldValue(_entityId, _compName, capturedSubKey,
@@ -1071,7 +1090,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     if (evt.button == 0)
                     {
                         _labelDragStartX = evt.position.x;
-                        _labelDragBaseVal = double.TryParse(subTf.value, out var v) ? v : 0;
+                        _labelDragBaseVal = double.TryParse(subTextField.value, out var v) ? v : 0;
                         _labelDragRow = capturedRowIdx;
                         _labelDragSubIdx = capturedSubIdx;
                         subLabel.CapturePointer(evt.pointerId);
@@ -1086,7 +1105,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         var delta = evt.position.x - _labelDragStartX;
                         var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
                         var newVal = _labelDragBaseVal + delta * speed;
-                        subTf.SetValueWithoutNotify(newVal.ToString("G"));
+                        subTextField.SetValueWithoutNotify(newVal.ToString("G"));
                         _window.SetFieldValue(_entityId, _compName, capturedSubKey,
                             FieldValue.FromNumber(newVal));
                     }
@@ -1103,9 +1122,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     }
                 });
 
-                subGroup.Add(subTf);
+                subGroup.Add(subTextField);
                 editor.Add(subGroup);
-                subTfs[i] = subTf;
+                subTfs[i] = subTextField;
             }
 
             editor.name = $"editor-{_compName}-{prefix}";
@@ -1119,6 +1138,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var r = _rows[ri];
                 r.isHovered = true;
+                r.lastBgColor = EcsDebugV2Theme.PanelElevatedA04;
                 _rows[ri] = r;
                 r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
@@ -1215,6 +1235,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             public string lastStringVal;
             public bool lastBoolVal;
             public int lastEntityRefVal;
+            public Color lastBgColor;
             public bool isHovered;
             public FieldValueType valueType;
             public bool isVector;

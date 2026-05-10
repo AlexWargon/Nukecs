@@ -187,7 +187,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var comp = entity.components[ci];
                 var drawer = ComponentCardDrawer.GetOrCreate(comp);
                 drawer.Bind(entity.id, comp.Name, window, ci, comp);
-                scroll.Add(drawer.Card);
+                scroll.Add(drawer.card);
                 ComponentCardDrawer.AddActive(drawer);
             }
 

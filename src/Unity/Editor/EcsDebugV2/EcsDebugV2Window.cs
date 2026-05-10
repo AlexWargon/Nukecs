@@ -37,7 +37,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public string searchQuery;
         public string archetypeFilter;
         public List<int> filteredEntityIds = new ();
-
+        public static VisualElement Root;
         private VisualElement _topPanel;
         private VisualElement _tabBar;
         private VisualElement _leftPanel;
@@ -305,6 +305,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         try { ResourcesList.UpdateValues(_leftPanel, this); } catch { }
                 }
             }).Every(INSPECTOR_FIELD_REFRESH_MS);
+            Root = root;
         }
 
         public void SwitchToWorld(int worldIndex)
