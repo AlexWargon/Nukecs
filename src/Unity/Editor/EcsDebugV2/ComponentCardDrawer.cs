@@ -1037,6 +1037,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         flexDirection = FlexDirection.Row,
                         alignItems = Align.Center,
                         flexGrow = 1,
+                        flexBasis = 0,
                         marginRight = isLast ? 0 : 4
                     }
                 };
@@ -1048,6 +1049,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         fontSize = EcsDebugV2Theme.Font.FieldName,
                         color = color,
                         marginRight = 2,
+                        width = 14,
                         flexShrink = 0
                     }
                 };
@@ -1063,8 +1065,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         fontSize = EcsDebugV2Theme.Font.FieldName,
                         color = color,
                         backgroundColor = EcsDebugV2Theme.Background,
-                        width = 40,
-                        flexShrink = 0
+                        flexGrow = 1,
                     }
                 };
                 subTf.SetupBorder(Color.clear, 0);

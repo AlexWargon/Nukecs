@@ -276,12 +276,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             }
                             else
                             {
-                                try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                                try { InspectorPanel.UpdateValues(_inspectorPanel, this, now); } catch { }
                             }
                         }
                         else
                         {
-                            try { InspectorPanel.UpdateValues(_inspectorPanel, this); } catch { }
+                            try { InspectorPanel.UpdateValues(_inspectorPanel, this, now); } catch { }
                         }
                     }
                 }
@@ -313,9 +313,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             queries = provider.GetQueries();
             resources = provider.GetResources();
             RebuildMaps();
+            _lastEntityCount = entities.Count;
+            _lastArchetypeCount = archetypes.Count;
             systemCount = provider.SystemCount;
             selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
             selectedEntityDetails = selectedEntityId.HasValue ? provider.GetEntityDetails(selectedEntityId.Value) : null;
+            _lastArchetypeIndex = -1;
             if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].Id;
             if (queries.Count > 0) selectedQueryId = queries[0].Id;
             if (resources.Count > 0) selectedResourceName = resources[0].Name;
@@ -401,8 +404,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             archetypes = provider.GetArchetypes();
             queries = provider.GetQueries();
             RebuildMaps();
+            _lastEntityCount = entities.Count;
+            _lastArchetypeCount = archetypes.Count;
             selectedEntityId = newEnt.Id;
             selectedEntityDetails = provider.GetEntityDetails(newEnt.Id);
+            _lastArchetypeIndex = -1;
             currentTab = TabKey.Entities;
             TabBar.Refresh(_tabBar, this);
             RefreshLeftPanel();
@@ -417,6 +423,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             archetypes = provider.GetArchetypes();
             queries = provider.GetQueries();
             RebuildMaps();
+            _lastEntityCount = entities.Count;
+            _lastArchetypeCount = archetypes.Count;
             if (selectedEntityId == id)
             {
                 selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
@@ -424,6 +432,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     ? provider.GetEntityDetails(selectedEntityId.Value)
                     : null;
             }
+            _lastArchetypeIndex = -1;
             RefreshLeftPanel();
             RefreshInspector();
             TopPanel.Update(_topPanel, this);
@@ -436,6 +445,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             archetypes = provider.GetArchetypes();
             queries = provider.GetQueries();
             RebuildMaps();
+            _lastEntityCount = entities.Count;
+            _lastArchetypeCount = archetypes.Count;
+            _lastArchetypeIndex = -1;
             selectedEntityDetails = provider.GetEntityDetails(entityId);
             RefreshInspector();
         }
@@ -447,6 +459,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             archetypes = provider.GetArchetypes();
             queries = provider.GetQueries();
             RebuildMaps();
+            _lastEntityCount = entities.Count;
+            _lastArchetypeCount = archetypes.Count;
+            _lastArchetypeIndex = -1;
             selectedEntityDetails = provider.GetEntityDetails(entityId);
             RefreshInspector();
         }
@@ -456,7 +471,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             provider.SetFieldValue(entityId, compName, fieldKey, value);
             changes[$"{entityId}:{compName}:{fieldKey}"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             selectedEntityDetails = provider.GetEntityDetails(entityId);
-            RefreshInspector();
         }
 
         public void RebuildMaps()

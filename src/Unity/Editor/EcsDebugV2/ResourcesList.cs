@@ -95,7 +95,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.MutedText,
-                    marginLeft = UnityEngine.UIElements.Length.Auto()
+                    marginLeft = Length.Auto()
                 }
             };
             card.Add(typeLabel);

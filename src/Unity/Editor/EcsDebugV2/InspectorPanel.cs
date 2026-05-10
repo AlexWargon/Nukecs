@@ -72,13 +72,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (newScroll != null) newScroll.scrollOffset = savedOffset;
         }
 
-        public static void UpdateValues(VisualElement panel, EcsDebugV2Window window)
+        public static void UpdateValues(VisualElement panel, EcsDebugV2Window window, long now)
         {
             switch (window.currentTab)
             {
                 case TabKey.Entities:
                     if (window.selectedEntityId.HasValue && window.selectedEntityDetails != null)
-                        UpdateEntityFieldValues(window.selectedEntityDetails, window);
+                        UpdateEntityFieldValues(window.selectedEntityDetails, window, now);
                     break;
             }
         }
@@ -88,11 +88,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             ComponentCardDrawer.ClearCache();
         }
 
-        private static void UpdateEntityFieldValues(EntityInfo entity, EcsDebugV2Window window)
+        private static void UpdateEntityFieldValues(EntityInfo entity, EcsDebugV2Window window, long now)
         {
             if (entity.Components == null) return;
 
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             var count = ComponentCardDrawer.ActiveCount;
             for (int i = 0; i < count; i++)
             {
@@ -142,7 +141,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Small,
+                    fontSize = EcsDebugV2Theme.Font.Body,
                     color = EcsDebugV2Theme.Foreground,
                     marginRight = 6
                 }
@@ -162,7 +161,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             header.Add(meta);
 
-            var destroyBtn = EcsDebugV2Theme.CreateActionBtn("Destroy", EcsDebugV2Theme.Red, () => window.DestroyEntity(entity.Id));
+            var destroyBtn = EcsDebugV2Theme.CreateActionBtn("destroy", EcsDebugV2Theme.Red, () => window.DestroyEntity(entity.Id));
             destroyBtn.style.marginLeft = 8;
             destroyBtn.tooltip = "Destroy entity";
             header.Add(destroyBtn);

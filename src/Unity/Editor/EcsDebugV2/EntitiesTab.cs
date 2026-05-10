@@ -9,15 +9,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class EntitiesTab
     {
-        private static HashSet<string> _lastArchetypeSet = new HashSet<string>();
-        private static HashSet<string> _currentArchetypeSet = new HashSet<string>();
-        private static List<string> _archetypeSortBuffer = new List<string>();
         private static List<EntityInfo> _filteredBuffer = new List<EntityInfo>();
         private static bool _suppressSelection;
 
         public static VisualElement Create(EcsDebugV2Window window)
         {
-            _lastArchetypeSet.Clear();
             _suppressSelection = false;
 
             var container = new VisualElement
@@ -79,19 +75,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             searchContainer.Add(placeholder);
             toolbar.Add(searchContainer);
 
-            var filterRow = new VisualElement
-            {
-                name = "arch-filter-row",
-                style =
-                {
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    marginLeft = 8,
-                    overflow = Overflow.Hidden,
-                    flexShrink = 1
-                }
-            };
-            toolbar.Add(filterRow);
+
 
             var countLabel = new Label("0/0")
             {
@@ -101,10 +85,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.MutedText,
                     marginLeft = 8,
-                    flexShrink = 0
+                    flexShrink = 0,
+                    alignSelf = Align.FlexEnd
                 }
             };
             toolbar.Add(countLabel);
+            var newEntityBtn = EcsDebugV2Theme.CreateActionBtn("+ new entity", EcsDebugV2Theme.Lime, window.CreateEntity);
+            toolbar.Add(newEntityBtn);
             container.Add(toolbar);
 
             var tableHeader = new VisualElement
@@ -224,8 +211,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             container.Add(listView);
 
-            BuildArchetypeFilters(container, window);
-
             if (container.Q("entity-count") is Label cl)
                 cl.text = $"{filtered.Count}/{window.entities.Count}";
 
@@ -254,8 +239,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
-            BuildArchetypeFilters(container, window);
-
             var listView = container.Q<ListView>("entity-list");
             if (listView == null) return;
 
@@ -292,55 +275,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 countLabel.text = $"{window.filteredEntityIds.Count}/{window.entities.Count}";
         }
 
-        private static void BuildArchetypeFilters(VisualElement container, EcsDebugV2Window window)
-        {
-            var filterRow = container.Q("arch-filter-row");
-            if (filterRow == null) return;
-
-            _currentArchetypeSet.Clear();
-            foreach (var e in window.entities) _currentArchetypeSet.Add(e.Archetype);
-
-            bool archetypesChanged = _currentArchetypeSet.Count != _lastArchetypeSet.Count;
-            if (!archetypesChanged)
-            {
-                foreach (var a in _currentArchetypeSet)
-                {
-                    if (!_lastArchetypeSet.Contains(a))
-                    {
-                        archetypesChanged = true;
-                        break;
-                    }
-                }
-            }
-
-            if (archetypesChanged)
-            {
-                _lastArchetypeSet.Clear();
-                foreach (var a in _currentArchetypeSet) _lastArchetypeSet.Add(a);
-
-                filterRow.Clear();
-                var allBtn = CreateFilterButton("ALL", window.archetypeFilter == null, () =>
-                {
-                    window.archetypeFilter = null;
-                    Refresh(container, window);
-                });
-                filterRow.Add(allBtn);
-                _archetypeSortBuffer.Clear();
-                foreach (var a in _currentArchetypeSet) _archetypeSortBuffer.Add(a);
-                _archetypeSortBuffer.Sort();
-                foreach (var a in _archetypeSortBuffer)
-                {
-                    var name = a;
-                    var btn = CreateFilterButton(name.ToUpper(), window.archetypeFilter == name, () =>
-                    {
-                        window.archetypeFilter = window.archetypeFilter == name ? null : name;
-                        Refresh(container, window);
-                    });
-                    filterRow.Add(btn);
-                }
-            }
-        }
-
         private static void UpdatePlaceholder(VisualElement container)
         {
             var searchField = container.Q("entity-search") as TextField;
@@ -368,8 +302,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 q = window.searchQuery.ToLower();
             foreach (var e in window.entities)
             {
-                if (window.archetypeFilter != null && e.Archetype != window.archetypeFilter)
-                    continue;
                 if (q != null)
                 {
                     if (!e.Name.ToLower().Contains(q) && !e.Id.ToString().Contains(q))
@@ -421,37 +353,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return label;
         }
 
-        private static Button CreateFilterButton(string text, bool active, Action onClick)
-        {
-            var btn = new Button(onClick)
-            {
-                text = text,
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Mini,
-                    paddingLeft = 6,
-                    paddingRight = 6,
-                    paddingTop = 2,
-                    paddingBottom = 2,
-                    marginRight = 3,
-                    letterSpacing = 1
-                }
-            };
-            btn.SetupRadius(EcsDebugV2Theme.BorderRadius);
-            if (active)
-            {
-                btn.style.color = EcsDebugV2Theme.Orange;
-                btn.style.backgroundColor = EcsDebugV2Theme.OrangeA015;
-                btn.SetupBorder(EcsDebugV2Theme.Orange);
-            }
-            else
-            {
-                btn.style.color = EcsDebugV2Theme.MutedText;
-                btn.style.backgroundColor = EcsDebugV2Theme.Panel;
-                btn.SetupBorder(EcsDebugV2Theme.PanelBorder);
-            }
-            return btn;
-        }
     }
 }
 #endif

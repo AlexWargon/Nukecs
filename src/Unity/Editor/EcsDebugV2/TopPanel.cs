@@ -116,9 +116,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             statsGroup.Add(CreateStatBadge("\u2630", "SYS", window.systemCount, EcsDebugV2Theme.TypeBool));
             header.Add(statsGroup);
 
-            var newEntityBtn = EcsDebugV2Theme.CreateActionBtn("+ New Entity", EcsDebugV2Theme.Lime, window.CreateEntity);
-            header.Add(newEntityBtn);
-
             var themeBtn = new Button()
             {
                 name = "theme-btn",
