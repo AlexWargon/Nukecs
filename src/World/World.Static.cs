@@ -40,7 +40,7 @@ namespace Wargon.Nukecs
         {
             var w = worlds.Data.ElementAt(worldID);
             world = w;
-            return w.IsAlive;
+            return w.unsafeWorldPtr.cached != null;
         }
         public static bool HasActiveWorlds()
         {

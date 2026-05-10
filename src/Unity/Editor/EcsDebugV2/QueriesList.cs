@@ -58,9 +58,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             foreach (var q in window.queries)
             {
                 var card = content[idx];
-                card.name = $"query-card-{q.Id}";
+                card.name = $"query-card-{q.id}";
 
-                bool selected = window.selectedQueryId == q.Id;
+                bool selected = window.selectedQueryId == q.id;
                 if (selected)
                 {
                     card.SetupBorder(EcsDebugV2Theme.Lime);
@@ -74,10 +74,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                 var matchedLabel = card.Q<Label>("query-matched");
                 if (matchedLabel != null)
-                    matchedLabel.text = $"{q.Matched} matched";
+                    matchedLabel.text = $"{q.matched} matched";
                 var timeLabel = card.Q<Label>("query-time");
                 if (timeLabel != null)
-                    timeLabel.text = $"last {q.LastRunMs:F2} ms";
+                    timeLabel.text = $"last {q.lastRunMs:F2} ms";
 
                 idx++;
             }
@@ -98,22 +98,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             foreach (var q in window.queries)
             {
-                var card = leftPanel.Q($"query-card-{q.Id}");
+                var card = leftPanel.Q($"query-card-{q.id}");
                 if (card == null) continue;
                 var matchedLabel = card.Q<Label>("query-matched");
                 if (matchedLabel != null)
-                    matchedLabel.text = $"{q.Matched} matched";
+                    matchedLabel.text = $"{q.matched} matched";
                 var timeLabel = card.Q<Label>("query-time");
                 if (timeLabel != null)
-                    timeLabel.text = $"last {q.LastRunMs:F2} ms";
+                    timeLabel.text = $"last {q.lastRunMs:F2} ms";
             }
         }
 
         private static VisualElement CreateQueryCard(QueryInfo query, EcsDebugV2Window window)
         {
-            bool selected = window.selectedQueryId == query.Id;
+            bool selected = window.selectedQueryId == query.id;
             var card = EcsDebugV2Theme.CreateCard();
-            card.name = $"query-card-{query.Id}";
+            card.name = $"query-card-{query.id}";
             card.style.paddingLeft = 8;
             card.style.paddingRight = 8;
             card.style.paddingTop = 6;
@@ -136,7 +136,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     marginBottom = 4
                 }
             };
-            var nameLabel = new Label(query.Name)
+            var nameLabel = new Label(query.name)
             {
                 style =
                 {
@@ -146,14 +146,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             topRow.Add(nameLabel);
-            var matchedLabel = new Label($"{query.Matched} matched")
+            var matchedLabel = new Label($"{query.matched} matched")
             {
                 name = "query-matched",
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.Orange,
-                    marginLeft = UnityEngine.UIElements.Length.Auto()
+                    marginLeft = Length.Auto()
                 }
             };
             topRow.Add(matchedLabel);
@@ -168,13 +168,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     marginBottom = 4
                 }
             };
-            foreach (var w in query.With)
+            foreach (var w in query.with)
                 tagRow.Add(EcsDebugV2Theme.CreateFilterTag("+" + w, true));
-            foreach (var w in query.Without)
+            foreach (var w in query.without)
                 tagRow.Add(EcsDebugV2Theme.CreateFilterTag("\u2212" + w, false));
             card.Add(tagRow);
 
-            var timeLabel = new Label($"last {query.LastRunMs:F2} ms")
+            var timeLabel = new Label($"last {query.lastRunMs:F2} ms")
             {
                 name = "query-time",
                 style =
@@ -185,15 +185,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             card.Add(timeLabel);
 
-            card.RegisterCallback<ClickEvent>(_ => window.SelectQuery(query.Id));
+            card.RegisterCallback<ClickEvent>(_ => window.SelectQuery(query.id));
             card.RegisterCallback<MouseEnterEvent>(_ =>
             {
-                if (window.selectedQueryId != query.Id)
+                if (window.selectedQueryId != query.id)
                     card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             card.RegisterCallback<MouseLeaveEvent>(_ =>
             {
-                if (window.selectedQueryId != query.Id)
+                if (window.selectedQueryId != query.id)
                     card.style.backgroundColor = EcsDebugV2Theme.Panel;
                 else
                     card.style.backgroundColor = EcsDebugV2Theme.LimeA01;

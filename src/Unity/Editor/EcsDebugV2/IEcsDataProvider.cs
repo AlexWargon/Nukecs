@@ -6,9 +6,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public struct WorldInfo
     {
-        public string Name;
-        public string[] WorldNames;
-        public int[] WorldSlots;
+        public string name;
+        public string[] worldNames;
+        public int[] worldSlots;
     }
 
     public interface IEcsDataProvider

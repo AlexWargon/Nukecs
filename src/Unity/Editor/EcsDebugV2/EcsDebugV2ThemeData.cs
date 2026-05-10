@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
@@ -36,6 +37,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int FieldName = 12;
         public int FontMicro = 10;
         public int FontMini = 9;
+        public int ComponentHeaderHeight = 22;
         public bool AdaptiveSkin;
         public Color ForegroundDark = new Color(0.88f, 0.88f, 0.88f, 1f);
         public Color ForegroundLight = new Color(0f, 0f, 0f, 0.85f);

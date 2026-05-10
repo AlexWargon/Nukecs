@@ -55,7 +55,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int TypeIndex = -1;
         public string Name;
         public int ByteSize;
-        public List<(string Key, FieldValue Value)> Fields = new List<(string, FieldValue)>();
+        public List<(string Key, FieldValue Value)> Fields = new ();
 
         public FieldValue GetField(string key)
         {
@@ -66,7 +66,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void SetField(string key, FieldValue val)
         {
-            for (int i = 0; i < Fields.Count; i++)
+            for (var i = 0; i < Fields.Count; i++)
             {
                 if (Fields[i].Key == key)
                 {
@@ -86,44 +86,44 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
     public class EntityInfo
     {
-        public int Id;
-        public string Name;
-        public string Archetype;
-        public bool Alive = true;
-        public List<ComponentInfo> Components = new List<ComponentInfo>();
+        public int id;
+        public string name;
+        public string archetype;
+        public bool alive = true;
+        public List<ComponentInfo> components = new ();
     }
 
     public class ArchetypeInfo
     {
-        public int Id;
-        public List<string> Components = new List<string>();
-        public int EntityCount;
-        public int ChunkCount;
-        public List<int> EntityIds = new List<int>();
+        public int id;
+        public List<string> components = new ();
+        public int entityCount;
+        public int chunkCount;
+        public List<int> entityIds = new ();
     }
 
     public class QueryInfo
     {
-        public int Id;
-        public string Name;
-        public List<string> With = new List<string>();
-        public List<string> Without = new List<string>();
-        public int Matched;
-        public double LastRunMs;
+        public int id;
+        public string name;
+        public List<string> with = new ();
+        public List<string> without = new ();
+        public int matched;
+        public double lastRunMs;
     }
 
     public class ResourceInfo
     {
-        public string Name;
-        public string Type;
-        public Dictionary<string, FieldValue> Value = new Dictionary<string, FieldValue>();
-        public bool IsScalar;
-        public FieldValue ScalarValue;
+        public string name;
+        public string type;
+        public Dictionary<string, FieldValue> value = new ();
+        public bool isScalar;
+        public FieldValue scalarValue;
     }
 
     public static class MockData
     {
-        public static readonly string[] ALL_COMPONENT_TYPES =
+        public static readonly string[] AllComponentTypes =
         {
             "Transform", "Velocity", "Health", "Sprite", "PlayerController",
             "AIBrain", "Damage", "Lifetime", "Pickup", "Collider", "Camera"
@@ -158,13 +158,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var a = ArchetypeDefs[Mathf.FloorToInt(Rand(ref seed) * ArchetypeDefs.Length)];
                 var e = new EntityInfo
                 {
-                    Id = 1000 + i,
-                    Name = $"{a.name}_{i:D3}",
-                    Archetype = a.name,
-                    Alive = Rand(ref seed) > 0.05f
+                    id = 1000 + i,
+                    name = $"{a.name}_{i:D3}",
+                    archetype = a.name,
+                    alive = Rand(ref seed) > 0.05f
                 };
                 foreach (var compName in a.comps)
-                    e.Components.Add(MakeComponent(compName, ref seed));
+                    e.components.Add(MakeComponent(compName, ref seed));
                 entities.Add(e);
             }
             return entities;
@@ -265,21 +265,21 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             int id = 0;
             foreach (var e in entities)
             {
-                var keys = e.Components.Select(c => c.Name).ToList();
+                var keys = e.components.Select(c => c.Name).ToList();
                 keys.Sort();
                 var key = string.Join("|", keys);
                 if (!map.TryGetValue(key, out var arch))
                 {
                     arch = new ArchetypeInfo
                     {
-                        Id = id++,
-                        Components = new List<string>(key.Split('|'))
+                        id = id++,
+                        components = new List<string>(key.Split('|'))
                     };
                     map[key] = arch;
                 }
-                arch.EntityCount++;
-                arch.EntityIds.Add(e.Id);
-                arch.ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.EntityCount / 16f));
+                arch.entityCount++;
+                arch.entityIds.Add(e.id);
+                arch.chunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.entityCount / 16f));
             }
             return map.Values.ToList();
         }
@@ -288,12 +288,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             return new List<QueryInfo>
             {
-                new QueryInfo { Id = 0, Name = "MovementQuery", With = { "Transform", "Velocity" }, LastRunMs = 0.42 },
-                new QueryInfo { Id = 1, Name = "RenderQuery", With = { "Transform", "Sprite" }, LastRunMs = 1.18 },
-                new QueryInfo { Id = 2, Name = "AITickQuery", With = { "AIBrain", "Transform" }, Without = { "Dead" }, LastRunMs = 0.83 },
-                new QueryInfo { Id = 3, Name = "DamageQuery", With = { "Damage", "Transform" }, LastRunMs = 0.21 },
-                new QueryInfo { Id = 4, Name = "PlayerInputQuery", With = { "PlayerController" }, LastRunMs = 0.07 },
-                new QueryInfo { Id = 5, Name = "LifetimeDecay", With = { "Lifetime" }, LastRunMs = 0.15 },
+                new QueryInfo { id = 0, name = "MovementQuery", with = { "Transform", "Velocity" }, lastRunMs = 0.42 },
+                new QueryInfo { id = 1, name = "RenderQuery", with = { "Transform", "Sprite" }, lastRunMs = 1.18 },
+                new QueryInfo { id = 2, name = "AITickQuery", with = { "AIBrain", "Transform" }, without = { "Dead" }, lastRunMs = 0.83 },
+                new QueryInfo { id = 3, name = "DamageQuery", with = { "Damage", "Transform" }, lastRunMs = 0.21 },
+                new QueryInfo { id = 4, name = "PlayerInputQuery", with = { "PlayerController" }, lastRunMs = 0.07 },
+                new QueryInfo { id = 5, name = "LifetimeDecay", with = { "Lifetime" }, lastRunMs = 0.15 },
             };
         }
 
@@ -303,8 +303,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 new ResourceInfo
                 {
-                    Name = "Time", Type = "TimeRes", IsScalar = false,
-                    Value =
+                    name = "Time", type = "TimeRes", isScalar = false,
+                    value =
                     {
                         { "delta", FieldValue.FromNumber(0.0166) },
                         { "elapsed", FieldValue.FromNumber(1284.32) },
@@ -313,8 +313,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 },
                 new ResourceInfo
                 {
-                    Name = "Input", Type = "InputRes", IsScalar = false,
-                    Value =
+                    name = "Input", type = "InputRes", isScalar = false,
+                    value =
                     {
                         { "mouseX", FieldValue.FromNumber(412) },
                         { "mouseY", FieldValue.FromNumber(233) },
@@ -323,8 +323,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 },
                 new ResourceInfo
                 {
-                    Name = "Gravity", Type = "Vec3", IsScalar = false,
-                    Value =
+                    name = "Gravity", type = "Vec3", isScalar = false,
+                    value =
                     {
                         { "x", FieldValue.FromNumber(0) },
                         { "y", FieldValue.FromNumber(-9.81) },
@@ -333,18 +333,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 },
                 new ResourceInfo
                 {
-                    Name = "Score", Type = "u32", IsScalar = true,
-                    ScalarValue = FieldValue.FromNumber(14250)
+                    name = "Score", type = "u32", isScalar = true,
+                    scalarValue = FieldValue.FromNumber(14250)
                 },
                 new ResourceInfo
                 {
-                    Name = "Paused", Type = "bool", IsScalar = true,
-                    ScalarValue = FieldValue.FromBool(false)
+                    name = "Paused", type = "bool", isScalar = true,
+                    scalarValue = FieldValue.FromBool(false)
                 },
                 new ResourceInfo
                 {
-                    Name = "LevelName", Type = "string", IsScalar = true,
-                    ScalarValue = FieldValue.FromString("arena_03")
+                    name = "LevelName", type = "string", isScalar = true,
+                    scalarValue = FieldValue.FromString("arena_03")
                 },
             };
         }
@@ -353,12 +353,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             foreach (var q in queries)
             {
-                q.Matched = 0;
+                q.matched = 0;
                 foreach (var e in entities)
                 {
-                    var names = new HashSet<string>(e.Components.Select(c => c.Name));
-                    bool match = q.With.All(w => names.Contains(w)) && q.Without.All(w => !names.Contains(w));
-                    if (match) q.Matched++;
+                    var names = new HashSet<string>(e.components.Select(c => c.Name));
+                    bool match = q.with.All(w => names.Contains(w)) && q.without.All(w => !names.Contains(w));
+                    if (match) q.matched++;
                 }
             }
         }
@@ -370,13 +370,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 if (entities.Count == 0) break;
                 var e = entities[UnityEngine.Random.Range(0, entities.Count)];
-                if (e.Components.Count == 0) continue;
-                var c = e.Components[UnityEngine.Random.Range(0, e.Components.Count)];
+                if (e.components.Count == 0) continue;
+                var c = e.components[UnityEngine.Random.Range(0, e.components.Count)];
                 if (c.Fields.Count == 0) continue;
                 var fi = UnityEngine.Random.Range(0, c.Fields.Count);
                 var k = c.Fields[fi].Key;
                 c.SetField(k, Mutate(c.GetField(k)));
-                changes[$"{e.Id}:{c.Name}:{k}"] = now;
+                changes[$"{e.id}:{c.Name}:{k}"] = now;
             }
         }
 

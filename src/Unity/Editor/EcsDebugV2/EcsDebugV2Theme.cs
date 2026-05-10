@@ -114,7 +114,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static int PaddingV => _data.PaddingV;
         public static int HeaderPaddingH => _data.HeaderPaddingH;
         public static int HeaderPaddingV => _data.HeaderPaddingV;
-
+        public static int ComponentHeaderHeight => _data.ComponentHeaderHeight;
         public static Color WithAlpha(this Color c, float a) => new Color(c.r, c.g, c.b, a);
 
         public static class Font

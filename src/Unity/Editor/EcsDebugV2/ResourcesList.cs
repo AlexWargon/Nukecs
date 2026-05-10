@@ -58,9 +58,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             foreach (var r in window.resources)
             {
                 var card = content[idx];
-                card.name = $"resource-card-{r.Name}";
+                card.name = $"resource-card-{r.name}";
 
-                bool selected = window.selectedResourceName == r.Name;
+                bool selected = window.selectedResourceName == r.name;
                 if (selected)
                 {
                     card.SetupBorder(EcsDebugV2Theme.Yellow);
@@ -91,9 +91,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private static VisualElement CreateResourceCard(ResourceInfo resource, EcsDebugV2Window window)
         {
-            bool selected = window.selectedResourceName == resource.Name;
+            bool selected = window.selectedResourceName == resource.name;
             var card = EcsDebugV2Theme.CreateCard();
-            card.name = $"resource-card-{resource.Name}";
+            card.name = $"resource-card-{resource.name}";
             card.style.flexDirection = FlexDirection.Row;
             card.style.alignItems = Align.Center;
             card.style.paddingLeft = 8;
@@ -113,7 +113,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             dot.style.marginRight = 8;
             card.Add(dot);
 
-            var nameLabel = new Label(resource.Name)
+            var nameLabel = new Label(resource.name)
             {
                 style =
                 {
@@ -124,7 +124,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             card.Add(nameLabel);
 
-            var typeLabel = new Label(resource.Type)
+            var typeLabel = new Label(resource.type)
             {
                 style =
                 {
@@ -135,15 +135,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             card.Add(typeLabel);
 
-            card.RegisterCallback<ClickEvent>(_ => window.SelectResource(resource.Name));
+            card.RegisterCallback<ClickEvent>(_ => window.SelectResource(resource.name));
             card.RegisterCallback<MouseEnterEvent>(_ =>
             {
-                if (window.selectedResourceName != resource.Name)
+                if (window.selectedResourceName != resource.name)
                     card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             card.RegisterCallback<MouseLeaveEvent>(_ =>
             {
-                if (window.selectedResourceName != resource.Name)
+                if (window.selectedResourceName != resource.name)
                     card.style.backgroundColor = EcsDebugV2Theme.Panel;
                 else
                     card.style.backgroundColor = EcsDebugV2Theme.YellowA01;

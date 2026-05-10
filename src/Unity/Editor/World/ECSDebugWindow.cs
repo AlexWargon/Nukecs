@@ -801,7 +801,7 @@ namespace Wargon.Nukecs.Editor
             return true;
         }
 
-        [MenuItem("Nuke.cs/ECS Debugger")]
+        [MenuItem("Nuke.cs/ECS Debug")]
         public static void ShowWindow()
         {
             var wnd = GetWindow<ECSDebugWindowUI>();

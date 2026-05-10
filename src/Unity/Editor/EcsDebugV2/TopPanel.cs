@@ -3,6 +3,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+// ReSharper disable HeapView.CanAvoidClosure
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
@@ -33,7 +34,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Lime, 10);
             dot.name = "pulse-dot";
             dot.style.marginRight = 8;
-            float dotOpacity = 1f;
+            var dotOpacity = 1f;
             dot.RegisterCallback<AttachToPanelEvent>(_ =>
             {
                 dot.schedule.Execute(() =>
@@ -58,7 +59,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             leftGroup.Add(worldLabel);
 
-            var worldId = new Label(window.provider.WorldInfo.Name)
+            var worldId = new Label(window.provider.WorldInfo.name)
             {
                 name = "world-id",
                 style =
@@ -72,16 +73,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 if (evt.button != 0) return;
                 var info = window.provider.WorldInfo;
-                if (info.WorldNames == null || info.WorldNames.Length <= 1) return;
+                if (info.worldNames == null || info.worldNames.Length <= 1) return;
                 var menu = new GenericMenu();
-                for (var i = 0; i < info.WorldNames.Length; i++)
+                for (var i = 0; i < info.worldNames.Length; i++)
                 {
-                    var slot = info.WorldSlots != null && i < info.WorldSlots.Length
-                        ? info.WorldSlots[i]
+                    var slot = info.worldSlots != null && i < info.worldSlots.Length
+                        ? info.worldSlots[i]
                         : i;
                     var capturedSlot = slot;
-                    var isCurrent = info.WorldNames[i] == info.Name;
-                    menu.AddItem(new GUIContent(info.WorldNames[i]), isCurrent,
+                    var isCurrent = info.worldNames[i] == info.name;
+                    menu.AddItem(new GUIContent(info.worldNames[i]), isCurrent,
                         () => window.SwitchToWorld(capturedSlot));
                 }
                 menu.ShowAsContext();
@@ -191,7 +192,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var worldId = topPanel.Q("world-id") as Label;
             if (worldId != null)
-                worldId.text = window.provider.WorldInfo.Name;
+                worldId.text = window.provider.WorldInfo.name;
 
             if (window.paused != _lastPaused)
             {

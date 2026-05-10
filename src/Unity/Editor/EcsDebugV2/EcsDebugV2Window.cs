@@ -11,6 +11,7 @@ using UnityEngine.UIElements;
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
+    using static Constant;
     public class EcsDebugV2Window : EditorWindow
     {
         public IEcsDataProvider provider;
@@ -53,10 +54,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private int _lastArchetypeIndex = -1;
         private int _lastArchetypeCount = -1;
         private readonly List<string> _changesCleanupKeys = new List<string>();
-
-        public const int INSPECTOR_FIELD_REFRESH_MS = 16;
-        private const int UI_LOW_PRIORITY_MS = 500;
-        private const int LEFT_PANEL_REFRESH_MS = 100;
         private long _lastValuePollTs;
         private long _lastUiLowPriTs;
         private long _lastLeftPanelTs;
@@ -72,6 +69,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void CreateGUI()
         {
+            InspectorPanel.ClearDrawerCache();
+
             if (provider == null)
             {
                 if (EditorApplication.isPlaying && World.HasActiveWorlds())
@@ -90,12 +89,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             RebuildMaps();
             systemCount = provider.SystemCount;
 
-            selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
+            selectedEntityId = entities.Count > 0 ? entities[0].id : null;
             if (selectedEntityId.HasValue)
                 selectedEntityDetails = provider.GetEntityDetails(selectedEntityId.Value);
-            if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].Id;
-            if (queries.Count > 0) selectedQueryId = queries[0].Id;
-            if (resources.Count > 0) selectedResourceName = resources[0].Name;
+            if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].id;
+            if (queries.Count > 0) selectedQueryId = queries[0].id;
+            if (resources.Count > 0) selectedResourceName = resources[0].name;
 
             var root = rootVisualElement;
             root.Clear();
@@ -322,12 +321,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _lastEntityCount = entities.Count;
             _lastArchetypeCount = archetypes.Count;
             systemCount = provider.SystemCount;
-            selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
+            selectedEntityId = entities.Count > 0 ? entities[0].id : null;
             selectedEntityDetails = selectedEntityId.HasValue ? provider.GetEntityDetails(selectedEntityId.Value) : null;
             _lastArchetypeIndex = -1;
-            if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].Id;
-            if (queries.Count > 0) selectedQueryId = queries[0].Id;
-            if (resources.Count > 0) selectedResourceName = resources[0].Name;
+            if (archetypes.Count > 0) selectedArchetypeId = archetypes[0].id;
+            if (queries.Count > 0) selectedQueryId = queries[0].id;
+            if (resources.Count > 0) selectedResourceName = resources[0].name;
             RefreshLeftPanel();
             RefreshInspector();
             TopPanel.Update(_topPanel, this);
@@ -412,8 +411,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             RebuildMaps();
             _lastEntityCount = entities.Count;
             _lastArchetypeCount = archetypes.Count;
-            selectedEntityId = newEnt.Id;
-            selectedEntityDetails = provider.GetEntityDetails(newEnt.Id);
+            selectedEntityId = newEnt.id;
+            selectedEntityDetails = provider.GetEntityDetails(newEnt.id);
             _lastArchetypeIndex = -1;
             currentTab = TabKey.Entities;
             TabBar.Refresh(_tabBar, this);
@@ -433,7 +432,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _lastArchetypeCount = archetypes.Count;
             if (selectedEntityId == id)
             {
-                selectedEntityId = entities.Count > 0 ? entities[0].Id : null;
+                selectedEntityId = entities.Count > 0 ? entities[0].id : null;
                 selectedEntityDetails = selectedEntityId.HasValue
                     ? provider.GetEntityDetails(selectedEntityId.Value)
                     : null;
@@ -485,28 +484,28 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             if (entities != null)
             {
                 for (int i = 0; i < entities.Count; i++)
-                    entityMap[entities[i].Id] = entities[i];
+                    entityMap[entities[i].id] = entities[i];
             }
 
             archetypeMap.Clear();
             if (archetypes != null)
             {
                 for (int i = 0; i < archetypes.Count; i++)
-                    archetypeMap[archetypes[i].Id] = archetypes[i];
+                    archetypeMap[archetypes[i].id] = archetypes[i];
             }
 
             queryMap.Clear();
             if (queries != null)
             {
                 for (int i = 0; i < queries.Count; i++)
-                    queryMap[queries[i].Id] = queries[i];
+                    queryMap[queries[i].id] = queries[i];
             }
 
             resourceMap.Clear();
             if (resources != null)
             {
                 for (int i = 0; i < resources.Count; i++)
-                    resourceMap[resources[i].Name] = resources[i];
+                    resourceMap[resources[i].name] = resources[i];
             }
         }
 

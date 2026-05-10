@@ -17,8 +17,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public int SystemCount => 12;
         public int Tick { get => _tick; set => _tick = value; }
-        public WorldInfo WorldInfo => new WorldInfo { Name = "Empty", WorldNames = new[] { "Empty" }, WorldSlots = new[] { 0 } };
-        public string[] AvailableComponentTypes => MockData.ALL_COMPONENT_TYPES;
+        public WorldInfo WorldInfo => new WorldInfo { name = "Empty", worldNames = new[] { "Empty" }, worldSlots = new[] { 0 } };
+        public string[] AvailableComponentTypes => MockData.AllComponentTypes;
         public int WorldCount => 1;
 
         public void Initialize(int entityCount = 72)
@@ -43,7 +43,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (_entities == null) return null;
             for (int i = 0; i < _entities.Count; i++)
-                if (_entities[i].Id == entityId) return _entities[i];
+                if (_entities[i].id == entityId) return _entities[i];
             return null;
         }
         public List<ArchetypeInfo> GetArchetypes() => _archetypes;
@@ -54,15 +54,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             int nextId = 1000;
             foreach (var e in _entities)
-                if (e.Id >= nextId) nextId = e.Id + 1;
+                if (e.id >= nextId) nextId = e.id + 1;
 
             var newEnt = new EntityInfo
             {
-                Id = nextId,
-                Name = $"Entity_{nextId}",
-                Archetype = "Custom",
-                Alive = true,
-                Components = new List<ComponentInfo>
+                id = nextId,
+                name = $"Entity_{nextId}",
+                archetype = "Custom",
+                alive = true,
+                components = new List<ComponentInfo>
                 {
                     MockData.MakeComponentByName("Transform")
                 }
@@ -75,34 +75,34 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void DestroyEntity(int id)
         {
-            _entities.RemoveAll(e => e.Id == id);
+            _entities.RemoveAll(e => e.id == id);
             RebuildArchetypes();
             MockData.UpdateQueryMatches(_queries, _entities);
         }
 
         public void AddComponent(int entityId, string compName)
         {
-            var entity = _entities.Find(e => e.Id == entityId);
+            var entity = _entities.Find(e => e.id == entityId);
             if (entity == null) return;
-            entity.Components.Add(MockData.MakeComponentByName(compName));
+            entity.components.Add(MockData.MakeComponentByName(compName));
             RebuildArchetypes();
             MockData.UpdateQueryMatches(_queries, _entities);
         }
 
         public void RemoveComponent(int entityId, string compName)
         {
-            var entity = _entities.Find(e => e.Id == entityId);
+            var entity = _entities.Find(e => e.id == entityId);
             if (entity == null) return;
-            entity.Components.RemoveAll(c => c.Name == compName);
+            entity.components.RemoveAll(c => c.Name == compName);
             RebuildArchetypes();
             MockData.UpdateQueryMatches(_queries, _entities);
         }
 
         public void SetFieldValue(int entityId, string compName, string fieldKey, FieldValue value)
         {
-            var entity = _entities.Find(e => e.Id == entityId);
+            var entity = _entities.Find(e => e.id == entityId);
             if (entity == null) return;
-            var comp = entity.Components.Find(c => c.Name == compName);
+            var comp = entity.components.Find(c => c.Name == compName);
             if (comp == null) return;
             if (comp.HasField(fieldKey))
                 comp.SetField(fieldKey, value);
@@ -127,8 +127,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public int GetEntityArchetypeIndex(int id)
         {
-            var entity = _entities?.Find(e => e.Id == id);
-            return entity != null ? entity.Archetype.GetHashCode() : -1;
+            var entity = _entities?.Find(e => e.id == id);
+            return entity != null ? entity.archetype.GetHashCode() : -1;
         }
     }
 }

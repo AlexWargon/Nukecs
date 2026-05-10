@@ -7,7 +7,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class Footer
     {
-        private const string Version = "v0.1";
+        private const string VERSION = "v0.1";
         private static int _lastTick = -1;
 
         public static VisualElement Create(EcsDebugV2Window window)
@@ -55,7 +55,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             legend.Add(CreateLegendDot(EcsDebugV2Theme.Red, "error"));
             footer.Add(legend);
 
-            var version = new Label($"ECS Debugger {Version}")
+            var version = new Label($"ECS Debugger {VERSION}")
             {
                 style =
                 {

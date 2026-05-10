@@ -2,161 +2,40 @@
 #if UNITY_EDITOR && NUKECS_DEBUG
 using System;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Cursor = UnityEngine.Cursor;
+
+// ReSharper disable EmptyGeneralCatchClause
+// ReSharper disable HeapView.CanAvoidClosure
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
+    using static Constant;
+
     public class ComponentCardDrawer
     {
-        public readonly VisualElement Card;
-
-        private int _entityId;
-        private string _compName;
-        private EcsDebugV2Window _window;
-        private readonly int _byteSize;
-
-        private struct FieldRow
-        {
-            public VisualElement Row;
-            public VisualElement Editor;
-            public TextField MainTextField;
-            public TextField[] SubTextFields;
-            public string FieldKey;
-            public string[] SubFieldKeys;
-            public int FieldIndex;
-            public int[] SubFieldIndices;
-            public string ChangeKey;
-            public double LastNumberVal;
-            public string LastStringVal;
-            public bool LastBoolVal;
-            public int LastEntityRefVal;
-            public bool IsHovered;
-            public FieldValueType ValueType;
-            public bool IsVector;
-            public VisualElement BoolTrack;
-            public VisualElement BoolThumb;
-            public Label BoolLabel;
-            public Label EntityLink;
-            public Button EntityEditBtn;
-            public Label KeyLabel;
-        }
-
-        private struct DragState
-        {
-            public float StartX;
-            public double BaseVal;
-            public bool Active;
-        }
-
-        private FieldRow[] _rows;
-        private DragState[] _dragStates;
-        private int _labelDragRow = -1;
-        private int _labelDragSubIdx = -1;
-        private float _labelDragStartX;
-        private double _labelDragBaseVal;
-
-        private const string TI = "unity-text-input";
-
         private static Texture2D _resizeCursorTex;
-
-        private static Texture2D GetResizeCursorTexture()
-        {
-            if (_resizeCursorTex != null) return _resizeCursorTex;
-            const int s = 32;
-            _resizeCursorTex = new Texture2D(s, s, TextureFormat.RGBA32, false);
-            var px = new Color32[s * s];
-            int cy = s / 2;
-            var white = new Color32(255, 255, 255, 255);
-            for (int i = 0; i < 5; i++)
-            {
-                int x = 4 + i;
-                for (int dy = -i; dy <= i; dy++)
-                    px[(cy + dy) * s + x] = white;
-            }
-            for (int i = 0; i < 5; i++)
-            {
-                int x = 27 - i;
-                for (int dy = -i; dy <= i; dy++)
-                    px[(cy + dy) * s + x] = white;
-            }
-            for (int x = 7; x <= 24; x++)
-            {
-                px[(cy - 1) * s + x] = white;
-                px[cy * s + x] = white;
-                px[(cy + 1) * s + x] = white;
-            }
-            _resizeCursorTex.SetPixels32(px);
-            _resizeCursorTex.Apply();
-            _resizeCursorTex.hideFlags = HideFlags.HideAndDontSave;
-            return _resizeCursorTex;
-        }
-
-        private static void ApplyEwCursor(VisualElement el)
-        {
-            var tex = GetResizeCursorTexture();
-            var hotspot = new Vector2(16, 16);
-            el.pickingMode = PickingMode.Position;
-            bool hovering = false;
-            el.RegisterCallback<MouseEnterEvent>(_ =>
-            {
-                hovering = true;
-                UnityEngine.Cursor.SetCursor(tex, hotspot, CursorMode.Auto);
-            });
-            el.RegisterCallback<MouseLeaveEvent>(_ =>
-            {
-                hovering = false;
-                UnityEngine.Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
-            });
-            el.schedule.Execute(() =>
-            {
-                if (hovering && el.panel != null)
-                    UnityEngine.Cursor.SetCursor(tex, hotspot, CursorMode.Auto);
-            }).Every(16);
-        }
-
         private static readonly Dictionary<int, ComponentCardDrawer> Cache = new();
         private static readonly List<ComponentCardDrawer> Active = new();
 
-        public static ComponentCardDrawer GetOrCreate(ComponentInfo comp)
-        {
-            var key = comp.TypeIndex >= 0 ? comp.TypeIndex : comp.Name.GetHashCode();
-            if (!Cache.TryGetValue(key, out var drawer))
-            {
-                drawer = new ComponentCardDrawer(comp, key);
-                Cache[key] = drawer;
-            }
-            return drawer;
-        }
+        public readonly VisualElement Card;
+        private string _compName;
+        private readonly DragState[] _dragStates;
 
-        public static void ResetActive()
-        {
-            Active.Clear();
-        }
+        private int _entityId;
+        private double _labelDragBaseVal;
+        private int _labelDragRow = -1;
+        private float _labelDragStartX;
+        private int _labelDragSubIdx = -1;
 
-        public static void AddActive(ComponentCardDrawer drawer)
-        {
-            Active.Add(drawer);
-        }
+        private readonly FieldRow[] _rows;
+        private EcsDebugV2Window _window;
 
-        public static void ClearCache()
-        {
-            Cache.Clear();
-            Active.Clear();
-        }
-
-        public static int ActiveCount => Active.Count;
-
-        public static ComponentCardDrawer GetActive(int index)
-        {
-            return Active[index];
-        }
-
-        private ComponentCardDrawer(ComponentInfo template, int typeIndex)
+        private ComponentCardDrawer(ComponentInfo template)
         {
             _compName = template.Name;
-            _byteSize = template.ByteSize;
+            var byteSize = template.ByteSize;
 
             Card = EcsDebugV2Theme.CreateCard();
             Card.style.marginBottom = 6;
@@ -165,6 +44,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 style =
                 {
+                    height = EcsDebugV2Theme.ComponentHeaderHeight,
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
                     paddingLeft = 10,
@@ -186,23 +66,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             compHeader.Add(compNameLabel);
-            var sizeLabel = new Label($"size:{_byteSize}B")
+            var sizeLabel = new Label($"{byteSize} Bytes")
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Micro,
+                    fontSize = EcsDebugV2Theme.Font.FieldName,
                     color = EcsDebugV2Theme.MutedText,
-                    marginLeft = 6,
-                    
+                    marginLeft = 6
                 }
             };
             compHeader.Add(sizeLabel);
 
-            var removeBtn = new Button(() =>
-            {
-                if (_window != null)
-                    _window.RemoveComponent(_entityId, _compName);
-            })
+            var removeBtn = new Button(() => { _window?.RemoveComponent(_entityId, _compName); })
             {
                 text = "\u2715",
                 tooltip = $"Remove {template.Name}",
@@ -215,21 +90,23 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingRight = 4,
                     paddingTop = 2,
                     paddingBottom = 2,
-                    marginLeft = UnityEngine.UIElements.Length.Auto(),
+                    marginLeft = Length.Auto(),
                     width = 24,
                     height = 24
                 }
             };
             removeBtn.SetupBorder(Color.clear, 0);
-            removeBtn.RegisterCallback<MouseEnterEvent>(_ => removeBtn.style.color = EcsDebugV2Theme.Red);
-            removeBtn.RegisterCallback<MouseLeaveEvent>(_ => removeBtn.style.color = EcsDebugV2Theme.MutedText);
+            removeBtn.RegisterCallback<MouseEnterEvent, Color>((_, color) => removeBtn.style.color = color,
+                EcsDebugV2Theme.Red);
+            removeBtn.RegisterCallback<MouseLeaveEvent, Color>((_, color) => removeBtn.style.color = color,
+                EcsDebugV2Theme.MutedText);
             compHeader.Add(removeBtn);
             Card.Add(compHeader);
 
-            bool isTag = template.Fields.Count == 1 && template.Fields[0].Key == "#tag";
+            var isTag = template.Fields.Count == 1 && template.Fields[0].Key == TAG_LABEL;
             if (isTag)
             {
-                sizeLabel.text = "#tag";
+                sizeLabel.text = TAG_LABEL;
                 sizeLabel.style.color = EcsDebugV2Theme.Lime;
                 _rows = Array.Empty<FieldRow>();
                 _dragStates = Array.Empty<DragState>();
@@ -240,18 +117,114 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _rows = new FieldRow[groups.Count];
             _dragStates = new DragState[groups.Count];
 
-            for (int gi = 0; gi < groups.Count; gi++)
+            for (var gi = 0; gi < groups.Count; gi++)
             {
                 var group = groups[gi];
-                if (group.Prefix != null && group.FieldIndices.Count > 1)
-                    BuildVectorRow(template, group.Prefix, group.FieldIndices, gi);
+                if (group.prefix != null && group.fieldIndices.Count > 1)
+                {
+                    BuildVectorRow(template, group.prefix, group.fieldIndices, gi);
+                }
                 else
                 {
-                    var fi = group.FieldIndices[0];
+                    var fi = group.fieldIndices[0];
                     BuildScalarRow(template.Fields[fi].Key, template.Fields[fi].Value, fi, gi);
                 }
-                Card.Add(_rows[gi].Row);
+
+                Card.Add(_rows[gi].row);
             }
+        }
+
+        public static int ActiveCount => Active.Count;
+
+        private static Texture2D GetResizeCursorTexture()
+        {
+            if (_resizeCursorTex != null) return _resizeCursorTex;
+            const int s = 32;
+            _resizeCursorTex = new Texture2D(s, s, TextureFormat.RGBA32, false);
+            var px = new Color32[s * s];
+            var cy = s / 2;
+            var white = new Color32(255, 255, 255, 255);
+            for (var i = 0; i < 5; i++)
+            {
+                var x = 4 + i;
+                for (var dy = -i; dy <= i; dy++)
+                    px[(cy + dy) * s + x] = white;
+            }
+
+            for (var i = 0; i < 5; i++)
+            {
+                var x = 27 - i;
+                for (var dy = -i; dy <= i; dy++)
+                    px[(cy + dy) * s + x] = white;
+            }
+
+            for (var x = 7; x <= 24; x++)
+            {
+                px[(cy - 1) * s + x] = white;
+                px[cy * s + x] = white;
+                px[(cy + 1) * s + x] = white;
+            }
+
+            _resizeCursorTex.SetPixels32(px);
+            _resizeCursorTex.Apply();
+            _resizeCursorTex.hideFlags = HideFlags.HideAndDontSave;
+            return _resizeCursorTex;
+        }
+
+        private static void ApplyEwCursor(VisualElement el)
+        {
+            var tex = GetResizeCursorTexture();
+            var hotspot = new Vector2(16, 16);
+            el.pickingMode = PickingMode.Position;
+            var hovering = false;
+            el.RegisterCallback<MouseEnterEvent>(_ =>
+            {
+                hovering = true;
+                Cursor.SetCursor(tex, hotspot, CursorMode.Auto);
+            });
+            el.RegisterCallback<MouseLeaveEvent>(_ =>
+            {
+                hovering = false;
+                Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+            });
+            el.schedule.Execute(() =>
+            {
+                if (hovering && el.panel != null)
+                    Cursor.SetCursor(tex, hotspot, CursorMode.Auto);
+            }).Every(1);
+        }
+
+        public static ComponentCardDrawer GetOrCreate(ComponentInfo comp)
+        {
+            var key = comp.TypeIndex >= 0 ? comp.TypeIndex : comp.Name.GetHashCode();
+            if (!Cache.TryGetValue(key, out var drawer))
+            {
+                drawer = new ComponentCardDrawer(comp);
+                Cache[key] = drawer;
+            }
+
+            return drawer;
+        }
+
+        public static void ResetActive()
+        {
+            Active.Clear();
+        }
+
+        public static void AddActive(ComponentCardDrawer drawer)
+        {
+            Active.Add(drawer);
+        }
+
+        public static void ClearCache()
+        {
+            Cache.Clear();
+            Active.Clear();
+        }
+
+        public static ComponentCardDrawer GetActive(int index)
+        {
+            return Active[index];
         }
 
         public void Bind(int entityId, string compName, EcsDebugV2Window window, int compIdx, ComponentInfo comp)
@@ -260,50 +233,50 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _compName = compName;
             _window = window;
 
-            for (int i = 0; i < _rows.Length; i++)
+            for (var i = 0; i < _rows.Length; i++)
             {
                 var r = _rows[i];
-                r.ChangeKey = $"{entityId}:{compName}:{r.FieldKey}";
-                r.IsHovered = false;
+                r.changeKey = $"{entityId}:{compName}:{r.fieldKey}";
+                r.isHovered = false;
 
-                if (r.IsVector)
+                if (r.isVector)
                 {
-                    for (int si = 0; si < r.SubFieldIndices.Length; si++)
+                    for (var si = 0; si < r.subFieldIndices.Length; si++)
                     {
-                        var subIdx = r.SubFieldIndices[si];
-                        if (subIdx < comp.Fields.Count && r.SubTextFields != null &&
-                            si < r.SubTextFields.Length && r.SubTextFields[si] != null)
-                            r.SubTextFields[si].SetValueWithoutNotify(
-                                comp.Fields[subIdx].Value.NumberVal.ToString("G"));
+                        var subIdx = r.subFieldIndices[si];
+                        if (subIdx < comp.Fields.Count && r.subTextFields != null &&
+                            si < r.subTextFields.Length && r.subTextFields[si] != null)
+                            r.subTextFields[si].SetValueWithoutNotify(
+                                comp.Fields[subIdx].Value.NumberVal.ToString(GENERAL_NUMBER_FORMAT));
                     }
                 }
                 else
                 {
-                    if (r.FieldIndex >= 0 && r.FieldIndex < comp.Fields.Count)
+                    if (r.fieldIndex >= 0 && r.fieldIndex < comp.Fields.Count)
                     {
-                        var fv = comp.Fields[r.FieldIndex].Value;
-                        r.LastNumberVal = fv.Type == FieldValueType.Number ? fv.NumberVal : 0;
-                        r.LastStringVal = fv.Type == FieldValueType.String ? fv.StringVal : null;
-                        r.LastBoolVal = fv.Type == FieldValueType.Bool && fv.BoolVal;
-                        r.LastEntityRefVal = fv.Type == FieldValueType.EntityRef ? fv.EntityRefVal : 0;
+                        var fv = comp.Fields[r.fieldIndex].Value;
+                        r.lastNumberVal = fv.Type == FieldValueType.Number ? fv.NumberVal : 0;
+                        r.lastStringVal = fv.Type == FieldValueType.String ? fv.StringVal : null;
+                        r.lastBoolVal = fv is { Type: FieldValueType.Bool, BoolVal: true };
+                        r.lastEntityRefVal = fv.Type == FieldValueType.EntityRef ? fv.EntityRefVal : 0;
 
                         switch (fv.Type)
                         {
                             case FieldValueType.Number:
-                                if (r.MainTextField != null)
-                                    r.MainTextField.SetValueWithoutNotify(fv.NumberVal.ToString("G"));
+                                r.mainTextField?.SetValueWithoutNotify(fv.NumberVal.ToString(GENERAL_NUMBER_FORMAT));
                                 break;
                             case FieldValueType.String:
-                                if (r.MainTextField != null)
-                                    r.MainTextField.SetValueWithoutNotify(fv.StringVal);
+                                r.mainTextField?.SetValueWithoutNotify(fv.StringVal);
                                 break;
                             case FieldValueType.Bool:
                                 SetBoolVisuals(r, fv.BoolVal);
                                 break;
                             case FieldValueType.EntityRef:
-                                if (r.EntityLink != null)
-                                    r.EntityLink.text = $"#{fv.EntityRefVal}";
+                                if (r.entityLink != null)
+                                    r.entityLink.text = $"#{fv.EntityRefVal}";
                                 break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
                         }
                     }
                 }
@@ -314,87 +287,94 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public void UpdateValues(ComponentInfo comp, long now)
         {
-            for (int i = 0; i < _rows.Length; i++)
+            for (var i = 0; i < _rows.Length; i++)
             {
                 var r = _rows[i];
 
-                if (r.IsVector)
+                if (r.isVector)
                 {
                     UpdateVectorRow(i, comp, now);
                     continue;
                 }
 
-                if (r.FieldIndex < 0 || r.FieldIndex >= comp.Fields.Count)
+                if (r.fieldIndex < 0 || r.fieldIndex >= comp.Fields.Count)
                     goto Highlight;
 
-                var fv = comp.Fields[r.FieldIndex].Value;
+                var fv = comp.Fields[r.fieldIndex].Value;
 
-                if (r.MainTextField != null)
+                if (r.mainTextField != null)
                 {
                     try
                     {
-                        var f = r.MainTextField.panel?.focusController?.focusedElement as VisualElement;
-                        if (f != null && r.MainTextField.Contains(f))
+                        if (r.mainTextField.panel?.focusController?.focusedElement is VisualElement f &&
+                            r.mainTextField.Contains(f))
+                        {
                             goto Highlight;
+                        }
                     }
-                    catch { }
+                    catch
+                    {
+                    }
                 }
 
                 switch (fv.Type)
                 {
                     case FieldValueType.Number:
-                        if (Math.Abs(fv.NumberVal - r.LastNumberVal) > 0.0001)
+                        if (Math.Abs(fv.NumberVal - r.lastNumberVal) > 0.0001)
                         {
-                            r.LastNumberVal = fv.NumberVal;
+                            r.lastNumberVal = fv.NumberVal;
                             _rows[i] = r;
-                            r.MainTextField.SetValueWithoutNotify(fv.NumberVal.ToString("G"));
+                            r.mainTextField?.SetValueWithoutNotify(fv.NumberVal.ToString(GENERAL_NUMBER_FORMAT));
                         }
+
                         break;
                     case FieldValueType.String:
-                        if (fv.StringVal != r.LastStringVal)
+                        if (fv.StringVal != r.lastStringVal)
                         {
-                            r.LastStringVal = fv.StringVal;
+                            r.lastStringVal = fv.StringVal;
                             _rows[i] = r;
-                            r.MainTextField.SetValueWithoutNotify(fv.StringVal);
+                            r.mainTextField?.SetValueWithoutNotify(fv.StringVal);
                         }
+
                         break;
                     case FieldValueType.EntityRef:
-                        if (fv.EntityRefVal != r.LastEntityRefVal)
+                        if (fv.EntityRefVal != r.lastEntityRefVal)
                         {
-                            r.LastEntityRefVal = fv.EntityRefVal;
+                            r.lastEntityRefVal = fv.EntityRefVal;
                             _rows[i] = r;
-                            if (r.EntityLink != null)
-                                r.EntityLink.text = $"#{fv.EntityRefVal}";
+                            if (r.entityLink != null)
+                                r.entityLink.text = $"#{fv.EntityRefVal}";
                         }
+
                         break;
                     case FieldValueType.Bool:
-                        if (fv.BoolVal != r.LastBoolVal)
+                        if (fv.BoolVal != r.lastBoolVal)
                         {
-                            r.LastBoolVal = fv.BoolVal;
+                            r.lastBoolVal = fv.BoolVal;
                             _rows[i] = r;
                             SetBoolVisuals(r, fv.BoolVal);
                         }
+
                         break;
                 }
 
                 Highlight:
-                if (r.IsHovered)
+                if (r.isHovered)
                 {
-                    r.Row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                    r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
                 }
                 else
                 {
-                    long ts;
-                    if (_window != null && _window.changes.TryGetValue(r.ChangeKey, out ts))
+                    if (_window != null && _window.changes.TryGetValue(r.changeKey, out var ts))
                     {
                         var age = now - ts;
-                        r.Row.style.backgroundColor = age < 1200
+                        r.row.style.backgroundColor = age < 1200
                             ? EcsDebugV2Theme.YellowA015
                             : EcsDebugV2Theme.PanelElevated;
                     }
                     else
                     {
-                        r.Row.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
+                        r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevated;
                     }
                 }
             }
@@ -403,90 +383,91 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private void UpdateVectorRow(int idx, ComponentInfo comp, long now)
         {
             var r = _rows[idx];
-            bool anyFocused = false;
+            var anyFocused = false;
 
-            for (int si = 0; si < r.SubTextFields.Length; si++)
+            for (var si = 0; si < r.subTextFields.Length; si++)
             {
-                var subTf = r.SubTextFields[si];
+                var subTf = r.subTextFields[si];
                 if (subTf == null) continue;
                 try
                 {
-                    var f = subTf.panel?.focusController?.focusedElement as VisualElement;
-                    if (f != null && subTf.Contains(f))
+                    if (subTf.panel?.focusController?.focusedElement
+                            is VisualElement f && subTf.Contains(f))
                     {
                         anyFocused = true;
                         break;
                     }
                 }
-                catch { }
-            }
-
-            if (!anyFocused)
-            {
-                for (int si = 0; si < r.SubFieldIndices.Length; si++)
+                catch
                 {
-                    var subIdx = r.SubFieldIndices[si];
-                    if (subIdx >= comp.Fields.Count) continue;
-                    var fv = comp.Fields[subIdx].Value;
-                    var subTf = si < r.SubTextFields.Length ? r.SubTextFields[si] : null;
-                    if (subTf == null) continue;
-                    var newText = fv.NumberVal.ToString("G");
-                    if (subTf.value != newText)
-                        subTf.SetValueWithoutNotify(newText);
                 }
             }
 
-            if (r.IsHovered)
+            if (!anyFocused)
+                for (var si = 0; si < r.subFieldIndices.Length; si++)
+                {
+                    var subIdx = r.subFieldIndices[si];
+                    if (subIdx >= comp.Fields.Count) continue;
+                    var fv = comp.Fields[subIdx].Value;
+                    var subTf = si < r.subTextFields.Length ? r.subTextFields[si] : null;
+                    if (subTf == null) continue;
+                    var newText = fv.NumberVal.ToString(GENERAL_NUMBER_FORMAT);
+                    if (subTf.value != newText)
+                        subTf.SetValueWithoutNotify(newText);
+                }
+
+            if (r.isHovered)
             {
-                r.Row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
                 return;
             }
 
-            bool anyHighlighted = false;
-            for (int si = 0; si < r.SubFieldIndices.Length; si++)
+            var anyHighlighted = false;
+            for (var si = 0; si < r.subFieldIndices.Length; si++)
             {
-                var subIdx = r.SubFieldIndices[si];
+                var subIdx = r.subFieldIndices[si];
                 if (subIdx >= comp.Fields.Count) continue;
                 var subKey = comp.Fields[subIdx].Key;
                 var subChangeKey = $"{_entityId}:{_compName}:{subKey}";
-                long ts;
-                if (_window != null && _window.changes.TryGetValue(subChangeKey, out ts) && (now - ts) < 1200)
+                if (_window != null &&
+                    _window.changes.TryGetValue(subChangeKey, out var ts) &&
+                    now - ts < 1200)
                 {
                     anyHighlighted = true;
                     break;
                 }
             }
 
-            r.Row.style.backgroundColor = anyHighlighted
+            r.row.style.backgroundColor = anyHighlighted
                 ? EcsDebugV2Theme.YellowA015
                 : EcsDebugV2Theme.PanelElevated;
         }
 
         private void SetBoolVisuals(FieldRow r, bool isOn)
         {
-            if (r.BoolTrack != null)
+            if (r.boolTrack != null)
             {
-                r.BoolTrack.style.backgroundColor = isOn ? EcsDebugV2Theme.LimeA03 : EcsDebugV2Theme.PanelBorder;
-                r.BoolTrack.style.borderTopColor =
+                r.boolTrack.style.backgroundColor = isOn ? EcsDebugV2Theme.LimeA03 : EcsDebugV2Theme.PanelBorder;
+                r.boolTrack.style.borderTopColor =
                     isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
-                r.BoolTrack.style.borderBottomColor =
+                r.boolTrack.style.borderBottomColor =
                     isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
-                r.BoolTrack.style.borderLeftColor =
+                r.boolTrack.style.borderLeftColor =
                     isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
-                r.BoolTrack.style.borderRightColor =
+                r.boolTrack.style.borderRightColor =
                     isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
             }
 
-            if (r.BoolThumb != null)
+            if (r.boolThumb != null)
             {
-                r.BoolThumb.style.marginLeft = isOn ? 20 : 2;
-                r.BoolThumb.style.backgroundColor = isOn ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
+                r.boolThumb.style.marginLeft = isOn ? 20 : 2;
+                r.boolThumb.style.backgroundColor = isOn ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
             }
 
-            if (r.BoolLabel != null)
+            if (r.boolLabel != null)
             {
-                r.BoolLabel.text = isOn.ToString();
-                r.BoolLabel.style.color = isOn ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
+                r.boolLabel.text = isOn.ToString();
+                r.boolLabel.style.color = isOn ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
             }
         }
 
@@ -503,12 +484,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingRight = 10,
                     paddingTop = 3,
                     paddingBottom = 3,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated
+                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    transitionDuration = new List<TimeValue> { new(0.1f, TimeUnit.Second) },
+                    transitionProperty = new List<StylePropertyName> { new("background-color") }
                 }
             };
-            row.style.transitionDuration = new List<TimeValue> { new TimeValue(0.1f, TimeUnit.Second) };
-            row.style.transitionProperty =
-                new List<StylePropertyName> { new StylePropertyName("background-color") };
 
             var keyLabel = new Label(fieldKey)
             {
@@ -523,7 +503,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             row.Add(keyLabel);
 
-            VisualElement editor = null;
+            VisualElement editor;
             TextField mainTf = null;
             VisualElement boolTrack = null;
             VisualElement boolThumb = null;
@@ -546,7 +526,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     };
                     var tf = new TextField
                     {
-                        value = value.NumberVal.ToString("G"),
+                        value = value.NumberVal.ToString(GENERAL_NUMBER_FORMAT),
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.FieldName,
@@ -558,10 +538,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         }
                     };
                     tf.SetupBorder(Color.clear, 0);
-                    tf.Q(TI).style.backgroundColor = Color.clear;
-                    tf.Q(TI).SetupBorder(Color.clear, 0);
-                    tf.Q(TI).style.paddingLeft = 2;
-                    tf.Q(TI).style.paddingRight = 2;
+                    tf.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
+                    tf.Q(TEXT_INPUT).SetupBorder(Color.clear, 0);
+                    tf.Q(TEXT_INPUT).style.paddingLeft = 2;
+                    tf.Q(TEXT_INPUT).style.paddingRight = 2;
 
                     var capturedIdx = rowIdx;
                     tf.RegisterValueChangedCallback(evt =>
@@ -575,7 +555,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         {
                             var baseVal = double.TryParse(tf.value, out var v) ? v : 0;
                             _dragStates[capturedIdx] = new DragState
-                                { StartX = evt.position.x, BaseVal = baseVal, Active = true };
+                                { startX = evt.position.x, baseVal = baseVal, active = true };
                             tf.CapturePointer(evt.pointerId);
                             evt.StopPropagation();
                         }
@@ -583,19 +563,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     tf.RegisterCallback<PointerMoveEvent>(evt =>
                     {
                         var ds = _dragStates[capturedIdx];
-                        if (ds.Active)
+                        if (ds.active)
                         {
-                            var delta = evt.position.x - ds.StartX;
-                            var speed = evt.shiftKey ? 0.01 : (evt.ctrlKey ? 10.0 : 0.5);
-                            var newVal = ds.BaseVal + delta * speed;
-                            tf.SetValueWithoutNotify(newVal.ToString("G"));
+                            var delta = evt.position.x - ds.startX;
+                            var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
+                            var newVal = ds.baseVal + delta * speed;
+                            tf.SetValueWithoutNotify(newVal.ToString(GENERAL_NUMBER_FORMAT));
                             _window.SetFieldValue(_entityId, _compName, fieldKey,
                                 FieldValue.FromNumber(newVal));
                         }
                     });
                     tf.RegisterCallback<PointerUpEvent>(evt =>
                     {
-                        if (evt.button == 1 && _dragStates[capturedIdx].Active)
+                        if (evt.button == 1 && _dragStates[capturedIdx].active)
                         {
                             _dragStates[capturedIdx] = default;
                             tf.ReleasePointer(evt.pointerId);
@@ -634,15 +614,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             flexShrink = 0,
                             marginRight = 6,
                             overflow = Overflow.Hidden
-                        }
+                        },
+                        name = "bool-track"
                     };
-                    track.name = "bool-track";
                     track.SetupRadius(9);
                     track.SetupBorder(isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder);
                     track.style.transitionDuration =
-                        new List<TimeValue> { new TimeValue(0.15f, TimeUnit.Second) };
+                        new List<TimeValue> { new(0.15f, TimeUnit.Second) };
                     track.style.transitionProperty =
-                        new List<StylePropertyName> { new StylePropertyName("background-color") };
+                        new List<StylePropertyName> { new("background-color") };
                     track.RegisterCallback<MouseEnterEvent>(_ => track.style.opacity = 0.85f);
                     track.RegisterCallback<MouseLeaveEvent>(_ => track.style.opacity = 1f);
 
@@ -656,16 +636,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             marginTop = 2,
                             marginLeft = isOn ? 20 : 2,
                             flexShrink = 0
-                        }
+                        },
+                        name = "bool-thumb"
                     };
-                    thumb.name = "bool-thumb";
                     thumb.SetupRadius(7);
                     thumb.style.transitionDuration =
-                        new List<TimeValue> { new TimeValue(0.15f, TimeUnit.Second) };
+                        new List<TimeValue> { new(0.15f, TimeUnit.Second) };
                     thumb.style.transitionProperty = new List<StylePropertyName>
                     {
-                        new StylePropertyName("margin-left"),
-                        new StylePropertyName("background-color")
+                        new("margin-left"),
+                        new("background-color")
                     };
                     track.Add(thumb);
 
@@ -685,8 +665,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     container.RegisterCallback<ClickEvent>(_ =>
                     {
                         var r = _rows[capturedIdx];
-                        var newVal = !r.LastBoolVal;
-                        r.LastBoolVal = newVal;
+                        var newVal = !r.lastBoolVal;
+                        r.lastBoolVal = newVal;
                         _rows[capturedIdx] = r;
                         _window.SetFieldValue(_entityId, _compName, fieldKey,
                             FieldValue.FromBool(newVal));
@@ -737,12 +717,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         }
                     };
                     tf.SetupBorder(Color.clear, 0);
-                    tf.Q(TI).style.backgroundColor = Color.clear;
-                    tf.Q(TI).SetupBorder(Color.clear, 0);
-                    tf.Q(TI).style.paddingLeft = 2;
-                    tf.Q(TI).style.paddingRight = 2;
-                    tf.Q(TI).style.borderBottomWidth = 1;
-                    tf.Q(TI).style.borderBottomColor = EcsDebugV2Theme.PanelBorderA04;
+                    tf.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
+                    tf.Q(TEXT_INPUT).SetupBorder(Color.clear, 0);
+                    tf.Q(TEXT_INPUT).style.paddingLeft = 2;
+                    tf.Q(TEXT_INPUT).style.paddingRight = 2;
+                    tf.Q(TEXT_INPUT).style.borderBottomWidth = 1;
+                    tf.Q(TEXT_INPUT).style.borderBottomColor = EcsDebugV2Theme.PanelBorderA04;
 
                     var underline = new VisualElement
                     {
@@ -806,16 +786,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     var capturedIdx = rowIdx;
                     link.RegisterCallback<ClickEvent>(_ =>
                     {
-                        if (_window != null && _rows[capturedIdx].LastEntityRefVal > 0)
-                            _window.SelectEntity(_rows[capturedIdx].LastEntityRefVal);
+                        if (_window != null && _rows[capturedIdx].lastEntityRefVal > 0)
+                            _window.SelectEntity(_rows[capturedIdx].lastEntityRefVal);
                     });
                     container.Add(link);
 
                     var capturedFieldKey = fieldKey;
-                    Button editBtn = null;
+                    Button editBtn = default;
                     editBtn = new Button(() =>
                     {
-                        var currentId = _rows[capturedIdx].LastEntityRefVal;
+                        var currentId = _rows[capturedIdx].lastEntityRefVal;
                         var popup = new TextField
                         {
                             value = currentId.ToString(),
@@ -827,8 +807,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                                 width = 60
                             }
                         };
-                        popup.SetupBorder(EcsDebugV2Theme.TypeEntity, 1);
-                        popup.Q(TI).style.backgroundColor = Color.clear;
+                        popup.SetupBorder(EcsDebugV2Theme.TypeEntity);
+                        popup.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
                         popup.RegisterValueChangedCallback(evt =>
                         {
                             if (int.TryParse(evt.newValue, out var n))
@@ -840,13 +820,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         });
                         popup.RegisterCallback<FocusOutEvent>(_ =>
                         {
-                            _rows[capturedIdx].Editor.Remove(popup);
+                            _rows[capturedIdx].editor.Remove(popup);
                             link.style.display = DisplayStyle.Flex;
-                            _rows[capturedIdx].EntityEditBtn.style.display = DisplayStyle.Flex;
+                            _rows[capturedIdx].entityEditBtn.style.display = DisplayStyle.Flex;
                         });
                         link.style.display = DisplayStyle.None;
-                        editBtn.style.display = DisplayStyle.None;
-                        _rows[capturedIdx].Editor.Add(popup);
+                        // ReSharper disable once AccessToModifiedClosure
+                        editBtn!.style.display = DisplayStyle.None;
+                        _rows[capturedIdx].editor.Add(popup);
                         popup.Focus();
                     })
                     {
@@ -877,10 +858,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     break;
             }
 
-            if (value.Type == FieldValueType.Number && keyLabel != null && mainTf != null)
+            if (value.Type == FieldValueType.Number && mainTf != null)
             {
                 ApplyEwCursor(keyLabel);
-                
+
                 var capturedIdx = rowIdx;
                 var capturedTf = mainTf;
                 var capturedFieldKey = fieldKey;
@@ -901,7 +882,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     if (_labelDragRow == capturedIdx)
                     {
                         var delta = evt.position.x - _labelDragStartX;
-                        var speed = evt.shiftKey ? 0.01 : (evt.ctrlKey ? 10.0 : 0.5);
+                        var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
                         var newVal = _labelDragBaseVal + delta * speed;
                         capturedTf.SetValueWithoutNotify(newVal.ToString("G"));
                         _window.SetFieldValue(_entityId, _compName, capturedFieldKey,
@@ -927,38 +908,38 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             row.RegisterCallback<MouseEnterEvent>(_ =>
             {
                 var r = _rows[ri];
-                r.IsHovered = true;
+                r.isHovered = true;
                 _rows[ri] = r;
-                r.Row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             row.RegisterCallback<MouseLeaveEvent>(_ =>
             {
                 var r = _rows[ri];
-                r.IsHovered = false;
+                r.isHovered = false;
                 _rows[ri] = r;
             });
 
             _rows[rowIdx] = new FieldRow
             {
-                Row = row,
-                Editor = editor,
-                MainTextField = mainTf,
-                FieldKey = fieldKey,
-                FieldIndex = fieldIndex,
-                ChangeKey = "",
-                LastNumberVal = value.Type == FieldValueType.Number ? value.NumberVal : 0,
-                LastStringVal = value.Type == FieldValueType.String ? value.StringVal : null,
-                LastBoolVal = value.Type == FieldValueType.Bool && value.BoolVal,
-                LastEntityRefVal = value.Type == FieldValueType.EntityRef ? value.EntityRefVal : 0,
-                IsHovered = false,
-                ValueType = value.Type,
-                IsVector = false,
-                BoolTrack = boolTrack,
-                BoolThumb = boolThumb,
-                BoolLabel = boolLabel,
-                EntityLink = entityLink,
-                EntityEditBtn = entityEditBtn,
-                KeyLabel = keyLabel,
+                row = row,
+                editor = editor,
+                mainTextField = mainTf,
+                fieldKey = fieldKey,
+                fieldIndex = fieldIndex,
+                changeKey = "",
+                lastNumberVal = value.Type == FieldValueType.Number ? value.NumberVal : 0,
+                lastStringVal = value.Type == FieldValueType.String ? value.StringVal : null,
+                lastBoolVal = value is { Type: FieldValueType.Bool, BoolVal: true },
+                lastEntityRefVal = value.Type == FieldValueType.EntityRef ? value.EntityRefVal : 0,
+                isHovered = false,
+                valueType = value.Type,
+                isVector = false,
+                boolTrack = boolTrack,
+                boolThumb = boolThumb,
+                boolLabel = boolLabel,
+                entityLink = entityLink,
+                entityEditBtn = entityEditBtn,
+                keyLabel = keyLabel
             };
         }
 
@@ -966,6 +947,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             var row = new VisualElement
             {
+                // ReSharper disable once StringLiteralTypo
                 name = $"frow-{_compName}-{prefix}",
                 style =
                 {
@@ -975,12 +957,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingRight = 10,
                     paddingTop = 3,
                     paddingBottom = 3,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated
+                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    transitionDuration = new List<TimeValue> { new(0.1f, TimeUnit.Second) },
+                    transitionProperty = new List<StylePropertyName> { new("background-color") }
                 }
             };
-            row.style.transitionDuration = new List<TimeValue> { new TimeValue(0.1f, TimeUnit.Second) };
-            row.style.transitionProperty =
-                new List<StylePropertyName> { new StylePropertyName("background-color") };
 
             var prefixLabel = new Label(prefix)
             {
@@ -1002,7 +983,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var subColors = new[]
                 { EcsDebugV2Theme.TypeNumber, EcsDebugV2Theme.Lime, EcsDebugV2Theme.Yellow };
 
-            for (int i = 0; i < fieldIndices.Count; i++)
+            for (var i = 0; i < fieldIndices.Count; i++)
             {
                 var fi = fieldIndices[i];
                 var key = template.Fields[fi].Key;
@@ -1025,7 +1006,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var subTfs = new TextField[fieldIndices.Count];
 
-            for (int i = 0; i < subFieldNames.Length; i++)
+            for (var i = 0; i < subFieldNames.Length; i++)
             {
                 var color = i < subFieldColors.Length ? subFieldColors[i] : EcsDebugV2Theme.TypeNumber;
                 var isLast = i == subFieldNames.Length - 1;
@@ -1065,14 +1046,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         fontSize = EcsDebugV2Theme.Font.FieldName,
                         color = color,
                         backgroundColor = EcsDebugV2Theme.Background,
-                        flexGrow = 1,
+                        flexGrow = 1
                     }
                 };
                 subTf.SetupBorder(Color.clear, 0);
-                subTf.Q(TI).style.backgroundColor = Color.clear;
-                subTf.Q(TI).SetupBorder(Color.clear, 0);
-                subTf.Q(TI).style.paddingLeft = 2;
-                subTf.Q(TI).style.paddingRight = 2;
+                subTf.Q(TEXT_INPUT).style.backgroundColor = Color.clear;
+                subTf.Q(TEXT_INPUT).SetupBorder(Color.clear, 0);
+                subTf.Q(TEXT_INPUT).style.paddingLeft = 2;
+                subTf.Q(TEXT_INPUT).style.paddingRight = 2;
 
                 var capturedSubKey = subFieldKeys[i];
                 subTf.RegisterValueChangedCallback(evt =>
@@ -1103,7 +1084,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     if (_labelDragRow == capturedRowIdx && _labelDragSubIdx == capturedSubIdx)
                     {
                         var delta = evt.position.x - _labelDragStartX;
-                        var speed = evt.shiftKey ? 0.01 : (evt.ctrlKey ? 10.0 : 0.5);
+                        var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
                         var newVal = _labelDragBaseVal + delta * speed;
                         subTf.SetValueWithoutNotify(newVal.ToString("G"));
                         _window.SetFieldValue(_entityId, _compName, capturedSubKey,
@@ -1137,38 +1118,32 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             row.RegisterCallback<MouseEnterEvent>(_ =>
             {
                 var r = _rows[ri];
-                r.IsHovered = true;
+                r.isHovered = true;
                 _rows[ri] = r;
-                r.Row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
             });
             row.RegisterCallback<MouseLeaveEvent>(_ =>
             {
                 var r = _rows[ri];
-                r.IsHovered = false;
+                r.isHovered = false;
                 _rows[ri] = r;
             });
 
             _rows[rowIdx] = new FieldRow
             {
-                Row = row,
-                Editor = editor,
-                SubTextFields = subTfs,
-                FieldKey = prefix,
-                SubFieldKeys = subFieldKeys,
-                FieldIndex = -1,
-                SubFieldIndices = subIndices,
-                ChangeKey = "",
-                IsHovered = false,
-                ValueType = FieldValueType.Number,
-                IsVector = true,
-                KeyLabel = prefixLabel,
+                row = row,
+                editor = editor,
+                subTextFields = subTfs,
+                fieldKey = prefix,
+                subFieldKeys = subFieldKeys,
+                fieldIndex = -1,
+                subFieldIndices = subIndices,
+                changeKey = "",
+                isHovered = false,
+                valueType = FieldValueType.Number,
+                isVector = true,
+                keyLabel = prefixLabel
             };
-        }
-
-        private struct FieldGroup
-        {
-            public string Prefix;
-            public List<int> FieldIndices;
         }
 
         private static List<FieldGroup> BuildFieldGroups(ComponentInfo comp)
@@ -1181,10 +1156,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var dotIdx = key.IndexOf('.');
                 if (dotIdx > 0 && i + 1 < comp.Fields.Count)
                 {
-                    var prefix = key.Substring(0, dotIdx);
+                    var prefix = key[..dotIdx];
                     var groupFields = new List<int> { i };
-                    int j = i + 1;
-                    while (j < comp.Fields.Count && comp.Fields[j].Key.StartsWith(prefix + "."))
+                    var j = i + 1;
+                    while (j < comp.Fields.Count &&
+                           comp.Fields[j].Key.StartsWith(prefix + "."))
                     {
                         groupFields.Add(j);
                         j++;
@@ -1192,30 +1168,75 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     if (groupFields.Count > 1)
                     {
-                        bool allNumbers = true;
-                        for (int k = 0; k < groupFields.Count; k++)
-                        {
+                        var allNumbers = true;
+                        for (var k = 0; k < groupFields.Count; k++)
                             if (comp.Fields[groupFields[k]].Value.Type != FieldValueType.Number)
                             {
                                 allNumbers = false;
                                 break;
                             }
-                        }
 
                         if (allNumbers)
                         {
-                            groups.Add(new FieldGroup { Prefix = prefix, FieldIndices = groupFields });
+                            groups.Add(new FieldGroup
+                            {
+                                prefix = prefix,
+                                fieldIndices = groupFields
+                            });
                             i = j;
                             continue;
                         }
                     }
                 }
 
-                groups.Add(new FieldGroup { Prefix = null, FieldIndices = new List<int> { i } });
+                groups.Add(new FieldGroup
+                {
+                    prefix = null,
+                    fieldIndices = new List<int> { i }
+                });
                 i++;
             }
 
             return groups;
+        }
+
+        private struct FieldRow
+        {
+            public VisualElement row;
+            public VisualElement editor;
+            public TextField mainTextField;
+            public TextField[] subTextFields;
+            public string fieldKey;
+            public string[] subFieldKeys;
+            public int fieldIndex;
+            public int[] subFieldIndices;
+            public string changeKey;
+            public double lastNumberVal;
+            public string lastStringVal;
+            public bool lastBoolVal;
+            public int lastEntityRefVal;
+            public bool isHovered;
+            public FieldValueType valueType;
+            public bool isVector;
+            public VisualElement boolTrack;
+            public VisualElement boolThumb;
+            public Label boolLabel;
+            public Label entityLink;
+            public Button entityEditBtn;
+            public Label keyLabel;
+        }
+
+        private struct DragState
+        {
+            public float startX;
+            public double baseVal;
+            public bool active;
+        }
+
+        private struct FieldGroup
+        {
+            public string prefix;
+            public List<int> fieldIndices;
         }
     }
 }

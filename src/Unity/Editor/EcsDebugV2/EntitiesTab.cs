@@ -1,17 +1,18 @@
 #pragma warning disable CS0618
 #if UNITY_EDITOR && NUKECS_DEBUG
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+// ReSharper disable HeapView.CanAvoidClosure
+// ReSharper disable HeapView.ObjectAllocation
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
+    using static Constant;
     public static class EntitiesTab
     {
-        private static readonly List<EntityInfo> FilteredBuffer = new List<EntityInfo>();
+        private static readonly List<EntityInfo> FilteredBuffer = new ();
         private static bool _suppressSelection;
-        private const int LIST_ITEM_HEIGHT = 20;
         public static VisualElement Create(EcsDebugV2Window window)
         {
             _suppressSelection = false;
@@ -63,21 +64,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var placeholder = new Label("filter entities\u2026")
             {
                 name = "search-placeholder",
-                pickingMode = PickingMode.Ignore
+                pickingMode = PickingMode.Ignore,
+                style =
+                {
+                    fontSize = EcsDebugV2Theme.Font.Small,
+                    color = EcsDebugV2Theme.MutedTextA05,
+                    position = Position.Absolute,
+                    left = 7,
+                    top = 0,
+                    bottom = 0,
+                    unityTextAlign = TextAnchor.MiddleLeft
+                }
             };
-            placeholder.style.fontSize = EcsDebugV2Theme.Font.Small;
-            placeholder.style.color = EcsDebugV2Theme.MutedTextA05;
-            placeholder.style.position = Position.Absolute;
-            placeholder.style.left = 7;
-            placeholder.style.top = 0;
-            placeholder.style.bottom = 0;
-            placeholder.style.unityTextAlign = TextAnchor.MiddleLeft;
             searchContainer.Add(placeholder);
             toolbar.Add(searchContainer);
 
-
-
-            var countLabel = new Label("0/0")
+            var countLabel = new Label("0")
             {
                 name = "entity-count",
                 style =
@@ -116,8 +118,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var filtered = FilterEntities(window);
 
-            ListView listView = null;
-            listView = new ListView(filtered, LIST_ITEM_HEIGHT,
+            var listView = new ListView(filtered, ENTITY_LIST_ITEM_HEIGHT,
                 () =>
                 {
                     var row = new VisualElement
@@ -159,19 +160,23 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     if (idx < 0 || idx >= FilteredBuffer.Count) return;
                     var e = FilteredBuffer[idx];
-                    ve.userData = e.Id;
-                    ve.name = $"erow-{e.Id}";
-                    bool selected = window.selectedEntityId == e.Id;
+                    ve.userData = e.id;
+                    ve.name = $"erow-{e.id}";
+                    var selected = window.selectedEntityId == e.id;
                     ve.style.backgroundColor = selected
                         ? EcsDebugV2Theme.LimeA01
                         : Color.clear;
-                    int ci = 0;
+                    var ci = 0;
                     foreach (var child in ve.Children())
                     {
-                        if (!(child is Label label)) continue;
-                        if (ci == 0) label.text = $"#{e.Id}";
-                        else if (ci == 1) label.text = e.Name;
-                        else if (ci == 2) label.text = e.Archetype;
+                        if (child is not Label label) continue;
+                        label.text = ci switch
+                        {
+                            0 => $"#{e.id}",
+                            1 => e.name,
+                            2 => e.archetype,
+                            _ => label.text
+                        };
                         ci++;
                     }
                 })
@@ -192,7 +197,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     if (o is EntityInfo info)
                     {
-                        window.SelectEntity(info.Id);
+                        window.SelectEntity(info.id);
                         break;
                     }
                 }
@@ -200,7 +205,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             listView.makeNoneElement = () => new VisualElement();
             if (window.selectedEntityId.HasValue)
             {
-                var idx = filtered.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                var idx = filtered.FindIndex(e => e.id == window.selectedEntityId.Value);
                 if (idx >= 0)
                 {
                     _suppressSelection = true;
@@ -226,7 +231,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _suppressSelection = true;
             if (window.selectedEntityId.HasValue)
             {
-                var idx = FilteredBuffer.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                var idx = FilteredBuffer.FindIndex(e => e.id == window.selectedEntityId.Value);
                 listView.selectedIndex = idx >= 0 ? idx : -1;
             }
             else
@@ -248,7 +253,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (window.selectedEntityId.HasValue)
             {
-                var idx = filtered.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                var idx = filtered.FindIndex(e => e.id == window.selectedEntityId.Value);
                 _suppressSelection = true;
                 listView.selectedIndex = idx >= 0 ? idx : -1;
                 _suppressSelection = false;
@@ -270,8 +275,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (window.currentTab != TabKey.Entities) return;
             var container = leftPanel.Q("left-panel") ?? leftPanel;
-            var countLabel = container.Q("entity-count") as Label;
-            if (countLabel != null)
+            if (container.Q("entity-count") is Label countLabel)
                 countLabel.text = $"{window.filteredEntityIds.Count}/{window.entities.Count}";
         }
 
@@ -304,11 +308,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 if (q != null)
                 {
-                    if (!e.Name.ToLower().Contains(q) && !e.Id.ToString().Contains(q))
+                    if (!e.name.ToLower().Contains(q) && !e.id.ToString().Contains(q))
                         continue;
                 }
                 FilteredBuffer.Add(e);
-                window.filteredEntityIds.Add(e.Id);
+                window.filteredEntityIds.Add(e.id);
             }
             return FilteredBuffer;
         }

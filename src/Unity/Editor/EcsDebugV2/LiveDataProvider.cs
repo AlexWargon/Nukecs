@@ -56,7 +56,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             get
             {
                 var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                if (now - _worldInfoTimestamp < WorldInfoCacheMs && _cachedWorldInfo.Name != null)
+                if (now - _worldInfoTimestamp < WorldInfoCacheMs && _cachedWorldInfo.name != null)
                     return _cachedWorldInfo;
                 _worldInfoTimestamp = now;
 
@@ -88,9 +88,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                 _cachedWorldInfo = new WorldInfo
                 {
-                    Name = current,
-                    WorldNames = names.ToArray(),
-                    WorldSlots = slots.ToArray()
+                    name = current,
+                    worldNames = names.ToArray(),
+                    worldSlots = slots.ToArray()
                 };
                 return _cachedWorldInfo;
             }
@@ -165,7 +165,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private bool IsWorldValid()
         {
             ref var w = ref GetWorld();
-            return w.IsAlive && w.UnsafeWorld != null;
+            return w.IsAlive && w.unsafeWorldPtr.cached != null;
         }
 
         public List<EntityInfo> GetEntities()
@@ -216,11 +216,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     _entityList.Add(new EntityInfo
                     {
-                        Id = entityId,
-                        Name = entityName,
-                        Archetype = BuildArchetypeLabel(ref arch),
-                        Alive = true,
-                        Components = null
+                        id = entityId,
+                        name = entityName,
+                        archetype = BuildArchetypeLabel(ref arch),
+                        alive = true,
+                        components = null
                     });
                 }
             }
@@ -248,10 +248,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     }
 
                     var info = _entityList[listIdx];
-                    info.Id = entityId;
-                    info.Name = entityName;
-                    info.Archetype = BuildArchetypeLabel(ref arch);
-                    info.Alive = true;
+                    info.id = entityId;
+                    info.name = entityName;
+                    info.archetype = BuildArchetypeLabel(ref arch);
+                    info.alive = true;
                     listIdx++;
                 }
             }
@@ -291,11 +291,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             return new EntityInfo
             {
-                Id = entityId,
-                Name = entityName,
-                Archetype = archetypeLabel,
-                Alive = true,
-                Components = components
+                id = entityId,
+                name = entityName,
+                archetype = archetypeLabel,
+                alive = true,
+                components = components
             };
         }
 
@@ -330,11 +330,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     _archetypeList.Add(new ArchetypeInfo
                     {
-                        Id = i,
-                        Components = compNames,
-                        EntityCount = arch.count,
-                        ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f)),
-                        EntityIds = entityIds
+                        id = i,
+                        components = compNames,
+                        entityCount = arch.count,
+                        chunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f)),
+                        entityIds = entityIds
                     });
                 }
             }
@@ -346,23 +346,23 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     ref var arch = ref uw->archetypesList.Ptr[i].Ref;
                     var info = _archetypeList[idx];
 
-                    info.Id = i;
-                    info.EntityCount = arch.count;
-                    info.ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f));
+                    info.id = i;
+                    info.entityCount = arch.count;
+                    info.chunkCount = Mathf.Max(1, Mathf.CeilToInt(arch.count / 16f));
 
-                    if (info.Components.Count != arch.types.length)
+                    if (info.components.Count != arch.types.length)
                     {
-                        info.Components.Clear();
+                        info.components.Clear();
                         foreach (var typeIdx in arch.types)
                         {
                             var t = ComponentTypeMap.GetType(typeIdx);
-                            info.Components.Add(t?.Name ?? $"Type_{typeIdx}");
+                            info.components.Add(t?.Name ?? $"Type_{typeIdx}");
                         }
                     }
 
-                    info.EntityIds.Clear();
+                    info.entityIds.Clear();
                     for (var ei = 0; ei < arch.count; ei++)
-                        info.EntityIds.Add(arch.packedEntities.Ptr[ei]);
+                        info.entityIds.Add(arch.packedEntities.Ptr[ei]);
                 }
             }
 
@@ -406,12 +406,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     _queryList.Add(new QueryInfo
                     {
-                        Id = q.Id,
-                        Name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
-                        With = withList,
-                        Without = withoutList,
-                        Matched = q.count,
-                        LastRunMs = 0
+                        id = q.Id,
+                        name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
+                        with = withList,
+                        without = withoutList,
+                        matched = q.count,
+                        lastRunMs = 0
                     });
                 }
             }
@@ -422,10 +422,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     ref var q = ref uw->queries.Ptr[i].Ref;
                     var info = _queryList[i];
 
-                    info.Id = q.Id;
-                    info.Matched = q.count;
-                    info.LastRunMs = 0;
-                    info.Name = info.With.Count > 0 ? string.Join("+", info.With) : $"Query_{q.Id}";
+                    info.id = q.Id;
+                    info.matched = q.count;
+                    info.lastRunMs = 0;
+                    info.name = info.with.Count > 0 ? string.Join("+", info.with) : $"Query_{q.Id}";
                 }
             }
 
@@ -451,22 +451,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     if (_resourceFields.Count == 1)
                     {
-                        info.IsScalar = true;
-                        info.ScalarValue = _resourceFields[0].Value;
-                        info.Value.Clear();
+                        info.isScalar = true;
+                        info.scalarValue = _resourceFields[0].Value;
+                        info.value.Clear();
                     }
                     else if (_resourceFields.Count == 0)
                     {
-                        info.IsScalar = true;
-                        info.ScalarValue = FieldValue.FromBool(true);
-                        info.Value.Clear();
+                        info.isScalar = true;
+                        info.scalarValue = FieldValue.FromBool(true);
+                        info.value.Clear();
                     }
                     else
                     {
-                        info.IsScalar = false;
-                        info.Value.Clear();
+                        info.isScalar = false;
+                        info.value.Clear();
                         foreach (var (key, val) in _resourceFields)
-                            info.Value[key] = val;
+                            info.value[key] = val;
                     }
                 }
                 return _resourceList;
@@ -478,8 +478,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var res = _resources[i];
                 var info = new ResourceInfo
                 {
-                    Name = res.GetType().Name,
-                    Type = res.GetType().Name
+                    name = res.GetType().Name,
+                    type = res.GetType().Name
                 };
                 _resourceFields.Clear();
                 try { ComponentFieldReader.ReadFields(res, _resourceFields); }
@@ -487,19 +487,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                 if (_resourceFields.Count == 1)
                 {
-                    info.IsScalar = true;
-                    info.ScalarValue = _resourceFields[0].Value;
+                    info.isScalar = true;
+                    info.scalarValue = _resourceFields[0].Value;
                 }
                 else if (_resourceFields.Count == 0)
                 {
-                    info.IsScalar = true;
-                    info.ScalarValue = FieldValue.FromBool(true);
+                    info.isScalar = true;
+                    info.scalarValue = FieldValue.FromBool(true);
                 }
                 else
                 {
-                    info.IsScalar = false;
+                    info.isScalar = false;
                     foreach (var (key, val) in _resourceFields)
-                        info.Value[key] = val;
+                        info.value[key] = val;
                 }
                 _resourceList.Add(info);
             }
@@ -514,11 +514,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             ref var entity = ref world.Entity();
             return new EntityInfo
             {
-                Id = entity.id,
-                Name = $"Entity_{entity.id}",
-                Archetype = "Empty",
-                Alive = true,
-                Components = new List<ComponentInfo>()
+                id = entity.id,
+                name = $"Entity_{entity.id}",
+                archetype = "Empty",
+                alive = true,
+                components = new List<ComponentInfo>()
             };
         }
 
@@ -696,38 +696,38 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 fields.Add((fi.Name, FieldValue.FromEntityRef(((Entity)val).id)));
             else if (ft.IsEnum)
                 fields.Add((fi.Name, FieldValue.FromNumber(Convert.ToInt64(val))));
-            else if (ft == typeof(UnityEngine.Vector2) || ft.Name == "float2")
+            else if (ft == typeof(Vector2) || ft.Name == "float2")
             {
-                var v = (UnityEngine.Vector2)val;
+                var v = (Vector2)val;
                 fields.Add(($"{fi.Name}.x", FieldValue.FromNumber(v.x)));
                 fields.Add(($"{fi.Name}.y", FieldValue.FromNumber(v.y)));
             }
-            else if (ft == typeof(UnityEngine.Vector3) || ft.Name == "float3")
+            else if (ft == typeof(Vector3) || ft.Name == "float3")
             {
-                var v = (UnityEngine.Vector3)val;
-                fields.Add(($"{fi.Name}.x", FieldValue.FromNumber(v.x)));
-                fields.Add(($"{fi.Name}.y", FieldValue.FromNumber(v.y)));
-                fields.Add(($"{fi.Name}.z", FieldValue.FromNumber(v.z)));
-            }
-            else if (ft == typeof(UnityEngine.Vector4) || ft.Name == "float4")
-            {
-                var v = (UnityEngine.Vector4)val;
+                var v = (Vector3)val;
                 fields.Add(($"{fi.Name}.x", FieldValue.FromNumber(v.x)));
                 fields.Add(($"{fi.Name}.y", FieldValue.FromNumber(v.y)));
                 fields.Add(($"{fi.Name}.z", FieldValue.FromNumber(v.z)));
-                fields.Add(($"{fi.Name}.w", FieldValue.FromNumber(v.w)));
             }
-            else if (ft == typeof(UnityEngine.Quaternion) || ft.Name == "quaternion")
+            else if (ft == typeof(Vector4) || ft.Name == "float4")
             {
-                var v = (UnityEngine.Quaternion)val;
+                var v = (Vector4)val;
                 fields.Add(($"{fi.Name}.x", FieldValue.FromNumber(v.x)));
                 fields.Add(($"{fi.Name}.y", FieldValue.FromNumber(v.y)));
                 fields.Add(($"{fi.Name}.z", FieldValue.FromNumber(v.z)));
                 fields.Add(($"{fi.Name}.w", FieldValue.FromNumber(v.w)));
             }
-            else if (ft == typeof(UnityEngine.Color))
+            else if (ft == typeof(Quaternion) || ft.Name == "quaternion")
             {
-                var v = (UnityEngine.Color)val;
+                var v = (Quaternion)val;
+                fields.Add(($"{fi.Name}.x", FieldValue.FromNumber(v.x)));
+                fields.Add(($"{fi.Name}.y", FieldValue.FromNumber(v.y)));
+                fields.Add(($"{fi.Name}.z", FieldValue.FromNumber(v.z)));
+                fields.Add(($"{fi.Name}.w", FieldValue.FromNumber(v.w)));
+            }
+            else if (ft == typeof(Color))
+            {
+                var v = (Color)val;
                 fields.Add(($"{fi.Name}.r", FieldValue.FromNumber(v.r)));
                 fields.Add(($"{fi.Name}.g", FieldValue.FromNumber(v.g)));
                 fields.Add(($"{fi.Name}.b", FieldValue.FromNumber(v.b)));

@@ -90,13 +90,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private static void UpdateEntityFieldValues(EntityInfo entity, EcsDebugV2Window window, long now)
         {
-            if (entity.Components == null) return;
+            if (entity.components == null) return;
 
             var count = ComponentCardDrawer.ActiveCount;
             for (int i = 0; i < count; i++)
             {
-                if (i >= entity.Components.Count) break;
-                ComponentCardDrawer.GetActive(i).UpdateValues(entity.Components[i], now);
+                if (i >= entity.components.Count) break;
+                ComponentCardDrawer.GetActive(i).UpdateValues(entity.components[i], now);
             }
         }
 
@@ -126,7 +126,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static void DrawEntityInspector(VisualElement panel, EntityInfo entity, EcsDebugV2Window window)
         {
             var header = EcsDebugV2Theme.CreateHeaderRow();
-            var idLabel = new Label($"#{entity.Id}")
+            var idLabel = new Label($"#{entity.id}")
             {
                 style =
                 {
@@ -137,7 +137,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             header.Add(idLabel);
-            var nameLabel = new Label(entity.Name)
+            var nameLabel = new Label(entity.name)
             {
                 style =
                 {
@@ -147,10 +147,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             header.Add(nameLabel);
-            header.Add(EcsDebugV2Theme.CreateBadge(entity.Archetype.ToUpper(),
+            header.Add(EcsDebugV2Theme.CreateBadge(entity.archetype.ToUpper(),
                 EcsDebugV2Theme.OrangeA015, EcsDebugV2Theme.Orange, EcsDebugV2Theme.Font.Mini));
 
-            var meta = new Label($"{(entity.Components?.Count ?? 0)} components")
+            var meta = new Label($"{(entity.components?.Count ?? 0)} components")
             {
                 style =
                 {
@@ -161,7 +161,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             header.Add(meta);
 
-            var destroyBtn = EcsDebugV2Theme.CreateActionBtn("destroy", EcsDebugV2Theme.Red, () => window.DestroyEntity(entity.Id));
+            var destroyBtn = EcsDebugV2Theme.CreateActionBtn("destroy", EcsDebugV2Theme.Red, () => window.DestroyEntity(entity.id));
             destroyBtn.style.marginLeft = 8;
             destroyBtn.tooltip = "Destroy entity";
             header.Add(destroyBtn);
@@ -181,12 +181,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
 
             ComponentCardDrawer.ResetActive();
-            var compCount = entity.Components?.Count ?? 0;
+            var compCount = entity.components?.Count ?? 0;
             for (int ci = 0; ci < compCount; ci++)
             {
-                var comp = entity.Components[ci];
+                var comp = entity.components[ci];
                 var drawer = ComponentCardDrawer.GetOrCreate(comp);
-                drawer.Bind(entity.Id, comp.Name, window, ci, comp);
+                drawer.Bind(entity.id, comp.Name, window, ci, comp);
                 scroll.Add(drawer.Card);
                 ComponentCardDrawer.AddActive(drawer);
             }
@@ -217,8 +217,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style = { display = DisplayStyle.None }
             };
             var existing = new HashSet<string>();
-            if (entity.Components != null)
-                foreach (var c in entity.Components) existing.Add(c.Name);
+            if (entity.components != null)
+                foreach (var c in entity.components) existing.Add(c.Name);
             var available = new List<string>();
             foreach (var c in window.provider.AvailableComponentTypes)
                 if (!existing.Contains(c)) available.Add(c);
@@ -273,7 +273,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var name = compName;
                 var tag = new Button(() =>
                 {
-                    window.AddComponent(entity.Id, name);
+                    window.AddComponent(entity.id, name);
                     pickerContainer.style.display = DisplayStyle.None;
                 })
                 {
@@ -328,7 +328,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static void DrawArchetypeInspector(VisualElement panel, ArchetypeInfo archetype, EcsDebugV2Window window)
         {
             var header = EcsDebugV2Theme.CreateHeaderRow();
-            header.Add(new Label($"archetype #{archetype.Id}")
+            header.Add(new Label($"archetype #{archetype.id}")
             {
                 style =
                 {
@@ -338,7 +338,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     marginRight = 6
                 }
             });
-            header.Add(new Label(string.Join(" + ", archetype.Components))
+            header.Add(new Label(string.Join(" + ", archetype.components))
             {
                 style =
                 {
@@ -346,7 +346,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     color = EcsDebugV2Theme.Foreground
                 }
             });
-            header.Add(new Label($"{archetype.EntityCount} entities \u00B7 {archetype.ChunkCount} chunks")
+            header.Add(new Label($"{archetype.entityCount} entities \u00B7 {archetype.chunkCount} chunks")
             {
                 style =
                 {
@@ -383,12 +383,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap }
             };
-            foreach (var c in archetype.Components)
+            foreach (var c in archetype.components)
                 compTags.Add(EcsDebugV2Theme.CreateFilterTag(c, true));
             compSection.Add(compTags);
             panel.Add(compSection);
 
-            var entLabel = new Label($"Entities ({archetype.EntityCount})")
+            var entLabel = new Label($"Entities ({archetype.entityCount})")
             {
                 style =
                 {
@@ -413,15 +413,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
 
             _archMatchSet.Clear();
-            foreach (var c in archetype.Components) _archMatchSet.Add(c);
-            foreach (var entityId in archetype.EntityIds)
+            foreach (var c in archetype.components) _archMatchSet.Add(c);
+            foreach (var entityId in archetype.entityIds)
             {
                 EntityInfo e;
                 if (!window.entityMap.TryGetValue(entityId, out e)) continue;
 
                 var row = EcsDebugV2Theme.CreateRow();
                 row.style.borderBottomColor = EcsDebugV2Theme.PanelBorderA04;
-                row.Add(new Label($"#{e.Id}")
+                row.Add(new Label($"#{e.id}")
                 {
                     style =
                     {
@@ -431,7 +431,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         flexShrink = 0
                     }
                 });
-                row.Add(new Label(e.Name)
+                row.Add(new Label(e.name)
                 {
                     style =
                     {
@@ -440,18 +440,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         flexGrow = 1
                     }
                 });
-                var aliveLabel = new Label(e.Alive ? "\u25CF alive" : "\u25CF dead")
+                var aliveLabel = new Label(e.alive ? "\u25CF alive" : "\u25CF dead")
                 {
                     style =
                     {
                         fontSize = EcsDebugV2Theme.Font.Small,
-                        color = e.Alive ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red,
+                        color = e.alive ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red,
                         width = 70,
                         flexShrink = 0
                     }
                 };
                 row.Add(aliveLabel);
-                var capturedId = e.Id;
+                var capturedId = e.id;
                 row.RegisterCallback<ClickEvent>(_ =>
                 {
                     window.SelectEntityFromArchetype(capturedId);
@@ -464,7 +464,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static void DrawQueryInspector(VisualElement panel, QueryInfo query, EcsDebugV2Window window)
         {
             var header = EcsDebugV2Theme.CreateHeaderRow();
-            header.Add(new Label(query.Name)
+            header.Add(new Label(query.name)
             {
                 style =
                 {
@@ -473,7 +473,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             });
-            header.Add(new Label($"{query.Matched} entities \u00B7 {query.LastRunMs:F2} ms")
+            header.Add(new Label($"{query.matched} entities \u00B7 {query.lastRunMs:F2} ms")
             {
                 style =
                 {
@@ -496,8 +496,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     borderBottomColor = EcsDebugV2Theme.PanelBorder
                 }
             };
-            filterSection.Add(CreateFilterRow("With", query.With, true));
-            filterSection.Add(CreateFilterRow("Without", query.Without, false));
+            filterSection.Add(CreateFilterRow("With", query.with, true));
+            filterSection.Add(CreateFilterRow("Without", query.without, false));
             panel.Add(filterSection);
 
             var matchingLabel = new Label("Matching archetypes")
@@ -529,11 +529,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             foreach (var arch in window.archetypes)
             {
                 _queryMatchSet.Clear();
-                foreach (var c in arch.Components) _queryMatchSet.Add(c);
+                foreach (var c in arch.components) _queryMatchSet.Add(c);
                 bool match = true;
-                for (int wi = 0; wi < query.With.Count; wi++)
+                for (int wi = 0; wi < query.with.Count; wi++)
                 {
-                    if (!_queryMatchSet.Contains(query.With[wi]))
+                    if (!_queryMatchSet.Contains(query.with[wi]))
                     {
                         match = false;
                         break;
@@ -541,9 +541,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 if (match)
                 {
-                    for (int wi = 0; wi < query.Without.Count; wi++)
+                    for (int wi = 0; wi < query.without.Count; wi++)
                     {
-                        if (_queryMatchSet.Contains(query.Without[wi]))
+                        if (_queryMatchSet.Contains(query.without[wi]))
                         {
                             match = false;
                             break;
@@ -568,7 +568,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         marginBottom = 4
                     }
                 };
-                topRow.Add(new Label($"#{arch.Id}")
+                topRow.Add(new Label($"#{arch.id}")
                 {
                     style =
                     {
@@ -576,7 +576,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         color = EcsDebugV2Theme.Orange
                     }
                 });
-                topRow.Add(new Label($"{arch.EntityCount} entities")
+                topRow.Add(new Label($"{arch.entityCount} entities")
                 {
                     style =
                     {
@@ -591,9 +591,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap }
                 };
-                foreach (var c in arch.Components)
+                foreach (var c in arch.components)
                 {
-                    bool isWith = query.With.Contains(c);
+                    bool isWith = query.with.Contains(c);
                     var tag = new Label(c)
                     {
                         style =
@@ -626,7 +626,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static void DrawResourceInspector(VisualElement panel, ResourceInfo resource)
         {
             var header = EcsDebugV2Theme.CreateHeaderRow();
-            header.Add(new Label(resource.Name)
+            header.Add(new Label(resource.name)
             {
                 style =
                 {
@@ -636,7 +636,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     marginRight = 6
                 }
             });
-            header.Add(new Label(resource.Type)
+            header.Add(new Label(resource.type)
             {
                 style =
                 {
@@ -657,20 +657,20 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            if (resource.IsScalar)
+            if (resource.isScalar)
             {
                 var valueCard = EcsDebugV2Theme.CreateCard();
                 valueCard.style.paddingLeft = 10;
                 valueCard.style.paddingRight = 10;
                 valueCard.style.paddingTop = 6;
                 valueCard.style.paddingBottom = 6;
-                valueCard.Add(CreateValueDisplay(resource.ScalarValue));
+                valueCard.Add(CreateValueDisplay(resource.scalarValue));
                 content.Add(valueCard);
             }
             else
             {
                 var valueCard = EcsDebugV2Theme.CreateCard();
-                foreach (var kv in resource.Value)
+                foreach (var kv in resource.value)
                 {
                     var row = new VisualElement
                     {

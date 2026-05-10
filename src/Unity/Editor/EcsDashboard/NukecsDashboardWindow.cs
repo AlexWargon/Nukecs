@@ -1,6 +1,5 @@
 #pragma warning disable CS0618
 #if UNITY_EDITOR && NUKECS_DEBUG
-using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -47,7 +46,7 @@ namespace Wargon.Nukecs.Editor
         public Dictionary<int, ComponentProxy> ComponentProxies => _componentProxies;
         public Dictionary<string, bool> FoldoutStates => _foldoutStates;
 
-        [MenuItem("Nuke.cs/ECS Dashboard")]
+        //[MenuItem("Nuke.cs/ECS Dashboard")]
         public static void ShowWindow()
         {
             var wnd = GetWindow<NukecsDashboardWindow>();
