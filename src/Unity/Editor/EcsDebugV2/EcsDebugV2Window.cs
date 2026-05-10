@@ -56,8 +56,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public const int INSPECTOR_FIELD_REFRESH_MS = 16;
         private const int UI_LOW_PRIORITY_MS = 500;
+        private const int LEFT_PANEL_REFRESH_MS = 100;
         private long _lastValuePollTs;
         private long _lastUiLowPriTs;
+        private long _lastLeftPanelTs;
         private int _lastDetailsTick = -1;
 
         [MenuItem("Nuke.cs/ECS Debug V2")]
@@ -254,7 +256,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     if (currentTab == TabKey.Resources)
                         try { resources = provider.GetResources(); } catch { }
                     RebuildMaps();
-                    try { RefreshLeftPanel(); } catch { }
+                    if (currentTab == TabKey.Entities || now - _lastLeftPanelTs >= LEFT_PANEL_REFRESH_MS)
+                    {
+                        _lastLeftPanelTs = now;
+                        try { RefreshLeftPanel(); } catch { }
+                    }
                 }
 
                 if (now - _lastValuePollTs >= INSPECTOR_FIELD_REFRESH_MS)
@@ -517,6 +523,34 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 EntitiesTab.Refresh(_leftPanel, this);
                 return;
+            }
+
+            if (currentTab == TabKey.Archetypes)
+            {
+                var scroll = _leftPanel.Q<ScrollView>("archetypes-scroll");
+                if (scroll != null)
+                {
+                    ArchetypesList.Refresh(scroll, this);
+                    return;
+                }
+            }
+            else if (currentTab == TabKey.Queries)
+            {
+                var scroll = _leftPanel.Q<ScrollView>("queries-scroll");
+                if (scroll != null)
+                {
+                    QueriesList.Refresh(scroll, this);
+                    return;
+                }
+            }
+            else if (currentTab == TabKey.Resources)
+            {
+                var scroll = _leftPanel.Q<ScrollView>("resources-scroll");
+                if (scroll != null)
+                {
+                    ResourcesList.Refresh(scroll, this);
+                    return;
+                }
             }
 
             var oldScroll = _leftPanel.Query<ScrollView>().First();

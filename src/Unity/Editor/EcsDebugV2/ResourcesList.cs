@@ -13,6 +13,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             var scroll = new ScrollView(ScrollViewMode.Vertical)
             {
+                name = "resources-scroll",
                 style =
                 {
                     flexGrow = 1,
@@ -33,6 +34,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _lastCount = window.resources.Count;
             var scroll = container as ScrollView;
             var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
+
+            var content = scroll != null ? scroll.contentContainer : container;
+            if (content.childCount == window.resources.Count)
+            {
+                UpdateExistingCards(content, window);
+                if (scroll != null) scroll.scrollOffset = savedOffset;
+                return;
+            }
+
             container.Clear();
             foreach (var r in window.resources)
             {
@@ -40,6 +50,30 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 container.Add(card);
             }
             if (scroll != null) scroll.scrollOffset = savedOffset;
+        }
+
+        private static void UpdateExistingCards(VisualElement content, EcsDebugV2Window window)
+        {
+            int idx = 0;
+            foreach (var r in window.resources)
+            {
+                var card = content[idx];
+                card.name = $"resource-card-{r.Name}";
+
+                bool selected = window.selectedResourceName == r.Name;
+                if (selected)
+                {
+                    card.SetupBorder(EcsDebugV2Theme.Yellow);
+                    card.style.backgroundColor = EcsDebugV2Theme.YellowA01;
+                }
+                else
+                {
+                    card.SetupBorder(EcsDebugV2Theme.PanelBorder);
+                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
+                }
+
+                idx++;
+            }
         }
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
@@ -59,6 +93,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             bool selected = window.selectedResourceName == resource.Name;
             var card = EcsDebugV2Theme.CreateCard();
+            card.name = $"resource-card-{resource.Name}";
             card.style.flexDirection = FlexDirection.Row;
             card.style.alignItems = Align.Center;
             card.style.paddingLeft = 8;

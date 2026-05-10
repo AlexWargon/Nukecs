@@ -350,11 +350,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     info.EntityCount = arch.count;
                     info.ChunkCount = Mathf.Max(1, Mathf.CeilToInt((float)arch.count / 16f));
 
-                    info.Components.Clear();
-                    foreach (var typeIdx in arch.types)
+                    if (info.Components.Count != arch.types.length)
                     {
-                        var t = ComponentTypeMap.GetType(typeIdx);
-                        info.Components.Add(t?.Name ?? $"Type_{typeIdx}");
+                        info.Components.Clear();
+                        foreach (var typeIdx in arch.types)
+                        {
+                            var t = ComponentTypeMap.GetType(typeIdx);
+                            info.Components.Add(t?.Name ?? $"Type_{typeIdx}");
+                        }
                     }
 
                     info.EntityIds.Clear();

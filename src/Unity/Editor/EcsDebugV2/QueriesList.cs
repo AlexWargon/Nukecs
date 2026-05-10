@@ -13,6 +13,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             var scroll = new ScrollView(ScrollViewMode.Vertical)
             {
+                name = "queries-scroll",
                 style =
                 {
                     flexGrow = 1,
@@ -33,6 +34,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _lastCount = window.queries.Count;
             var scroll = container as ScrollView;
             var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
+
+            var content = scroll != null ? scroll.contentContainer : container;
+            if (content.childCount == window.queries.Count)
+            {
+                UpdateExistingCards(content, window);
+                if (scroll != null) scroll.scrollOffset = savedOffset;
+                return;
+            }
+
             container.Clear();
             foreach (var q in window.queries)
             {
@@ -40,6 +50,37 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 container.Add(card);
             }
             if (scroll != null) scroll.scrollOffset = savedOffset;
+        }
+
+        private static void UpdateExistingCards(VisualElement content, EcsDebugV2Window window)
+        {
+            int idx = 0;
+            foreach (var q in window.queries)
+            {
+                var card = content[idx];
+                card.name = $"query-card-{q.Id}";
+
+                bool selected = window.selectedQueryId == q.Id;
+                if (selected)
+                {
+                    card.SetupBorder(EcsDebugV2Theme.Lime);
+                    card.style.backgroundColor = EcsDebugV2Theme.LimeA01;
+                }
+                else
+                {
+                    card.SetupBorder(EcsDebugV2Theme.PanelBorder);
+                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
+                }
+
+                var matchedLabel = card.Q<Label>("query-matched");
+                if (matchedLabel != null)
+                    matchedLabel.text = $"{q.Matched} matched";
+                var timeLabel = card.Q<Label>("query-time");
+                if (timeLabel != null)
+                    timeLabel.text = $"last {q.LastRunMs:F2} ms";
+
+                idx++;
+            }
         }
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)

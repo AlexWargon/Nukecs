@@ -9,9 +9,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     public static class EntitiesTab
     {
-        private static List<EntityInfo> _filteredBuffer = new List<EntityInfo>();
+        private static readonly List<EntityInfo> FilteredBuffer = new List<EntityInfo>();
         private static bool _suppressSelection;
-
+        private const int LIST_ITEM_HEIGHT = 20;
         public static VisualElement Create(EcsDebugV2Window window)
         {
             _suppressSelection = false;
@@ -117,7 +117,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var filtered = FilterEntities(window);
 
             ListView listView = null;
-            listView = new ListView(filtered, 24,
+            listView = new ListView(filtered, LIST_ITEM_HEIGHT,
                 () =>
                 {
                     var row = new VisualElement
@@ -157,8 +157,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 },
                 (ve, idx) =>
                 {
-                    if (idx < 0 || idx >= _filteredBuffer.Count) return;
-                    var e = _filteredBuffer[idx];
+                    if (idx < 0 || idx >= FilteredBuffer.Count) return;
+                    var e = FilteredBuffer[idx];
                     ve.userData = e.Id;
                     ve.name = $"erow-{e.Id}";
                     bool selected = window.selectedEntityId == e.Id;
@@ -226,7 +226,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _suppressSelection = true;
             if (window.selectedEntityId.HasValue)
             {
-                var idx = _filteredBuffer.FindIndex(e => e.Id == window.selectedEntityId.Value);
+                var idx = FilteredBuffer.FindIndex(e => e.Id == window.selectedEntityId.Value);
                 listView.selectedIndex = idx >= 0 ? idx : -1;
             }
             else
@@ -295,7 +295,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private static List<EntityInfo> FilterEntities(EcsDebugV2Window window)
         {
-            _filteredBuffer.Clear();
+            FilteredBuffer.Clear();
             window.filteredEntityIds.Clear();
             string q = null;
             if (!string.IsNullOrEmpty(window.searchQuery))
@@ -307,10 +307,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     if (!e.Name.ToLower().Contains(q) && !e.Id.ToString().Contains(q))
                         continue;
                 }
-                _filteredBuffer.Add(e);
+                FilteredBuffer.Add(e);
                 window.filteredEntityIds.Add(e.Id);
             }
-            return _filteredBuffer;
+            return FilteredBuffer;
         }
 
         private static Label MakeHeaderCell(string text, int width, bool flex = false)

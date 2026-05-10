@@ -13,6 +13,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             var scroll = new ScrollView(ScrollViewMode.Vertical)
             {
+                name = "archetypes-scroll",
                 style =
                 {
                     flexGrow = 1,
@@ -33,8 +34,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _lastCount = window.archetypes.Count;
             var scroll = container as ScrollView;
             var savedOffset = scroll != null ? scroll.scrollOffset : Vector2.zero;
+
+            if (window.archetypes.Count == 0)
+            {
+                container.Clear();
+                return;
+            }
+
+            var content = scroll != null ? scroll.contentContainer : container;
+            if (content.childCount == window.archetypes.Count)
+            {
+                UpdateExistingCards(content, window);
+                if (scroll != null) scroll.scrollOffset = savedOffset;
+                return;
+            }
+
             container.Clear();
-            if (window.archetypes.Count == 0) return;
             int maxCount = 1;
             foreach (var a in window.archetypes)
                 if (a.EntityCount > maxCount) maxCount = a.EntityCount;
@@ -46,6 +61,45 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
 
             if (scroll != null) scroll.scrollOffset = savedOffset;
+        }
+
+        private static void UpdateExistingCards(VisualElement content, EcsDebugV2Window window)
+        {
+            int maxCount = 1;
+            foreach (var a in window.archetypes)
+                if (a.EntityCount > maxCount) maxCount = a.EntityCount;
+
+            int idx = 0;
+            foreach (var arch in window.archetypes)
+            {
+                var card = content[idx];
+                card.name = $"arch-card-{arch.Id}";
+
+                bool selected = window.selectedArchetypeId == arch.Id;
+                if (selected)
+                {
+                    card.SetupBorder(EcsDebugV2Theme.Orange);
+                    card.style.backgroundColor = EcsDebugV2Theme.OrangeA01;
+                }
+                else
+                {
+                    card.SetupBorder(EcsDebugV2Theme.PanelBorder);
+                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
+                }
+
+                var countLabel = card.Q<Label>("arch-count");
+                if (countLabel != null)
+                    countLabel.text = $"{arch.EntityCount} ent \u00B7 {arch.ChunkCount} ch";
+
+                var barFill = card.Q("bar-fill");
+                if (barFill != null)
+                {
+                    var pct = maxCount > 0 ? (float)arch.EntityCount / maxCount : 0;
+                    barFill.style.width = Length.Percent(pct * 100);
+                }
+
+                idx++;
+            }
         }
 
         public static void UpdateValues(VisualElement leftPanel, EcsDebugV2Window window)
@@ -160,6 +214,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             var pct = (float)arch.EntityCount / maxCount;
             var barFill = new VisualElement
             {
+                name = "bar-fill",
                 style =
                 {
                     height = 4,

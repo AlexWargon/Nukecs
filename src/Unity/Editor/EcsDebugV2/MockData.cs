@@ -24,10 +24,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public bool BoolVal;
         public int EntityRefVal;
 
-        public static FieldValue FromNumber(double v) => new FieldValue { Type = FieldValueType.Number, NumberVal = v };
-        public static FieldValue FromString(string v) => new FieldValue { Type = FieldValueType.String, StringVal = v };
-        public static FieldValue FromBool(bool v) => new FieldValue { Type = FieldValueType.Bool, BoolVal = v };
-        public static FieldValue FromEntityRef(int id) => new FieldValue { Type = FieldValueType.EntityRef, EntityRefVal = id };
+        public static FieldValue FromNumber(double v) 
+            => new () { Type = FieldValueType.Number, NumberVal = v };
+        public static FieldValue FromString(string v) 
+            => new () { Type = FieldValueType.String, StringVal = v };
+        public static FieldValue FromBool(bool v) 
+            => new () { Type = FieldValueType.Bool, BoolVal = v };
+        public static FieldValue FromEntityRef(int id) 
+            => new () { Type = FieldValueType.EntityRef, EntityRefVal = id };
 
         public bool Equals(FieldValue other)
         {
