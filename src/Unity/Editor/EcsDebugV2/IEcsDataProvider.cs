@@ -13,7 +13,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
     public interface IEcsDataProvider
     {
-        List<EntityInfo> GetEntities();
         List<EntityInfo> GetEntityList();
         EntityInfo GetEntityDetails(int entityId);
         List<ArchetypeInfo> GetArchetypes();

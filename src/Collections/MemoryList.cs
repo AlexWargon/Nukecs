@@ -98,6 +98,28 @@ namespace Wargon.Nukecs.Collections
             Resize(idx + 1, ref allocatorHandler);
             Ptr[idx] = value;
         }
+
+        public void AddRange(T* src, int count, ref MemAllocator allocator)
+        {
+            var oldLength = length;
+            Resize(length + count, ref allocator);
+            UnsafeUtility.MemCpy(Ptr + oldLength, src, sizeof(T) * count);
+        }
+        public void AddRange(in Span<T> span, ref MemAllocator allocator)
+        {
+            fixed (T* ptr = span)
+            {
+                AddRange(ptr, span.Length, ref allocator);
+            }
+        }
+        
+        public void AddRange(in ReadOnlySpan<T> span, ref MemAllocator allocator)
+        {
+            fixed (T* ptr = span)
+            {
+                AddRange(ptr, span.Length, ref allocator);
+            }
+        }
         
         public void Clear()
         {

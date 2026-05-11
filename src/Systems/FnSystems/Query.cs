@@ -733,7 +733,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public IntPtr GetData()
             {
-                return (IntPtr)UnsafeStatic.to_ptr(ref _range);
+                return (IntPtr)UnsafeStatic.as_ptr(ref _range);
             }
 
             public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -1024,6 +1024,16 @@ namespace Wargon.Nukecs
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public readonly QueryParIterWithEntity<EntityPtrTuple<T1,T2,TOption>> par_iter_unsafe()
+            {
+                return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryIterWithEntity<EntityRefTuple<T1,T2,TOption>> iter()
+            {
+                return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+            }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public readonly QueryParIterWithEntity<EntityRefTuple<T1,T2,TOption>> par_iter()
             {
                 return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }

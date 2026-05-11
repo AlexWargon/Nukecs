@@ -105,21 +105,20 @@ namespace Wargon.Nukecs
             UnsafeUtility.FreeTracked(ptr, allocator);
         }
         
-        
         [MethodImpl(inline.YES)] 
-        public static unsafe ref T to_ptr<T>(void* ptr)
+        public static unsafe ref T as_ref<T>(void* ptr)
             where T: unmanaged
         {
             return ref UnsafeUtility.AsRef<T>(ptr);
         }
         [MethodImpl(inline.YES)] 
-        public static unsafe void* to_ptr<T>(ref T value)
+        public static unsafe void* as_ptr<T>(ref T value)
             where T: unmanaged
         {
             return UnsafeUtility.AddressOf(ref value);
         }
     }
-    public static class inline
+    internal static class inline
     {
         public const int YES = 256;
         public const int NO = 8;

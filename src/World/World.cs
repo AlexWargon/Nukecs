@@ -75,7 +75,13 @@ namespace Wargon.Nukecs
         {
             return UnsafeWorld->SpawnPrefab(in prefab);
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<Entity> SpawnPrefabs(in Entity prefab, int amount)
+        {
+            return UnsafeWorld->SpawnPrefabs(in prefab, amount);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity Entity<T1>(in T1 c1) where T1 : unmanaged, IComponent
         {

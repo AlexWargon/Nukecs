@@ -1,13 +1,9 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
-
 using Wargon.Nukecs.Collections;
 using static Wargon.Nukecs.UnsafeStatic;
 
@@ -568,7 +564,7 @@ namespace Wargon.Nukecs
                 var off = componentOffsets.Ptr[j];
                 if (off < 0) continue;
                 var ctData = ComponentTypeMap.GetComponentType(types.Ptr[j]);
-                UnsafeUtility.MemClear(data.Ptr + off + baseRow * ctData.size, ctData.size * cnt);
+                mem_clear(data.Ptr + off + baseRow * ctData.size, ctData.size * cnt);
             }
             count += cnt;
             for (var i = 0; i < queries.Length; i++)
@@ -580,6 +576,67 @@ namespace Wargon.Nukecs
                 world->GetUntypedPool(types[i]).UnsafeBufferPtr.Ref.BatchAdd(start, end);
             }
             return result;
+        }
+
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        internal void BatchCloneEntity(int srcEntityId, Span<Entity> outEntities)
+        {
+            var cnt = outEntities.Length;
+            var ids = stackalloc int[cnt];
+            world->BatchCreateEntity(cnt, ids, index);
+
+            EnsureCapacity(cnt);
+            var baseRow = count;
+            var srcRow = world->entityLocations.Ptr[srcEntityId].row;
+
+            for (int i = 0; i < cnt; i++)
+            {
+                packedEntities.Ptr[baseRow + i] = ids[i];
+                world->entityLocations.Ptr[ids[i]].row = baseRow + i;
+                outEntities[i] = new Entity(ids[i], world->Self, index);
+            }
+
+            for (var j = 0; j < types.length; j++)
+            {
+                var off = componentOffsets.Ptr[j];
+                if (off < 0) continue;
+                var typeIndex = types.Ptr[j];
+                var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+                if (ctData.storageType == StorageType.Pool)
+                {
+                    ref var pool = ref world->GetUntypedPool(typeIndex);
+                    for (int i = 0; i < cnt; i++)
+                    {
+                        pool.Copy(srcEntityId, ids[i]);
+                    }
+                    continue;
+                }
+                var srcPtr = data.Ptr + off + srcRow * ctData.size;
+                var baseDst = data.Ptr + off + baseRow * ctData.size;
+                for (int i = 0; i < cnt; i++)
+                {
+                    UnsafeUtility.MemCpy(baseDst + i * ctData.size, srcPtr, ctData.size);
+                }
+            }
+
+            count += cnt;
+
+            for (var i = 0; i < queries.Length; i++)
+                IdToQueryRef(queries.Ptr[i]).BatchAddRange(0, cnt);
+
+            // for (var j = 0; j < types.length; j++)
+            // {
+            //     var typeIndex = types.Ptr[j];
+            //     var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+            //     if (ctData.storageType != StorageType.Pool) continue;
+            //     ref var pool = ref world->GetUntypedPool(typeIndex);
+            //     for (int i = 0; i < cnt; i++)
+            //     {
+            //         pool.Copy(srcEntityId, ids[i]);
+            //     }
+            // }
         }
 
         internal void Refresh()

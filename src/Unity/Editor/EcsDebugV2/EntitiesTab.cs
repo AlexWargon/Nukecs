@@ -245,7 +245,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static void Refresh(VisualElement container, EcsDebugV2Window window)
         {
             var listView = container.Q<ListView>("entity-list");
-            if (listView == null) return;
 
             var filtered = FilterEntities(window);
             listView.itemsSource = filtered;

@@ -387,7 +387,13 @@ namespace Wargon.Nukecs
                 where T3 : unmanaged, IComponent
                 where T4 : unmanaged, IComponent
             {
-                Span<int> componentTypes = stackalloc int[2] { ComponentType<T1>.Index, ComponentType<T2>.Index };
+                Span<int> componentTypes = stackalloc int[4]
+                {
+                    ComponentType<T1>.Index, 
+                    ComponentType<T2>.Index, 
+                    ComponentType<T3>.Index, 
+                    ComponentType<T4>.Index
+                };
                 var arch = GetOrCreateArchetype(ref componentTypes);
                 ref var e = ref arch.CreateEntity();
                 e.Set(in c1);
@@ -450,13 +456,17 @@ namespace Wargon.Nukecs
                 var start = lastEntityIndex;
                 return BatchCreateEntity(start, start + count, 0);
             }
-
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal Span<Entity> BatchCreateEntityWithArch(int count, int arch)
+            {
+                var start = lastEntityIndex;
+                return BatchCreateEntity(start, start + count, arch);
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Span<Entity> BatchCreateEntity(int start, int end)
             {
                 return BatchCreateEntity(start, end, 0);
             }
-
             internal Span<Entity> BatchCreateEntity(int start, int end, int archetype)
             {
                 var count = end - start;
@@ -493,6 +503,17 @@ namespace Wargon.Nukecs
                 var e = prefab.Copy();
                 prefabsToSpawn.Add(e, ref AllocatorRef);
                 return e;
+            }
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+            public Span<Entity> SpawnPrefabs(in Entity prefab, int amount)
+            {
+                var oldLen = prefabsToSpawn.length;
+                prefabsToSpawn.Resize(oldLen + amount, ref AllocatorRef);
+                var ents = new Span<Entity>(prefabsToSpawn.Ptr + oldLen, amount);
+                prefab.ArchetypeRef.BatchCloneEntity(prefab.id, ents);
+                return ents;
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

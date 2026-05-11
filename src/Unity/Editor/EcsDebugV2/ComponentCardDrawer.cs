@@ -649,7 +649,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             width = 14,
                             height = 14,
                             backgroundColor = isOn ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText,
-                            marginTop = 2,
+                            marginTop = 1,
                             marginLeft = isOn ? 20 : 2,
                             flexShrink = 0
                         },

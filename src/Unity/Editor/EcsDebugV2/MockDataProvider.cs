@@ -37,7 +37,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             RebuildArchetypes();
             MockData.UpdateQueryMatches(_queries, _entities);
         }
-        public List<EntityInfo> GetEntities() => _entities;
         public List<EntityInfo> GetEntityList() => _entities;
         public EntityInfo GetEntityDetails(int entityId)
         {
