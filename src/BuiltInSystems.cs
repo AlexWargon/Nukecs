@@ -41,10 +41,6 @@ namespace Wargon.Nukecs{
                 for (var index = 0; index < world->prefabsToSpawn.Length; index++)
                 {
                     ref var e = ref world->prefabsToSpawn.ElementAt(index);
-                    if (e.id == 5)
-                    {
-                        dbug.error("ERROR!!!!!!!");
-                    }
                     e.Remove<IsPrefab>();
                     if (e.Has<ComponentArray<Child>>())
                     {

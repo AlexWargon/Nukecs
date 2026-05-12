@@ -8,7 +8,7 @@ namespace Wargon.Nukecs
         public struct ComponentChange
         {
             public int entityId;
-            public int componentTypeIndex;
+            public int tempData;
             public EntityCommandBuffer.ECBCommand.Type command; 
             public double timeStamp; // time from gameStart
         }

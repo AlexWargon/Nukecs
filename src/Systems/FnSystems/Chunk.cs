@@ -13,10 +13,9 @@ namespace Wargon.Nukecs
         private int _count;
         private int _remaining;
         public int Count => _count;
-        private static readonly int Index = ComponentType<T>.Index;
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            var li = archetype.GetComponentLocalIndex(Index);
+            var li = archetype.GetComponentLocalIndex(ComponentType<T>.Index);
             _components = (T*)(archetype.data.Ptr + archetype.GetComponentOffset(li));
             _count = archetype.count;
             _remaining = _count;
@@ -50,13 +49,11 @@ namespace Wargon.Nukecs
         private int _count;
         private int _remaining;
         public int Count => _count;
-        private static readonly int Index1 = ComponentType<T1>.Index;
-        private static readonly int Index2 = ComponentType<T2>.Index;
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            var li1 = archetype.GetComponentLocalIndex(Index1);
+            var li1 = archetype.GetComponentLocalIndex(ComponentType<T1>.Index);
             _components1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(li1));
-            var li2 = archetype.GetComponentLocalIndex(Index2);
+            var li2 = archetype.GetComponentLocalIndex(ComponentType<T2>.Index);
             _components2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(li2));
             _count = archetype.count;
             _remaining = _count;
@@ -84,11 +81,11 @@ namespace Wargon.Nukecs
             where TU1 : unmanaged, IComponent
         {
             len = len == 0 ? _count : len;
-            if (ComponentType<TU1>.Index == Index1)
+            if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
             {
                 memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
             }
-            if (ComponentType<TU1>.Index == Index2)
+            if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
             {
                 memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
             }
@@ -109,16 +106,13 @@ namespace Wargon.Nukecs
         private int _count;
         private int _remaining;
         public int Count => _count;
-        private static readonly int Index1 = ComponentType<T1>.Index;
-        private static readonly int Index2 = ComponentType<T2>.Index;
-        private static readonly int Index3 = ComponentType<T3>.Index;
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            var li1 = archetype.GetComponentLocalIndex(Index1);
+            var li1 = archetype.GetComponentLocalIndex(ComponentType<T1>.Index);
             _components1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(li1));
-            var li2 = archetype.GetComponentLocalIndex(Index2);
+            var li2 = archetype.GetComponentLocalIndex(ComponentType<T2>.Index);
             _components2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(li2));
-            var li3 = archetype.GetComponentLocalIndex(Index3);
+            var li3 = archetype.GetComponentLocalIndex(ComponentType<T3>.Index);
             _components3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(li3));
             _count = archetype.count;
             _remaining = _count;
@@ -152,15 +146,15 @@ namespace Wargon.Nukecs
             where TU1 : unmanaged, IComponent
         {
             len = len == 0 ? _count : len;
-            if (ComponentType<TU1>.Index == Index1)
+            if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
             {
                 memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
             }
-            if (ComponentType<TU1>.Index == Index2)
+            if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
             {
                 memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
             }
-            if (ComponentType<TU1>.Index == Index3)
+            if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
             {
                 memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU1>());
             }
@@ -183,20 +177,16 @@ namespace Wargon.Nukecs
         private int _remaining;
         private int _count;
         public int Count => _count;
-        private static readonly int Index1 = ComponentType<T1>.Index;
-        private static readonly int Index2 = ComponentType<T2>.Index;
-        private static readonly int Index3 = ComponentType<T3>.Index;
-        private static readonly int Index4 = ComponentType<T4>.Index;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            var li1 = archetype.GetComponentLocalIndex(Index1);
+            var li1 = archetype.GetComponentLocalIndex(ComponentType<T1>.Index);
             _components1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(li1));
-            var li2 = archetype.GetComponentLocalIndex(Index2);
+            var li2 = archetype.GetComponentLocalIndex(ComponentType<T2>.Index);
             _components2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(li2));
-            var li3 = archetype.GetComponentLocalIndex(Index3);
+            var li3 = archetype.GetComponentLocalIndex(ComponentType<T3>.Index);
             _components3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(li3));
-            var li4 = archetype.GetComponentLocalIndex(Index4);
+            var li4 = archetype.GetComponentLocalIndex(ComponentType<T4>.Index);
             _components4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(li4));
             _count = archetype.count;
             _remaining = archetype.count;
@@ -238,22 +228,22 @@ namespace Wargon.Nukecs
             where TU1 : unmanaged, IComponent
         {
             len = len == 0 ? _count : len;
-            if (ComponentType<TU1>.Index == Index1)
+            if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
             {
                 memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
                 return;
             }
-            if (ComponentType<TU1>.Index == Index2)
+            if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
             {
                 memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
                 return;
             }
-            if (ComponentType<TU1>.Index == Index3)
+            if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
             {
                 memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU1>());
                 return;
             }
-            if (ComponentType<TU1>.Index == Index4)
+            if (ComponentType<TU1>.Index == ComponentType<T4>.Index)
             {
                 memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU1>());
             }

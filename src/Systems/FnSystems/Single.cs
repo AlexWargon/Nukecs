@@ -82,13 +82,13 @@ namespace Wargon.Nukecs
 
     internal interface IResourceGetSet
     {
-        internal IResource GetResource();
-        internal void SetResource(IResource resource);
+        internal IRes GetResource();
+        internal void SetResource(IRes res);
     }
     /// <summary>
     /// Individual context for system. New instance for every system
     /// </summary>
-    public interface IResource
+    public interface IRes
     {
         /// <summary>
         /// Call on res creation.
@@ -104,7 +104,7 @@ namespace Wargon.Nukecs
         void Update(ref World world);
     }
 
-    public struct Local<TData> : ISystemParam where TData : unmanaged, IResource
+    public struct Local<TData> : ISystemParam where TData : unmanaged, IRes
     {
         private ptr<TData> _data;
         public ref TData Value => ref _data.Ref;

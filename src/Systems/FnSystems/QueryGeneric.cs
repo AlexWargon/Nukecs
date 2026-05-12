@@ -23,19 +23,11 @@ namespace Wargon.Nukecs {
         //     var range = query.Range;
         //     return false;
         // }
-        [BurstCompile(CompileSynchronously = true)][MethodImpl(inline.YES)]
+        [BurstCompile(CompileSynchronously = true)][MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static TQueryEnumerator GetEnumerator<TQueryEnumerator>(this TQueryEnumerator query)
             where TQueryEnumerator :  struct, IQuery
         {
             return query;
-        }
-
-        public static TQueryIterator iterator<TQuery, TQueryIterator>(this TQuery query)
-            where TQuery : struct, IQuery
-            where TQueryIterator : unmanaged
-        {
-            TQueryIterator iterator = default;
-            return iterator;
         }
     }
 

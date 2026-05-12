@@ -428,16 +428,26 @@ namespace Wargon.Nukecs
             state.World.ECB.Playback(ref state.World);
         }
     }
-
-    /// <summary>
-    ///     Single : execute in one of threads, but not in main
-    ///     Parallel : execute parallel
-    ///     Main : execute in main thread, need to axes to unity api
-    /// </summary>
+    
     public enum Threads
     {
+        /// <summary>
+        /// Execute system on main thread.
+        /// In feature Main and MainRun will be same.
+        /// </summary>
         Main,
+        /// <summary>
+        /// Execute system on main thread using Unity Job System Run.
+        /// In feature Main and MainRun will be same.
+        /// </summary>
+        MainRun,
+        /// <summary>
+        /// Execute system on all parallel threads.
+        /// </summary>
         Parallel,
+        /// <summary>
+        /// Execute system on one non main thread.
+        /// </summary>
         Single
     }
 

@@ -10,6 +10,7 @@ namespace Wargon.Nukecs
         private int componentCount;
         private int current;
         private int* _entities;
+        
         private Entity* _allEntities;
         private Entity _entity;
         private Range _range;

@@ -11,25 +11,25 @@ namespace Wargon.Nukecs
 {
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
-    public struct Res<TRes> : ISystemParam, IResourceGetSet where TRes : struct, IResource
+    public struct Res<TRes> : ISystemParam, IResourceGetSet where TRes : struct, IRes
     {
         private TRes _reference;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
         public readonly TRes Val => _reference;
 
-        void IResourceGetSet.SetResource(IResource resource)
+        void IResourceGetSet.SetResource(IRes res)
         {
-            _reference = (TRes)resource;
+            _reference = (TRes)res;
         }
 
-        IResource IResourceGetSet.GetResource()
+        IRes IResourceGetSet.GetResource()
         {
             return _reference;
         }
 
-        internal void Set(IResource resource)
+        internal void Set(IRes res)
         {
-            _reference = (TRes)resource;
+            _reference = (TRes)res;
         }
 
         public Res(in TRes resource)
@@ -80,14 +80,14 @@ namespace Wargon.Nukecs
             this.index = index;
         }
 
-        internal static unsafe IResource GetRes<T>(byte* ptr)
+        internal static unsafe IRes GetRes<T>(byte* ptr)
             where T : struct
         {
             ref var wrapper = ref Unsafe.AsRef<T>(ptr);
             return ((IResourceGetSet)wrapper).GetResource();
         }
 
-        internal static unsafe void SetRes<T>(byte* ptr, IResource val)
+        internal static unsafe void SetRes<T>(byte* ptr, IRes val)
             where T : struct
         {
             ref var wrapper = ref Unsafe.AsRef<T>(ptr);
@@ -129,9 +129,9 @@ namespace Wargon.Nukecs
         }
     }
 
-    internal unsafe delegate void SetBoxDelegate(byte* ptr, IResource val);
+    internal unsafe delegate void SetBoxDelegate(byte* ptr, IRes val);
 
-    internal unsafe delegate IResource GetBoxDelegate(byte* ptr);
+    internal unsafe delegate IRes GetBoxDelegate(byte* ptr);
 
     public unsafe struct ResStorage
     {
@@ -142,7 +142,7 @@ namespace Wargon.Nukecs
             _resources = new MemoryList<ptr>(32, ref allocator);
         }
 
-        internal (int len, IResource[]) GetAll(IResource[] cache)
+        internal (int len, IRes[]) GetAll(IRes[] cache)
         {
             var count = 0;
             if (_resources.length >= cache.Length)
@@ -167,18 +167,18 @@ namespace Wargon.Nukecs
             return _resources.Ptr[index].AsTyped<T>();
         }
 
-        public IResource Get(Type type)
+        public IRes Get(Type type)
         {
             var data = param_type.data(type);
             var res = _resources.Ptr[data.index];
             return data.get_boxed(res.cached);
         }
 
-        public void Set(IResource resource)
+        public void Set(IRes res)
         {
-            var data = param_type.data(resource.GetType());
-            var res = _resources.Ptr[data.index];
-            data.set_boxed(res.cached, resource);
+            var data = param_type.data(res.GetType());
+            var resPtr = _resources.Ptr[data.index];
+            data.set_boxed(resPtr.cached, res);
         }
 
         internal bool Has<T>() where T : unmanaged

@@ -5,16 +5,16 @@ using System.Runtime.InteropServices;
 namespace Wargon.Nukecs
 {
     [Serializable, StructLayout(LayoutKind.Sequential)]
-    public struct ResManaged<TRes> : ISystemParam, IResourceGetSet where TRes : class, IResource, new()
+    public struct ResManaged<TRes> : ISystemParam, IResourceGetSet where TRes : class, IRes, new()
     {
         private ManagedResRef<TRes> _reference;
         public TRes Val => _reference.Value;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
-        void IResourceGetSet.SetResource(IResource resource)
+        void IResourceGetSet.SetResource(IRes res)
         {
-            _reference = (TRes)resource;
+            _reference = (TRes)res;
         }
-        IResource IResourceGetSet.GetResource()
+        IRes IResourceGetSet.GetResource()
         {
             return _reference.Value;
         }

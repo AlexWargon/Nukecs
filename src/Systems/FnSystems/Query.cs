@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
         private int _archEntityEnd;
         private int _cachedWorldVersion;
         private byte _isInitialized;
-        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+
         
         public readonly void Deconstruct(out ArchetypeRef<T1> c)
         {
@@ -69,7 +69,7 @@ namespace Wargon.Nukecs
             ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
             _archRow = 0;
             _archEntityEnd = arch.count;
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -81,7 +81,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AdvanceRefs()
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -126,7 +126,7 @@ namespace Wargon.Nukecs
                     {
                         _archIdx = i;
                         _archEntityEnd = arch.count;
-                        if (T1IsPool)
+                        if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                             _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                         else
                         {
@@ -147,7 +147,7 @@ namespace Wargon.Nukecs
         {
             ref var arch = ref world.UnsafeWorld->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[0]].Ref;
             _archEntityEnd = arch.count;
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -202,7 +202,7 @@ namespace Wargon.Nukecs
             private int _archRow;
             private int _archEntityEnd;
 
-            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+    
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -242,7 +242,7 @@ namespace Wargon.Nukecs
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _archRow = 0;
                 _archEntityEnd = arch.count;
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                     _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -254,7 +254,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void AdvanceRefs()
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -294,7 +294,7 @@ namespace Wargon.Nukecs
                         {
                             _archIdx = i;
                             _archEntityEnd = arch.count;
-                            if (T1IsPool)
+                            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                                 _t1.SetPool(world.UnsafeWorld->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                             else
                             {
@@ -414,7 +414,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
-        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupArchetypeRefs()
         {
@@ -429,7 +429,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT1(ref ArchetypeUnsafe arch)
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -449,7 +449,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AdvanceRefs()
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -517,7 +517,7 @@ namespace Wargon.Nukecs
                             SetupTOption(ref arch);
                         if (remaining > 0)
                         {
-                            if (!T1IsPool) _t1.SetRow(remaining - 1);
+                            if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
                             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
                         }
                         _archRow = remaining - 1;
@@ -574,7 +574,7 @@ namespace Wargon.Nukecs
             private int _archIdx;
             private int _archRow;
             private int _archEntityEnd;
-            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
+    
             public void SetRange(Range range)
             {
                 _range = range;
@@ -625,7 +625,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT1(ref ArchetypeUnsafe arch)
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                     _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -645,7 +645,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void AdvanceRefs()
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -719,7 +719,7 @@ namespace Wargon.Nukecs
                             SetupArchetypeRefs();
                             if (remaining > 0)
                             {
-                                if (!T1IsPool) _t1.SetRow(remaining - 1);
+                                if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
                                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
                             }
                             _archRow = remaining - 1;
@@ -796,9 +796,9 @@ namespace Wargon.Nukecs
         private int _cachedWorldVersion;
         private byte _isInitialized;
 
-        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-        static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-        static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
+
+
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -857,7 +857,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT1(ref ArchetypeUnsafe arch)
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -869,7 +869,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT2(ref ArchetypeUnsafe arch)
         {
-            if (T2IsPool)
+            if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                 _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -889,14 +889,14 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AdvanceRefs()
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
                 _t1.Bump();
-            if (T2IsPool)
+            if (ComponentType<T2>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -979,8 +979,8 @@ namespace Wargon.Nukecs
                         SetupArchetypeRefs();
                         if (remaining > 0)
                         {
-                            if (!T1IsPool) _t1.SetRow(remaining - 1);
-                            if (!T2IsPool) _t2.SetRow(remaining - 1);
+                            if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
+                            if (ComponentType<T2>.Data.storageType != StorageType.Pool) _t2.SetRow(remaining - 1);
                             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
                         }
                         _archRow = remaining - 1;
@@ -1052,9 +1052,9 @@ namespace Wargon.Nukecs
             private int _archRow;
             private int _archEntityEnd;
 
-            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-            static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.isComponent.Data.IsComponent == 1;
+    
+    
+    
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1109,7 +1109,7 @@ namespace Wargon.Nukecs
             //[MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT1(ref ArchetypeUnsafe arch)
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                     _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -1125,7 +1125,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT2(ref ArchetypeUnsafe arch)
             {
-                if (T2IsPool)
+                if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                     _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -1145,14 +1145,14 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void AdvanceRefs()
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
                     _t1.Bump();
-                if (T2IsPool)
+                if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -1227,8 +1227,8 @@ namespace Wargon.Nukecs
                             SetupArchetypeRefs();
                             if (remaining > 0)
                             {
-                                if (!T1IsPool) _t1.SetRow(remaining - 1);
-                                if (!T2IsPool) _t2.SetRow(remaining - 1);
+                                if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
+                                if (ComponentType<T2>.Data.storageType != StorageType.Pool) _t2.SetRow(remaining - 1);
                                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
                             }
                             _archRow = remaining - 1;
@@ -1362,15 +1362,15 @@ namespace Wargon.Nukecs
             return true;
         }
 
-        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-        static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-        static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
-        static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+
+
+
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT1(ref ArchetypeUnsafe arch)
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1381,7 +1381,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT2(ref ArchetypeUnsafe arch)
         {
-            if (T2IsPool)
+            if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                 _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1392,7 +1392,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT3(ref ArchetypeUnsafe arch)
         {
-            if (T3IsPool)
+            if (ComponentType<T3>.Data.storageType == StorageType.Pool)
                 _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1426,9 +1426,9 @@ namespace Wargon.Nukecs
         {
             ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
             var eid = arch.packedEntities.Ptr[_archRow];
-            if (T1IsPool) _t1.AdvancePool(eid); else _t1.Bump();
-            if (T2IsPool) _t2.AdvancePool(eid); else _t2.Bump();
-            if (T3IsPool) _t3.AdvancePool(eid); else _t3.Bump();
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool) _t1.AdvancePool(eid); else _t1.Bump();
+            if (ComponentType<T2>.Data.storageType == StorageType.Pool) _t2.AdvancePool(eid); else _t2.Bump();
+            if (ComponentType<T3>.Data.storageType == StorageType.Pool) _t3.AdvancePool(eid); else _t3.Bump();
             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
         }
 
@@ -1497,9 +1497,9 @@ namespace Wargon.Nukecs
                         SetupArchetypeRefs();
                         if (remaining > 0)
                         {
-                            if (!T1IsPool) _t1.SetRow(remaining - 1);
-                            if (!T2IsPool) _t2.SetRow(remaining - 1);
-                            if (!T3IsPool) _t3.SetRow(remaining - 1);
+                            if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
+                            if (ComponentType<T2>.Data.storageType != StorageType.Pool) _t2.SetRow(remaining - 1);
+                            if (ComponentType<T3>.Data.storageType != StorageType.Pool) _t3.SetRow(remaining - 1);
                             if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
                         }
                         _archRow = remaining - 1;
@@ -1595,15 +1595,15 @@ namespace Wargon.Nukecs
                 return true;
             }
 
-            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-            static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-            static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
-            static readonly bool TOptIsComponent = QueryParamInfo<TOption>.IsComponent;
+    
+    
+    
+    
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT1(ref ArchetypeUnsafe arch)
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                     _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -1614,7 +1614,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT2(ref ArchetypeUnsafe arch)
             {
-                if (T2IsPool)
+                if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                     _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -1625,7 +1625,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT3(ref ArchetypeUnsafe arch)
             {
-                if (T3IsPool)
+                if (ComponentType<T3>.Data.storageType == StorageType.Pool)
                     _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -1659,9 +1659,9 @@ namespace Wargon.Nukecs
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 var eid = arch.packedEntities.Ptr[_archRow];
-                if (T1IsPool) _t1.AdvancePool(eid); else _t1.Bump();
-                if (T2IsPool) _t2.AdvancePool(eid); else _t2.Bump();
-                if (T3IsPool) _t3.AdvancePool(eid); else _t3.Bump();
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool) _t1.AdvancePool(eid); else _t1.Bump();
+                if (ComponentType<T2>.Data.storageType == StorageType.Pool) _t2.AdvancePool(eid); else _t2.Bump();
+                if (ComponentType<T3>.Data.storageType == StorageType.Pool) _t3.AdvancePool(eid); else _t3.Bump();
                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(_archRow);
             }
 
@@ -1753,9 +1753,9 @@ namespace Wargon.Nukecs
                             SetupArchetypeRefs();
                             if (remaining > 0)
                             {
-                                if (!T1IsPool) _t1.SetRow(remaining - 1);
-                                if (!T2IsPool) _t2.SetRow(remaining - 1);
-                                if (!T3IsPool) _t3.SetRow(remaining - 1);
+                                if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
+                                if (ComponentType<T2>.Data.storageType != StorageType.Pool) _t2.SetRow(remaining - 1);
+                                if (ComponentType<T3>.Data.storageType != StorageType.Pool) _t3.SetRow(remaining - 1);
                                 if (QueryParamInfo<TOption>.IsComponent) _tOption.SetRow(remaining - 1);
                             }
                             _archRow = remaining - 1;
@@ -1868,15 +1868,15 @@ namespace Wargon.Nukecs
             get => _query.Ref.count;
         }
 
-        static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-        static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-        static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
-        static readonly bool T4IsPool = ComponentType<T4>.Data.storageType == StorageType.Pool;
+
+
+
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT1(ref ArchetypeUnsafe arch)
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1888,7 +1888,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT2(ref ArchetypeUnsafe arch)
         {
-            if (T2IsPool)
+            if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                 _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1900,7 +1900,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT3(ref ArchetypeUnsafe arch)
         {
-            if (T3IsPool)
+            if (ComponentType<T3>.Data.storageType == StorageType.Pool)
                 _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1912,7 +1912,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void SetupT4(ref ArchetypeUnsafe arch)
         {
-            if (T4IsPool)
+            if (ComponentType<T4>.Data.storageType == StorageType.Pool)
                 _t4.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T4>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
             else
             {
@@ -1936,28 +1936,28 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void AdvanceRefs()
         {
-            if (T1IsPool)
+            if (ComponentType<T1>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
                 _t1.Bump();
-            if (T2IsPool)
+            if (ComponentType<T2>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
                 _t2.Bump();
-            if (T3IsPool)
+            if (ComponentType<T3>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t3.AdvancePool(arch.packedEntities.Ptr[_archRow]);
             }
             else
                 _t3.Bump();
-            if (T4IsPool)
+            if (ComponentType<T4>.Data.storageType == StorageType.Pool)
             {
                 ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                 _t4.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -2061,10 +2061,10 @@ namespace Wargon.Nukecs
                         SetupArchetypeRefs();
                         if (remaining > 0)
                         {
-                            if (!T1IsPool) _t1.SetRow(remaining - 1);
-                            if (!T2IsPool) _t2.SetRow(remaining - 1);
-                            if (!T3IsPool) _t3.SetRow(remaining - 1);
-                            if (!T4IsPool) _t4.SetRow(remaining - 1);
+                            if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
+                            if (ComponentType<T2>.Data.storageType != StorageType.Pool) _t2.SetRow(remaining - 1);
+                            if (ComponentType<T3>.Data.storageType != StorageType.Pool) _t3.SetRow(remaining - 1);
+                            if (ComponentType<T4>.Data.storageType != StorageType.Pool) _t4.SetRow(remaining - 1);
                         }
                         _archRow = remaining - 1;
                         break;
@@ -2130,10 +2130,10 @@ namespace Wargon.Nukecs
             private int _archRow;
             private int _archEntityEnd;
 
-            static readonly bool T1IsPool = ComponentType<T1>.Data.storageType == StorageType.Pool;
-            static readonly bool T2IsPool = ComponentType<T2>.Data.storageType == StorageType.Pool;
-            static readonly bool T3IsPool = ComponentType<T3>.Data.storageType == StorageType.Pool;
-            static readonly bool T4IsPool = ComponentType<T4>.Data.storageType == StorageType.Pool;
+    
+    
+    
+    
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -2149,7 +2149,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT1(ref ArchetypeUnsafe arch)
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                     _t1.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T1>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -2161,7 +2161,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT2(ref ArchetypeUnsafe arch)
             {
-                if (T2IsPool)
+                if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                     _t2.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T2>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -2173,7 +2173,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT3(ref ArchetypeUnsafe arch)
             {
-                if (T3IsPool)
+                if (ComponentType<T3>.Data.storageType == StorageType.Pool)
                     _t3.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T3>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -2185,7 +2185,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void SetupT4(ref ArchetypeUnsafe arch)
             {
-                if (T4IsPool)
+                if (ComponentType<T4>.Data.storageType == StorageType.Pool)
                     _t4.SetPool(_query.Ref.world->GetUntypedPool(ComponentType<T4>.Index).UnsafeBuffer->Chunks.Ptr, arch.packedEntities.Ptr[0]);
                 else
                 {
@@ -2209,28 +2209,28 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private void AdvanceRefs()
             {
-                if (T1IsPool)
+                if (ComponentType<T1>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t1.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
                     _t1.Bump();
-                if (T2IsPool)
+                if (ComponentType<T2>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t2.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
                     _t2.Bump();
-                if (T3IsPool)
+                if (ComponentType<T3>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t3.AdvancePool(arch.packedEntities.Ptr[_archRow]);
                 }
                 else
                     _t3.Bump();
-                if (T4IsPool)
+                if (ComponentType<T4>.Data.storageType == StorageType.Pool)
                 {
                     ref var arch = ref _query.Ref.world->archetypesList.Ptr[_query.Ref.matchingArchetypes.Ptr[_archIdx]].Ref;
                     _t4.AdvancePool(arch.packedEntities.Ptr[_archRow]);
@@ -2349,10 +2349,10 @@ namespace Wargon.Nukecs
                             SetupArchetypeRefs();
                             if (remaining > 0)
                             {
-                                if (!T1IsPool) _t1.SetRow(remaining - 1);
-                                if (!T2IsPool) _t2.SetRow(remaining - 1);
-                                if (!T3IsPool) _t3.SetRow(remaining - 1);
-                                if (!T4IsPool) _t4.SetRow(remaining - 1);
+                                if (ComponentType<T1>.Data.storageType != StorageType.Pool) _t1.SetRow(remaining - 1);
+                                if (ComponentType<T2>.Data.storageType != StorageType.Pool) _t2.SetRow(remaining - 1);
+                                if (ComponentType<T3>.Data.storageType != StorageType.Pool) _t3.SetRow(remaining - 1);
+                                if (ComponentType<T4>.Data.storageType != StorageType.Pool) _t4.SetRow(remaining - 1);
                             }
                             _archRow = remaining - 1;
                             break;

@@ -9,8 +9,10 @@ namespace Wargon.Nukecs
         where TTuple : unmanaged, IComponentTuple
     {
         private readonly Range _range;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction]
         private readonly int* _arches;
         private readonly int _archesLen;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction]
         private readonly World.WorldUnsafe* _world;
         private int _archIndex;
         private int _globalIndex;
@@ -108,8 +110,10 @@ namespace Wargon.Nukecs
         where TTuple : unmanaged, IComponentEntityTuple
     {
         private readonly Range _range;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] 
         private readonly int* _arches;
         private readonly int _archesLen;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] 
         private readonly World.WorldUnsafe* _world;
         private int _archIndex;
         private int _globalIndex;

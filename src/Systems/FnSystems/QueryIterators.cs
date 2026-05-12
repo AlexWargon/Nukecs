@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
@@ -10,9 +9,9 @@ namespace Wargon.Nukecs
     public unsafe ref struct QueryIter<TTuple>
         where TTuple : unmanaged, IComponentTuple
     {
-        private readonly int* _arches;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
         private readonly int _archesLen;
-        private readonly World.WorldUnsafe* _world;
+        [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
         private int _archIndex;
         private int _remaining;
         private TTuple _tuple;
@@ -63,9 +62,9 @@ namespace Wargon.Nukecs
     public unsafe ref struct QueryIterWithEntity<TTuple>
         where TTuple : unmanaged, IComponentEntityTuple
     {
-        private readonly int* _arches;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
         private readonly int _archesLen;
-        private readonly World.WorldUnsafe* _world;
+        [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
         private int _archIndex;
         private int _remaining;
         private TTuple _tuple;
@@ -114,7 +113,7 @@ namespace Wargon.Nukecs
     public unsafe ref struct QueryIterObject<TTuple>
         where TTuple : struct, IComponentEntityTupleRanged
     {
-        private readonly World.WorldUnsafe* _world;
+        [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
         private int _remaining;
         private TTuple _tuple;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -169,7 +168,7 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ComponentRef<T> where T : unmanaged
     {
-        internal T* _data;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] internal T* _data;
         public ref T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -182,7 +181,7 @@ namespace Wargon.Nukecs
     public unsafe ref struct QueryChunkIter<TChunk>
         where TChunk : unmanaged, IChunk
     {
-        private readonly int* _arches;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private readonly int* _arches;
         private readonly int _archesLen;
         private readonly World.WorldUnsafe* _world;
         private int _archIndex;

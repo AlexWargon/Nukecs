@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 #endif
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
@@ -25,27 +26,19 @@ namespace Wargon.Nukecs
             component = id % Chunk.MAX_CHUNK_SIZE,
             chunk = id / Chunk.MAX_CHUNK_SIZE
         };
-
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
+        internal Entity(int id, byte world)
+        {
+            this.id = id;
+            this.worldIndex = world;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer)
         {
             this.id = id;
-            //this.worldPointer = worldPointer;
             this.worldIndex = worldPointer->Id;
         }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype)
-        {
-            this.id = id;
-            //this.worldPointer = worldPointer;
-            this.worldIndex = worldPointer->Id;
-        }
-
         internal ref ArchetypeUnsafe ArchetypeRef
         {
 #if !NUKECS_DEBUG
@@ -197,6 +190,7 @@ namespace Wargon.Nukecs
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
             entity.worldPointer->ECB.Add<T>(entity.id);
         }
+
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif

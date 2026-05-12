@@ -97,7 +97,7 @@ namespace Wargon.Nukecs.Editor
 
                 if (actionStr != null)
                 {
-                    var compName = change.componentTypeIndex != 0 ? GetComponentNameByTypeIndex(change.componentTypeIndex) : string.Empty;
+                    var compName = change.tempData != 0 ? GetComponentNameByTypeIndex(change.tempData) : string.Empty;
                     var timeStr = FormatTimestamp(change.timeStamp);
                     var line = $"[{timeStr}] → {actionStr} {compName} on e:{change.entityId}";
 

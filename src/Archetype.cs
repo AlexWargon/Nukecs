@@ -595,7 +595,7 @@ namespace Wargon.Nukecs
             {
                 packedEntities.Ptr[baseRow + i] = ids[i];
                 world->entityLocations.Ptr[ids[i]].row = baseRow + i;
-                outEntities[i] = new Entity(ids[i], world->Self, index);
+                outEntities[i] = new Entity(ids[i], world->Id);
             }
 
             for (var j = 0; j < types.length; j++)
@@ -613,9 +613,26 @@ namespace Wargon.Nukecs
                     }
                     continue;
                 }
+
                 var srcPtr = data.Ptr + off + srcRow * ctData.size;
                 var baseDst = data.Ptr + off + baseRow * ctData.size;
-                for (int i = 0; i < cnt; i++)
+                if (ctData.isCopyable)
+                {
+                    for (var i = 0; i < cnt; i++)
+                    {
+                        if (ctData.isCopyable)
+                        {
+                            ctData.CopyFn().Invoke(srcPtr, 
+                                baseDst + i * ctData.size,
+                                0, 
+                                ids[i], 
+                                0, 
+                                0);
+                        }
+                    }
+                    continue;
+                }
+                for (var i = 0; i < cnt; i++)
                 {
                     UnsafeUtility.MemCpy(baseDst + i * ctData.size, srcPtr, ctData.size);
                 }

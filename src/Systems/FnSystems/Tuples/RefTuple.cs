@@ -8,7 +8,6 @@ namespace Wargon.Nukecs
         where T1 : unmanaged
     {
         public Ref<T1> _p1;
-        private static readonly int Type1 = ComponentType<T1>.Index;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
@@ -19,12 +18,12 @@ namespace Wargon.Nukecs
         public void SetData(ref ArchetypeUnsafe archetype)
         {
             var ptr = archetype.data.Ptr;
-            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1)));
+            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1))) + localStart;
+            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Deconstruct(out Ref<T1> c1)
@@ -39,28 +38,25 @@ namespace Wargon.Nukecs
     {
         public Ref<T1> _p1;
         public Ref<T2> _p2;
-        private static readonly int Type1 = ComponentType<T1>.Index;
-        private static readonly int Type2 = ComponentType<T2>.Index;
-        private static readonly bool IsOptionComponent = QueryParamInfo<T2>.IsComponent;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
             _p1.data++;
-            if(IsOptionComponent)_p2.data++;
+            if(QueryParamInfo<T2>.IsComponent)_p2.data++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
             var ptr = archetype.data.Ptr;
-            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1)));
-            if(IsOptionComponent) _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2)));
+            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if(QueryParamInfo<T2>.IsComponent) _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1))) + localStart;
-            if(IsOptionComponent) _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2))) + localStart;
+            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if(QueryParamInfo<T2>.IsComponent) _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Deconstruct(out Ref<T1> c1)
@@ -83,32 +79,28 @@ namespace Wargon.Nukecs
         public Ref<T1> _p1;
         public Ref<T2> _p2;
         public Ref<T3> _p3;
-        private static readonly int Type1 = ComponentType<T1>.Index;
-        private static readonly int Type2 = ComponentType<T2>.Index;
-        private static readonly int Type3 = ComponentType<T3>.Index;
-        private static readonly bool IsOptionComponent = QueryParamInfo<T3>.IsComponent;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
             _p1.data++;
             _p2.data++;
-            if(IsOptionComponent)_p3.data++;
+            if(QueryParamInfo<T3>.IsComponent)_p3.data++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
             var ptr = archetype.data.Ptr;
-            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1)));
-            _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2)));
-            if(IsOptionComponent) _p3.data = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type3)));
+            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
+            if(QueryParamInfo<T3>.IsComponent) _p3.data = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1))) + localStart;
-            _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2))) + localStart;
-            if(IsOptionComponent) _p3.data = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type3))) + localStart;
+            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
+            if(QueryParamInfo<T3>.IsComponent) _p3.data = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             
         }
 
@@ -140,11 +132,6 @@ namespace Wargon.Nukecs
         public Ref<T2> _p2;
         public Ref<T3> _p3;
         public Ref<T4> _p4;
-        private static readonly int Type1 = ComponentType<T1>.Index;
-        private static readonly int Type2 = ComponentType<T2>.Index;
-        private static readonly int Type3 = ComponentType<T3>.Index;
-        private static readonly int Type4 = ComponentType<T4>.Index;
-        private static readonly bool IsOptionComponent = QueryParamInfo<T4>.IsComponent;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
@@ -152,24 +139,24 @@ namespace Wargon.Nukecs
             _p1.data++;
             _p2.data++;
             _p3.data++;
-            if(IsOptionComponent) _p4.data++;
+            if(QueryParamInfo<T4>.IsComponent) _p4.data++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
             var ptr = archetype.data.Ptr;
-            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1)));
-            _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2)));
-            _p3.data = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type3)));
-            if(IsOptionComponent) _p4.data = ((T4*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type4))));
+            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
+            _p3.data = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
+            if(QueryParamInfo<T4>.IsComponent) _p4.data = ((T4*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1))) + localStart;
-            _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2))) + localStart;
-            _p3.data = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type3))) + localStart;
-            if(IsOptionComponent) _p4.data = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type4))) + localStart;
+            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
+            _p3.data = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
+            if(QueryParamInfo<T4>.IsComponent) _p4.data = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -205,12 +192,6 @@ namespace Wargon.Nukecs
         public Ref<T3> _p3;
         public Ref<T4> _p4;
         public Ref<T5> _p5;
-        private static readonly int Type1 = ComponentType<T1>.Index;
-        private static readonly int Type2 = ComponentType<T2>.Index;
-        private static readonly int Type3 = ComponentType<T3>.Index;
-        private static readonly int Type4 = ComponentType<T4>.Index;
-        private static readonly int Type5 = ComponentType<T5>.Index;
-        private static readonly bool IsOptionComponent = QueryParamInfo<T5>.IsComponent;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
@@ -219,26 +200,26 @@ namespace Wargon.Nukecs
             _p2.data++;
             _p3.data++;
             _p4.data++;
-            if(IsOptionComponent) _p5.data++;
+            if(QueryParamInfo<T5>.IsComponent) _p5.data++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
             var ptr = archetype.data.Ptr;
-            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1)));
-            _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2)));
-            _p3.data = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type3)));
-            _p4.data = ((T4*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type4))));
-            if(IsOptionComponent) _p5.data = ((T5*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type5))));
+            _p1.data = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            _p2.data = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
+            _p3.data = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
+            _p4.data = ((T4*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))));
+            if(QueryParamInfo<T5>.IsComponent) _p5.data = ((T5*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T5>.Index))));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type1))) + localStart;
-            _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type2))) + localStart;
-            _p3.data = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type3))) + localStart;
-            _p4.data = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type4))) + localStart;
-            if(IsOptionComponent) _p5.data = (T5*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(Type5))) + localStart;
+            _p1.data = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            _p2.data = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
+            _p3.data = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
+            _p4.data = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
+            if(QueryParamInfo<T5>.IsComponent) _p5.data = (T5*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T5>.Index))) + localStart;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

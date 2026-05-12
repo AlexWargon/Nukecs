@@ -21,10 +21,6 @@ namespace Wargon.Nukecs {
             UnsafeUtility.FreeTracked(ptr, allocator);
         }
 
-        public static T* Allocate<T>(int items, AllocatorManager.AllocatorHandle allocator) where T : unmanaged {
-            return AllocatorManager.Allocate<T>(allocator, items);
-        }
-
         public static void Copy<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
         {
             fixed (T* ptr = source)
@@ -181,6 +177,7 @@ namespace Wargon.Nukecs {
         {
             return new random(*UnsafeStatic.malloc_t<uint>(Allocator.Temp));
         }
+        
         public random(uint seed)
         {
             state = seed != 0 ? seed : 1;

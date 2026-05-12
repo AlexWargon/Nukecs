@@ -420,6 +420,7 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Ref<TComponent> where TComponent : unmanaged
     {
+        [NativeDisableUnsafePtrRestriction] 
         internal TComponent* data;
 
         public ref TComponent Val

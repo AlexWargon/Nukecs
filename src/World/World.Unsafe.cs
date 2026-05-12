@@ -152,7 +152,7 @@ namespace Wargon.Nukecs
                     lastEntityIndex++;
                 }
                 ref var e = ref entities.ElementAt(last);
-                e = new Entity(last, Self);
+                e = new Entity(last, Id);
                 entitiesArchetypes.ElementAt(e.id) = 0;
                 entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
@@ -182,7 +182,7 @@ namespace Wargon.Nukecs
                 }
 
                 ref var e = ref entities.ElementAt(last);
-                e = new Entity(last, Self, archetype);
+                e = new Entity(last, Id);
                 entitiesArchetypes.ElementAt(last) = archetype;
                 entityLocations.ElementAt(last) = new EntityLocation { archetypeIndex = archetype, row = 0 };
 #if NUKECS_DEBUG
@@ -354,7 +354,7 @@ namespace Wargon.Nukecs
                 where T1 : unmanaged, IComponent 
             {   
                 ref var e = ref CreateEntity();
-                e.Add(in c1);
+                e.Add(c1);
                 return ref e;
             }
             internal ref Entity CreateEntity<T1, T2>(in T1 c1, in T2 c2) 
@@ -428,7 +428,7 @@ namespace Wargon.Nukecs
                 for (var i = 0; i < fromReserved; i++)
                 {
                     var id = reservedEntities.ElementAt(reservedCount - 1 - i);
-                    entities.ElementAt(id) = new Entity(id, Self, archetype);
+                    entities.ElementAt(id) = new Entity(id, Id);
                     entitiesArchetypes.ElementAt(id) = archetype;
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
@@ -438,7 +438,7 @@ namespace Wargon.Nukecs
                 while (created < count)
                 {
                     var id = lastEntityIndex++;
-                    entities.ElementAt(id) = new Entity(id, Self, archetype);
+                    entities.ElementAt(id) = new Entity(id, Id);
                     entitiesArchetypes.ElementAt(id) = archetype;
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
@@ -487,7 +487,7 @@ namespace Wargon.Nukecs
                 new Span<EntityLocation>(entityLocations.Ptr + start, count).Fill(new EntityLocation { archetypeIndex = archetype });
                 for (var i = start; i < end; i++)
                 {
-                    entities.Ptr[i] = new Entity(i, Self, archetype);
+                    entities.Ptr[i] = new Entity(i, Id);
 #if NUKECS_DEBUG
                     entitiesDens.Add(i, ref AllocatorRef);
 #endif
@@ -512,6 +512,15 @@ namespace Wargon.Nukecs
                 var oldLen = prefabsToSpawn.length;
                 prefabsToSpawn.Resize(oldLen + amount, ref AllocatorRef);
                 var ents = new Span<Entity>(prefabsToSpawn.Ptr + oldLen, amount);
+#if NUKECS_DEBUG
+                AddComponentChange(new ComponentChange
+                {
+                    command = EntityCommandBuffer.ECBCommand.Type.SpawnPrefab,
+                    entityId = prefab.id,
+                    timeStamp = timeData.ElapsedTime,
+                    tempData = amount
+                });
+#endif
                 prefab.ArchetypeRef.BatchCloneEntity(prefab.id, ents);
                 return ents;
             }
@@ -521,7 +530,13 @@ namespace Wargon.Nukecs
             internal ref Entity GetEntity(int id) {
                 return ref entities.ElementAt(id);
             }
-
+#if !NUKECS_DEBUG
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+            public ref ArchetypeUnsafe GetArchetype(in Entity entity)
+            {
+                return ref entity.ArchetypeRef;
+            }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -644,13 +659,44 @@ namespace Wargon.Nukecs
                 ECB.Playback(Self);
             }
 
-            internal ptr GetSystemParam<TParam0>(out SystemParamMetaType type) where TParam0 :  unmanaged, ISystemParam
+            internal ptr<TParam0> GetSystemParam<TParam0>() 
+                where TParam0 :  unmanaged, ISystemParam
             {
-                var param = AllocatorRef.AllocatePtr<TParam0>();
-                param.Ref.Init(ref selfPtr);
-                type = param.Ref.MetaType;
-                dbug.log($"Get {param.Ref.ParamType.Name} param, MetaType: {type}");
-                return param.UntypedPointer;
+                TParam0 paramDefault = default;
+                var param = ptr<TParam0>.NULL;
+                switch (paramDefault.MetaType)
+                {
+                    case SystemParamMetaType.None:
+                        break;
+                    case SystemParamMetaType.Resource:
+                        if (resStorage.Has<TParam0>())
+                        {
+                            param = resStorage.Get<TParam0>();
+                        }
+                        else 
+                        {
+                            resStorage.Add(in paramDefault, Self);
+                            param = resStorage.Get<TParam0>();
+                            param.Ref = paramDefault;
+                            param.Ref.Init(ref selfPtr);
+                        }
+                        break;
+                    case SystemParamMetaType.Service:
+                    case SystemParamMetaType.Query:
+                    case SystemParamMetaType.Single:
+                    case SystemParamMetaType.Local:
+                        param = AllocatorRef.AllocatePtr<TParam0>();
+                        param.Ref = paramDefault;
+                        param.Ref.Init(ref selfPtr);
+                        break;
+                    case SystemParamMetaType.World:
+                        break;
+                    case SystemParamMetaType.State:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+                return param;
             }
             public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 : unmanaged, ISystemParam
             {

@@ -7,13 +7,13 @@ namespace Wargon.Nukecs
 {
     internal class ManagedResStorage
     {
-        internal static ConcurrentDictionary<int, IResource> resources = new ();
+        internal static ConcurrentDictionary<int, IRes> resources = new ();
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static int AddResource(IResource resource)
+        internal static int AddResource(IRes res)
         {
-            var hash = resource.GetType().FullName!.GetHashCode();
-            resources[hash] = resource;
+            var hash = res.GetType().FullName!.GetHashCode();
+            resources[hash] = res;
             return hash;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -26,7 +26,7 @@ namespace Wargon.Nukecs
         internal static bool HasResource(int hash) => resources.ContainsKey(hash);
     }
     [StructLayout(LayoutKind.Sequential)]
-    public struct ManagedResRef<T> : IEquatable<ManagedResRef<T>>, IDisposable where T : IResource, new()
+    public struct ManagedResRef<T> : IEquatable<ManagedResRef<T>>, IDisposable where T : IRes, new()
     {
         private int pointer;
         private const int INVALID_POINTER = -1;

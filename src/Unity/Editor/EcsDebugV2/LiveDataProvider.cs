@@ -17,7 +17,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private List<ArchetypeInfo> _archetypeList = new List<ArchetypeInfo>();
         private List<QueryInfo> _queryList = new List<QueryInfo>();
         private List<ResourceInfo> _resourceList = new();
-        private IResource[] _resources = Array.Empty<IResource>();
+        private IRes[] _resources = Array.Empty<IRes>();
         private List<(string Key, FieldValue Value)> _resourceFields = new();
         private WorldInfo _cachedWorldInfo;
         private long _worldInfoTimestamp;
