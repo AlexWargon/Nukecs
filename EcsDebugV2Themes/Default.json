@@ -91,8 +91,10 @@
     "HeaderPaddingV": 8,
     "FontBody": 13,
     "FontSmall": 11,
+    "FieldName": 12,
     "FontMicro": 10,
-    "FontMini": 11,
+    "FontMini": 9,
+    "ComponentHeaderHeight": 22,
     "AdaptiveSkin": false,
     "ForegroundDark": {
         "r": 0.8799999952316284,

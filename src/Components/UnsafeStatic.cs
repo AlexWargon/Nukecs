@@ -110,13 +110,24 @@ namespace Wargon.Nukecs
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
+        public static unsafe ref T as_ref<T>(T* ptr) where T: unmanaged
+        {
+            return ref Unsafe.AsRef<T>(ptr);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] 
         public static unsafe ref T as_ref<T>(void* ptr) where T: unmanaged
         {
-            return ref UnsafeUtility.AsRef<T>(ptr);
+            return ref Unsafe.AsRef<T>(ptr);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
         public static unsafe void* as_ptr<T>(ref T value) where T: unmanaged
+        {
+            return UnsafeUtility.AddressOf(ref value);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] 
+        public static unsafe void* as_ptr_copy<T>(T value) where T: unmanaged
         {
             return UnsafeUtility.AddressOf(ref value);
         }

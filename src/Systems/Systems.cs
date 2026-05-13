@@ -222,6 +222,10 @@ namespace Wargon.Nukecs
             return this;
         }
 
+        public unsafe Systems Add(delegate*<void> path, params delegate*<void>[] args)
+        {
+            return this;
+        }
         public Systems Add<T>(int dymmy = 1) where T : struct, ISystem
         {
             T system = default;
@@ -368,24 +372,6 @@ namespace Wargon.Nukecs
             return systems;
         }
     }
-
-    public class SystemType
-    {
-        private Action Delegate;
-
-        public static implicit operator Action(SystemType systemType)
-        {
-            return systemType.Delegate;
-        }
-
-        public static explicit operator SystemType(Action systemDelegate)
-        {
-            return new SystemType()
-            {
-                Delegate = systemDelegate
-            };
-        }
-    }
     public interface IQueryHolder {
         unsafe void UpdateQueryPointer(World.WorldUnsafe* world);
     }
@@ -428,7 +414,14 @@ namespace Wargon.Nukecs
             state.World.ECB.Playback(ref state.World);
         }
     }
-    
+
+    public static unsafe class SystemPath
+    {
+        public static delegate*<void> OnCreate;
+        public static delegate*<void> OnUpdate;
+        public static delegate*<void> OnFixedUpdate;
+        public static delegate*<void> OnDestroy;
+    }
     public enum Threads
     {
         /// <summary>
