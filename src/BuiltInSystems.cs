@@ -25,6 +25,7 @@ namespace Wargon.Nukecs{
     //         world.prefabsToSpawn.Clear();
     //     }
     // }
+
     public unsafe struct OnPrefabSpawnSystem : ISystem
     {
         public void OnUpdate(ref State state)
