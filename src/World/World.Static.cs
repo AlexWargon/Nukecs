@@ -4,6 +4,7 @@ using Unity.Burst;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
 using Wargon.Nukecs.Tests;
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs
 {
@@ -19,13 +20,15 @@ namespace Wargon.Nukecs
         private static int worldCount;
         private static int lastWorldID;
         private static bool staticInited;
+        public const int MAX_WORLD_COUNT = 8;
         internal static void InitStatic()
         {
             if(staticInited) return;
             domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4 + 1024*4);
-            worlds.Data = new MemoryList<World>(4, ref domainAllocator.Data, true);
+            worlds.Data = new MemoryList<World>(MAX_WORLD_COUNT, ref domainAllocator.Data, true);
             worldCount = 0;
             dummyWorld.Data = default;
+            dummyWorld.Data.unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
             Component.Initialization();
             staticInited = true;
         }

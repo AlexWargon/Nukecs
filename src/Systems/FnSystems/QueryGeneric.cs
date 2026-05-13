@@ -33,7 +33,7 @@ namespace Wargon.Nukecs {
 
     public enum SystemParamMetaType : byte
     {
-        None = 0,
+        Events = 0,
         Query = 1,
         World = 2,
         Single = 3,

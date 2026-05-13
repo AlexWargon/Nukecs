@@ -18,6 +18,7 @@ namespace Wargon.Nukecs
         private int _globalIndex;
         private int _remaining;
         private TTuple _tuple;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryParIter(in Range range, in MemoryList<int> arches, World.WorldUnsafe* world)
         {
             _range = range;
@@ -105,7 +106,7 @@ namespace Wargon.Nukecs
         }
     }
     
-        [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe ref struct QueryParIterWithEntity<TTuple>
         where TTuple : unmanaged, IComponentEntityTuple
     {
@@ -119,6 +120,7 @@ namespace Wargon.Nukecs
         private int _globalIndex;
         private int _remaining;
         private TTuple _tuple;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryParIterWithEntity(in Range range, in MemoryList<int> arches, World.WorldUnsafe* world)
         {
             _range = range;

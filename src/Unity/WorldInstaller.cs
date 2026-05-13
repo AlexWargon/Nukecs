@@ -2,8 +2,6 @@ using TriInspector;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Jobs;
-using Wargon.Nukecs.Tests;
 using Wargon.Nukecs.Transforms;
 using Transform = Wargon.Nukecs.Transforms.Transform;
 

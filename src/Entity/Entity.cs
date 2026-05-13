@@ -443,6 +443,11 @@ namespace Wargon.Nukecs
         {
             return $"#:{entity.id:D7}";
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetArchetypeHash(this in Entity entity)
+        {
+            return entity.world.UnsafeWorldRef.entitiesArchetypes.Ptr[entity.id];
+        }
     }
 
     public ref struct EntityIndex
@@ -450,4 +455,5 @@ namespace Wargon.Nukecs
         public int chunk;
         public int component;
     }
+    
 }

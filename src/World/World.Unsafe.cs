@@ -666,7 +666,7 @@ namespace Wargon.Nukecs
                 var param = ptr<TParam0>.NULL;
                 switch (paramDefault.MetaType)
                 {
-                    case SystemParamMetaType.None:
+                    case SystemParamMetaType.Events:
                         break;
                     case SystemParamMetaType.Resource:
                         if (resStorage.Has<TParam0>())
@@ -704,7 +704,7 @@ namespace Wargon.Nukecs
                 var param = ptr<TParam0>.NULL;
                 switch (paramDefault.MetaType)
                 {
-                    case SystemParamMetaType.None:
+                    case SystemParamMetaType.Events:
                         break;
                     case SystemParamMetaType.Resource:
                         if (resStorage.Has<TParam0>())

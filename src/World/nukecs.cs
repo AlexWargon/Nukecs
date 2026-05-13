@@ -6,6 +6,6 @@ namespace Wargon.Nukecs
     {
         public const float version = 1.0f;
         public const string name = "Nuke.cs";
-        public const string author = "Alexandr AKA Wargon Soltys";
+        public const string author = "Wargon";
     }
 }

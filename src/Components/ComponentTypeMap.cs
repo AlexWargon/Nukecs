@@ -11,19 +11,21 @@ using UnityEngine;
 
 namespace Wargon.Nukecs
 {
+
     public struct ComponentTypeMap {
-        private static int nextIndex;
-        private static ComponentsMapCache cache;
         internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ComponentTypes
             = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
-        
+        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ElementTypes
+            = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
+        private static int _nextIndex;
+        private static ComponentsMapCache _cache;
         private static bool _initialized;
-        public static List<int> TypesIndexes => cache.TypesIndexes;
+        public static List<int> TypesIndexes => _cache.TypesIndexes;
         private static void EnsureInitialized() {
             if (_initialized) return;
-            cache = new ComponentsMapCache();
+            _cache = new ComponentsMapCache();
             ComponentTypes.Data = new NativeHashMap<int, ComponentTypeData>(256, Allocator.Persistent);
-            ComponentTypeData.Init();
+            ElementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, Allocator.Persistent);
             try {
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             }
@@ -41,7 +43,7 @@ namespace Wargon.Nukecs
             if (_initialized)
             {
                 ComponentTypes.Data.Dispose();
-                ComponentTypeData.ElementTypes.Dispose();
+                ElementTypes.Data.Dispose();
                 Application.quitting -= Dispose;
                 _initialized = false;
             }
@@ -60,10 +62,7 @@ namespace Wargon.Nukecs
             {
                 dbug.log($"Failed to register component type {type.Name}", Color.red);
             }
-            finally
-            {
-                
-            }
+
         }
 
 #region MAIN REGISTERS
@@ -72,12 +71,12 @@ namespace Wargon.Nukecs
             EnsureInitialized();
             var type = typeof(T);
             if (TypeToComponentType.Map.TryGetValue(type, out var existing)) {
-                if (!cache.HasIndex(type))
+                if (!_cache.HasIndex(type))
                     Add(type, existing.index);
                 return existing;
             }
             
-            var index = nextIndex++;
+            var index = _nextIndex++;
             var data = AddComponentType<T>(index);
             Add(type, index);
             ComponentHelpers.EnsureWriter<T>(index);
@@ -86,14 +85,14 @@ namespace Wargon.Nukecs
             if (data.isArray) {
                 var elementType = typeof(T).GetGenericArguments()[0];
                 if (typeof(IArrayComponent).IsAssignableFrom(elementType)) {
-                    nextIndex++;
+                    _nextIndex++;
                     InitializeArrayElementTypeReflection(elementType, index+1);
                     //dbug.log($"REGISTER ELEMENT {elementType.Name}. Index:{index+1}", Color.green);
                 }
             }
 
             ComponentType<T>.Data = data;
-            ComponentAmount.Value.Data = nextIndex;
+            ComponentAmount.Value.Data = _nextIndex;
             return TypeToComponentType.Map[type];
         }
 
@@ -144,7 +143,7 @@ namespace Wargon.Nukecs
                 isArray = false,
                 IsArrayElement = true
             };
-            ComponentTypeData.AddElementType(data, index);
+            AddElementType(data, index);
             AddComponentType<T>(index);
         }
         
@@ -169,15 +168,19 @@ namespace Wargon.Nukecs
             };
             ComponentTypes.Data.TryAdd(index, data);
             TypeToComponentType.Map.TryAdd(typeof(T), data);
-            cache.Add(typeof(T), index);
+            _cache.Add(typeof(T), index);
             return data;
+        }
+        internal static void AddElementType(ComponentTypeData componentTypeData, int index)
+        {
+            ElementTypes.Data[index] = componentTypeData;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeData GetComponentType(int index) => ComponentTypes.Data[index];
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ComponentTypeData GetComponentType(int index, bool isArrayElement = false)
         {
-            if (isArrayElement) return ComponentTypeData.ElementTypes[index];
+            if (isArrayElement) return ElementTypes.Data[index];
             return ComponentTypes.Data[index];
         }
         
@@ -192,7 +195,7 @@ namespace Wargon.Nukecs
         
         public static ComponentTypeData GetComponentType(Type type)
         {
-            if (!cache.HasIndex(type))
+            if (!_cache.HasIndex(type))
             {
                 RegisterByReflection(type);
             }
@@ -200,18 +203,18 @@ namespace Wargon.Nukecs
         }
 
         internal static void Add(Type type, int index) {
-            cache.Add(type, index);
+            _cache.Add(type, index);
         }
-        public static Type GetType(int index) => cache.GetType(index);
-        public static int Index(string name) => cache.Index(name);
+        public static Type GetType(int index) => _cache.GetType(index);
+        public static int Index(string name) => _cache.Index(name);
         public static int Index(Type type)
         {
-            if (!cache.HasIndex(type))
+            if (!_cache.HasIndex(type))
             {
                 RegisterByReflection(type);
             }
 
-            return cache.Index(type);
+            return _cache.Index(type);
         }
     }
 

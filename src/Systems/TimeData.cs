@@ -1,5 +1,8 @@
-﻿namespace Wargon.Nukecs
+﻿using System.Runtime.InteropServices;
+
+namespace Wargon.Nukecs
 {
+    [StructLayout(LayoutKind.Sequential)]
     public struct TimeData
     {
         public float DeltaTime;

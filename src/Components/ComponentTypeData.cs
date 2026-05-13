@@ -33,21 +33,6 @@ namespace Wargon.Nukecs {
         internal IntPtr disposeFn;
         [NativeDisableUnsafePtrRestriction]
         internal IntPtr copyFn;
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> elementTypes = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
-
-        public static ref NativeHashMap<int, ComponentTypeData> ElementTypes
-        {
-            [MethodImpl(256)]
-            get
-            {
-                if (!elementTypes.Data.IsCreated)
-                {
-                    elementTypes.Data = new NativeHashMap<int, ComponentTypeData>(64, Allocator.Persistent);
-                }
-
-                return ref elementTypes.Data;
-            }
-        }
         
         public Type ManagedType => ComponentTypeMap.GetType(index);
         [MethodImpl(256)]
@@ -71,15 +56,7 @@ namespace Wargon.Nukecs {
             return new FunctionPointer<CopyDelegate>(copyFn);
         }
 
-        internal static void Init()
-        {
-            elementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, Allocator.Persistent);
-        }
 
-        internal static void AddElementType(ComponentTypeData componentTypeData, int index)
-        {
-            ElementTypes[index] = componentTypeData;
-        }
         [BurstDiscard]
         public override string ToString() {
             return
@@ -99,22 +76,6 @@ namespace Wargon.Nukecs {
         public static explicit operator ComponentTypeData(Type type)
         {
             return ComponentTypeMap.GetComponentType(type);
-        }
-
-        public static long GetSizeOfAllComponents(int poolSize = 1)
-        {
-            long size = 0;
-            if (!ComponentTypeMap.ComponentTypes.Data.IsCreated) return 0;
-            var sizeOfGenericPool = UnsafeUtility.SizeOf<ComponentPoolUntyped>();
-            foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
-            {
-                size += kvPair.Value.size * poolSize + sizeOfGenericPool;
-            }
-            foreach (var elementType in ElementTypes)
-            {
-                size += elementType.Value.size * ComponentArray.DEFAULT_MAX_CAPACITY * poolSize + sizeOfGenericPool*2;
-            }
-            return size;
         }
     }
 

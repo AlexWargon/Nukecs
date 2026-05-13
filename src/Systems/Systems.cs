@@ -42,7 +42,7 @@ namespace Wargon.Nukecs
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
-            
+
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
             _state.Time.DeltaTime = dt;
@@ -199,28 +199,6 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem
-        {
-            T system = default;
-            if (system is IOnCreate s)
-            {
-                s.OnCreate(ref World);
-                system = (T)s;
-            }
-
-            var runner = new QueryJobSystemRunner<T>
-            {
-                System = system,
-                Mode = system.Mode,
-                EcbJob = default
-            };
-            runner.Query = runner.System.GetQuery(ref World);
-            if (system is IFixed)
-                fixedRunners.Add(runner);
-            else
-                runners.Add(runner);
-            return this;
-        }
 
         public unsafe Systems Add(delegate*<void> path, params delegate*<void>[] args)
         {
@@ -493,6 +471,7 @@ namespace Wargon.Nukecs
         }
     }
 
+    
     [BurstCompile]
     internal struct RemoveComponentSystem : IEntityJobSystem
     {
@@ -533,7 +512,7 @@ namespace Wargon.Nukecs
             }.Schedule(job.Schedule(len, batchCount, dependencies));
         }
     }
-
+    
     public static class JobForExtensions
     {
         public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len,
@@ -665,5 +644,10 @@ namespace Wargon.Nukecs
             }
             return systems;
         }
+    }
+    
+    public static class DefaultSystems
+    {
+
     }
 }

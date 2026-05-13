@@ -72,31 +72,7 @@ namespace Wargon.Nukecs
         }
     }
     
-    public unsafe struct Events<T> where T : unmanaged
-    {
-        private MemoryList<T> _list;
-        private readonly World.WorldUnsafe* _world;
 
-        public Events(int capacity, World.WorldUnsafe* world)
-        {
-            _list = new MemoryList<T>(capacity, ref world->AllocatorRef);
-            _world = world;
-        }
-        
-        public void Add(T item)
-        {
-            _list.Add(item, ref _world->AllocatorRef);
-        }
-
-        public void Clear()
-        {
-            _list.Clear();
-        }
-        public MemoryList<T>.Enumerator GetEnumerator()
-        {
-            return _list.GetEnumerator();
-        }
-    }
     
     public struct DestroyEntity : IComponent { }
     public struct EntityCreated : IComponent { }
