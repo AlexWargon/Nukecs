@@ -1,8 +1,10 @@
-﻿namespace Wargon.Nukecs
+﻿// ReSharper disable InconsistentNaming
+// ReSharper disable IdentifierTypo
+namespace Wargon.Nukecs
 {
-    public struct nukecs
+    public struct NukEcs
     {
-        public const int version = 08;
+        public const float version = 1.0f;
         public const string name = "Nuke.cs";
         public const string author = "Alexandr AKA Wargon Soltys";
     }
