@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Wargon.Nukecs.Editor;
 
 #pragma warning disable CS0168 // Variable is declared but never used
 namespace Wargon.Nukecs
@@ -157,7 +158,17 @@ namespace Wargon.Nukecs
         public static void Initialization() {
             if(_initialized) return;
             ComponentTypeMap.RegisterIfNeeded<DestroyEntity>();
+            Generated.GeneratedComponentList.InitializeComponentList();
+            Generated.GeneratedDisposeRegistryStatic.RegisterTypes();
+            Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
+            Generated.GeneratedDisposeRegistryStatic.Register();
             
+            var list = Generated.GeneratedComponentList.GetAllComponents();
+            foreach (var type in list)
+            {
+                if(!type.IsInterface)
+                    ComponentTypeMap.RegisterByReflection(type);
+            }
             _initialized = true;
         }
 

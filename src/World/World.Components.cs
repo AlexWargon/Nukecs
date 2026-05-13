@@ -4,29 +4,29 @@ using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs {
     public partial struct World {
-        public unsafe struct Components {
-            internal MemoryList<GenericPool> pools;
-            internal int poolsCount;
-            internal MemoryList<int> defaultNoneTypes;
-
-            internal Components(ref WorldConfig config, WorldUnsafe* world) {
-                this.pools = new MemoryList<GenericPool>(64, ref world->AllocatorRef, true);
-                poolsCount = 0;
-                this.defaultNoneTypes = new MemoryList<int>(12, ref world->AllocatorRef);
-                InitializeDefaultComponents();
-                CreatePools(ref config, world);
-            }
-
-            private void InitializeDefaultComponents() {
-                _ = ComponentType<DestroyEntity>.Index;
-                _ = ComponentType<EntityCreated>.Index;
-                _ = ComponentType<IsPrefab>.Index;
-            }
-            internal void CreatePools(ref WorldConfig config, WorldUnsafe* world)
-            {
-                ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, world, ref poolsCount);
-            }
-        }
+        // public unsafe struct Components {
+        //     internal MemoryList<GenericPool> pools;
+        //     internal int poolsCount;
+        //     internal MemoryList<int> defaultNoneTypes;
+        //
+        //     internal Components(ref WorldConfig config, WorldUnsafe* world) {
+        //         this.pools = new MemoryList<GenericPool>(64, ref world->AllocatorRef, true);
+        //         poolsCount = 0;
+        //         this.defaultNoneTypes = new MemoryList<int>(12, ref world->AllocatorRef);
+        //         InitializeDefaultComponents();
+        //         CreatePools(ref config, world);
+        //     }
+        //
+        //     private void InitializeDefaultComponents() {
+        //         _ = ComponentType<DestroyEntity>.Index;
+        //         _ = ComponentType<EntityCreated>.Index;
+        //         _ = ComponentType<IsPrefab>.Index;
+        //     }
+        //     internal void CreatePools(ref WorldConfig config, WorldUnsafe* world)
+        //     {
+        //         ComponentTypeMap.CreatePools(ref pools, config.StartPoolSize, world, ref poolsCount);
+        //     }
+        // }
     }
 
     public struct AspectType

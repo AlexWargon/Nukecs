@@ -26,6 +26,7 @@ namespace Wargon.Nukecs
             worlds.Data = new MemoryList<World>(4, ref domainAllocator.Data, true);
             worldCount = 0;
             dummyWorld.Data = default;
+            Component.Initialization();
             staticInited = true;
         }
         public static int WorldCapacity => worlds.Data.Capacity;

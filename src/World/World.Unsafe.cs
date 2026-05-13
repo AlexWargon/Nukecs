@@ -68,7 +68,7 @@ namespace Wargon.Nukecs
             }
             internal static WorldUnsafe* Create(byte id, WorldConfig config)
             {
-                var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
+                var cSize = 0;
                 var minSize = (long)config.StartPoolSize * 512;
                 var allocatorSize = Math.Max(cSize, minSize);
                 var allocator = new UnityAllocatorHandler(allocatorSize);
@@ -81,7 +81,7 @@ namespace Wargon.Nukecs
             
             internal static ptr<WorldUnsafe> CreatePtr(byte id, WorldConfig config)
             {
-                var cSize = ComponentTypeData.GetSizeOfAllComponents(config.StartPoolSize);
+                var cSize = 0;
                 var minSize = (long)config.StartPoolSize * 512;
                 var allocatorSize = Math.Max(cSize, minSize);
                 //dbug.log($"Allocator initial size {Memory.BytesToMegabytes(allocatorSize)} MB");
@@ -325,7 +325,7 @@ namespace Wargon.Nukecs
 #endif
                 //dbug.log($"Entity {entity} destroyed");
             }
-            //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)
             {
                 return entities.ElementAt(entity).id != 0;

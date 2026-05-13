@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
-using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
@@ -17,9 +17,8 @@ namespace Wargon.Nukecs
         internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ComponentTypes
             = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
         
-        private static bool _initialized = false;
+        private static bool _initialized;
         public static List<int> TypesIndexes => cache.TypesIndexes;
-
         private static void EnsureInitialized() {
             if (_initialized) return;
             cache = new ComponentsMapCache();
@@ -27,7 +26,12 @@ namespace Wargon.Nukecs
             ComponentTypeData.Init();
             try {
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
-            } catch {}
+            }
+            catch
+            {
+                // ignored
+            }
+
             Application.quitting += Dispose;
             _initialized = true;
         }
@@ -45,10 +49,21 @@ namespace Wargon.Nukecs
         [BurstDiscard]
         internal static void RegisterByReflection(Type type)
         {
-            var regType = typeof(ComponentTypeMap);
-            regType.GetMethod(nameof(RegisterIfNeeded), 
-                BindingFlags.NonPublic | BindingFlags.Static)
-                ?.MakeGenericMethod(type).Invoke(null, null);
+            try
+            {
+                var regType = typeof(ComponentTypeMap);
+                regType.GetMethod(nameof(RegisterIfNeeded),
+                        BindingFlags.NonPublic | BindingFlags.Static)
+                    ?.MakeGenericMethod(type).Invoke(null, null);
+            }
+            catch
+            {
+                dbug.log($"Failed to register component type {type.Name}", Color.red);
+            }
+            finally
+            {
+                
+            }
         }
 
 #region MAIN REGISTERS
@@ -76,7 +91,8 @@ namespace Wargon.Nukecs
                     //dbug.log($"REGISTER ELEMENT {elementType.Name}. Index:{index+1}", Color.green);
                 }
             }
-            
+
+            ComponentType<T>.Data = data;
             ComponentAmount.Value.Data = nextIndex;
             return TypeToComponentType.Map[type];
         }
@@ -197,32 +213,54 @@ namespace Wargon.Nukecs
 
             return cache.Index(type);
         }
-        public static void Save() {
-            //ComponentsMapCache.Save(cache);
-        }
+    }
 
-        internal static unsafe void CreatePools(ref MemoryList<GenericPool> pools, int size, World.WorldUnsafe* world, ref int poolsCount)
+    public unsafe partial struct ComponentsMetaDataStatic
+    {
+        private static readonly SharedStatic<ComponentsMetaData> metaData =
+            SharedStatic<ComponentsMetaData>.GetOrCreate<ComponentsMetaDataStatic>();
+
+        public static void Initialize()
         {
-            foreach (var kvPair in ComponentTypes.Data)
+            var data = new ComponentsMetaData(256);
+            // data.SetAll(new ComponentTypeData[1]
+            // {
+            //
+            // });
+            AppDomain.CurrentDomain.ProcessExit += Dtor;
+        }
+        static void Dtor(object sender, EventArgs e) {
+            metaData.Data.Dispose();
+        }
+    }
+    public readonly unsafe struct ComponentsMetaData
+    {
+        private readonly ComponentTypeData* _data;
+        private readonly int _capacity;
+        public ComponentsMetaData(int capacity)
+        {
+            _data = (ComponentTypeData*)Marshal.AllocHGlobal(capacity * sizeof(ComponentTypeData));
+            _capacity = capacity;
+        }
+        public ref ComponentTypeData Get(int index) => ref _data[index];
+
+        public void SetAll(ComponentTypeData[] data)
+        {
+            if (_capacity != data.Length)
             {
-                var type = kvPair.Value;
-                ref var pool = ref pools.Ptr[type.index];
-                if (!type.isArray)
-                {
-                    pool = GenericPool.Create(type, size, ref world->selfPtr);
-                    poolsCount += 1;
-                }
-                else
-                {
-                    pool = GenericPool.Create(type, size, ref world->selfPtr);
-                    var elementType = ComponentTypeData.ElementTypes[type.index];
-                    ref var elementsPool = ref pools.Ptr[elementType.index + 1];
-                    elementsPool = GenericPool.Create(elementType, size * ComponentArray.DEFAULT_MAX_CAPACITY, ref world->selfPtr);
-                    poolsCount += 2;
-                }
+                throw new Exception("Capacity mismatch in component metadata");
+                return;
+            }
+
+            fixed (ComponentTypeData* ptr = data)
+            {
+                UnsafeUtility.MemCpy(_data, ptr, data.Length * sizeof(ComponentTypeData));
             }
         }
 
-        internal static int RegisteredCount => nextIndex;
+        public void Dispose()
+        {
+            Marshal.FreeHGlobal((IntPtr)_data);
+        }
     }
 }

@@ -80,7 +80,8 @@ namespace Wargon.Nukecs {
                 PlayParticleReference = 7,
                 Copy = 8,
                 CreateCopy = 9,
-                RemoveAndDispose = 10
+                RemoveAndDispose = 10,
+                SpawnPrefab = 11
             }
         }
 
