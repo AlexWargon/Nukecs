@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Wargon.Nukecs
 {
+    
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Bitmask1024
     {
@@ -13,7 +14,11 @@ namespace Wargon.Nukecs
         private ulong summary;
         private fixed ulong words[WORD_COUNT];
 
-        public int Count { get; private set; }
+        public int Count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get; 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] private set;
+        }
 
         public int Size()
         {
@@ -131,7 +136,36 @@ namespace Wargon.Nukecs
                 summaryCopy &= summaryCopy - 1;
             }
         }
+        public int CountBefore(int bit)
+        {
+            var wordIndex = bit >> 6;
+            var bitIndex = bit & 63;
 
+            int count = 0;
+
+            ulong activeWords =
+                summary & ((1UL << wordIndex) - 1);
+
+            while (activeWords != 0)
+            {
+                var i =
+                    BitUtils.TrailingZeroCount(activeWords);
+
+                count +=
+                    BitUtils.PopCount(words[i]);
+
+                activeWords &= activeWords - 1;
+            }
+
+            ulong partial =
+                words[wordIndex] &
+                ((1UL << bitIndex) - 1);
+
+            count +=
+                BitUtils.PopCount(partial);
+
+            return count;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Validate(int bit)
         {

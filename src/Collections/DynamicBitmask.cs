@@ -246,7 +246,10 @@ namespace Wargon.Nukecs
             return sizeof(ulong) * arraySize + sizeof(DynamicBitmask);
         }
     }
-
+    unsafe struct DeBruijnTable
+    {
+        public fixed byte Values[64];
+    }
     public static class BitUtils
     {
         private const ulong DE_BRUIJN =
@@ -263,18 +266,41 @@ namespace Wargon.Nukecs
             46, 26, 40, 15, 34, 20, 31, 10,
             25, 14, 19,  9, 13,  8,  7,  6
         };
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int TrailingZeroCount(ulong value)
+        public static int TrailingZeroCount(ulong x)
+            => math.tzcnt(x);
+        // [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public static int TrailingZeroCount(ulong value)
+        // {
+        //     if (value == 0)
+        //         return 64;
+        //
+        //     ulong isolated = value & (ulong)-(long)value;
+        //
+        //     return Index[
+        //         (isolated * DE_BRUIJN) >> 58
+        //     ];
+        // }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int PopCount(ulong value)
         {
-            if (value == 0)
-                return 64;
+            return math.countbits(value);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int PopCount2(ulong x)
+        {
+            x -= (x >> 1) & 0x5555555555555555UL;
+            x = (x & 0x3333333333333333UL)
+                + ((x >> 2) & 0x3333333333333333UL);
 
-            ulong isolated = value & (ulong)-(long)value;
+            x = (x + (x >> 4))
+                & 0x0F0F0F0F0F0F0F0FUL;
 
-            return Index[
-                (isolated * DE_BRUIJN) >> 58
-            ];
+            x += x >> 8;
+            x += x >> 16;
+            x += x >> 32;
+
+            return (int)(x & 0x7F);
         }
     }
 }
