@@ -669,14 +669,14 @@ namespace Wargon.Nukecs
                     case SystemParamMetaType.Events:
                         break;
                     case SystemParamMetaType.Resource:
-                        if (resStorage.Has<TParam0>())
+                        if (resStorage.HasRes<TParam0>())
                         {
-                            param = resStorage.Get<TParam0>();
+                            param = resStorage.GetRes<TParam0>();
                         }
                         else 
                         {
-                            resStorage.Add(in paramDefault, Self);
-                            param = resStorage.Get<TParam0>();
+                            resStorage.AddRes(in paramDefault, Self);
+                            param = resStorage.GetRes<TParam0>();
                             param.Ref = paramDefault;
                             param.Ref.Init(ref selfPtr);
                         }
@@ -707,14 +707,14 @@ namespace Wargon.Nukecs
                     case SystemParamMetaType.Events:
                         break;
                     case SystemParamMetaType.Resource:
-                        if (resStorage.Has<TParam0>())
+                        if (resStorage.HasRes<TParam0>())
                         {
-                            param = resStorage.Get<TParam0>();
+                            param = resStorage.GetRes<TParam0>();
                         }
                         else 
                         {
-                            resStorage.Add(in paramDefault, Self);
-                            param = resStorage.Get<TParam0>();
+                            resStorage.AddRes(in paramDefault, Self);
+                            param = resStorage.GetRes<TParam0>();
                             param.Ref = paramDefault;
                             param.Ref.Init(ref selfPtr);
                         }
@@ -751,6 +751,18 @@ namespace Wargon.Nukecs
                 ref var loc = ref entityLocations.Ptr[entityId];
                 ref var arch = ref archetypesList.Ptr[loc.archetypeIndex].Ref;
                 return arch.GetComponentDataPtr(typeIndex, loc.row);
+            }
+
+            public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
+            {
+                var resRef = new Res<TRes>(res);
+                resStorage.AddRes(resRef, Self);
+            }
+
+            public void AddResManaged<TRes>(TRes res) where TRes : class, IRes
+            {
+                var resRef = new ResManaged<TRes>(res);
+                resStorage.AddRes(resRef, Self);
             }
         }
     }

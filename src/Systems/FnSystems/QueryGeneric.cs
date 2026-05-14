@@ -61,7 +61,7 @@ namespace Wargon.Nukecs {
     public readonly struct Range {
         public readonly int start;
         public readonly int end;
-
+        public int Count => end - start;
         public Range(int start, int end)
         {
             this.start = start;

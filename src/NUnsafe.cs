@@ -175,7 +175,7 @@ namespace Wargon.Nukecs {
         private uint state;
         public static unsafe random New()
         {
-            return new random(*UnsafeStatic.malloc_t<uint>(Allocator.Temp));
+            return new random(*UnsafeStatic.malloc_t_cast<uint>(Allocator.Temp));
         }
         
         public random(uint seed)

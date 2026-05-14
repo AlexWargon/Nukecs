@@ -367,7 +367,7 @@ namespace Wargon.Nukecs
         private int _current;
 
         private Range _range;
-
+        public Range Range => _range;
         private int _archIdx;
         private int _archRow;
         private int _archEntityEnd;
@@ -777,6 +777,11 @@ namespace Wargon.Nukecs
         public readonly QueryIter<RefTuple<T1,T2,TOption>> iter()
         {
             return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1,T2,TOption>> par_iter()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
@@ -2383,14 +2388,19 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, T2, T3, T4, T5, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
-        where T2 : unmanaged, IComponent
-        where T3 : unmanaged, IComponent
-        where T4 : unmanaged, IComponent
-        where T5 : unmanaged, IComponent
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+        where T4 : unmanaged
+        where T5 : unmanaged
         where TOption : unmanaged
 
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> par_iter()
+        {
+            return new (in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
         private ArchetypeRef<T1> _t1;
         private ArchetypeRef<T2> _t2;
         private ArchetypeRef<T3> _t3;

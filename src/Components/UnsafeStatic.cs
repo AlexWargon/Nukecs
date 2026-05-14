@@ -90,9 +90,20 @@ namespace Wargon.Nukecs
         {
             return (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator);
         }
-        
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe T* malloc_t<T>(Unity.Collections.Allocator allocator) where T : unmanaged
+        public static unsafe void* malloc_t<T>(Unity.Collections.Allocator allocator) where T : struct
+        {
+            return UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator, 0);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] 
+        public static unsafe void* malloc_t<T>(Unity.Collections.Allocator allocator, T value) where T : struct
+        {
+            var ptr = UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator, 0);
+            UnsafeUtility.AsRef<T>(ptr) = value;
+            return ptr;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)] 
+        public static unsafe T* malloc_t_cast<T>(Unity.Collections.Allocator allocator) where T : unmanaged
         {
             return (T*)UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
@@ -116,20 +127,25 @@ namespace Wargon.Nukecs
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe ref T as_ref<T>(void* ptr) where T: unmanaged
+        public static unsafe ref T as_ref<T>(void* ptr) where T: struct
         {
             return ref Unsafe.AsRef<T>(ptr);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void* as_ptr<T>(ref T value) where T: unmanaged
+        public static unsafe void* as_ptr<T>(ref T value) where T: struct
         {
             return UnsafeUtility.AddressOf(ref value);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void* as_ptr_copy<T>(T value) where T: unmanaged
+        public static unsafe void* as_ptr_copy<T>(T value) where T: struct
         {
             return UnsafeUtility.AddressOf(ref value);
+        }
+
+        public static unsafe void ptr_write<T>(void* ptr, T value) where T : struct
+        {
+            Unsafe.AsRef<T>(ptr) = value;
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Wargon.Nukecs
 
         static rng()
         {
-            var seed = malloc_t<uint>(Allocator.Temp);
+            var seed = malloc_t_cast<uint>(Allocator.Temp);
             random.Data = new random(*seed);
         }
         [BurstCompile]

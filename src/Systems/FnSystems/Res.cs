@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
 
 // ReSharper disable InconsistentNaming
@@ -9,52 +11,68 @@ using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
+    using static UnsafeStatic;
+    public readonly unsafe struct UnsafeRef<T> where T : struct
+    {
+        private readonly void* ptr;
+        public ref T Ref => ref as_ref<T>(ptr);
+        public bool IsNull => ptr == null;
+        public UnsafeRef(T value)
+        {
+            ptr = malloc_t(Allocator.Persistent, value);
+        }
+        
+        public void Dispose()
+        {
+            free_t(ptr, Allocator.Persistent);
+        }
+    }
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     public struct Res<TRes> : ISystemParam, IResourceGetSet where TRes : struct, IRes
     {
-        private TRes _reference;
+        private UnsafeRef<TRes> _field;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
-        public readonly TRes Val => _reference;
+
+        public ref TRes Ref
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref _field.Ref;
+        }
 
         void IResourceGetSet.SetResource(IRes res)
         {
-            _reference = (TRes)res;
+            _field.Ref = (TRes)res;
         }
 
         IRes IResourceGetSet.GetResource()
         {
-            return _reference;
+            return _field.Ref;
         }
 
         internal void Set(IRes res)
         {
-            _reference = (TRes)res;
+            _field.Ref = (TRes)res;
         }
 
         public Res(in TRes resource)
         {
-            _reference = resource;
+            _field = new UnsafeRef<TRes>(resource);
         }
 
-        public static implicit operator TRes(in Res<TRes> res)
-        {
-            return res._reference;
-        }
-
-        public static explicit operator Res<TRes>(in TRes res)
-        {
-            return new Res<TRes>(in res);
-        }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            _reference.Init(ref world.Ref.ManagedWorld.Ref);
+            if (_field.IsNull)
+            {
+                _field = new UnsafeRef<TRes>(default);
+            }
+            _field.Ref.Init(ref world.Ref.ManagedWorld.Ref);
         }
 
         public void Update(ref World world, IntPtr data)
         {
-            _reference.Update(ref world);
+            _field.Ref.Update(ref world);
         }
 
         public IntPtr GetData()
@@ -66,6 +84,21 @@ namespace Wargon.Nukecs
         {
             query = default;
             return false;
+        }
+
+        internal void Dispose()
+        {
+            _field.Dispose();
+        }
+        
+        public static implicit operator TRes(in Res<TRes> res)
+        {
+            return res._field.Ref;
+        }
+
+        public static explicit operator Res<TRes>(in TRes res)
+        {
+            return new Res<TRes>(in res);
         }
     }
 
@@ -98,12 +131,12 @@ namespace Wargon.Nukecs
     }
 
     // ReSharper disable once UnusedTypeParameter
-    internal struct param_type<T>
+    internal struct res_type<T>
     {
         public static int index = -1;
     }
 
-    internal struct param_type
+    internal struct res_type
     {
         private static readonly Dictionary<Type, ReflectionData> indexes = new();
         internal static IEnumerable<Type> RegisteredTypes => indexes.Keys;
@@ -147,9 +180,9 @@ namespace Wargon.Nukecs
             var count = 0;
             if (_resources.length >= cache.Length)
                 Array.Resize(ref cache, _resources.length + 1);
-            foreach (var type in param_type.RegisteredTypes)
+            foreach (var type in res_type.RegisteredTypes)
             {
-                var data = param_type.data(type);
+                var data = res_type.data(type);
                 if (data.index < _resources.length)
                 {
                     var resPtr = _resources.Ptr[data.index];
@@ -161,39 +194,39 @@ namespace Wargon.Nukecs
             return (count, cache);
         }
 
-        internal ptr<T> Get<T>() where T : unmanaged
+        internal ptr<T> GetRes<T>() where T : unmanaged
         {
-            var index = param_type<T>.index;
+            var index = res_type<T>.index;
             return _resources.Ptr[index].AsTyped<T>();
         }
 
-        public IRes Get(Type type)
+        public IRes GetRes(Type type)
         {
-            var data = param_type.data(type);
+            var data = res_type.data(type);
             var res = _resources.Ptr[data.index];
             return data.get_boxed(res.cached);
         }
 
-        public void Set(IRes res)
+        public void SetRes(IRes res)
         {
-            var data = param_type.data(res.GetType());
+            var data = res_type.data(res.GetType());
             var resPtr = _resources.Ptr[data.index];
             data.set_boxed(resPtr.cached, res);
         }
 
-        internal bool Has<T>() where T : unmanaged
+        internal bool HasRes<T>() where T : unmanaged
         {
-            var index = param_type<T>.index;
+            var index = res_type<T>.index;
             if (index >= _resources.length) return false;
-            return !_resources[param_type<T>.index].IsNull;
+            return !_resources[res_type<T>.index].IsNull;
         }
 
-        internal bool Add<T>(in T resource, World.WorldUnsafe* world) where T : unmanaged
+        internal bool AddRes<T>(in T resource, World.WorldUnsafe* world) where T : unmanaged
         {
-            if (Has<T>()) return false;
+            if (HasRes<T>()) return false;
             var ptr = world->_allocate_ptr<T>();
-            param_type<T>.index = _resources.length;
-            param_type.set<T>(param_type<T>.index);
+            res_type<T>.index = _resources.length;
+            res_type.set<T>(res_type<T>.index);
             ptr.Ref = resource;
             _resources.Add(ptr.UntypedPointer, ref world->AllocatorRef);
             return true;

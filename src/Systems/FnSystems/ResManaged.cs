@@ -5,22 +5,33 @@ using System.Runtime.InteropServices;
 namespace Wargon.Nukecs
 {
     [Serializable, StructLayout(LayoutKind.Sequential)]
-    public struct ResManaged<TRes> : ISystemParam, IResourceGetSet where TRes : class, IRes, new()
+    public struct ResManaged<TRes> : ISystemParam, IResourceGetSet where TRes : class, IRes
     {
-        private ManagedResRef<TRes> _reference;
+        internal ManagedResRef<TRes> _reference;
         public TRes Val => _reference.Value;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
+        
+        public ResManaged(TRes val)
+        {
+            _reference = val;
+        }
+        
         void IResourceGetSet.SetResource(IRes res)
         {
             _reference = (TRes)res;
         }
+        
         IRes IResourceGetSet.GetResource()
         {
             return _reference.Value;
         }
+
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            _reference = new ManagedResRef<TRes>(new TRes());
+            if (_reference == null)
+            {
+                dbug.error($"managed res type of {typeof(TRes).Name} reference is null");
+            }
             _reference.Value.Init(ref world.Ref.ManagedWorld.Ref);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

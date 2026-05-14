@@ -48,12 +48,13 @@ namespace Wargon.Nukecs
         [NativeDisableUnsafePtrRestriction] private Entity* _allEntities;
         [NativeDisableUnsafePtrRestriction] private T1* _p1;
         [NativeDisableUnsafePtrRestriction] private T2* _p2;
+        private static readonly bool IsOptionComponent = QueryParamInfo<T2>.IsComponent;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
             _entities++;
             _p1++;
-            if(QueryParamInfo<T2>.IsComponent)_p2++;
+            if(IsOptionComponent)_p2++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities)
@@ -61,7 +62,7 @@ namespace Wargon.Nukecs
             _entities = localEntities;
             _allEntities = globalEntities;
             _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
-            if(QueryParamInfo<T2>.IsComponent)_p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
+            if(IsOptionComponent)_p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities, int localStart)
@@ -69,7 +70,7 @@ namespace Wargon.Nukecs
             _entities = localEntities + localStart;
             _allEntities = globalEntities;
             _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
-            if(QueryParamInfo<T2>.IsComponent)_p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
+            if(IsOptionComponent)_p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Deconstruct(out Entity e, out T1* c1)

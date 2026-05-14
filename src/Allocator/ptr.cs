@@ -236,6 +236,26 @@ namespace Wargon.Nukecs
         public void Dispose()
         {
             free(_ptr, Allocator.Persistent);
+            
         }
     }
+
+    public unsafe struct _object
+    {
+        private void* ptr;
+    }
+
+    public unsafe struct _type
+    {
+        public int index;
+        public int fields;
+        public fixed int fieldsTypes[18];
+
+        private static int typesCounter = 0;
+        public struct _of_type<T>
+        {
+            public int index;
+        }
+    }
+    
 }

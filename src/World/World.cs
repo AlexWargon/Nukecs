@@ -125,6 +125,15 @@ namespace Wargon.Nukecs
         {
             return ref UnsafeWorld->GetPool<T>().GetSingleton<T>();
         }
+
+        public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
+        {
+            UnsafeWorldRef.AddRes(res);
+        }
+        public void AddResManaged<TRes>(TRes res) where TRes : class, IRes
+        {
+            UnsafeWorldRef.AddResManaged(res);
+        }
     }
 
     public struct WorldConfig

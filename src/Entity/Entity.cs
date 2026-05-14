@@ -169,6 +169,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        [BurstCompile]
         public static void Add<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;

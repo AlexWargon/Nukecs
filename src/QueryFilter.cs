@@ -8,29 +8,29 @@ namespace Wargon.Nukecs
 {
     public struct QueryParamInfo<T>
     {
-        internal static readonly SharedStatic<QueryParamData> isComponent = SharedStatic<QueryParamData>.GetOrCreate<QueryParamInfo<T>>();
+        internal static readonly SharedStatic<QueryParamData> data = SharedStatic<QueryParamData>.GetOrCreate<QueryParamInfo<T>>();
 
         public static bool IsComponent
         {
 
-            get => isComponent.Data.IsComponent == 1;
+            get => data.Data.IsComponent == 1;
 
-            set => isComponent.Data.IsComponent = value ? (byte)1 : (byte)0;
+            set => data.Data.IsComponent = value ? (byte)1 : (byte)0;
         }
 
         public static int Index
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => isComponent.Data.Index;
+            get => data.Data.Index;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set => isComponent.Data.Index = value ;
+            set => data.Data.Index = value ;
         }
         public static StorageType StorageType
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => isComponent.Data.StorageType;
+            get => data.Data.StorageType;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set => isComponent.Data.StorageType = value;
+            set => data.Data.StorageType = value;
         }
     }
     [StructLayout(LayoutKind.Sequential)]

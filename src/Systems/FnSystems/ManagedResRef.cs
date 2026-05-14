@@ -26,7 +26,7 @@ namespace Wargon.Nukecs
         internal static bool HasResource(int hash) => resources.ContainsKey(hash);
     }
     [StructLayout(LayoutKind.Sequential)]
-    public struct ManagedResRef<T> : IEquatable<ManagedResRef<T>>, IDisposable where T : IRes, new()
+    public struct ManagedResRef<T> : IEquatable<ManagedResRef<T>>, IDisposable where T : IRes
     {
         private int pointer;
         private const int INVALID_POINTER = -1;
