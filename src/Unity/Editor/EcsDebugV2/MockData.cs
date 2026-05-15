@@ -13,7 +13,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         Number,
         String,
         Bool,
-        EntityRef
+        EntityRef,
+        Enum,
+        ObjectRef,
+        ComponentArray
     }
 
     public struct FieldValue : IEquatable<FieldValue>
@@ -24,6 +27,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public bool BoolVal;
         public int EntityRefVal;
 
+        public string[] EnumNames;
+        public long[] EnumRawValues;
+        public int EnumSelectedIndex;
+        public long EnumRawValue;
+
+        public string ObjectTypeName;
+        public string ObjectName;
+        public int ObjectInstanceId;
+        public bool IsUnityObject;
+
+        public string ArrayElementTypeName;
+        public int ArrayLength;
+
         public static FieldValue FromNumber(double v) 
             => new () { Type = FieldValueType.Number, NumberVal = v };
         public static FieldValue FromString(string v) 
@@ -32,6 +48,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             => new () { Type = FieldValueType.Bool, BoolVal = v };
         public static FieldValue FromEntityRef(int id) 
             => new () { Type = FieldValueType.EntityRef, EntityRefVal = id };
+
+        public static FieldValue FromEnum(string[] names, long[] rawValues, int selectedIndex, long rawValue)
+            => new () { Type = FieldValueType.Enum, EnumNames = names, EnumRawValues = rawValues, EnumSelectedIndex = selectedIndex, EnumRawValue = rawValue, NumberVal = rawValue };
+
+        public static FieldValue FromObjectRef(string typeName, string objName, int instanceId, bool isUnityObject = false)
+            => new () { Type = FieldValueType.ObjectRef, ObjectTypeName = typeName, ObjectName = objName, ObjectInstanceId = instanceId, IsUnityObject = isUnityObject };
+
+        public static FieldValue FromComponentArray(string elemTypeName, int length)
+            => new () { Type = FieldValueType.ComponentArray, ArrayElementTypeName = elemTypeName, ArrayLength = length };
 
         public bool Equals(FieldValue other)
         {
@@ -42,6 +67,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 case FieldValueType.String: return StringVal == other.StringVal;
                 case FieldValueType.Bool: return BoolVal == other.BoolVal;
                 case FieldValueType.EntityRef: return EntityRefVal == other.EntityRefVal;
+                case FieldValueType.Enum: return EnumRawValue == other.EnumRawValue;
+                case FieldValueType.ObjectRef: return ObjectInstanceId == other.ObjectInstanceId;
+                case FieldValueType.ComponentArray: return ArrayLength == other.ArrayLength;
                 default: return false;
             }
         }

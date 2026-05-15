@@ -23,7 +23,7 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
 
         public static CubeSculptureBootstrap Instance;
 
-        protected override WorldConfig GetConfig() => WorldConfig.Default_1_000_000;
+        protected override WorldConfig GetConfig() => WorldConfig.Default163840;
 
         protected override void OnWorldCreated(ref World world)
         {

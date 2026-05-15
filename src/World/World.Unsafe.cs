@@ -585,7 +585,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-            internal ref ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
+            public ref ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
                 return ref archetypesList.Ptr[entitiesArchetypes.Ptr[ent]];
             }
 #if !NUKECS_DEBUG

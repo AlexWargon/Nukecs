@@ -105,10 +105,7 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
 
         [System, BurstCompile]
         public static void SwarmTransition(
-            ref Query<
-                CubeStateTag, 
-                FormationOffset, 
-                AnimationPhase> query,
+            ref Query<CubeStateTag, FormationOffset, AnimationPhase> query,
             ref State state, 
             ref Res<ConfigData> config, 
             ref Res<SculptureData> sculpture,

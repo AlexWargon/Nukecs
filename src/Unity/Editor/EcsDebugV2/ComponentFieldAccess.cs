@@ -17,7 +17,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         Number,
         Bool,
         String,
-        EntityRef
+        EntityRef,
+        Enum,
+        ObjectRef,
+        ComponentArray
     }
 
     public struct FieldAccessorEntry
@@ -27,6 +30,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int ByteOffset;
         public Type FieldType;
         public bool IsManaged;
+        public string[] EnumNames;
+        public Type EnumUnderlyingType;
+        public Type GenericArgType;
     }
 
     public struct TypeAccessor
@@ -201,14 +207,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 else if (ft.IsEnum)
                 {
-                    var underlying = Enum.GetUnderlyingType(ft);
+                    hasManaged = true;
                     fields.Add(new FieldAccessorEntry
                     {
                         Name = fullName,
-                        ValueType = FieldAccessorKind.Number,
+                        ValueType = FieldAccessorKind.Enum,
                         ByteOffset = offset,
-                        FieldType = underlying,
-                        IsManaged = false
+                        FieldType = ft,
+                        IsManaged = true,
+                        EnumNames = Enum.GetNames(ft),
+                        EnumUnderlyingType = Enum.GetUnderlyingType(ft)
                     });
                 }
                 else if (ft == typeof(bool))
@@ -276,6 +284,32 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fields.Add(new FieldAccessorEntry { Name = $"{fullName}.g", ValueType = FieldAccessorKind.Number, ByteOffset = offset + 4, FieldType = typeof(float), IsManaged = false });
                     fields.Add(new FieldAccessorEntry { Name = $"{fullName}.b", ValueType = FieldAccessorKind.Number, ByteOffset = offset + 8, FieldType = typeof(float), IsManaged = false });
                     fields.Add(new FieldAccessorEntry { Name = $"{fullName}.a", ValueType = FieldAccessorKind.Number, ByteOffset = offset + 12, FieldType = typeof(float), IsManaged = false });
+                }
+                else if (typeof(UnityEngine.Object).IsAssignableFrom(ft))
+                {
+                    hasManaged = true;
+                    fields.Add(new FieldAccessorEntry
+                    {
+                        Name = fullName,
+                        ValueType = FieldAccessorKind.ObjectRef,
+                        ByteOffset = offset,
+                        FieldType = ft,
+                        IsManaged = true,
+                        GenericArgType = ft
+                    });
+                }
+                else if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(ObjectRef<>))
+                {
+                    hasManaged = true;
+                    fields.Add(new FieldAccessorEntry
+                    {
+                        Name = fullName,
+                        ValueType = FieldAccessorKind.ObjectRef,
+                        ByteOffset = offset,
+                        FieldType = ft,
+                        IsManaged = true,
+                        GenericArgType = ft.GetGenericArguments()[0]
+                    });
                 }
                 else if (typeof(IComponent).IsAssignableFrom(ft) && ft.IsValueType)
                 {

@@ -744,6 +744,49 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             color = EcsDebugV2Theme.TypeEntity
                         }
                     };
+                case FieldValueType.Enum:
+                {
+                    var name = value.EnumNames != null && value.EnumSelectedIndex >= 0 &&
+                               value.EnumSelectedIndex < value.EnumNames.Length
+                        ? value.EnumNames[value.EnumSelectedIndex]
+                        : value.EnumRawValue.ToString();
+                    return new Label($"{name}")
+                    {
+                        style =
+                        {
+                            fontSize = EcsDebugV2Theme.Font.Small,
+                            color = EcsDebugV2Theme.Lime
+                        }
+                    };
+                }
+                case FieldValueType.ObjectRef:
+                {
+                    var display = string.IsNullOrEmpty(value.ObjectName) || value.ObjectName == "null"
+                        ? $"{value.ObjectTypeName}: null"
+                        : $"{value.ObjectTypeName}: {value.ObjectName}";
+                    return new Label(display)
+                    {
+                        style =
+                        {
+                            fontSize = EcsDebugV2Theme.Font.Small,
+                            color = EcsDebugV2Theme.MutedText
+                        }
+                    };
+                }
+                case FieldValueType.ComponentArray:
+                {
+                    var elemName = string.IsNullOrEmpty(value.ArrayElementTypeName)
+                        ? "?"
+                        : value.ArrayElementTypeName;
+                    return new Label($"{elemName}[{value.ArrayLength}]")
+                    {
+                        style =
+                        {
+                            fontSize = EcsDebugV2Theme.Font.Small,
+                            color = EcsDebugV2Theme.Orange
+                        }
+                    };
+                }
                 default:
                     return new Label("\u2014")
                     {

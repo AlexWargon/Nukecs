@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using UnityEditor;
 using Wargon.Nukecs.Collections;
 // ReSharper disable EmptyGeneralCatchClause
 
@@ -618,6 +619,54 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     info.Fields.Add(("#tag", FieldValue.FromBool(true)));
                 }
+                else if (ctData.isArray && t != null && t.IsGenericType && t.GetGenericTypeDefinition() == typeof(ComponentArray<>))
+                {
+                    try
+                    {
+                        var boxed = arch.GetObject(entityId, typeIdx);
+                        if (boxed != null)
+                        {
+                            var lengthProp = t.GetProperty("Length");
+                            var length = lengthProp != null ? (int)lengthProp.GetValue(boxed) : 0;
+                            var readAtMethod = t.GetMethod("ReadAt", new[] { typeof(int) });
+
+                            info.Fields.Add(("length", FieldValue.FromNumber(length)));
+
+                            var maxShow = Mathf.Min(length, 20);
+                            for (var ei = 0; ei < maxShow; ei++)
+                            {
+                                try
+                                {
+                                    var element = readAtMethod?.Invoke(boxed, new object[] { ei });
+                                    if (element == null) continue;
+                                    var elemFields = new List<(string, FieldValue)>();
+                                    ComponentFieldReader.ReadFields(element, elemFields);
+                                    foreach (var ef in elemFields)
+                                        info.Fields.Add(($"[{ei}].{ef.Item1}", ef.Item2));
+                                }
+                                catch { }
+                            }
+                            if (length > maxShow)
+                                info.Fields.Add(("...", FieldValue.FromString($"... +{length - maxShow} more")));
+                        }
+                    }
+                    catch
+                    {
+                        try
+                        {
+                            var boxed = arch.GetObject(entityId, typeIdx);
+                            if (boxed != null)
+                            {
+                                var lengthProp = t.GetProperty("Length");
+                                var length = lengthProp != null ? (int)lengthProp.GetValue(boxed) : 0;
+                                var elemType = t.GetGenericArguments()[0];
+                                info.Fields.Add(("length", FieldValue.FromNumber(length)));
+                                info.Fields.Add(("elementType", FieldValue.FromString(elemType.Name)));
+                            }
+                        }
+                        catch { }
+                    }
+                }
                 else
                 {
                     try
@@ -694,8 +743,25 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 fields.Add((fi.Name, FieldValue.FromString((string)val ?? "")));
             else if (ft == typeof(Entity))
                 fields.Add((fi.Name, FieldValue.FromEntityRef(((Entity)val).id)));
+            else if (typeof(UnityEngine.Object).IsAssignableFrom(ft))
+            {
+                var uObj = val as UnityEngine.Object;
+                if (uObj != null)
+                    fields.Add((fi.Name, FieldValue.FromObjectRef(ft.Name, uObj.name, uObj.GetInstanceID(), true)));
+                else
+                    fields.Add((fi.Name, FieldValue.FromObjectRef(ft.Name, "null", 0, true)));
+            }
             else if (ft.IsEnum)
-                fields.Add((fi.Name, FieldValue.FromNumber(Convert.ToInt64(val))));
+            {
+                var names = Enum.GetNames(ft);
+                var intVal = Convert.ToInt64(val);
+                var vals = Enum.GetValues(ft);
+                var idx = Array.IndexOf(vals, val);
+                var rawVals = new long[vals.Length];
+                for (var ri = 0; ri < vals.Length; ri++)
+                    rawVals[ri] = Convert.ToInt64(vals.GetValue(ri));
+                fields.Add((fi.Name, FieldValue.FromEnum(names, rawVals, idx, intVal)));
+            }
             else if (ft == typeof(Vector2) || ft.Name == "float2")
             {
                 var v = (Vector2)val;
@@ -732,6 +798,31 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 fields.Add(($"{fi.Name}.g", FieldValue.FromNumber(v.g)));
                 fields.Add(($"{fi.Name}.b", FieldValue.FromNumber(v.b)));
                 fields.Add(($"{fi.Name}.a", FieldValue.FromNumber(v.a)));
+            }
+            else if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(ObjectRef<>))
+            {
+                try
+                {
+                    var valueProp = ft.GetProperty("Value");
+                    var resolvedObj = valueProp?.GetValue(val);
+                    var innerType = ft.GetGenericArguments()[0];
+
+                    if (typeof(UnityEngine.Object).IsAssignableFrom(innerType))
+                    {
+                        if (resolvedObj is UnityEngine.Object uObj2)
+                            fields.Add((fi.Name, FieldValue.FromObjectRef(innerType.Name, uObj2.name, uObj2.GetInstanceID(), true)));
+                        else
+                            fields.Add((fi.Name, FieldValue.FromObjectRef(innerType.Name, "null", 0, true)));
+                    }
+                    else
+                    {
+                        fields.Add((fi.Name, FieldValue.FromString(resolvedObj?.ToString() ?? "")));
+                    }
+                }
+                catch
+                {
+                    fields.Add((fi.Name, FieldValue.FromString("")));
+                }
             }
             else if (typeof(IComponent).IsAssignableFrom(ft) && ft.IsValueType)
             {
@@ -796,7 +887,31 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 else if (ft == typeof(string))
                     fi.SetValue(obj, value.StringVal);
                 else if (ft.IsEnum)
-                    fi.SetValue(obj, Enum.ToObject(ft, (long)value.NumberVal));
+                    fi.SetValue(obj, Enum.ToObject(ft, value.Type == FieldValueType.Enum ? value.EnumRawValue : (long)value.NumberVal));
+                else if (typeof(UnityEngine.Object).IsAssignableFrom(ft))
+                {
+                    var newObj = EditorUtility.InstanceIDToObject(value.ObjectInstanceId);
+                    fi.SetValue(obj, newObj);
+                }
+                else if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(ObjectRef<>))
+                {
+                    var innerType = ft.GetGenericArguments()[0];
+                    var boxedRef = fi.GetValue(obj);
+                    var valueProp = ft.GetProperty("Value");
+                    if (valueProp == null || boxedRef == null) return;
+
+                    if (typeof(UnityEngine.Object).IsAssignableFrom(innerType))
+                    {
+                        var newObj = EditorUtility.InstanceIDToObject(value.ObjectInstanceId);
+                        valueProp.SetValue(boxedRef, newObj);
+                    }
+                    else
+                    {
+                        valueProp.SetValue(boxedRef, value.StringVal);
+                    }
+
+                    fi.SetValue(obj, boxedRef);
+                }
             }
             catch { }
         }

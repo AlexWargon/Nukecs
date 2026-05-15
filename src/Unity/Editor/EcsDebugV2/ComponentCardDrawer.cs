@@ -260,6 +260,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         r.lastStringVal = fv.Type == FieldValueType.String ? fv.StringVal : null;
                         r.lastBoolVal = fv is { Type: FieldValueType.Bool, BoolVal: true };
                         r.lastEntityRefVal = fv.Type == FieldValueType.EntityRef ? fv.EntityRefVal : 0;
+                        r.lastEnumNames = fv.Type == FieldValueType.Enum ? fv.EnumNames : r.lastEnumNames;
+                        r.lastEnumRawValues = fv.Type == FieldValueType.Enum ? fv.EnumRawValues : r.lastEnumRawValues;
+                        r.lastEnumIndex = fv.Type == FieldValueType.Enum ? fv.EnumSelectedIndex : r.lastEnumIndex;
+                        r.lastEnumRawValue = fv.Type == FieldValueType.Enum ? fv.EnumRawValue : r.lastEnumRawValue;
+                        r.lastObjectName = fv.Type == FieldValueType.ObjectRef ? fv.ObjectName : r.lastObjectName;
+                        r.lastObjectInstanceId = fv.Type == FieldValueType.ObjectRef ? fv.ObjectInstanceId : r.lastObjectInstanceId;
+                        r.lastObjectTypeName = fv.Type == FieldValueType.ObjectRef ? fv.ObjectTypeName : r.lastObjectTypeName;
+                        r.lastArrayElementTypeName = fv.Type == FieldValueType.ComponentArray ? fv.ArrayElementTypeName : r.lastArrayElementTypeName;
+                        r.lastArrayLength = fv.Type == FieldValueType.ComponentArray ? fv.ArrayLength : r.lastArrayLength;
+                        r.lastIsUnityObject = fv.Type == FieldValueType.ObjectRef && fv.IsUnityObject;
 
                         switch (fv.Type)
                         {
@@ -275,6 +285,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             case FieldValueType.EntityRef:
                                 if (r.entityLink != null)
                                     r.entityLink.text = $"#{fv.EntityRefVal}";
+                                break;
+                            case FieldValueType.Enum:
+                                if (r.enumButton != null && fv.EnumNames != null)
+                                {
+                                    var idx = fv.EnumSelectedIndex >= 0 && fv.EnumSelectedIndex < fv.EnumNames.Length
+                                        ? fv.EnumSelectedIndex
+                                        : 0;
+                                    r.enumButton.text = $"{fv.EnumNames[idx]} \u25BC";
+                                }
+                                break;
+                            case FieldValueType.ObjectRef:
+                                break;
+                            case FieldValueType.ComponentArray:
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();
@@ -354,6 +377,43 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             r.lastBoolVal = fv.BoolVal;
                             _rows[i] = r;
                             SetBoolVisuals(r, fv.BoolVal);
+                        }
+
+                        break;
+                    case FieldValueType.Enum:
+                        if (fv.EnumRawValue != r.lastEnumRawValue || fv.EnumSelectedIndex != r.lastEnumIndex)
+                        {
+                            r.lastEnumRawValue = fv.EnumRawValue;
+                            r.lastEnumIndex = fv.EnumSelectedIndex;
+                            r.lastEnumNames = fv.EnumNames ?? r.lastEnumNames;
+                            r.lastEnumRawValues = fv.EnumRawValues ?? r.lastEnumRawValues;
+                            _rows[i] = r;
+                            if (r.enumButton != null && r.lastEnumNames != null)
+                            {
+                                var idx = r.lastEnumIndex >= 0 && r.lastEnumIndex < r.lastEnumNames.Length
+                                    ? r.lastEnumIndex
+                                    : 0;
+                                r.enumButton.text = $"{r.lastEnumNames[idx]} \u25BC";
+                            }
+                        }
+
+                        break;
+                    case FieldValueType.ObjectRef:
+                        if (fv.ObjectInstanceId != r.lastObjectInstanceId || fv.ObjectName != r.lastObjectName)
+                        {
+                            r.lastObjectInstanceId = fv.ObjectInstanceId;
+                            r.lastObjectName = fv.ObjectName;
+                            r.lastObjectTypeName = fv.ObjectTypeName;
+                            _rows[i] = r;
+                        }
+
+                        break;
+                    case FieldValueType.ComponentArray:
+                        if (fv.ArrayLength != r.lastArrayLength)
+                        {
+                            r.lastArrayLength = fv.ArrayLength;
+                            r.lastArrayElementTypeName = fv.ArrayElementTypeName;
+                            _rows[i] = r;
                         }
 
                         break;
@@ -525,6 +585,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             Label boolLabel = null;
             Label entityLink = null;
             Button entityEditBtn = null;
+            Button enumButton = null;
+            IMGUIContainer objectFieldContainer = null;
+            var capturedRowIdx = rowIdx;
 
             switch (value.Type)
             {
@@ -869,6 +932,165 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     break;
                 }
 
+                case FieldValueType.Enum:
+                {
+                    var container = new VisualElement
+                    {
+                        style =
+                        {
+                            flexDirection = FlexDirection.Row,
+                            alignItems = Align.Center,
+                            flexGrow = 1
+                        }
+                    };
+
+                    var selectedIdx = value.EnumSelectedIndex >= 0 && value.EnumSelectedIndex < value.EnumNames?.Length
+                        ? value.EnumSelectedIndex
+                        : 0;
+                    var displayText = value.EnumNames != null && value.EnumNames.Length > 0
+                        ? $"{value.EnumNames[selectedIdx]} \u25BC"
+                        : $"{value.EnumRawValue} \u25BC";
+
+                    var btn = new Button
+                    {
+                        text = displayText,
+                        style =
+                        {
+                            fontSize = EcsDebugV2Theme.Font.FieldName,
+                            color = EcsDebugV2Theme.Lime,
+                            backgroundColor = EcsDebugV2Theme.Background,
+                            paddingLeft = 8,
+                            paddingRight = 8,
+                            paddingTop = 2,
+                            paddingBottom = 2,
+                            unityTextAlign = TextAnchor.MiddleLeft,
+                            flexGrow = 1
+                        }
+                    };
+                    btn.SetupBorder(EcsDebugV2Theme.LimeA03, 1);
+                    btn.SetupRadius(EcsDebugV2Theme.BorderRadius);
+
+                    var capturedIdx = rowIdx;
+                    var capturedFieldKey = fieldKey;
+                    btn.RegisterCallback<ClickEvent>(_ =>
+                    {
+                        var r = _rows[capturedIdx];
+                        if (r.lastEnumNames == null || r.lastEnumNames.Length == 0) return;
+                        var menu = new GenericMenu();
+                        for (int ei = 0; ei < r.lastEnumNames.Length; ei++)
+                        {
+                            var name = r.lastEnumNames[ei];
+                            var idx = ei;
+                            var rawVal = r.lastEnumRawValues != null && idx < r.lastEnumRawValues.Length
+                                ? r.lastEnumRawValues[idx]
+                                : (long)idx;
+                            menu.AddItem(new GUIContent(name), idx == r.lastEnumIndex, () =>
+                            {
+                                var enumVal = FieldValue.FromEnum(r.lastEnumNames, r.lastEnumRawValues, idx, rawVal);
+                                _window.SetFieldValue(_entityId, _compName, capturedFieldKey, enumVal);
+                            });
+                        }
+                        menu.DropDown(btn.worldBound);
+                    });
+
+                    container.Add(btn);
+                    editor = container;
+                    enumButton = btn;
+                    break;
+                }
+
+                case FieldValueType.ObjectRef:
+                {
+                    var container = new VisualElement
+                    {
+                        style =
+                        {
+                            flexDirection = FlexDirection.Row,
+                            alignItems = Align.Center,
+                            flexGrow = 1
+                        }
+                    };
+
+                    if (value.IsUnityObject)
+                    {
+                        var imgui = new IMGUIContainer(() =>
+                        {
+                            var rIdx = capturedRowIdx;
+                            if (rIdx < 0 || rIdx >= _rows.Length) return;
+                            var r = _rows[rIdx];
+                            var currentObj = EditorUtility.InstanceIDToObject(r.lastObjectInstanceId);
+                            var objTypeResolved = r.objectFieldType ?? typeof(UnityEngine.Object);
+                            var newObj = EditorGUILayout.ObjectField(currentObj, objTypeResolved, true,
+                                GUILayout.Height(18));
+                            if (newObj != currentObj)
+                            {
+                                var newName = newObj != null ? newObj.name : "null";
+                                var newId = newObj != null ? newObj.GetInstanceID() : 0;
+                                _window.SetFieldValue(_entityId, _compName, fieldKey,
+                                    FieldValue.FromObjectRef(objTypeResolved.Name, newName, newId, true));
+                            }
+                        })
+                        {
+                            style =
+                            {
+                                flexGrow = 1
+                            }
+                        };
+
+                        container.Add(imgui);
+                        editor = container;
+                        objectFieldContainer = imgui;
+                    }
+                    else
+                    {
+                        var infoLabel = new Label(string.IsNullOrEmpty(value.ObjectName) || value.ObjectName == "null"
+                            ? $"{value.ObjectTypeName}: null"
+                            : $"{value.ObjectTypeName}: {value.ObjectName}")
+                        {
+                            name = $"managed-ref-{fieldKey}",
+                            style =
+                            {
+                                fontSize = EcsDebugV2Theme.Font.FieldName,
+                                color = EcsDebugV2Theme.MutedText,
+                                flexGrow = 1
+                            }
+                        };
+                        container.Add(infoLabel);
+                        editor = container;
+                    }
+
+                    break;
+                }
+
+                case FieldValueType.ComponentArray:
+                {
+                    var container = new VisualElement
+                    {
+                        style =
+                        {
+                            flexDirection = FlexDirection.Row,
+                            alignItems = Align.Center,
+                            flexGrow = 1
+                        }
+                    };
+
+                    var elemName = string.IsNullOrEmpty(value.ArrayElementTypeName)
+                        ? "?"
+                        : value.ArrayElementTypeName;
+                    var infoLabel = new Label($"{elemName}[{value.ArrayLength}]")
+                    {
+                        style =
+                        {
+                            fontSize = EcsDebugV2Theme.Font.FieldName,
+                            color = EcsDebugV2Theme.Orange,
+                            unityFontStyleAndWeight = FontStyle.Bold
+                        }
+                    };
+                    container.Add(infoLabel);
+                    editor = container;
+                    break;
+                }
+
                 default:
                     editor = new Label("\u2014") { style = { color = EcsDebugV2Theme.MutedText } };
                     break;
@@ -956,7 +1178,20 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 boolLabel = boolLabel,
                 entityLink = entityLink,
                 entityEditBtn = entityEditBtn,
-                keyLabel = keyLabel
+                keyLabel = keyLabel,
+                lastEnumNames = value.Type == FieldValueType.Enum ? value.EnumNames : null,
+                lastEnumRawValues = value.Type == FieldValueType.Enum ? value.EnumRawValues : null,
+                lastEnumIndex = value.Type == FieldValueType.Enum ? value.EnumSelectedIndex : 0,
+                lastEnumRawValue = value.Type == FieldValueType.Enum ? value.EnumRawValue : 0,
+                lastObjectName = value.Type == FieldValueType.ObjectRef ? value.ObjectName : null,
+                lastObjectInstanceId = value.Type == FieldValueType.ObjectRef ? value.ObjectInstanceId : 0,
+                lastObjectTypeName = value.Type == FieldValueType.ObjectRef ? value.ObjectTypeName : null,
+                lastArrayElementTypeName = value.Type == FieldValueType.ComponentArray ? value.ArrayElementTypeName : null,
+                lastArrayLength = value.Type == FieldValueType.ComponentArray ? value.ArrayLength : 0,
+                lastIsUnityObject = value.Type == FieldValueType.ObjectRef && value.IsUnityObject,
+                objectFieldContainer = objectFieldContainer,
+                objectFieldType = null,
+                enumButton = enumButton
             };
         }
 
@@ -1245,6 +1480,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             public Label entityLink;
             public Button entityEditBtn;
             public Label keyLabel;
+            public string[] lastEnumNames;
+            public long[] lastEnumRawValues;
+            public int lastEnumIndex;
+            public long lastEnumRawValue;
+            public string lastObjectName;
+            public int lastObjectInstanceId;
+            public string lastObjectTypeName;
+            public string lastArrayElementTypeName;
+            public int lastArrayLength;
+            public bool lastIsUnityObject;
+            public IMGUIContainer objectFieldContainer;
+            public Type objectFieldType;
+            public Button enumButton;
         }
 
         private struct DragState

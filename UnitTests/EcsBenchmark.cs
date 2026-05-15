@@ -2,6 +2,7 @@ using NUnit.Framework;
 using Unity.Burst;
 using Unity.Mathematics;
 using Unity.PerformanceTesting;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs.Tests
 {
@@ -1096,6 +1097,416 @@ namespace Wargon.Nukecs.Tests
             {
                 Assert.True(mask.Has(i));
             }
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_HashMap_1023_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new HashMap<int,int>(1023, ref _world.AllocatorHandler);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
+
+            for (int i = 0; i < 1023; i++)
+            {
+                map.Add(i, i);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 1023; i++)
+                        {
+                            var d = map[i];
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 1023; i++)
+            {
+                Assert.True(map.ContainsKey(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_BitMap1024_64_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new BitMap1024<int>(64, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 63; i++)
+            {
+                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 63; i++)
+                        {
+                            var d = map.GetRef(i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 63; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_ZeroMoveBitMap1024_64_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new ZeroMoveBitMap1024<int>(64, ref _world.AllocatorRef);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 63; i++)
+            {
+                map.Add(i, i);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 63; i++)
+                        {
+                            var d = map.Get(i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 63; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_MemoryArray1024_64_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new MemoryArray<int>(1023, ref _world.AllocatorRef);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
+            for (int i = 0; i < 1023; i++)
+            {
+                map[i] = i;
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 64; i++)
+                        {
+                            var d = map[i];
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 64; i++)
+            {
+                Assert.True(map[i] == i);
+            }
+            _world.Dispose();
+        }
+                [Test]
+        [Performance]
+        public void GET_FAST_HashMap_64_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new HashMap<int,int>(64, ref _world.AllocatorHandler);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
+
+            for (int i = 0; i < 63; i++)
+            {
+                map.Add(i, i);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 63; i++)
+                        {
+                            var d = map[i];
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 63; i++)
+            {
+                Assert.True(map.ContainsKey(i));
+            }
+            _world.Dispose();
+        }
+        
+        
+                [Test]
+        [Performance]
+        public void GET_FAST_BitMap1024_16_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new BitMap1024<int>(16, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 15; i++)
+            {
+                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 15; i++)
+                        {
+                            var d = map.GetRef(i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 15; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_ZeroMoveBitMap1024_16_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new ZeroMoveBitMap1024<int>(16, ref _world.AllocatorRef);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 15; i++)
+            {
+                map.Add(i, i);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 15; i++)
+                        {
+                            var d = map.Get(i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 15; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_MemoryArray1024_16_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new MemoryArray<int>(1024, ref _world.AllocatorRef);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
+            for (int i = 0; i < 1023; i++)
+            {
+                map[i] = i;
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 15; i++)
+                        {
+                            var d = map[i];
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 15; i++)
+            {
+                Assert.True(map[i] == i);
+            }
+            _world.Dispose();
+        }
+                [Test]
+        [Performance]
+        public void GET_FAST_HashMap_16_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new HashMap<int,int>(16, ref _world.AllocatorHandler);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
+
+            for (int i = 0; i < 15; i++)
+            {
+                map.Add(i, i);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 15; i++)
+                        {
+                            var d = map[i];
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 15; i++)
+            {
+                Assert.True(map.ContainsKey(i));
+            }
+            _world.Dispose();
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        [Test]
+        [Performance]
+        public void GET_FAST_BitMap1024_1023_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new BitMap1024<int>(1023, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 1023; i++)
+            {
+                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 1023; i++)
+                        {
+                            var d = map.GetRef(i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 512; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_ZeroMoveBitMap1024_1023_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new ZeroMoveBitMap1024<int>(1023, ref _world.AllocatorRef);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 1023; i++)
+            {
+                map.Add(i, i);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 1023; i++)
+                        {
+                            var d = map.Get(i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 512; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
+        [Test]
+        [Performance]
+        public void GET_FAST_MemoryArray1024_1023_GET()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new MemoryArray<int>(1023, ref _world.AllocatorRef);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
+            for (int i = 0; i < 1023; i++)
+            {
+                map[i] = i;
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 1023; i++)
+                        {
+                            var d = map[i];
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 512; i++)
+            {
+                Assert.True(map[i] == i);
+            }
+            _world.Dispose();
         }
         [Test]
         [Performance]
