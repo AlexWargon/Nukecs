@@ -18,6 +18,7 @@ namespace Wargon.Nukecs
         public const int MEGABYTE = 1024 * 1024;
         public const int KILOBYTE = 1024;
         public static int BytesToMegabytes(long bytes) => (int)(bytes / 1024 / 1024);
+        public static int BytesToKilobytes(long bytes) => (int)(bytes / 1024);
     }
 
     public unsafe partial struct MemAllocator : IDisposable

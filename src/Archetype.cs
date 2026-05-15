@@ -55,6 +55,7 @@ namespace Wargon.Nukecs
         private Spinner spinner;
         internal DynamicBitmask mask;
         internal MemoryList<int> types;
+        
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal MemoryList<int> queries;
         internal HashMap<int, ptr<Edge>> transactions;
@@ -67,6 +68,8 @@ namespace Wargon.Nukecs
         public MemoryArray<int> packedEntities;
         public ptr<byte> data;
         public MemoryArray<int> componentOffsets;
+        internal BitMap1024<int> offsetMap;
+
         public int entityStride;
 
         internal bool IsCreated => world != null;
@@ -78,6 +81,7 @@ namespace Wargon.Nukecs
             transactions.OnDeserialize(ref allocator);
             destroyEdge.OnDeserialize(ref allocator, worldPtr);
             types.OnDeserialize(ref allocator);
+            offsetMap.OnDeserialize(ref allocator);
             foreach (var kvPair in transactions)
             {
                 kvPair.Value.OnDeserialize(ref allocator);
@@ -96,10 +100,17 @@ namespace Wargon.Nukecs
             source.MoveEntityTo(loc.row, ref this);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref T GetComponent<T>(int entity) where T : unmanaged, IComponent
+        internal ref T GetComponent<T>(int entity, int size, int index) where T : unmanaged, IComponent
+        {
+            var off = offsetMap.GetRef(index);
+            ref var loc = ref world->entityLocations.Ptr[entity];
+            return ref *(T*)(data.Ptr + off + loc.row * size);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal ref T GetComponent<T>(int entity) where T : unmanaged, IComponent
         {
             ref var d = ref ComponentType<T>.Data;
-            var off = componentOffsets.Ptr[GetComponentLocalIndex(d.index)];
+            var off = offsetMap.GetRef(d.index);
             ref var loc = ref world->entityLocations.Ptr[entity];
             return ref *(T*)(data.Ptr + off + loc.row * d.size);
         }
@@ -114,7 +125,7 @@ namespace Wargon.Nukecs
             if (d.storageType == StorageType.Pool)
                 return world->GetUntypedPool(typeIndex).GetObject(entity);
             var localIdx = GetComponentLocalIndex(typeIndex);
-            if (localIdx < 0) return null;
+            if (!offsetMap.Mask.HasFast(typeIndex)) return null;
             var off = componentOffsets.Ptr[localIdx];
             ref var loc = ref world->entityLocations.Ptr[entity];
             var ptr = data.Ptr + off + loc.row * d.size;
@@ -130,7 +141,7 @@ namespace Wargon.Nukecs
                 return;
             }
             var localIdx = GetComponentLocalIndex(typeIndex);
-            if (localIdx < 0) return;
+            if (!offsetMap.Mask.HasFast(typeIndex)) return;
             var off = componentOffsets.Ptr[localIdx];
             ref var loc = ref world->entityLocations.Ptr[entity];
             var ptr = data.Ptr + off + loc.row * d.size;
@@ -140,27 +151,16 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte* GetComponentDataPtr(int componentTypeIndex, int row)
         {
-            for (var i = 0; i < types.length; i++)
-            {
-                if (types.Ptr[i] == componentTypeIndex)
-                {
-                    var off = componentOffsets.Ptr[i];
-                    if (off < 0) return null;
-                    return data.Ptr + off + row * ComponentTypeMap.GetComponentType(componentTypeIndex).size;
-                }
-            }
-            return null;
+            if (!offsetMap.Mask.HasFast(componentTypeIndex)) return null;
+            var off = offsetMap.GetRef(componentTypeIndex);
+            if (off < 0) return null;
+            return data.Ptr + off + row * ComponentTypeMap.GetComponentType(componentTypeIndex).size;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetComponentLocalIndex(int componentTypeIndex)
         {
-            for (var i = 0; i < types.length; i++)
-                if (types.Ptr[i] == componentTypeIndex) return i;
-            throw new Exception("ComponentLocalIndex not found");
-#pragma warning disable CS0162 // Unreachable code detected
-            return -1;
-#pragma warning restore CS0162 // Unreachable code detected
+            return offsetMap.Mask.CountBefore(componentTypeIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -174,11 +174,32 @@ namespace Wargon.Nukecs
         {
             return ComponentTypeMap.GetComponentType(types.Ptr[localIndex]).size;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(int componentTypeIndex)
+        {
+            return offsetMap.Mask.HasFast(componentTypeIndex);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void InitPackedArrays(int initialCapacity)
         {
             count = 0;
             capacity = initialCapacity;
+
+            if (types.length > 1)
+            {
+                for (int i = 1; i < types.length; i++)
+                {
+                    var key = types.Ptr[i];
+                    int j = i - 1;
+                    while (j >= 0 && types.Ptr[j] > key)
+                    {
+                        types.Ptr[j + 1] = types.Ptr[j];
+                        j--;
+                    }
+                    types.Ptr[j + 1] = key;
+                }
+            }
 
             packedEntities = new MemoryArray<int>(capacity, ref world->AllocatorRef, clear: true);
 
@@ -211,6 +232,10 @@ namespace Wargon.Nukecs
                 componentOffsets.Ptr[i] = offset;
                 offset += ctData.size * capacity;
             }
+
+            offsetMap = new BitMap1024<int>(types.length, ref world->AllocatorRef);
+            for (var i = 0; i < types.length; i++)
+                offsetMap.Add(types.Ptr[i], componentOffsets.Ptr[i], ref world->AllocatorRef);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void EnsureCapacity(int needed)
@@ -250,6 +275,11 @@ namespace Wargon.Nukecs
 
             data = newData;
             componentOffsets = newOffsets;
+
+            offsetMap = new BitMap1024<int>(types.length, ref world->AllocatorRef);
+            for (var i = 0; i < types.length; i++)
+                offsetMap.Add(types.Ptr[i], newOffsets.Ptr[i], ref world->AllocatorRef);
+
             capacity = newCapacity;
         }
 
@@ -311,17 +341,11 @@ namespace Wargon.Nukecs
                 var srcSize = ComponentTypeMap.GetComponentType(typeIndex).size;
                 var src = data.Ptr + srcOff + row * srcSize;
 
-                for (var j = 0; j < target.types.length; j++)
-                {
-                    if (target.types.Ptr[j] == typeIndex)
-                    {
-                        var dstOff = target.componentOffsets.Ptr[j];
-                        if (dstOff < 0 || target.data.Ptr == null) break;
-                        var dst = target.data.Ptr + dstOff + newRow * srcSize;
-                        UnsafeUtility.MemCpy(dst, src, srcSize);
-                        break;
-                    }
-                }
+                if (!target.offsetMap.Mask.HasFast(typeIndex)) continue;
+                var dstOff = target.offsetMap.GetRef(typeIndex);
+                if (dstOff < 0 || target.data.Ptr == null) continue;
+                var dst = target.data.Ptr + dstOff + newRow * srcSize;
+                UnsafeUtility.MemCpy(dst, src, srcSize);
             }
 
             world->entityLocations.Ptr[entityID] = new EntityLocation {
@@ -365,6 +389,7 @@ namespace Wargon.Nukecs
         internal static void Destroy(ArchetypeUnsafe* archetype)
         {
             archetype->mask.Dispose();
+            archetype->offsetMap.Dispose();
             archetype->types.Dispose();
             archetype->queries.Dispose();
             archetype->transactions.Dispose();
@@ -397,6 +422,7 @@ namespace Wargon.Nukecs
             arch.packedEntities = default;
             arch.data = default;
             arch.componentOffsets = default;
+            arch.offsetMap = default;
             arch.entityStride = 0;
             arch.mask = DynamicBitmask.CreateForComponents(world);
             arch.mask.CopyFrom(ref bitmask);
@@ -431,6 +457,7 @@ namespace Wargon.Nukecs
             packedEntities = default;
             data = default;
             componentOffsets = default;
+            offsetMap = default;
             entityStride = 0;
             if (typesSpan != null)
             {
@@ -467,6 +494,7 @@ namespace Wargon.Nukecs
             packedEntities = default;
             data = default;
             componentOffsets = default;
+            offsetMap = default;
             entityStride = 0;
             if (typesSpan.Length > 0)
             {
@@ -502,6 +530,7 @@ namespace Wargon.Nukecs
             packedEntities = default;
             data = default;
             componentOffsets = default;
+            offsetMap = default;
             entityStride = 0;
             mask = DynamicBitmask.CreateForComponents(world);
             if (typesSpan.IsCreated)

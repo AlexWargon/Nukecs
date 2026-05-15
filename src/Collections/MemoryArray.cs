@@ -62,7 +62,7 @@ namespace Wargon.Nukecs.Collections
             capacity = 0;
         }
 
-        internal long GetMemorySizeUsed()
+        public long GetMemorySizeUsed()
         {
             return sizeof(T) * capacity + sizeof(MemoryArray<T>);
         }

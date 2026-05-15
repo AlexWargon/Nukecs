@@ -34,7 +34,8 @@ namespace Wargon.Nukecs
         public bool IsAlive => unsafeWorldPtr.cached != null;
         public WorldConfig Config => UnsafeWorld->config;
         public Allocator Allocator => UnsafeWorld->Allocator;
-        public UnityAllocatorHandler AllocatorHandler => UnsafeWorld->AllocatorHandler;
+        public ref UnityAllocatorHandler AllocatorHandler => ref UnsafeWorld->AllocatorHandler;
+        public ref MemAllocator AllocatorRef => ref UnsafeWorld->AllocatorRef;
         public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
         internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;

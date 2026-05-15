@@ -13,7 +13,7 @@ namespace Wargon.Nukecs
         
         public ResManaged(TRes val)
         {
-            _reference = val;
+            _reference = new ManagedResRef<TRes>(val);
         }
         
         void IResourceGetSet.SetResource(IRes res)
@@ -28,9 +28,9 @@ namespace Wargon.Nukecs
 
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            if (_reference == null)
+            if (_reference == default)
             {
-                dbug.error($"managed res type of {typeof(TRes).Name} reference is null");
+                _reference = Activator.CreateInstance<TRes>();
             }
             _reference.Value.Init(ref world.Ref.ManagedWorld.Ref);
         }

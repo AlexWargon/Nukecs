@@ -136,6 +136,7 @@ namespace Wargon.Nukecs
                 summaryCopy &= summaryCopy - 1;
             }
         }
+        
         public int CountBefore(int bit)
         {
             var wordIndex = bit >> 6;
@@ -166,6 +167,27 @@ namespace Wargon.Nukecs
 
             return count;
         }
+
+        public int GetBitAtIndex(int rank)
+        {
+            int count = 0;
+            for (int w = 0; w < WORD_COUNT; w++)
+            {
+                var word = words[w];
+                if (word == 0) continue;
+                var pop = BitUtils.PopCount(word);
+                if (count + pop > rank)
+                {
+                    var remaining = rank - count;
+                    while (remaining-- > 0)
+                        word &= word - 1;
+                    return (w << 6) + BitUtils.TrailingZeroCount(word);
+                }
+                count += pop;
+            }
+            return -1;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void Validate(int bit)
         {

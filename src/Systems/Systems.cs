@@ -64,6 +64,7 @@ namespace Wargon.Nukecs
             for (var i = 0; i < runners.Count; i++)
                 _state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref _state);
 
+            
             _timeSinceLastFixedUpdate += dt;
             if (_timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
             {

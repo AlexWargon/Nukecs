@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using UnityEngine;
 
 namespace Wargon.Nukecs
 {
@@ -13,7 +14,8 @@ namespace Wargon.Nukecs
         internal static int AddResource(IRes res)
         {
             var hash = res.GetType().FullName!.GetHashCode();
-            resources[hash] = res;
+            resources.TryAdd(hash, res);
+            dbug.log($"Added resource: {hash}", Color.yellow);
             return hash;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -51,7 +53,16 @@ namespace Wargon.Nukecs
         public T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => pointer == INVALID_POINTER ? default : ManagedResStorage.GetResource<T>(pointer);
+            get
+            {
+                if (INVALID_POINTER != pointer)
+                {
+                    dbug.log($"Pointer {pointer}", Color.green);
+                    return ManagedResStorage.GetResource<T>(pointer);
+                }
+                
+                return default;
+            }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {

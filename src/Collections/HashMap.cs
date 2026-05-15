@@ -14,7 +14,6 @@ namespace Wargon.Nukecs.Collections
     {
         internal HashMapHelper<TKey> data;
 
-
         public HashMap(int initialCapacity, ref UnityAllocatorHandler allocatorHandler)
         {
             data = default;

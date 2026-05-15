@@ -122,13 +122,13 @@ namespace Wargon.Nukecs
         [BurstCompile]
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
-            var componentType = ComponentType<T>.Index;
+            var componentType = ComponentType<T>.Data;
             ref var arch = ref entity.ArchetypeRef;
-            if (arch.Has(componentType))
+            if (arch.Has(componentType.index))
             {
-                var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
-                var ptr = arch.GetComponentDataPtr(componentType, loc.row);
-                return ref *(T*)ptr;
+                // var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+                // var ptr = arch.GetComponentDataPtr(componentType, loc.row);
+                return ref arch.GetComponent<T>(entity.id, componentType.size, componentType.index);
             }
             throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
         }
