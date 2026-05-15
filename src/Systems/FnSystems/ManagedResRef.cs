@@ -15,7 +15,6 @@ namespace Wargon.Nukecs
         {
             var hash = res.GetType().FullName!.GetHashCode();
             resources.TryAdd(hash, res);
-            dbug.log($"Added resource: {hash}", Color.yellow);
             return hash;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -53,16 +52,7 @@ namespace Wargon.Nukecs
         public T Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get
-            {
-                if (INVALID_POINTER != pointer)
-                {
-                    dbug.log($"Pointer {pointer}", Color.green);
-                    return ManagedResStorage.GetResource<T>(pointer);
-                }
-                
-                return default;
-            }
+            get => INVALID_POINTER != pointer ? ManagedResStorage.GetResource<T>(pointer) : default;
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
