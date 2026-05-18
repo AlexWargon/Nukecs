@@ -20,7 +20,8 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
     {
         private ArchetypeRef<T1> _t1;
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
         private Range _range;
         private int _current;
         private int _archIdx;
@@ -96,10 +97,14 @@ namespace Wargon.Nukecs
         {
             _query = world.Ref.CreateQueryPtr();
             _query.Ref.With(ComponentType<T1>.Index);
+            id = _query.Ref.Id;
         }
 
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)data;
             _current = _range.start - 1;
             _archIdx = -1;
@@ -195,7 +200,7 @@ namespace Wargon.Nukecs
             }
             
             private ArchetypeRef<T1> _t1;
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
             private Range _range;
             private int _current;
             private int _archIdx;
@@ -276,7 +281,9 @@ namespace Wargon.Nukecs
                 _query.Ref.With(ComponentType<T1>.Index);
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
@@ -334,6 +341,30 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        public bool IsEmpty
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => _query.Ref.count == 0;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref Entity First()
+        {
+            if (Count > 0)
+            {
+                var len = _query.Ref.matchingArchetypes.length;
+                var ptr = _query.Ref.matchingArchetypes.Ptr;
+                var arches = _query.Ref.world->archetypesList.Ptr;
+                for (var i = 0; i < len; i++)
+                {
+                    ref var arch = ref arches[ptr[i]].Ref;
+                    if (arches[ptr[i]].Ref.count > 0)
+                    {
+                        return ref _query.Ref.world->entities.Ptr[arch.packedEntities.Ptr[0]];
+                    }
+                }
+            }
+            throw new Exception("No entities found");
+        }
         public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
         {
             return new (in _query.Ref.matchingArchetypes, _query.Ref.world);
@@ -362,8 +393,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
-
+        public ptr<QueryUnsafe> _query;
+        internal int id;
         private int _current;
 
         private Range _range;
@@ -466,6 +497,7 @@ namespace Wargon.Nukecs
         {
             _query = world.Ref.CreateQueryPtr();
             _query.Ref.With(ComponentType<T1>.Index);
+            id = _query.Ref.Id;
             TOption option = default;
             switch (option)
             {
@@ -485,9 +517,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; id = q.Ref.Id; }
         public void Update(ref World world, IntPtr data)
         {
             _range = *(Range*)(void*)data;
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _current = _range.start - 1;
             _archIdx = -1;
             _archRow = 0;
@@ -568,7 +603,7 @@ namespace Wargon.Nukecs
             }
             private ArchetypeRef<T1> _t1;
             private ArchetypeRef<TOption> _tOption;
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
             private int _current;
             private Range _range;
             private int _archIdx;
@@ -700,7 +735,9 @@ namespace Wargon.Nukecs
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             [BurstCompile]
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
@@ -788,7 +825,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
 
         private int _current;
 
@@ -915,7 +953,7 @@ namespace Wargon.Nukecs
 
         {
             _query = world.Ref.CreateQueryPtr();
-
+            id = _query.Ref.Id;
             _query.Ref.With(ComponentType<T1>.Index);
 
             _query.Ref.With(ComponentType<T2>.Index);
@@ -951,11 +989,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
-
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
-
             _current = _range.start - 1;
 
             _archIdx = -1;
@@ -1047,7 +1086,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -1213,7 +1252,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
             {
                 _range = *(Range*)(void*)data;
                 _current = _range.start - 1;
@@ -1314,7 +1355,8 @@ namespace Wargon.Nukecs
         private ArchetypeRef<T2> _t2;
         private ArchetypeRef<T3> _t3;
         private ArchetypeRef<TOption> _tOption;
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
         private int _current;
         private Range _range;
         private int _archIdx;
@@ -1448,11 +1490,13 @@ namespace Wargon.Nukecs
 
             _query.Ref.With(ComponentType<T3>.Index);
 
+            id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
 
             {
+
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
@@ -1479,9 +1523,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
 
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
 
             _current = _range.start - 1;
@@ -1562,7 +1609,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -1735,7 +1782,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
 
             {
                 _range = *(Range*)(void*)data;
@@ -1831,7 +1880,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
 
         private int _current;
 
@@ -2002,11 +2052,13 @@ namespace Wargon.Nukecs
 
             _query.Ref.With(ComponentType<T4>.Index);
 
+            id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
 
             {
+
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
@@ -2033,9 +2085,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
 
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
 
             _current = _range.start - 1;
@@ -2125,7 +2180,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -2331,7 +2386,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
 
             {
                 _range = *(Range*)(void*)data;
@@ -2409,7 +2466,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
 
         private int _current;
 
@@ -2511,14 +2569,15 @@ namespace Wargon.Nukecs
             _query.Ref.With(ComponentType<T3>.Index);
 
             _query.Ref.With(ComponentType<T4>.Index);
-
             _query.Ref.With(ComponentType<T5>.Index);
 
+            id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
 
             {
+
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
@@ -2544,9 +2603,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
 
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
 
             _current = _range.start - 1;
@@ -2614,7 +2676,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -2745,7 +2807,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
 
             {
                 _range = *(Range*)(void*)data;
@@ -2806,7 +2870,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
 
         private int _current;
 
@@ -2892,11 +2957,13 @@ namespace Wargon.Nukecs
 
             _t6.pool = world.Ref.GetPool<T6>().UnsafeBuffer;
 
+            id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
 
             {
+
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
@@ -2926,9 +2993,12 @@ namespace Wargon.Nukecs
             }
         }
 
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
 
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
 
             _current = _range.start - 1;
@@ -2971,7 +3041,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -3095,7 +3165,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
 
             {
                 _range = *(Range*)(void*)data;
@@ -3158,7 +3230,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
 
         private int _current;
 
@@ -3255,11 +3328,13 @@ namespace Wargon.Nukecs
 
             _t7.pool = world.Ref.GetPool<T7>().UnsafeBuffer;
 
+            id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
 
             {
+
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
@@ -3289,9 +3364,12 @@ namespace Wargon.Nukecs
             }
         }
 
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
 
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
 
             _current = _range.start - 1;
@@ -3337,7 +3415,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -3472,7 +3550,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
 
             {
                 _range = *(Range*)(void*)data;
@@ -3540,7 +3620,8 @@ namespace Wargon.Nukecs
 
         private ArchetypeRef<TOption> _tOption;
 
-        private ptr<QueryUnsafe> _query;
+        public ptr<QueryUnsafe> _query;
+        internal int id;
 
         private int _current;
 
@@ -3640,11 +3721,13 @@ namespace Wargon.Nukecs
 
             _t8.pool = world.Ref.GetPool<T8>().UnsafeBuffer;
 
+            id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
 
             {
+
                 case IComponent _:
 
                     _query.Ref.With(ComponentType<TOption>.Index);
@@ -3674,9 +3757,12 @@ namespace Wargon.Nukecs
             }
         }
 
+        public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
         public void Update(ref World world, IntPtr data)
 
         {
+            _query = world.UnsafeWorldRef.queries.ElementAt(id);
             _range = *(Range*)(void*)data;
 
             _current = _range.start - 1;
@@ -3726,7 +3812,7 @@ namespace Wargon.Nukecs
 
             private ArchetypeRef<TOption> _tOption;
 
-            private ptr<QueryUnsafe> _query;
+            public ptr<QueryUnsafe> _query;
 
             private int _current;
 
@@ -3866,7 +3952,9 @@ namespace Wargon.Nukecs
                 }
             }
 
-            public void Update(ref World world, IntPtr data)
+            public void FixPointers(ref MemAllocator allocator) { _query.OnDeserialize(ref allocator); }
+            public void SetQueryPtr(ptr<QueryUnsafe> q) { _query = q; }
+        public void Update(ref World world, IntPtr data)
 
             {
                 _range = *(Range*)(void*)data;

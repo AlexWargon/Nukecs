@@ -113,7 +113,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             tableHeader.Add(MakeHeaderCell("ID", 70));
             tableHeader.Add(MakeHeaderCell("Name", 0, true));
-            tableHeader.Add(MakeHeaderCell("Archetype", 100));
             container.Add(tableHeader);
 
             var filtered = FilterEntities(window);
@@ -137,7 +136,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     };
                     row.Add(MakeDataCell("", EcsDebugV2Theme.TypeEntity, 70));
                     row.Add(MakeDataCell("", EcsDebugV2Theme.Foreground, 0, true));
-                    row.Add(MakeDataCell("", EcsDebugV2Theme.Orange, 100));
                     row.RegisterCallback<MouseEnterEvent>(evt =>
                     {
                         var r = evt.currentTarget as VisualElement;
@@ -174,7 +172,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         {
                             0 => $"#{e.id}",
                             1 => e.name,
-                            2 => e.archetype,
                             _ => label.text
                         };
                         ci++;

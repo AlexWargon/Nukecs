@@ -224,28 +224,28 @@ namespace Wargon.Nukecs
             get => ref *_components4;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void CopyTo<TU1>(TU1* destination, int len = 0)
-            where TU1 : unmanaged, IComponent
+        public void CopyTo<TU>(TU* destination, int len = 0)
+            where TU : unmanaged, IComponent
         {
             len = len == 0 ? _count : len;
-            if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
+            if (ComponentType<TU>.Index == ComponentType<T1>.Index)
             {
-                memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
+                memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
                 return;
             }
-            if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
+            if (ComponentType<TU>.Index == ComponentType<T2>.Index)
             {
-                memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
+                memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
                 return;
             }
-            if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
+            if (ComponentType<TU>.Index == ComponentType<T3>.Index)
             {
-                memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU1>());
+                memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU>());
                 return;
             }
-            if (ComponentType<TU1>.Index == ComponentType<T4>.Index)
+            if (ComponentType<TU>.Index == ComponentType<T4>.Index)
             {
-                memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU1>());
+                memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU>());
             }
         }
     }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
     public static class EntityPrefabMap {
-        private static Dictionary<int, Entity> Map = new Dictionary<int, Entity>();
+        private static Dictionary<int, Entity> Map = new ();
 
         public static void Dispose() {
             Map.Clear();

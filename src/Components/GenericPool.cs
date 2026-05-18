@@ -313,6 +313,7 @@ namespace Wargon.Nukecs
                 {
                     var ptr = chunk.buffer.Ptr + i * elementsSize;
                     ComponentArrayData.Restore(ptr, ref allocator);
+                    dbug.log($"resoterd {componentTypeData.ManagedType.Name}");
                     //fixMethod.Invoke(null, new object[] { (IntPtr)(chunk.buffer.Ptr + i * componentTypeData.size), allocator });
                 }
             }

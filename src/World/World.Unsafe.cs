@@ -721,6 +721,10 @@ namespace Wargon.Nukecs
                         break;
                     case SystemParamMetaType.Service:
                     case SystemParamMetaType.Query:
+                        param = AllocatorRef.AllocatePtr<TParam0>();
+                        param.Ref = paramDefault;
+                        param.Ref.Init(ref selfPtr);
+                        break;
                     case SystemParamMetaType.Single:
                     case SystemParamMetaType.Local:
                         param = AllocatorRef.AllocatePtr<TParam0>();
@@ -731,9 +735,6 @@ namespace Wargon.Nukecs
                         break;
                     case SystemParamMetaType.State:
                         break;
-                    
-                    default:
-                        throw new ArgumentOutOfRangeException();
                 }
                 
                 return param;
@@ -742,8 +743,8 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public byte* GetComponentDataPtr(int entityId, int typeIndex)
             {
-                var d = ComponentTypeMap.GetComponentType(typeIndex);
-                if (d.storageType == StorageType.Pool)
+                var data = ComponentTypeMap.GetComponentType(typeIndex);
+                if (data.storageType == StorageType.Pool)
                 {
                     ref var pool = ref GetUntypedPool(typeIndex);
                     return pool.UnsafeGetPtr(entityId);
@@ -755,8 +756,8 @@ namespace Wargon.Nukecs
 
             public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
             {
-                var resRef = new Res<TRes>(res);
-                resStorage.AddRes(resRef, Self);
+                var resRef = new Res<TRes>(res, Id);
+                resStorage.AddRes(in resRef, Self);
             }
 
             public void AddResManaged<TRes>(TRes res) where TRes : class, IRes

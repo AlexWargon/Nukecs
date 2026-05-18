@@ -8,10 +8,13 @@ using UnityEngine.UIElements;
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
+    using static Constant;
     public static class InspectorPanel
     {
         private static HashSet<string> _archMatchSet = new HashSet<string>();
         private static HashSet<string> _queryMatchSet = new HashSet<string>();
+        private static readonly List<EntityInfo> ArchEntityBuffer = new();
+        private static bool _suppressArchEntitySelection;
 
         public static VisualElement Create(EcsDebugV2Window window)
         {
@@ -147,8 +150,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             header.Add(nameLabel);
-            header.Add(EcsDebugV2Theme.CreateBadge(entity.archetype.ToUpper(),
-                EcsDebugV2Theme.OrangeA015, EcsDebugV2Theme.Orange, EcsDebugV2Theme.Font.Mini));
 
             var meta = new Label($"{(entity.components?.Count ?? 0)} components")
             {
@@ -402,9 +403,96 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             panel.Add(entLabel);
 
-            var scroll = new ScrollView(ScrollViewMode.Vertical)
+            var tableHeader = new VisualElement
             {
-                name = "inspector-scroll",
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    paddingLeft = 8,
+                    paddingRight = 8,
+                    paddingTop = 4,
+                    paddingBottom = 4,
+                    borderBottomWidth = 1,
+                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
+                    flexShrink = 0
+                }
+            };
+            tableHeader.Add(MakeHeaderCell("ID", 70));
+            tableHeader.Add(MakeHeaderCell("Name", 0, true));
+            panel.Add(tableHeader);
+
+            ArchEntityBuffer.Clear();
+            foreach (var entityId in archetype.entityIds)
+            {
+                EntityInfo e;
+                if (window.entityMap.TryGetValue(entityId, out e))
+                    ArchEntityBuffer.Add(e);
+            }
+
+            var listView = new ListView(ArchEntityBuffer, ENTITY_LIST_ITEM_HEIGHT,
+                () =>
+                {
+                    var row = new VisualElement
+                    {
+                        style =
+                        {
+                            flexDirection = FlexDirection.Row,
+                            paddingLeft = 8,
+                            paddingRight = 8,
+                            paddingTop = 4,
+                            paddingBottom = 4,
+                            borderBottomWidth = 1,
+                            borderBottomColor = EcsDebugV2Theme.PanelBorderA04,
+                            overflow = Overflow.Hidden
+                        }
+                    };
+                    row.Add(MakeDataCell("", EcsDebugV2Theme.TypeEntity, 70));
+                    row.Add(MakeDataCell("", EcsDebugV2Theme.Foreground, 0, true));
+                    row.RegisterCallback<MouseEnterEvent>(evt =>
+                    {
+                        var r = evt.currentTarget as VisualElement;
+                        if (r == null) return;
+                        var id = (int)r.userData;
+                        if (window.selectedEntityId != id)
+                            r.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                    });
+                    row.RegisterCallback<MouseLeaveEvent>(evt =>
+                    {
+                        var r = evt.currentTarget as VisualElement;
+                        if (r == null) return;
+                        var id = (int)r.userData;
+                        if (window.selectedEntityId != id)
+                            r.style.backgroundColor = Color.clear;
+                    });
+                    return row;
+                },
+                (ve, idx) =>
+                {
+                    if (idx < 0 || idx >= ArchEntityBuffer.Count) return;
+                    var e = ArchEntityBuffer[idx];
+                    ve.userData = e.id;
+                    ve.name = $"arch-erow-{e.id}";
+                    var selected = window.selectedEntityId == e.id;
+                    ve.style.backgroundColor = selected
+                        ? EcsDebugV2Theme.LimeA01
+                        : Color.clear;
+                    var ci = 0;
+                    foreach (var child in ve.Children())
+                    {
+                        if (child is not Label label) continue;
+                        label.text = ci switch
+                        {
+                            0 => $"#{e.id}",
+                            1 => e.name,
+                            _ => label.text
+                        };
+                        ci++;
+                    }
+                })
+            {
+                selectionType = SelectionType.Single,
+                name = "arch-entity-list",
                 style =
                 {
                     flexGrow = 1,
@@ -412,53 +500,32 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            _archMatchSet.Clear();
-            foreach (var c in archetype.components) _archMatchSet.Add(c);
-            foreach (var entityId in archetype.entityIds)
+            listView.onSelectionChange += objects =>
             {
-                EntityInfo e;
-                if (!window.entityMap.TryGetValue(entityId, out e)) continue;
+                if (_suppressArchEntitySelection) return;
+                foreach (var o in objects)
+                {
+                    if (o is EntityInfo info)
+                    {
+                        window.SelectEntityFromArchetype(info.id);
+                        break;
+                    }
+                }
+            };
+            listView.makeNoneElement = () => new VisualElement();
 
-                var row = EcsDebugV2Theme.CreateRow();
-                row.style.borderBottomColor = EcsDebugV2Theme.PanelBorderA04;
-                row.Add(new Label($"#{e.id}")
+            if (window.selectedEntityId.HasValue)
+            {
+                var idx = ArchEntityBuffer.FindIndex(e => e.id == window.selectedEntityId.Value);
+                if (idx >= 0)
                 {
-                    style =
-                    {
-                        fontSize = EcsDebugV2Theme.Font.Small,
-                        color = EcsDebugV2Theme.TypeEntity,
-                        width = 70,
-                        flexShrink = 0
-                    }
-                });
-                row.Add(new Label(e.name)
-                {
-                    style =
-                    {
-                        fontSize = EcsDebugV2Theme.Font.Small,
-                        color = EcsDebugV2Theme.Foreground,
-                        flexGrow = 1
-                    }
-                });
-                var aliveLabel = new Label(e.alive ? "\u25CF alive" : "\u25CF dead")
-                {
-                    style =
-                    {
-                        fontSize = EcsDebugV2Theme.Font.Small,
-                        color = e.alive ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red,
-                        width = 70,
-                        flexShrink = 0
-                    }
-                };
-                row.Add(aliveLabel);
-                var capturedId = e.id;
-                row.RegisterCallback<ClickEvent>(_ =>
-                {
-                    window.SelectEntityFromArchetype(capturedId);
-                });
-                scroll.Add(row);
+                    _suppressArchEntitySelection = true;
+                    listView.selectedIndex = idx;
+                    _suppressArchEntitySelection = false;
+                }
             }
-            panel.Add(scroll);
+
+            panel.Add(listView);
         }
 
         private static void DrawQueryInspector(VisualElement panel, QueryInfo query, EcsDebugV2Window window)
@@ -840,6 +907,46 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
             row.Add(tags);
             return row;
+        }
+
+        private static Label MakeHeaderCell(string text, int width, bool flex = false)
+        {
+            var label = new Label(text)
+            {
+                style =
+                {
+                    fontSize = EcsDebugV2Theme.Font.Mini,
+                    color = EcsDebugV2Theme.MutedText,
+                    letterSpacing = 1,
+                    unityTextAlign = TextAnchor.MiddleLeft
+                }
+            };
+            if (flex)
+                label.style.flexGrow = 1;
+            else
+                label.style.width = width;
+            label.style.flexShrink = flex ? 1 : 0;
+            return label;
+        }
+
+        private static Label MakeDataCell(string text, Color color, int width, bool flex = false)
+        {
+            var label = new Label(text)
+            {
+                style =
+                {
+                    fontSize = EcsDebugV2Theme.Font.Small,
+                    color = color,
+                    unityTextAlign = TextAnchor.MiddleLeft,
+                    overflow = Overflow.Hidden
+                }
+            };
+            if (flex)
+                label.style.flexGrow = 1;
+            else
+                label.style.width = width;
+            label.style.flexShrink = flex ? 1 : 0;
+            return label;
         }
 
     }

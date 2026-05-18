@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Collections.LowLevel.Unsafe;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
@@ -193,6 +195,60 @@ namespace Wargon.Nukecs
         {
             if ((uint)bit >= 1024)
                 throw new ArgumentOutOfRangeException(nameof(bit));
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CopyFrom(ref Bitmask1024 source)
+        {
+            summary = source.summary;
+            fixed (ulong* ptr = words)
+            {
+                fixed (ulong* src = source.words)
+                {
+                    Unsafe.CopyBlock(ptr, src, sizeof(ulong) * WORD_COUNT);
+                }
+            }
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ExtractSetBits(ref MemoryList<int> output, ref MemAllocator allocator)
+        {
+            output.Clear();
+            for (var bitPos = 0; bitPos < 1024; bitPos++)
+            {
+                var idx = bitPos / BITS_PER_WORD;
+                var shift = bitPos % BITS_PER_WORD;
+                if ((words[idx] & (1UL << shift)) != 0)
+                    output.Add(bitPos, ref allocator);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static int ComputeHash(int* types, int count)
+        {
+            var maxBits = 1024;
+            var sz = (maxBits + 63) / 64;
+            var bits = stackalloc ulong[sz];
+            UnsafeUtility.MemClear(bits, sz * sizeof(ulong));
+            for (var i = 0; i < count; i++)
+            {
+                var t = types[i];
+                bits[t / 64] |= 1UL << (t % 64);
+            }
+            unchecked
+            {
+                var hash = (int)2166136261;
+                const int p = 16777619;
+                var byteLen = sz * sizeof(ulong);
+                var ptr = (byte*)bits;
+                for (var i = 0; i < byteLen; i++)
+                    hash = (hash ^ ptr[i]) * p;
+                hash += hash << 13;
+                hash ^= hash >> 7;
+                hash += hash << 3;
+                hash ^= hash >> 17;
+                hash += hash << 5;
+                return hash;
+            }
         }
     }
 }

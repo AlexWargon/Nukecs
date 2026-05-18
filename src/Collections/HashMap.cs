@@ -700,7 +700,7 @@ namespace Wargon.Nukecs.Collections
             internal int m_BucketIndex;
             internal int m_NextIndex;
 
-            internal unsafe Enumerator(HashMapHelper<TKey>* data)
+            internal Enumerator(HashMapHelper<TKey>* data)
             {
                 m_Data = data;
                 m_Index = -1;

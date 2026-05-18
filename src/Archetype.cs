@@ -53,42 +53,42 @@ namespace Wargon.Nukecs
     public unsafe struct ArchetypeUnsafe
     {
         private Spinner spinner;
+        public ptr<byte> data;
         internal DynamicBitmask mask;
         internal MemoryList<int> types;
-        
-        [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal MemoryList<int> queries;
         internal HashMap<int, ptr<Edge>> transactions;
-        internal Edge destroyEdge;
-        internal int hashId;
-        internal int index;
-
-        public int count;
-        public int capacity;
         public MemoryArray<int> packedEntities;
-        public ptr<byte> data;
         public MemoryArray<int> componentOffsets;
         internal BitMap1024<int> offsetMap;
-
+        internal Edge destroyEdge;
+        [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
+        internal int hashId;
+        internal int index;
+        public int count;
+        public int capacity;
         public int entityStride;
-
         internal bool IsCreated => world != null;
 
         internal void OnDeserialize(ref MemAllocator allocator, World.WorldUnsafe* worldPtr)
         {
             world = worldPtr;
+            mask.OnDeserialize(ref allocator);
             queries.OnDeserialize(ref allocator);
             transactions.OnDeserialize(ref allocator);
             destroyEdge.OnDeserialize(ref allocator, worldPtr);
             types.OnDeserialize(ref allocator);
-            offsetMap.OnDeserialize(ref allocator);
+            
             foreach (var kvPair in transactions)
             {
-                kvPair.Value.OnDeserialize(ref allocator);
-                ref var edge = ref kvPair.Value.Ref;
-                edge.OnDeserialize(ref allocator, worldPtr);
+                ref var val = ref kvPair.Value;
+                val.OnDeserialize(ref allocator);
+                val.Ref.OnDeserialize(ref allocator, worldPtr);
             }
-            mask.OnDeserialize(ref allocator);
+            packedEntities.OnDeserialize(ref allocator);
+            data.OnDeserialize(ref allocator);
+            componentOffsets.OnDeserialize(ref allocator);
+            offsetMap.OnDeserialize(ref allocator);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetArchetype(in Entity entity)
@@ -672,17 +672,6 @@ namespace Wargon.Nukecs
             for (var i = 0; i < queries.Length; i++)
                 IdToQueryRef(queries.Ptr[i]).BatchAddRange(0, cnt);
 
-            // for (var j = 0; j < types.length; j++)
-            // {
-            //     var typeIndex = types.Ptr[j];
-            //     var ctData = ComponentTypeMap.GetComponentType(typeIndex);
-            //     if (ctData.storageType != StorageType.Pool) continue;
-            //     ref var pool = ref world->GetUntypedPool(typeIndex);
-            //     for (int i = 0; i < cnt; i++)
-            //     {
-            //         pool.Copy(srcEntityId, ids[i]);
-            //     }
-            // }
         }
 
         internal void Refresh()

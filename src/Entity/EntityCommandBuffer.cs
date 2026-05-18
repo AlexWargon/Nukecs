@@ -25,6 +25,13 @@ namespace Wargon.Nukecs {
         }
 
         public bool IsCreated => ecb != null && ecb->isCreated == 1;
+
+        internal void FixAfterDeserialize(World.WorldUnsafe* newWorld, ref MemAllocator allocator) {
+            if (ecb == null) return;
+            ecb->world = newWorld;
+            ecb->tempMask.OnDeserialize(ref allocator);
+        }
+
         internal static int ThreadIndex => JobsUtility.ThreadIndex;
         internal readonly Allocator allocator;
 

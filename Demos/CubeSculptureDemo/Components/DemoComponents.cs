@@ -48,8 +48,8 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
         public int SpawnBatchSize;
         public float timer;
         public float spawnTime;
-        public void Init(ref World world) { }
-        public void Update(ref World world) { }
+        public void OnCreate(ref World world) { }
+        public void OnUpdate(ref World world) { }
     }
 
     public struct SculptureData : IRes
@@ -57,8 +57,8 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
         public int TransitionCounter;
         public int SlotCounter;
 
-        public void Init(ref World world) { }
-        public void Update(ref World world) { }
+        public void OnCreate(ref World world) { }
+        public void OnUpdate(ref World world) { }
     }
 
     public struct CycleData : IRes
@@ -72,11 +72,11 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
         public bool Disassembling;
         public float DisassembleTimer;
 
-        public void Init(ref World world)
+        public void OnCreate(ref World world)
         {
             AssembledDuration = 3f;
         }
 
-        public void Update(ref World world) { }
+        public void OnUpdate(ref World world) { }
     }
 }

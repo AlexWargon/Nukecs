@@ -32,6 +32,7 @@ namespace Wargon.Nukecs
         public void UpdateQueryPointer(World.WorldUnsafe* world) {
             if (queryId >= 0 && queryId < world->queries.Length)
                 Query = world->queries.Ptr[queryId].Ptr;
+            version++;
         }
 #if NUKECS_DEBUG
         Marker _marker;

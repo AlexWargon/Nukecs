@@ -79,6 +79,10 @@ namespace Wargon.Nukecs
         }
     }
 
+    internal interface IResourceCreate
+    {
+        ptr Create(ref ResStorage storage);
+    }
     internal interface IResourceGetSet
     {
         internal IRes GetResource();
@@ -90,17 +94,17 @@ namespace Wargon.Nukecs
     public interface IRes
     {
         /// <summary>
-        /// Call on res creation.
+        /// Call ones on res creation.
         /// Can use managed types.
         /// </summary>
-        /// <param name="world">ECS world</param>
-        void Init(ref World world);
+        /// <param name="world">ECS World : Wargon.Nukecs.World</param>
+        void OnCreate(ref World world);
         /// <summary>
         /// Call before every system update.
         /// Can't use managed types.
         /// </summary>
-        /// <param name="world">ECS world</param>
-        void Update(ref World world);
+        /// <param name="world">ECS World : Wargon.Nukecs.World</param>
+        void OnUpdate(ref World world);
     }
 
     public struct Local<TData> : ISystemParam where TData : unmanaged, IRes
@@ -111,12 +115,12 @@ namespace Wargon.Nukecs
         public unsafe void Init(ref ptr<World.WorldUnsafe> world)
         {
             _data = world.Ref._allocate_ptr<TData>();
-            _data.cached->Init(ref world.Ref.ManagedWorld.Ref);
+            _data.cached->OnCreate(ref world.Ref.ManagedWorld.Ref);
         }
 
         public unsafe void Update(ref World world, IntPtr data)
         {
-            _data.cached->Update(ref world);
+            _data.cached->OnUpdate(ref world);
         }
 
         public IntPtr GetData()

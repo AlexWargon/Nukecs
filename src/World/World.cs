@@ -38,7 +38,7 @@ namespace Wargon.Nukecs
         public ref MemAllocator AllocatorRef => ref UnsafeWorld->AllocatorRef;
         public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
-        internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;
+        internal ref EntityCommandBuffer ECB => ref UnsafeWorld->EntityCommandBuffer;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref EntityCommandBuffer GetEcbVieContext(UpdateContext context)

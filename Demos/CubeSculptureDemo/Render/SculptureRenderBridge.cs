@@ -7,7 +7,7 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
     {
         NativeArray<Matrix4x4> matrices;
         public int count;
-        public void Init(ref World world)
+        public void OnCreate(ref World world)
         {
             var cfg = CubeSculptureBootstrap.Instance;
             if (cfg == null) return;
@@ -15,7 +15,7 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
             matrices = new NativeArray<Matrix4x4>(cfg.TargetCount + 256, Allocator.Persistent);
         }
 
-        public void Update(ref World world) { }
+        public void OnUpdate(ref World world) { }
 
         public NativeArray<Matrix4x4> Matrices => matrices;
 

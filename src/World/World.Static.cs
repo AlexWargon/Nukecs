@@ -8,14 +8,32 @@ using Wargon.Nukecs.Tests;
 
 namespace Wargon.Nukecs
 {
+    public struct ALLOCATOR
+    {
+        public static ref MemAllocator DOMAIN
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref World.domainAllocator.Data;
+        }
+
+        public static readonly PER_WORLD_ALLOCATORS PER_WORLD = default;
+        public struct PER_WORLD_ALLOCATORS
+        {
+            public ref MemAllocator this[int index]
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref World.worlds.Data.ElementAt(index).AllocatorRef;
+            }
+        }
+    }
     public unsafe partial struct World
     {
         private struct KeyDomainAllocator {}
         private struct KeyWorldsList {}
         private struct DummyWorld { }
         private static readonly SharedStatic<World> dummyWorld = SharedStatic<World>.GetOrCreate<DummyWorld>();
-        private static readonly SharedStatic<MemAllocator> domainAllocator = SharedStatic<MemAllocator>.GetOrCreate<KeyDomainAllocator>();
-        private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
+        internal static readonly SharedStatic<MemAllocator> domainAllocator = SharedStatic<MemAllocator>.GetOrCreate<KeyDomainAllocator>();
+        internal static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
         private static byte lastFreeSlot;
         private static int worldCount;
         private static int lastWorldID;
@@ -24,12 +42,13 @@ namespace Wargon.Nukecs
         internal static void InitStatic()
         {
             if(staticInited) return;
-            domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * 4 + 1024*4);
+            domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * MAX_WORLD_COUNT + Memory.MEGABYTE);
             worlds.Data = new MemoryList<World>(MAX_WORLD_COUNT, ref domainAllocator.Data, true);
             worldCount = 0;
             dummyWorld.Data = default;
             dummyWorld.Data.unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
             Component.Initialization();
+
             staticInited = true;
         }
         public static int WorldCapacity => worlds.Data.Capacity;
@@ -148,6 +167,12 @@ namespace Wargon.Nukecs
             worldCount = 0;
             SingletonRegistry.ResetAll();
             EntityPrefabMap.Dispose();
+        }
+
+        internal static void FixManagedWorld(int id) {
+            ref var world = ref Get(id);
+            world.UnsafeWorld->ManagedWorld.OnDeserialize(ref domainAllocator.Data);
+            world.UnsafeWorld->ManagedWorld.Ref = world;
         }
     }
 }

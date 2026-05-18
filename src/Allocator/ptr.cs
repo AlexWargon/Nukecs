@@ -1,4 +1,5 @@
 ﻿using Unity.Collections;
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs
 {
@@ -43,6 +44,12 @@ namespace Wargon.Nukecs
         {
             return new ptr<T>(cached, offset.Offset, true);
         }
+        
+        internal ptr_str<T> as_ptr_str<T>() where T : struct
+        {
+            return new ptr_str<T>(cached, offset);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T AsRef<T>() where T : unmanaged
         {
@@ -51,7 +58,7 @@ namespace Wargon.Nukecs
 
         public T AsObject<T>() 
         {
-            return System.Runtime.CompilerServices.Unsafe.As<IntPtr,T>(ref *(IntPtr*)cached);
+            return Unsafe.As<IntPtr,T>(ref *(IntPtr*)cached);
         }
         public void OnDeserialize(ref MemAllocator allocator)
         {
@@ -114,6 +121,61 @@ namespace Wargon.Nukecs
         }
     }
 
+    // ReSharper disable once InconsistentNaming
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct ptr_str<T> : IEquatable<ptr_str<T>> where T : struct
+    {
+        public ptr_offset offset;
+        [NativeDisableUnsafePtrRestriction]
+        public byte* cached;
+
+        public ref T Ref
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref as_ref<T>(cached);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ptr_str(byte* regionBase, ptr_offset off)
+        {
+            offset = off;
+            cached = regionBase + off.Offset;
+        }
+        
+        public void OnDeserialize(ref MemAllocator allocator)
+        {
+            if (offset.BlockIndex < allocator.RegionCount)
+                cached = allocator.GetRegionPtr((int)offset.BlockIndex) + offset.Offset;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Equals(ptr_str<T> other)
+        {
+            return other.offset.Offset.Equals(offset.Offset);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator != (ptr_str<T> lhs, ptr_str<T> rhs)
+        {
+            return lhs.offset.Offset != rhs.offset.Offset || lhs.offset.BlockIndex != rhs.offset.BlockIndex;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool operator == (ptr_str<T> lhs, ptr_str<T> rhs)
+        {
+            return lhs.offset.Offset == rhs.offset.Offset && lhs.offset.BlockIndex == rhs.offset.BlockIndex;
+        }
+        
+        public override bool Equals(object obj)
+        {
+            return obj is ptr_str<T> other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(offset.Offset, offset.BlockIndex);
+        }
+    }
     [StructLayout(LayoutKind.Sequential)]
     // ReSharper disable once InconsistentNaming
     public unsafe struct ptr<T> : IEquatable<ptr<T>> where T : unmanaged
@@ -146,7 +208,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ptr(byte* regionBase, ptr_offset off)
         {
-            this.offset = off;
+            offset = off;
             cached = (T*)(regionBase + off.Offset);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -243,5 +305,79 @@ namespace Wargon.Nukecs
     public unsafe struct _object
     {
         private void* ptr;
+    }
+
+    public unsafe struct Reader
+    {
+        private byte* buffer;
+        private long offset;
+
+        public Reader(byte[] data)
+        {
+            buffer = (byte*)Unsafe.AsPointer(ref data);
+            offset = 0;
+        }
+        public byte ReadByte()
+        {
+            var oldOffset = offset;
+            offset += size_of<byte>();
+            return as_ref(buffer + oldOffset);
+        }
+    }
+    public unsafe struct Writer
+    {
+        private byte* ptr;
+        private long offset;
+        public void WriteInt(int value)
+        {
+            as_ref<int>(ptr + offset) = value;
+            offset += sizeof(int);
+        }
+        public void WriteFloat(float value)
+        {
+            as_ref<float>(ptr + offset) = value;
+            offset += sizeof(float);
+        }
+        public void WriteBool(bool value)
+        {
+            as_ref<bool>(ptr + offset) = value;
+            offset += sizeof(bool);
+        }
+
+        public void WriteByte(byte value)
+        {
+            as_ref<byte>(ptr + offset) = value;
+            offset += sizeof(byte);
+        }
+
+        public void WriteULong(ulong value)
+        {
+            as_ref<ulong>(ptr + offset) = value;
+            offset += sizeof(ulong);
+        }
+
+        public void WriteShort(short value)
+        {
+            as_ref<short>(ptr + offset) = value;
+            offset += sizeof(short);
+        }
+
+        public void WriteUShort(ushort value)
+        {
+            as_ref<ushort>(ptr + offset) = value;
+            offset += sizeof(ushort);
+        }
+
+        public void WriteLong(long value)
+        {
+            as_ref<long>(ptr + offset) = value;
+            offset += sizeof(long);
+        }
+
+        public void WriteStruct<T>(T value) where T : struct
+        {
+            as_ref<T>(ptr + offset) = value;
+            offset += size_of<T>();
+        }
     }
 }

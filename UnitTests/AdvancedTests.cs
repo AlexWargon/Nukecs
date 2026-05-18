@@ -10,7 +10,23 @@ namespace Wargon.Nukecs.Tests
         public float X;
         public float Y;
     }
-    
+
+    public struct Movement2System : IEntityJobSystem
+    {
+        public Threads Mode => Threads.Main;
+        public Query GetQuery(ref World world)
+        {
+            return world.Query().With<PositionTest>().With<VelocityTest>();
+        }
+
+        public void OnUpdate(ref Entity entity, ref State state)
+        {
+            ref var pos = ref entity.Get<PositionTest>();
+            ref var vel = ref entity.Get<VelocityTest>();
+            pos.X += vel.X * state.Time.DeltaTime;
+            pos.Y += vel.Y * state.Time.DeltaTime;
+        }
+    }
     public static class TestSystems
     {
         [System][BurstCompile]

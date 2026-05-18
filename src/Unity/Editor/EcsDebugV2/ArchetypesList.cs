@@ -50,13 +50,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
 
             container.Clear();
-            int maxCount = 1;
-            foreach (var a in window.archetypes)
-                if (a.entityCount > maxCount) maxCount = a.entityCount;
-
             foreach (var arch in window.archetypes)
             {
-                var card = CreateArchetypeCard(arch, maxCount, window);
+                var card = CreateArchetypeCard(arch, window);
                 container.Add(card);
             }
 
@@ -65,10 +61,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         private static void UpdateExistingCards(VisualElement content, EcsDebugV2Window window)
         {
-            int maxCount = 1;
-            foreach (var a in window.archetypes)
-                if (a.entityCount > maxCount) maxCount = a.entityCount;
-
             int idx = 0;
             foreach (var arch in window.archetypes)
             {
@@ -91,13 +83,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (countLabel != null)
                     countLabel.text = $"{arch.entityCount} ent \u00B7 {arch.chunkCount} ch";
 
-                var barFill = card.Q("bar-fill");
-                if (barFill != null)
-                {
-                    var pct = maxCount > 0 ? (float)arch.entityCount / maxCount : 0;
-                    barFill.style.width = Length.Percent(pct * 100);
-                }
-
                 idx++;
             }
         }
@@ -115,7 +100,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             }
 
-            int idx = 0;
             foreach (var arch in window.archetypes)
             {
                 var card = leftPanel.Q($"arch-card-{arch.id}");
@@ -123,20 +107,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var countLabel = card.Q<Label>("arch-count");
                 if (countLabel != null)
                     countLabel.text = $"{arch.entityCount} ent \u00B7 {arch.chunkCount} ch";
-                idx++;
             }
         }
 
-        private static VisualElement CreateArchetypeCard(ArchetypeInfo arch, int maxCount, EcsDebugV2Window window)
+        private static VisualElement CreateArchetypeCard(ArchetypeInfo arch, EcsDebugV2Window window)
         {
             bool selected = window.selectedArchetypeId == arch.id;
             var card = EcsDebugV2Theme.CreateCard();
             card.name = $"arch-card-{arch.id}";
             card.style.paddingLeft = 8;
             card.style.paddingRight = 8;
-            card.style.paddingTop = 6;
-            card.style.paddingBottom = 6;
-            card.style.marginBottom = 4;
+            card.style.paddingTop = 4;
+            card.style.paddingBottom = 4;
+            card.style.marginBottom = 3;
             card.style.flexShrink = 0;
 
             if (selected)
@@ -151,7 +134,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    marginBottom = 4
+                    marginBottom = 3
                 }
             };
             var archLabel = new Label("ARCH")
@@ -193,38 +176,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     flexDirection = FlexDirection.Row,
-                    flexWrap = Wrap.Wrap,
-                    marginBottom = 4
+                    flexWrap = Wrap.Wrap
                 }
             };
             foreach (var comp in arch.components)
                 tagRow.Add(EcsDebugV2Theme.CreateFilterTag(comp, true));
             card.Add(tagRow);
-
-            var barBg = new VisualElement
-            {
-                style =
-                {
-                    height = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    overflow = Overflow.Hidden
-                }
-            };
-            barBg.SetupRadius(2);
-            var pct = (float)arch.entityCount / maxCount;
-            var barFill = new VisualElement
-            {
-                name = "bar-fill",
-                style =
-                {
-                    height = 4,
-                    width = UnityEngine.UIElements.Length.Percent(pct * 100),
-                    backgroundColor = EcsDebugV2Theme.Yellow
-                }
-            };
-            barFill.SetupRadius(2);
-            barBg.Add(barFill);
-            card.Add(barBg);
 
             card.RegisterCallback<ClickEvent>(_ => window.SelectArchetype(arch.id));
             card.RegisterCallback<MouseEnterEvent>(_ =>

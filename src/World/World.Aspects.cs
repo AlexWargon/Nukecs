@@ -1,7 +1,4 @@
 ﻿using System;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
@@ -60,6 +57,14 @@ namespace Wargon.Nukecs
                     world->UnsafeWorld->_free(intPtr.offset.Offset);
                 }
                 aspects.Dispose();
+            }
+
+            public void OnDeserialize(ref MemAllocator allocator) {
+                aspects.OnDeserialize(ref allocator);
+                for (int i = 0; i < aspects.length; i++) {
+                    ref var p = ref aspects[i];
+                    p.OnDeserialize(ref allocator);
+                }
             }
         }
     }

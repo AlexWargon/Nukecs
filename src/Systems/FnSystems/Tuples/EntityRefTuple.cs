@@ -101,8 +101,6 @@ namespace Wargon.Nukecs
         private Ref<T2> _p2;
         private Ref<T3> _p3;
 
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {

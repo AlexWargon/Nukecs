@@ -42,7 +42,6 @@ namespace Wargon.Nukecs
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
-
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
             _state.Time.DeltaTime = dt;
@@ -59,8 +58,10 @@ namespace Wargon.Nukecs
                 _allSystems.End();
                 return;
             }
+
             for (var i = 0; i < mtRunners.Count; i++)
                 _state.Dependencies = mtRunners[i].Schedule(UpdateContext.Update, ref _state);
+
             for (var i = 0; i < runners.Count; i++)
                 _state.Dependencies = runners[i].Schedule(UpdateContext.Update, ref _state);
 
@@ -86,7 +87,8 @@ namespace Wargon.Nukecs
         public Systems AddDefaults()
         {
             Add<EntityDestroySystem>();
-            Add<OnPrefabSpawnSystem>();
+            this.Add(DefaultSystems.OnPrefabSpawn);
+            //Add<OnPrefabSpawnSystem>();
             Add<ClearEntityCreatedEventSystem>();
             return this;
         }
@@ -201,10 +203,10 @@ namespace Wargon.Nukecs
         }
 
 
-        public unsafe Systems Add(delegate*<void> path, params delegate*<void>[] args)
-        {
-            return this;
-        }
+        // public unsafe Systems Add(delegate*<void> path, params delegate*<void>[] args)
+        // {
+        //     return this;
+        // }
         public Systems Add<T>(int dymmy = 1) where T : struct, ISystem
         {
             T system = default;
@@ -290,14 +292,16 @@ namespace Wargon.Nukecs
             _state.Dependencies.Complete();
         }
 
-        internal void OnWorldDeserialize(World.WorldUnsafe* world) {
+        internal void OnWorldDeserialize(World.WorldUnsafe* world)
+        {
+            World.unsafeWorldPtr = world->selfPtr;
             RebuildQueryPointers(runners, world);
             RebuildQueryPointers(fixedRunners, world);
             RebuildQueryPointers(mtRunners, world);
             RebuildQueryPointers(mtFixedRunners, world);
         }
-
         private unsafe void RebuildQueryPointers(List<ISystemRunner> list, World.WorldUnsafe* worldPtr) {
+            
             foreach (var runner in list) {
                 if (runner is IQueryHolder holder)
                     holder.UpdateQueryPointer(worldPtr);
@@ -306,7 +310,7 @@ namespace Wargon.Nukecs
             }
         }
 
-        internal interface ISystemWithDeserialization {
+        public interface ISystemWithDeserialization {
             void OnWorldDeserialize(World world);
         }
 
@@ -647,8 +651,5 @@ namespace Wargon.Nukecs
         }
     }
     
-    public static class DefaultSystems
-    {
 
-    }
 }

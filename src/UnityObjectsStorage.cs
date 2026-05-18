@@ -274,6 +274,7 @@ namespace Wargon.Nukecs {
             this[index] = value;
             return index;
         }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Remove(int index)
         {

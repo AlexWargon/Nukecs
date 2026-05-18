@@ -13,18 +13,47 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int AddResource(IRes res)
         {
-            var hash = res.GetType().FullName!.GetHashCode();
-            resources.TryAdd(hash, res);
+            var hash = GetStableHashCode(res.GetType().FullName);
+            resources.AddOrUpdate(hash, res, (_, _) => res);
             return hash;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static T GetResource<T>(int hash) => (T)resources[hash];
-        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool TryGetResource<T>(int hash, out T value)
+        {
+            if (resources.TryGetValue(hash, out var obj))
+            {
+                value = (T)obj;
+                return true;
+            }
+
+            value = default;
+            return false;
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void RemoveResource(int hash) => resources.TryRemove(hash, out _);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool HasResource(int hash) => resources.ContainsKey(hash);
+        private static int GetStableHashCode(string str)
+        {
+            unchecked
+            {
+                int hash1 = (5381 << 16) + 5381;
+                int hash2 = hash1;
+
+                for (int i = 0; i < str.Length; i += 2)
+                {
+                    hash1 = ((hash1 << 5) + hash1) ^ str[i];
+                    if (i == str.Length - 1)
+                        break;
+                    hash2 = ((hash2 << 5) + hash2) ^ str[i + 1];
+                }
+
+                return hash1 + (hash2 * 1566083941);
+            }
+        }
     }
     [StructLayout(LayoutKind.Sequential)]
     public struct ManagedResRef<T> : IEquatable<ManagedResRef<T>>, IDisposable where T : IRes
@@ -56,11 +85,16 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
-                if (pointer != INVALID_POINTER)
+                if (value == null)
                 {
-                    StaticObjectRefStorage.Remove(pointer);
+                    ManagedResStorage.RemoveResource(pointer);
+                    pointer = INVALID_POINTER;
+                    return;
                 }
-                pointer = value != null ? ManagedResStorage.AddResource(value) : INVALID_POINTER;
+                var newPointer = ManagedResStorage.AddResource(value);
+                if (pointer == newPointer) return;
+                ManagedResStorage.RemoveResource(pointer);
+                pointer = newPointer;
             }
         }
 

@@ -47,6 +47,14 @@ namespace Wargon.Nukecs
             version = 0;
         }
 
+        internal void FixAfterDeserialize(World world) {
+            if (worldId == world.Id && id >= 0) {
+                var queries = world.UnsafeWorld->queries;
+                if (id < queries.Length)
+                    queryUnsafe = queries.Ptr[id].Ptr;
+            }
+        }
+
         public Query With<T>(ReadWrite readWrite = ReadWrite.ReadWrite) where T : unmanaged, IComponent
         {
             queryUnsafe->With(ComponentType<T>.Index);
@@ -164,7 +172,7 @@ namespace Wargon.Nukecs
         [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
         internal ptr<QueryUnsafe> self;
 
-        internal int Id;
+        public int Id;
         internal byte oldVersion;
         internal byte newVersion;
 

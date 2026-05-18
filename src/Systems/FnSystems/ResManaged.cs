@@ -32,12 +32,12 @@ namespace Wargon.Nukecs
             {
                 _reference = Activator.CreateInstance<TRes>();
             }
-            _reference.Value.Init(ref world.Ref.ManagedWorld.Ref);
+            _reference.Value.OnCreate(ref world.Ref.ManagedWorld.Ref);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Update(ref World world, IntPtr data)
         {
-            _reference.Value.Update(ref world);
+            _reference.Value.OnUpdate(ref world);
         }
 
         public IntPtr GetData() => IntPtr.Zero;

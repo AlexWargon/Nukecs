@@ -1,4 +1,5 @@
-﻿using Unity.Jobs;
+﻿using System.Reflection;
+using Unity.Jobs;
 
 namespace Wargon.Nukecs
 {
@@ -31,8 +32,20 @@ namespace Wargon.Nukecs
         }
 
         public void OnWorldDeserialize(World world) {
+            FixQueryFields(world);
             if (System is IOnWorldDeserialize deser)
                 deser.OnWorldDeserialize(ref world);
+        }
+
+        private void FixQueryFields(World world) {
+            var fields = typeof(TSystem).GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+            foreach (var field in fields) {
+                if (field.FieldType == typeof(Query)) {
+                    var q = (Query)field.GetValue(System);
+                    q.FixAfterDeserialize(world);
+                    field.SetValue(System, q);
+                }
+            }
         }
     }
 }
