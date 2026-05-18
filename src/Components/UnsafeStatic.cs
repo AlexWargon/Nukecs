@@ -108,7 +108,7 @@ namespace Wargon.Nukecs
             return UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator, 0);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void* malloc_t<T>(Unity.Collections.Allocator allocator, T value) where T : struct
+        public static unsafe void* malloc_t_value<T>(Unity.Collections.Allocator allocator, T value) where T : struct
         {
             var ptr = UnsafeUtility.MallocTracked(UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), allocator, 0);
             UnsafeUtility.AsRef<T>(ptr) = value;
