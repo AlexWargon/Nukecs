@@ -109,18 +109,17 @@ namespace Wargon.Nukecs
 
     public struct Local<TData> : ISystemParam where TData : unmanaged, IRes
     {
-        private ptr<TData> _data;
-        public ref TData Value => ref _data.Ref;
+        public TData Value;
         public SystemParamMetaType MetaType => SystemParamMetaType.Local;
         public unsafe void Init(ref ptr<World.WorldUnsafe> world)
         {
-            _data = world.Ref._allocate_ptr<TData>();
-            _data.cached->OnCreate(ref world.Ref.ManagedWorld.Ref);
+            Value = default;
+            Value.OnCreate(ref world.Ref.ManagedWorld.Ref);
         }
 
         public unsafe void Update(ref World world, IntPtr data)
         {
-            _data.cached->OnUpdate(ref world);
+            Value.OnUpdate(ref world);
         }
 
         public IntPtr GetData()

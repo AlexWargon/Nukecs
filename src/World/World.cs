@@ -30,7 +30,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref unsafeWorldPtr.Ref;
         }
-        public int Id => UnsafeWorld->Id;
+        public byte Id => UnsafeWorld->Id;
         public bool IsAlive => unsafeWorldPtr.cached != null;
         public WorldConfig Config => UnsafeWorld->config;
         public Allocator Allocator => UnsafeWorld->Allocator;

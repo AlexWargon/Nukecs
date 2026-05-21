@@ -2,7 +2,7 @@
 
 namespace Wargon.Nukecs
 {
-    internal static class WorldSystems
+    public static class WorldSystems
     {
         private static readonly Dictionary<int, System.Collections.Generic.List<Systems>> systemsMap = new Dictionary<int, System.Collections.Generic.List<Systems>>();
     
@@ -17,7 +17,7 @@ namespace Wargon.Nukecs
         {
             return systemsMap[world][index];
         }
-        internal static List<Systems> GetAll(int worldId)
+        public static List<Systems> GetAll(int worldId)
         {
             if (!systemsMap.ContainsKey(worldId))
                 return new List<Systems>();

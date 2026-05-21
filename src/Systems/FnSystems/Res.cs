@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Tests;
 
 // ReSharper disable InconsistentNaming
@@ -13,7 +9,6 @@ using Wargon.Nukecs.Tests;
 namespace Wargon.Nukecs
 {
     using static UnsafeStatic;
-
     /// <summary>
     /// Provides read/write access to a singleton resource
     /// from a system parameter.
@@ -23,8 +18,6 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential, Size = 1)]
     public struct Res<TRes> : ISystemParam, IResourceGetSet where TRes : struct, IRes
     {
-        // private ptr_str<TRes> _field;
-        // private byte world;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
         public ref TRes Ref
         {
@@ -48,7 +41,7 @@ namespace Wargon.Nukecs
             Ref = (TRes)res;
         }
 
-        public Res(in TRes resource, byte worldId)
+        public Res(in TRes resource)
         {
             //_field = ALLOCATOR.PER_WORLD[worldId].AllocatePtr(size_of<TRes>()).as_ptr_str<TRes>();
             //_field.Ref = resource;
@@ -58,6 +51,7 @@ namespace Wargon.Nukecs
             {
                 StructSingleton<TRes>.Create(resource);
             }
+            Ref = resource;
         }
 
         public unsafe void Init(ref ptr<World.WorldUnsafe> worldPtr)
@@ -89,11 +83,34 @@ namespace Wargon.Nukecs
         {
             return res.Ref;
         }
-
-        // public static explicit operator Res<TRes>(in TRes res)
-        // {
-        //     return new Res<TRes>(in res);
-        // }
     }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SaveRes<TRes> : ISystemParam where TRes : struct, IRes
+    {
+        private ptr_str<TRes> data;
+        public ref TRes Ref => ref data.Ref;
+        public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
+        public void Init(ref ptr<World.WorldUnsafe> worldPtr)
+        {
+            data = worldPtr.Ref.AllocatorRef.AllocatePtr(size_of<TRes>()).as_ptr_str<TRes>();
+        }
 
+        public void Update(ref World world, IntPtr data)
+        {
+            this.data.Ref.OnUpdate(ref world);
+        }
+
+        public IntPtr GetData()
+        {
+            return IntPtr.Zero;
+        }
+
+        public bool TryGetQuery(out ptr<QueryUnsafe> query)
+        {
+            query = default;
+            return false;
+        }
+
+
+    }
 }

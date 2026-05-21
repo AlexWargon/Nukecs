@@ -40,13 +40,14 @@ namespace Wargon.Nukecs
 
         internal static void Dispose()
         {
-            if (_initialized)
-            {
-                ComponentTypes.Data.Dispose();
-                ElementTypes.Data.Dispose();
-                Application.quitting -= Dispose;
-                _initialized = false;
-            }
+            if (!_initialized) return;
+            if (ComponentTypes.Data.IsCreated) ComponentTypes.Data.Dispose();
+            if (ElementTypes.Data.IsCreated) ElementTypes.Data.Dispose();
+            TypeToComponentType.Map.Clear();
+            _cache = default;
+            _nextIndex = 0;
+            Application.quitting -= Dispose;
+            _initialized = false;
         }
         [BurstDiscard]
         internal static void RegisterByReflection(Type type)

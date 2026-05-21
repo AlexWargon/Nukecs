@@ -155,8 +155,8 @@ namespace Wargon.Nukecs
         }
         public static void DisposeStatic()
         {
-            if(!staticInited) return;
-            domainAllocator.Data.Dispose();
+            if (domainAllocator.Data.IsActive)
+                domainAllocator.Data.Dispose();
             StaticObjectRefStorage.Clear();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
@@ -167,6 +167,8 @@ namespace Wargon.Nukecs
             worldCount = 0;
             SingletonRegistry.ResetAll();
             EntityPrefabMap.Dispose();
+            ComponentTypeMap.Dispose();
+            Component._initialized = false;
         }
 
         internal static void FixManagedWorld(int id) {

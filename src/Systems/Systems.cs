@@ -292,7 +292,7 @@ namespace Wargon.Nukecs
             _state.Dependencies.Complete();
         }
 
-        internal void OnWorldDeserialize(World.WorldUnsafe* world)
+        public void OnWorldDeserialize(World.WorldUnsafe* world)
         {
             World.unsafeWorldPtr = world->selfPtr;
             RebuildQueryPointers(runners, world);
@@ -650,6 +650,6 @@ namespace Wargon.Nukecs
             return systems;
         }
     }
-    
+
 
 }

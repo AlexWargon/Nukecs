@@ -756,7 +756,7 @@ namespace Wargon.Nukecs
 
             public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
             {
-                var resRef = new Res<TRes>(res, Id);
+                var resRef = new Res<TRes>(res);
                 resStorage.AddRes(in resRef, Self);
             }
 
