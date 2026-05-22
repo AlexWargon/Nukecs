@@ -12,7 +12,7 @@ namespace Wargon.Nukecs.HotReload
         private static readonly Dictionary<string, FileSystemWatcher> watchers = new Dictionary<string, FileSystemWatcher>();
         private static readonly Queue<string> changedFiles = new Queue<string>();
         private static double lastProcessTime;
-        private const double DEBOUNCE_SECONDS = 0.5;
+        private const double DEBOUNCE_SECONDS = 0.15;
 
         static HotReloadWatcher()
         {

@@ -18,6 +18,9 @@ namespace Wargon.Nukecs.HotReload
         private static bool _isDotnet;
         private static string _tempDir;
         private static int _compileCount;
+        private static Dictionary<string, MethodInfo> _systemMethodCache;
+        private static List<string> _cachedReferences;
+        private static int _cachedReferencesAssemblyCount;
 
         public static event Action<string, MethodInfo[], Action<IntPtr, IntPtr, IntPtr>[]> OnSystemsCompiled;
 
@@ -137,10 +140,10 @@ namespace Wargon.Nukecs.HotReload
             });
         }
 
-        private static MethodInfo[] FindSystemMethods(string sourceCode)
+        private static void EnsureSystemMethodCache()
         {
-            var methods = new List<MethodInfo>();
-            var seen = new HashSet<string>();
+            if (_systemMethodCache != null) return;
+            _systemMethodCache = new Dictionary<string, MethodInfo>();
 
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
             {
@@ -153,15 +156,28 @@ namespace Wargon.Nukecs.HotReload
                             if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
                             {
                                 var key = $"{type.Name}.{method.Name}";
-                                if (sourceCode.Contains(method.Name) && sourceCode.Contains(type.Name) && seen.Add(key))
-                                {
-                                    methods.Add(method);
-                                }
+                                if (!_systemMethodCache.ContainsKey(key))
+                                    _systemMethodCache[key] = method;
                             }
                         }
                     }
                 }
                 catch { }
+            }
+        }
+
+        private static MethodInfo[] FindSystemMethods(string sourceCode)
+        {
+            EnsureSystemMethodCache();
+
+            var methods = new List<MethodInfo>();
+            var seen = new HashSet<string>();
+
+            foreach (var kv in _systemMethodCache)
+            {
+                var method = kv.Value;
+                if (sourceCode.Contains(method.Name) && sourceCode.Contains(method.DeclaringType.Name) && seen.Add(kv.Key))
+                    methods.Add(method);
             }
 
             return methods.ToArray();
@@ -260,8 +276,12 @@ namespace Wargon.Nukecs.HotReload
 
         private static List<string> CollectReferences()
         {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            if (_cachedReferences != null && _cachedReferencesAssemblyCount == assemblies.Length)
+                return _cachedReferences;
+
             var refs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var asm in assemblies)
             {
                 try
                 {
@@ -270,7 +290,10 @@ namespace Wargon.Nukecs.HotReload
                 }
                 catch { }
             }
-            return refs.ToList();
+
+            _cachedReferences = refs.ToList();
+            _cachedReferencesAssemblyCount = assemblies.Length;
+            return _cachedReferences;
         }
 
         private static string BuildArgs(string csc, string output, string[] sources, List<string> references)

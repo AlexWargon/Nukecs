@@ -15,10 +15,10 @@ namespace Wargon.Nukecs.Demos.RotateCube
         private void Awake()
         {
             World.DisposeStatic();
-            world = World.Create(WorldConfig.Default16);
+            world = World.Create(WorldConfig.Default256);
 
             hotReload = new HotReloadSystems(ref world);
-            hotReload.Systems.Add(RotationSystems.RotateCube, Threads.MainRun);
+            hotReload.Systems.Add(CubeDemo.RotateCubeSystem, Threads.MainRun);
             hotReload.Systems.Add(Wargon.Nukecs.Transforms.Systems.SyncSystem, Threads.Main);
             hotReload.StartTracking();
 
