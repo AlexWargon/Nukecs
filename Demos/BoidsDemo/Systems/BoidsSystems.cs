@@ -55,7 +55,7 @@ namespace Wargon.Nukecs.Demos.Boids
             const float minSpeed         = 1.0f;
             const float steeringForce    = 12.0f;
             const float boundsRadius     = 4.0f;
-            
+
             var count = query.Count;
             if (count == 0) return;
 

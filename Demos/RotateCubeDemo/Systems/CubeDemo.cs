@@ -11,6 +11,7 @@ namespace Wargon.Nukecs.Demos.HotReload
             ref Query<Transform, RotationSpeed, With<Cube>> query, 
             ref State state)
         {
+
             var dt = state.Time.DeltaTime;
             foreach (var (transform, speed) 
                      in query.iter_unsafe())
@@ -18,7 +19,7 @@ namespace Wargon.Nukecs.Demos.HotReload
                 transform->Rotation = math.mul(
                     transform->Rotation,
                     quaternion.AxisAngle(math.up(), 
-                        -speed->RadiansPerSecond * dt)
+                        speed->RadiansPerSecond * dt)
                 );
             }
         }

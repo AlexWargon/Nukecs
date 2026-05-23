@@ -18,8 +18,8 @@ namespace Wargon.Nukecs.Demos.HotReload
             world = World.Create(WorldConfig.Default256);
 
             hotReload = new HotReloadSystems(ref world);
-            hotReload.Systems.Add(CubeDemo.RotateCubeSystem, Threads.MainRun); 
-            //hotReload.Systems.Add(Wargon.Nukecs.Transforms.Systems.SyncSystem, Threads.Main);
+            hotReload.Systems.Add(CubeDemo.RotateCubeSystem, Threads.Main); 
+            hotReload.Systems.Add(SyncTransformsSystem, Threads.Main);
             hotReload.StartTracking();
 
             CreateCube(ref world);
@@ -57,6 +57,19 @@ namespace Wargon.Nukecs.Demos.HotReload
             if (world.IsAlive)
                 world.Dispose();
         }
+        [System]
+        public static void SyncTransformsSystem(ref Query<Transform, TransformRef, None<NoneSyncTransform>> query)
+        {
+            foreach (var (tRef,tRefRef) in query)
+            {
+                var transformRef = tRefRef.Get.Value.Value;
+                ref var transform = ref tRef.Get;
 
+                transformRef.position = transform.Position;
+                transformRef.rotation = transform.Rotation;
+                transformRef.localScale = transform.Scale;
+            }
+        }
     }
+    
 }
