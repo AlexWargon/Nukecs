@@ -1,10 +1,8 @@
 using Unity.Burst;
 using Unity.Mathematics;
-using UnityEngine;
-using Wargon.Nukecs;
 using Transform = Wargon.Nukecs.Transforms.Transform;
 
-namespace Wargon.Nukecs.Demos.RotateCube
+namespace Wargon.Nukecs.Demos.HotReload
 {
     public static class CubeDemo
     {
@@ -14,12 +12,13 @@ namespace Wargon.Nukecs.Demos.RotateCube
             ref State state)
         {
             var dt = state.Time.DeltaTime;
-            foreach (var (transform, speed) in query.iter_unsafe())
+            foreach (var (transform, speed) 
+                     in query.iter_unsafe())
             {
                 transform->Rotation = math.mul(
                     transform->Rotation,
                     quaternion.AxisAngle(math.up(), 
-                        speed->RadiansPerSecond * dt)
+                        -speed->RadiansPerSecond * dt)
                 );
             }
         }

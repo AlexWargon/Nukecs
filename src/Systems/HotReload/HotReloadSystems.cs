@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 #if UNITY_EDITOR
+using UnityEngine;
 using Wargon.Nukecs.HotReload;
 #endif
 
@@ -29,6 +31,7 @@ namespace Wargon.Nukecs
         {
             _systems = new Systems(ref world);
 #if UNITY_EDITOR
+            HotReloadCompiler.PrewarmCache();
             HotReloadCompiler.OnSystemsCompiled += OnSystemsCompiled;
 #endif
         }
@@ -37,6 +40,7 @@ namespace Wargon.Nukecs
         {
             _systems = systems;
 #if UNITY_EDITOR
+            HotReloadCompiler.PrewarmCache();
             HotReloadCompiler.OnSystemsCompiled += OnSystemsCompiled;
 #endif
         }
@@ -110,31 +114,7 @@ namespace Wargon.Nukecs
             }
         }
 
-        private static MethodInfo FindSystemMethodByRunnerName(string runnerName)
-        {
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                try
-                {
-                    foreach (var type in asm.GetTypes())
-                    {
-                        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
-                        {
-                            if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
-                            {
-                                var expected = $"{type.Name}_{method.Name}Job";
-                                if (runnerName == expected)
-                                    return method;
-                            }
-                        }
-                    }
-                }
-                catch { }
-            }
-            return null;
-        }
-
-        private void OnSystemsCompiled(string filePath, MethodInfo[] methods, Action<IntPtr, IntPtr, IntPtr>[] delegates)
+        private unsafe void OnSystemsCompiled(string filePath, MethodInfo[] methods, Func<IntPtr, Threads, IntPtr, ISystemRunner>[] factories)
         {
             if (_systems == null) return;
 
@@ -148,16 +128,24 @@ namespace Wargon.Nukecs
                     if (methods[j].Name == entry.MethodName &&
                         methods[j].DeclaringType?.Name == entry.DeclaringTypeName)
                     {
-                        int queryId = -1;
+                        IntPtr existingQueryPtr = IntPtr.Zero;
                         if (entry.RunnerIndex >= 0 && entry.RunnerIndex < _systems.runners.Count)
                         {
                             var oldRunner = _systems.runners[entry.RunnerIndex];
-                            queryId = ExtractQueryId(oldRunner);
+                            existingQueryPtr = ExtractQueryFieldPtr(oldRunner);
                         }
 
-                        var runner = new DelegateSystemRunner(delegates[j],
-                            $"{methods[j].DeclaringType?.Name}.{methods[j].Name}",
-                            entry.ThreadMode, queryId);
+                        var worldPtr = _systems.World.UnsafeWorld;
+                        ISystemRunner runner;
+                        try
+                        {
+                            runner = factories[j]((IntPtr)worldPtr, Threads.Main, existingQueryPtr);
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[HotReload] Factory failed for {entry.MethodName}: {ex}");
+                            break;
+                        }
 
                         if (entry.RunnerIndex >= 0 && entry.RunnerIndex < _systems.runners.Count)
                             _systems.runners[entry.RunnerIndex] = runner;
@@ -170,30 +158,66 @@ namespace Wargon.Nukecs
             }
         }
 
-        private static int ExtractQueryId(ISystemRunner runner)
+        private static IntPtr ExtractQueryFieldPtr(ISystemRunner runner)
         {
             var type = runner.GetType();
-
-            var queryIdField = type.GetField("_queryId", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (queryIdField != null)
-                return (int)queryIdField.GetValue(runner);
-
             var queryField = type.GetField("Query", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (queryField != null)
-            {
-                var queryValue = queryField.GetValue(runner);
-                if (queryValue != null)
-                {
-                    var idField = queryValue.GetType().GetField("id", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    if (idField != null)
-                        return (int)idField.GetValue(queryValue);
-                }
-            }
+            if (queryField == null) return IntPtr.Zero;
 
-            return -1;
+            var queryValue = queryField.GetValue(runner);
+            if (queryValue == null) return IntPtr.Zero;
+
+            var handle = GCHandle.Alloc(queryValue, GCHandleType.Pinned);
+            try
+            {
+                var structPtr = handle.AddrOfPinnedObject();
+                var cachedPtr = Marshal.ReadIntPtr(structPtr, 8);
+                return cachedPtr;
+            }
+            catch
+            {
+                return IntPtr.Zero;
+            }
+            finally
+            {
+                handle.Free();
+            }
         }
 
         private static readonly Dictionary<Type, string> SourceFileCache = new Dictionary<Type, string>();
+        private static Dictionary<string, MethodInfo> _runnerNameCache;
+
+        private static void EnsureRunnerNameCache()
+        {
+            if (_runnerNameCache != null) return;
+            _runnerNameCache = new Dictionary<string, MethodInfo>();
+
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    foreach (var type in asm.GetTypes())
+                    {
+                        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                        {
+                            if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
+                            {
+                                var key = $"{type.Name}_{method.Name}Job";
+                                if (!_runnerNameCache.ContainsKey(key))
+                                    _runnerNameCache[key] = method;
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private static MethodInfo FindSystemMethodByRunnerName(string runnerName)
+        {
+            EnsureRunnerNameCache();
+            return _runnerNameCache.TryGetValue(runnerName, out var method) ? method : null;
+        }
 
         private static string TryFindSourceFile(Type declaringType)
         {
@@ -203,6 +227,7 @@ namespace Wargon.Nukecs
                 return cached;
 
             var typeName = declaringType.Name;
+            var typeNamespace = declaringType.Namespace;
             var assetsPath = UnityEngine.Application.dataPath;
 
             var directMatch = TryFindFile(assetsPath, typeName + ".cs");
@@ -217,8 +242,9 @@ namespace Wargon.Nukecs
                 try
                 {
                     var content = File.ReadAllText(file);
-                    if (content.Contains($"class {typeName}") || content.Contains($"struct {typeName}") ||
-                        content.Contains($"static class {typeName}"))
+                    if ((content.Contains($"class {typeName}") || content.Contains($"struct {typeName}") ||
+                         content.Contains($"static class {typeName}")) &&
+                        (string.IsNullOrEmpty(typeNamespace) || content.Contains($"namespace {typeNamespace}")))
                     {
                         var fullPath = Path.GetFullPath(file);
                         SourceFileCache[declaringType] = fullPath;

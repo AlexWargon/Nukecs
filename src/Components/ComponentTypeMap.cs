@@ -253,7 +253,6 @@ namespace Wargon.Nukecs
             if (_capacity != data.Length)
             {
                 throw new Exception("Capacity mismatch in component metadata");
-                return;
             }
 
             fixed (ComponentTypeData* ptr = data)

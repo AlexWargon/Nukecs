@@ -57,7 +57,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     break;
                 case TabKey.Queries:
                     QueryInfo query;
-                    if (window.selectedQueryId != null && window.queryMap.TryGetValue(window.selectedQueryId, out query))
+                    if (window.queryMap.TryGetValue(window.selectedQueryId, out query))
                         DrawQueryInspector(panel, query, window);
                     else
                         DrawEmptyState(panel);

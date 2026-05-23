@@ -3,7 +3,7 @@ using UnityEngine;
 using Wargon.Nukecs.Transforms;
 using Transform = Wargon.Nukecs.Transforms.Transform;
 
-namespace Wargon.Nukecs.Demos.RotateCube
+namespace Wargon.Nukecs.Demos.HotReload
 {
     public class RotateCubeBootstrap : MonoBehaviour
     {
@@ -18,8 +18,8 @@ namespace Wargon.Nukecs.Demos.RotateCube
             world = World.Create(WorldConfig.Default256);
 
             hotReload = new HotReloadSystems(ref world);
-            hotReload.Systems.Add(CubeDemo.RotateCubeSystem, Threads.MainRun);
-            hotReload.Systems.Add(Wargon.Nukecs.Transforms.Systems.SyncSystem, Threads.Main);
+            hotReload.Systems.Add(CubeDemo.RotateCubeSystem, Threads.MainRun); 
+            //hotReload.Systems.Add(Wargon.Nukecs.Transforms.Systems.SyncSystem, Threads.Main);
             hotReload.StartTracking();
 
             CreateCube(ref world);
