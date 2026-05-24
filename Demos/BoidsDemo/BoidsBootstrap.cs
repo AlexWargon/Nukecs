@@ -1,4 +1,5 @@
 using UnityEngine;
+using Wargon.Nukecs.HotReload;
 
 namespace Wargon.Nukecs.Demos.Boids
 {

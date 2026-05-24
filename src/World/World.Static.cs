@@ -155,8 +155,6 @@ namespace Wargon.Nukecs
         }
         public static void DisposeStatic()
         {
-            if (domainAllocator.Data.IsActive)
-                domainAllocator.Data.Dispose();
             StaticObjectRefStorage.Clear();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
@@ -166,6 +164,8 @@ namespace Wargon.Nukecs
             lastWorldID = 0;
             worldCount = 0;
             SingletonRegistry.ResetAll();
+            if (domainAllocator.Data.IsActive)
+                domainAllocator.Data.Dispose();
             EntityPrefabMap.Dispose();
             ComponentTypeMap.Dispose();
             Component._initialized = false;

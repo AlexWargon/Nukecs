@@ -8,7 +8,7 @@ using UnityEngine;
 using Wargon.Nukecs.HotReload;
 #endif
 
-namespace Wargon.Nukecs
+namespace Wargon.Nukecs.HotReload
 {
     public class HotReloadSystems : IDisposable
     {
@@ -267,5 +267,15 @@ namespace Wargon.Nukecs
             return null;
         }
 #endif
+    }
+
+    public static class SystemsHotReloadExtensions
+    {
+        public static Systems AddHotReload(this Systems systems)
+        {
+            var hts = new HotReloadSystems(systems);
+            hts.StartTracking();
+            return systems;
+        }
     }
 }
