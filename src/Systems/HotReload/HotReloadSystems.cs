@@ -54,6 +54,7 @@ namespace Wargon.Nukecs.HotReload
             foreach (var entry in _entries)
                 HotReloadWatcher.StopWatching(entry.FilePath);
 #endif
+            dbug.log("[Hot Reload] Disposed");
         }
 
         public void StartTracking()
@@ -275,6 +276,10 @@ namespace Wargon.Nukecs.HotReload
         {
             var hts = new HotReloadSystems(systems);
             hts.StartTracking();
+            systems.onWorldDispose +=  (ref World _) =>
+            {
+                hts.Dispose();
+            };
             return systems;
         }
     }
