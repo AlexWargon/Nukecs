@@ -309,7 +309,10 @@ namespace Wargon.Nukecs.HotReload
                     var elemType = parameters[i].ParameterType.IsByRef
                         ? parameters[i].ParameterType.GetElementType()!
                         : parameters[i].ParameterType;
-                    if (elemType.Name.StartsWith("Query"))
+                    var checkType = elemType;
+                    while (checkType != null && !checkType.Name.StartsWith("Query"))
+                        checkType = checkType.DeclaringType;
+                    if (checkType != null)
                     {
                         queryParamIndex = i;
                         break;
@@ -603,13 +606,43 @@ namespace Wargon.Nukecs.HotReload
             if (!type.IsGenericType)
                 return (type.FullName ?? type.Name).Replace('+', '.');
 
-            var genericDef = type.GetGenericTypeDefinition().FullName.Replace('+', '.');
-            var backtickIdx = genericDef.IndexOf('`');
-            if (backtickIdx >= 0)
-                genericDef = genericDef.Substring(0, backtickIdx);
+            var openName = type.GetGenericTypeDefinition().FullName;
+            if (openName == null)
+                return type.Name;
 
-            var args = string.Join(", ", type.GetGenericArguments().Select(GetFullTypeName));
-            return $"{genericDef}<{args}>";
+            var parts = openName.Split('+');
+            var allArgs = type.GetGenericArguments();
+            var result = new StringBuilder();
+            var argOffset = 0;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (i > 0) result.Append('.');
+                var part = parts[i];
+                var btIdx = part.IndexOf('`');
+                if (btIdx >= 0)
+                {
+                    var arity = int.Parse(part.Substring(btIdx + 1));
+                    result.Append(part.Substring(0, btIdx));
+                    if (argOffset + arity <= allArgs.Length)
+                    {
+                        result.Append('<');
+                        for (int j = 0; j < arity; j++)
+                        {
+                            if (j > 0) result.Append(", ");
+                            result.Append(GetFullTypeName(allArgs[argOffset + j]));
+                        }
+                        result.Append('>');
+                        argOffset += arity;
+                    }
+                }
+                else
+                {
+                    result.Append(part);
+                }
+            }
+
+            return result.ToString();
         }
     }
 }
