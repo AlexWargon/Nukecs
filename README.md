@@ -723,16 +723,17 @@ Serialization captures the entire world state: all entities, components, queries
 ```csharp
 using Wargon.Nukecs.HotReload;
 
-private HotReloadSystems hotReload;
+private Systems systems;
 
 void Awake()
 {
     world = World.Create(WorldConfig.Default1024);
 
-    hotReload = new HotReloadSystems(ref world);
-    hotReload.Systems.Add(MySystem.Update, Threads.MainRun);
-    hotReload.Systems.Add(MySystem.Render, Threads.Main);
-    hotReload.StartTracking();
+    systems = new Systems(ref world);
+    systems
+        .Add(MySystem.Update, Threads.MainRun)
+        .Add(MySystem.Render, Threads.Main)
+        .AddHotReload();
 }
 
 void Update()
