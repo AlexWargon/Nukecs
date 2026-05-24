@@ -795,6 +795,5 @@ var world2 = World.Create(WorldConfig.Default1024);
 ## Editor Tools
 
 - **ECS Debug Window** — inspect entities, archetypes, and components at runtime
-- **ECS Dashboard** — cyberpunk-styled visual debugger with entity tables and archetype panels
 - **Allocator Debugger** — monitor custom allocator memory usage
 - **Memory Profiler** — track memory allocation patterns
