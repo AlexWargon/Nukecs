@@ -738,12 +738,12 @@ void Awake()
 
 void Update()
 {
-    hotReload.OnUpdate(Time.deltaTime, Time.time);
+    systems.OnUpdate(Time.deltaTime, Time.time);
 }
 
 void OnDestroy()
 {
-    hotReload?.Dispose();
+    world.Dispose();
 }
 ```
 
