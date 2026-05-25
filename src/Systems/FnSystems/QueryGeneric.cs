@@ -23,12 +23,12 @@ namespace Wargon.Nukecs {
         //     var range = query.Range;
         //     return false;
         // }
-        [BurstCompile(CompileSynchronously = true)][MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static TQueryEnumerator GetEnumerator<TQueryEnumerator>(this TQueryEnumerator query)
-            where TQueryEnumerator :  struct, IQuery
-        {
-            return query;
-        }
+        // [BurstCompile(CompileSynchronously = true)][MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // public static TQueryEnumerator GetEnumerator<TQueryEnumerator>(this TQueryEnumerator query)
+        //     where TQueryEnumerator :  struct, IQuery
+        // {
+        //     return query;
+        // }
     }
 
     public enum SystemParamMetaType : byte

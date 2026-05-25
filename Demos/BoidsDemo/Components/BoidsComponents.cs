@@ -11,6 +11,11 @@ namespace Wargon.Nukecs.Demos.Boids
         public float3 Value;
     }
 
+    public struct BoidForce : IComponent
+    {
+        public float3 Value;
+    }
+
     public struct BoidCount : IRes
     {
         public int Value;

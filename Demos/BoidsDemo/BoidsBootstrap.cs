@@ -9,7 +9,7 @@ namespace Wargon.Nukecs.Demos.Boids
         [SerializeField] Mesh boidMesh;
         [SerializeField] Material boidMaterial;
 
-        private HotReloadSystems hotReload;
+        private Systems systems;
         private World world;
         private BoidRenderData renderData;
 
@@ -27,22 +27,22 @@ namespace Wargon.Nukecs.Demos.Boids
                 Mesh = boidMesh,
                 Material = boidMaterial
             });
-            hotReload = new HotReloadSystems(ref world);
-            hotReload.Systems.Add(BoidsDemo.SpawnBoids, Threads.MainRun);
-            hotReload.Systems.Add(BoidsDemo.BoidsUpdate, Threads.MainRun);
-            hotReload.Systems.Add(BoidsDemo.DrawBoids, Threads.Main);
-            hotReload.StartTracking();
+            systems = new Systems(ref world);
+            systems.Add(BoidsDemo.SpawnBoids, Threads.MainRun);
+            systems.Add(BoidsDemo.BoidsCalculateForces, Threads.MainRun);
+            systems.Add(BoidsDemo.BoidsApplyMovement, Threads.Parallel);
+            systems.Add(BoidsDemo.DrawBoids, Threads.Main);
+            systems.AddHotReload();
         }
 
         private void Update()
         {
-            if (hotReload != null)
-                hotReload.OnUpdate(Time.deltaTime, Time.time);
+            if (systems != null)
+                systems.OnUpdate(Time.deltaTime, Time.time);
         }
 
         private void OnDestroy()
         {
-            hotReload?.Dispose();
             renderData.Dispose();
             if (world.IsAlive) world.Dispose();
         }

@@ -31,6 +31,7 @@ namespace Wargon.Nukecs
         private struct KeyDomainAllocator {}
         private struct KeyWorldsList {}
         private struct DummyWorld { }
+        
         private static readonly SharedStatic<World> dummyWorld = SharedStatic<World>.GetOrCreate<DummyWorld>();
         internal static readonly SharedStatic<MemAllocator> domainAllocator = SharedStatic<MemAllocator>.GetOrCreate<KeyDomainAllocator>();
         internal static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
@@ -134,7 +135,7 @@ namespace Wargon.Nukecs
             worlds.Data[id] = world;
             world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
             world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
-            //Debug.Log($"Created World {id}");
+            Debug.Log($"[☢️NUKECS] Created World {id}");
             worldCount++;
             return world;
         }

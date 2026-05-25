@@ -6,6 +6,59 @@ using Wargon.Nukecs.Collections;
 namespace Wargon.Nukecs
 {
     [StructLayout(LayoutKind.Sequential)]
+    public unsafe ref struct QueryIterT1<T1>
+        where T1 : unmanaged
+    {
+        [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
+        private readonly int _archesLen;
+        [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
+        private int _archIndex;
+        private int _remaining;
+        [NativeDisableUnsafePtrRestriction] private T1* _data;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIterT1(in MemoryList<int> arches, World.WorldUnsafe* world)
+        {
+            _arches = arches.Ptr;
+            _archesLen = arches.Length;
+            _world = world;
+            _archIndex = -1;
+            _remaining = 0;
+            _data = null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIterT1<T1> GetEnumerator() => this;
+
+        public ref T1 Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => ref *_data;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            if (_remaining > 0)
+            {
+                _remaining--;
+                _data++;
+                return true;
+            }
+
+            while (++_archIndex < _archesLen)
+            {
+                ref var arch = ref _world->archetypesList.Ptr[_arches[_archIndex]].Ref;
+                var count = arch.count;
+                if (count <= 0) continue;
+                _data = (T1*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                _remaining = count - 1;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe ref struct QueryIter<TTuple>
         where TTuple : unmanaged, IComponentTuple
     {

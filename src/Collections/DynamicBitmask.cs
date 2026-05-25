@@ -12,7 +12,7 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct DynamicBitmask
     {
-        private const int BitsPerUlong = 64;
+        private const int BITS_PER_ULONG = 64;
         private ptr<ulong> bitmaskArray;
         private int maxBits;
         private int arraySize;
@@ -38,7 +38,7 @@ namespace Wargon.Nukecs
                     $"maxBits in {nameof(DynamicBitmask)} must be greater than zero.");
 
             this.maxBits = maxBits;
-            arraySize = (maxBits + BitsPerUlong - 1) / BitsPerUlong; // Calculate the number of ulong elements needed
+            arraySize = (maxBits + BITS_PER_ULONG - 1) / BITS_PER_ULONG; // Calculate the number of ulong elements needed
             bitmaskArray = world->_allocate_ptr<ulong>(arraySize);
             Count = 0;
 
@@ -66,8 +66,8 @@ namespace Wargon.Nukecs
                 throw new ArgumentOutOfRangeException(nameof(position),
                     $"{nameof(DynamicBitmask)}: Position must be between 0 and {maxBits - 1}.");
 
-            var index = position / BitsPerUlong;
-            var bitPosition = position % BitsPerUlong;
+            var index = position / BITS_PER_ULONG;
+            var bitPosition = position % BITS_PER_ULONG;
 
             if (!Has(position))
             {
@@ -77,15 +77,15 @@ namespace Wargon.Nukecs
         }
 
         // Method to check if an element is present (a specific bit is set)
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int position)
         {
             if (position < 0 || position >= maxBits)
                 throw new ArgumentOutOfRangeException(nameof(position),
                     $"{nameof(DynamicBitmask)}: {nameof(position)} must be between 0 and {maxBits - 1}. Position = {position}");
 
-            var index = position / BitsPerUlong;
-            var bitPosition = position % BitsPerUlong;
+            var index = position / BITS_PER_ULONG;
+            var bitPosition = position % BITS_PER_ULONG;
 
             return (bitmaskArray.Ptr[index] & (1UL << bitPosition)) != 0;
         }
@@ -111,8 +111,8 @@ namespace Wargon.Nukecs
             if (position < 0 || position >= maxBits)
                 throw new ArgumentOutOfRangeException(nameof(position),
                     $"{nameof(DynamicBitmask)}: {nameof(position)} must be between 0 and {maxBits - 1}. ");
-            var index = position / BitsPerUlong;
-            var bitPosition = position % BitsPerUlong;
+            var index = position / BITS_PER_ULONG;
+            var bitPosition = position % BITS_PER_ULONG;
 
             if (Has(position))
             {
@@ -135,8 +135,8 @@ namespace Wargon.Nukecs
             output.Clear();
             for (var bitPos = 0; bitPos < maxBits; bitPos++)
             {
-                var idx = bitPos / BitsPerUlong;
-                var shift = bitPos % BitsPerUlong;
+                var idx = bitPos / BITS_PER_ULONG;
+                var shift = bitPos % BITS_PER_ULONG;
                 if ((bitmaskArray.Ptr[idx] & (1UL << shift)) != 0)
                     output.Add(bitPos, ref allocator);
             }
@@ -196,7 +196,7 @@ namespace Wargon.Nukecs
         {
             var sb = new StringBuilder();
             for (var i = arraySize - 1; i >= 0; i--)
-                sb.Append(Convert.ToString((long)bitmaskArray.Ptr[i], 2).PadLeft(BitsPerUlong, '0'));
+                sb.Append(Convert.ToString((long)bitmaskArray.Ptr[i], 2).PadLeft(BITS_PER_ULONG, '0'));
 
             return sb.ToString();
         }

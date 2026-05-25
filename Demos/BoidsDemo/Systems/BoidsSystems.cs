@@ -1,6 +1,7 @@
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Wargon.Nukecs.Transforms;
 using Random = Unity.Mathematics.Random;
 
@@ -13,7 +14,7 @@ namespace Wargon.Nukecs.Demos.Boids
         {
             int count = boidCount.Ref.Value;
             if (state.World.EntitiesAmount > 0) return;
-            
+
             const float spawnRadius = 8f;
             const float boidScale = 0.2f;
             var entities = state.World.BatchCreateEntity(count);
@@ -37,48 +38,38 @@ namespace Wargon.Nukecs.Demos.Boids
                 {
                     Value = rng.NextFloat3Direction() * rng.NextFloat(1f, 3f)
                 });
+                e.Add<BoidForce>();
                 e.Add<BoidTag>();
             }
         }
 
         [System, BurstCompile]
-        public static unsafe void BoidsUpdate(
-            ref Query<LocalTransform, Velocity, BoidTag> query,
-            ref State state,
-            ref Res<BoidRenderData> renderData)
+        public static unsafe void BoidsCalculateForces(
+            ref Query<LocalTransform, Velocity, BoidForce, BoidTag> query,
+            ref State state)
         {
             const float separationWeight = 1.5f;
             const float alignmentWeight  = 1.0f;
             const float cohesionWeight   = 1.0f;
             const float perceptionRadius = 3.0f;
-            const float maxSpeed         = 5.0f;
-            const float minSpeed         = 1.0f;
             const float steeringForce    = 12.0f;
-            const float boundsRadius     = 4.0f;
 
             var count = query.Count;
             if (count == 0) return;
 
-            var dt = state.Time.DeltaTime;
             var perceptionSq = perceptionRadius * perceptionRadius;
-            
             var positions  = stackalloc float3[count];
             var velocities = stackalloc float3[count];
-            var posPtrs    = stackalloc LocalTransform*[count];
-            var velPtrs    = stackalloc Velocity*[count];
+            var forcePtrs  = stackalloc BoidForce*[count];
 
             int idx = 0;
-            foreach (var (t, v) in query.iter_unsafe())
+            foreach (var (t, v, f) in query.iter_unsafe())
             {
                 positions[idx]  = t->Position;
                 velocities[idx] = v->Value;
-                posPtrs[idx]    = t;
-                velPtrs[idx]    = v;
+                forcePtrs[idx]  = f;
                 idx++;
             }
-
-            var matrices = renderData.Ref.Matrices;
-            int matrixIdx = 0;
 
             for (int i = 0; i < count; i++)
             {
@@ -108,54 +99,72 @@ namespace Wargon.Nukecs.Demos.Boids
                     coh = (coh / neighbors) - positions[i];
                 }
 
-                var force = (sep * separationWeight
-                           + ali * alignmentWeight
-                           + coh * cohesionWeight) * steeringForce;
-
-                var vel = velPtrs[i];
-                var pos = posPtrs[i];
-                vel->Value += force * dt;
-
-                if (math.length(pos->Position) > boundsRadius)
-                    vel->Value -= pos->Position * (dt * 2f);
-
-                var speed = math.length(vel->Value);
-                if (speed > maxSpeed)
-                    vel->Value = vel->Value / speed * maxSpeed;
-                else if (speed < minSpeed && speed > 0.001f)
-                    vel->Value = vel->Value / speed * minSpeed;
-
-                pos->Position += vel->Value * dt;
-
-                if (speed > 0.1f)
-                    pos->Rotation = quaternion.LookRotation(
-                        vel->Value / speed, math.up());
-
-                if (matrices.IsCreated && matrixIdx < matrices.Length)
-                    matrices[matrixIdx] = pos->Matrix;
-                matrixIdx++;
+                forcePtrs[i]->Value = (sep * separationWeight
+                                     + ali * alignmentWeight
+                                     + coh * cohesionWeight) * steeringForce;
             }
+        }
 
-            renderData.Ref.count = matrixIdx;
+        [System, BurstCompile]
+        public static unsafe void BoidsApplyMovement(
+            ref Query<LocalTransform, Velocity, BoidForce, BoidTag> query,
+            ref State state)
+        {
+            const float maxSpeed     = 5.0f;
+            const float minSpeed     = 1.0f;
+            const float boundsRadius = 4.0f;
+            var dt = state.Time.DeltaTime;
+            
+            foreach (var (t, v, f) in query.par_iter_unsafe())
+            {
+                v->Value += f->Value * dt;
+
+                if (math.length(t->Position) > boundsRadius)
+                    v->Value -= t->Position * (dt * 2f);
+
+                var speed = math.length(v->Value);
+                if (speed > maxSpeed)
+                    v->Value = v->Value / speed * maxSpeed;
+                else if (speed < minSpeed && speed > 0.001f)
+                    v->Value = v->Value / speed * minSpeed;
+
+                t->Position += v->Value * dt;
+
+                speed = math.length(v->Value);
+                if (speed > 0.1f)
+                    t->Rotation = quaternion.LookRotation(
+                        v->Value / speed, math.up());
+            }
         }
 
         [System]
-        public static unsafe void DrawBoids( 
+        public static unsafe void DrawBoids(
+            ref Query<LocalTransform, BoidTag> query,
             ref Res<BoidRenderData> renderData,
             ref ResManaged<MeshData> meshData)
         {
             var rd = renderData.Ref;
 
             if (!rd.Matrices.IsCreated || meshData.Val.Mesh == null || meshData.Val.Material == null) return;
-            
-            var count = rd.count;
-            const int batchMax = 1023;
-            for (int batch = 0; batch < count; batch += batchMax)
+
+            var matrices = rd.Matrices;
+            int idx = 0;
+            foreach (var (t, _) in query.iter_unsafe())
             {
-                var thisBatch = math.min(batchMax, count - batch);
+                if (idx < matrices.Length)
+                    matrices[idx] = t->Matrix;
+                idx++;
+            }
+            rd.count = idx;
+
+            const int batchMax = 1023;
+            var param = new RenderParams(meshData.Val.Material);
+            param.shadowCastingMode = ShadowCastingMode.On;
+            for (int batch = 0; batch < rd.count; batch += batchMax)
+            {
+                var thisBatch = math.min(batchMax, rd.count - batch);
                 var slice = rd.Matrices.GetSubArray(batch, thisBatch);
-                Graphics.RenderMeshInstanced(
-                    new RenderParams(meshData.Val.Material), meshData.Val.Mesh, 0, slice);
+                Graphics.RenderMeshInstanced(param, meshData.Val.Mesh, 0, slice);
             }
 
             rd.count = 0;

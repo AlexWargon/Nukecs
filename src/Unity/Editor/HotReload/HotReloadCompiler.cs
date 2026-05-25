@@ -146,8 +146,7 @@ namespace Wargon.Nukecs.HotReload
                 try
                 {
                     byte[] dllBytes = null;
-                    string compilerUsed = "roslyn";
-                    long compileMs;
+                    var compilerUsed = "roslyn";
 
                     if (roslynAvailable)
                     {
@@ -155,7 +154,7 @@ namespace Wargon.Nukecs.HotReload
                         dllBytes = HotReloadRoslynCompiler.Compile(wrapperSource, sourceCode, $"HotReload_{count}");
                     }
 
-                    compileMs = sw.ElapsedMilliseconds;
+                    var compileMs = sw.ElapsedMilliseconds;
 
                     if (dllBytes == null)
                     {
@@ -219,18 +218,21 @@ namespace Wargon.Nukecs.HotReload
                 {
                     foreach (var type in asm.GetTypes())
                     {
-                        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic |
+                                                               BindingFlags.Static))
                         {
                             if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
                             {
                                 var key = $"{type.Name}.{method.Name}";
-                                if (!_systemMethodCache.ContainsKey(key))
-                                    _systemMethodCache[key] = method;
+                                _systemMethodCache.TryAdd(key, method);
                             }
                         }
                     }
                 }
-                catch { }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
         }
 
@@ -244,7 +246,7 @@ namespace Wargon.Nukecs.HotReload
             foreach (var kv in _systemMethodCache)
             {
                 var method = kv.Value;
-                if (sourceCode.Contains(method.Name) && sourceCode.Contains(method.DeclaringType.Name) && seen.Add(kv.Key))
+                if (sourceCode.Contains(method.Name) && sourceCode.Contains(method.DeclaringType!.Name) && seen.Add(kv.Key))
                     methods.Add(method);
             }
 
@@ -500,7 +502,10 @@ namespace Wargon.Nukecs.HotReload
                     if (!asm.IsDynamic && !string.IsNullOrEmpty(asm.Location))
                         refs.Add(asm.Location);
                 }
-                catch { }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
             }
 
             _cachedReferences = refs.ToList();
@@ -540,34 +545,11 @@ namespace Wargon.Nukecs.HotReload
             };
 
             using var process = Process.Start(psi);
-            var stderrTask = process.StandardError.ReadToEndAsync();
+            var stderrTask = process!.StandardError.ReadToEndAsync();
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             process.WaitForExit(30000);
 
             return (process.ExitCode, stderrTask.Result, stdoutTask.Result);
-        }
-
-        private static (int exitCode, string stderr) RunProcess(string exe, string args)
-        {
-            var psi = new ProcessStartInfo
-            {
-                FileName = exe,
-                Arguments = args,
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true
-            };
-
-            using var process = Process.Start(psi);
-            var stderr = process.StandardError.ReadToEnd();
-            var stdout = process.StandardOutput.ReadToEnd();
-            process.WaitForExit(30000);
-
-            if (!string.IsNullOrEmpty(stdout))
-                Debug.Log($"[HotReload] csc output:\n{stdout}");
-
-            return (process.ExitCode, stderr);
         }
 
         private static Func<IntPtr, Threads, IntPtr, ISystemRunner>[] CreateFactories(Assembly assembly, MethodInfo[] methods, int compileCount)
@@ -615,7 +597,7 @@ namespace Wargon.Nukecs.HotReload
             var result = new StringBuilder();
             var argOffset = 0;
 
-            for (int i = 0; i < parts.Length; i++)
+            for (var i = 0; i < parts.Length; i++)
             {
                 if (i > 0) result.Append('.');
                 var part = parts[i];

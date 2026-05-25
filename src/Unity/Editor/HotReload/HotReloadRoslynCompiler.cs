@@ -25,8 +25,8 @@ namespace Wargon.Nukecs.HotReload
         private static string _runtimeDir;
         private static Task<string> _stderrTask;
 
-        private const int ServerTimeoutMs = 15000;
-        private const int ServerCompileTimeoutMs = 60000;
+        private const int SERVER_TIMEOUT_MS = 15000;
+        private const int SERVER_COMPILE_TIMEOUT_MS = 60000;
 
         public static bool IsAvailable
         {
@@ -168,28 +168,28 @@ namespace Wargon.Nukecs.HotReload
         private static string ReadStringTimed()
         {
             var task = Task.Run(() => _reader.ReadString());
-            if (task.Wait(ServerTimeoutMs))
+            if (task.Wait(SERVER_TIMEOUT_MS))
                 return task.Result;
             RestartServer();
-            throw new TimeoutException($"Server read timeout ({ServerTimeoutMs}ms)");
+            throw new TimeoutException($"Server read timeout ({SERVER_TIMEOUT_MS}ms)");
         }
 
         private static int ReadInt32Timed()
         {
             var task = Task.Run(() => _reader.ReadInt32());
-            if (task.Wait(ServerTimeoutMs))
+            if (task.Wait(SERVER_TIMEOUT_MS))
                 return task.Result;
             RestartServer();
-            throw new TimeoutException($"Server read timeout ({ServerTimeoutMs}ms)");
+            throw new TimeoutException($"Server read timeout ({SERVER_TIMEOUT_MS}ms)");
         }
 
         private static byte[] ReadBytesTimed(int count)
         {
             var task = Task.Run(() => _reader.ReadBytes(count));
-            if (task.Wait(ServerTimeoutMs))
+            if (task.Wait(SERVER_TIMEOUT_MS))
                 return task.Result;
             RestartServer();
-            throw new TimeoutException($"Server read timeout ({ServerTimeoutMs}ms)");
+            throw new TimeoutException($"Server read timeout ({SERVER_TIMEOUT_MS}ms)");
         }
 
         private static bool EnsureServerReady()
@@ -254,7 +254,7 @@ namespace Wargon.Nukecs.HotReload
              try
              {
                  var readyTask = Task.Run(() => _reader.ReadString());
-                 if (!readyTask.Wait(ServerTimeoutMs))
+                 if (!readyTask.Wait(SERVER_TIMEOUT_MS))
                  {
                      LogHandshakeFailure("READY timeout");
                      return;
@@ -378,11 +378,11 @@ namespace Wargon.Nukecs.HotReload
             var stderrTask = process.StandardError.ReadToEndAsync();
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
 
-            var exited = process.WaitForExit(ServerCompileTimeoutMs);
+            var exited = process.WaitForExit(SERVER_COMPILE_TIMEOUT_MS);
             if (!exited)
             {
                 try { process.Kill(); } catch { }
-                Debug.LogWarning($"[HotReload-Roslyn] Server compilation timed out ({ServerCompileTimeoutMs}ms)");
+                Debug.LogWarning($"[HotReload-Roslyn] Server compilation timed out ({SERVER_COMPILE_TIMEOUT_MS}ms)");
                 return false;
             }
 

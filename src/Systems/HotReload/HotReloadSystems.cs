@@ -54,7 +54,7 @@ namespace Wargon.Nukecs.HotReload
             foreach (var entry in _entries)
                 HotReloadWatcher.StopWatching(entry.FilePath);
 #endif
-            dbug.log("[Hot Reload] Disposed");
+            dbug.log("[HotReload] Disposed");
         }
 
         public void StartTracking()
