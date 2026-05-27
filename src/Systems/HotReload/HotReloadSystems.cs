@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 #if UNITY_EDITOR
 using UnityEngine;
 using Wargon.Nukecs.HotReload;
@@ -115,9 +114,11 @@ namespace Wargon.Nukecs.HotReload
             }
         }
 
-        private unsafe void OnSystemsCompiled(string filePath, MethodInfo[] methods, Func<IntPtr, Threads, IntPtr, ISystemRunner>[] factories)
+        private unsafe void OnSystemsCompiled(string filePath, MethodInfo[] methods, Func<IntPtr, Threads, ISystemRunner>[] factories)
         {
             if (_systems == null) return;
+
+            var matchedMethods = new HashSet<int>();
 
             for (int i = 0; i < _entries.Count; i++)
             {
@@ -129,18 +130,11 @@ namespace Wargon.Nukecs.HotReload
                     if (methods[j].Name == entry.MethodName &&
                         methods[j].DeclaringType?.Name == entry.DeclaringTypeName)
                     {
-                        IntPtr existingQueryPtr = IntPtr.Zero;
-                        if (entry.RunnerIndex >= 0 && entry.RunnerIndex < _systems.runners.Count)
-                        {
-                            var oldRunner = _systems.runners[entry.RunnerIndex];
-                            existingQueryPtr = ExtractQueryFieldPtr(oldRunner);
-                        }
-
                         var worldPtr = _systems.World.UnsafeWorld;
                         ISystemRunner runner;
                         try
                         {
-                            runner = factories[j]((IntPtr)worldPtr, Threads.Main, existingQueryPtr);
+                            runner = factories[j]((IntPtr)worldPtr, entry.ThreadMode);
                         }
                         catch (Exception ex)
                         {
@@ -153,35 +147,43 @@ namespace Wargon.Nukecs.HotReload
                         else
                             _systems.runners.Add(runner);
 
+                        matchedMethods.Add(j);
                         break;
                     }
                 }
             }
-        }
 
-        private static IntPtr ExtractQueryFieldPtr(ISystemRunner runner)
-        {
-            var type = runner.GetType();
-            var queryField = type.GetField("Query", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-            if (queryField == null) return IntPtr.Zero;
+            for (int j = 0; j < methods.Length; j++)
+            {
+                if (matchedMethods.Contains(j)) continue;
 
-            var queryValue = queryField.GetValue(runner);
-            if (queryValue == null) return IntPtr.Zero;
+                var method = methods[j];
+                var worldPtr = _systems.World.UnsafeWorld;
+                ISystemRunner runner;
+                try
+                {
+                    runner = factories[j]((IntPtr)worldPtr, Threads.Main);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[HotReload] Factory failed for new system {method.Name}: {ex}");
+                    continue;
+                }
 
-            var handle = GCHandle.Alloc(queryValue, GCHandleType.Pinned);
-            try
-            {
-                var structPtr = handle.AddrOfPinnedObject();
-                var cachedPtr = Marshal.ReadIntPtr(structPtr, 8);
-                return cachedPtr;
-            }
-            catch
-            {
-                return IntPtr.Zero;
-            }
-            finally
-            {
-                handle.Free();
+                var runnerIndex = _systems.runners.Count;
+                _systems.runners.Add(runner);
+
+                var declaringType = method.DeclaringType;
+                _entries.Add(new SystemEntry
+                {
+                    FilePath = filePath,
+                    MethodName = method.Name,
+                    DeclaringTypeName = declaringType?.Name ?? "",
+                    ThreadMode = Threads.Main,
+                    RunnerIndex = runnerIndex
+                });
+
+                Debug.Log($"[HotReload] Added new system: {method.Name}");
             }
         }
 

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 using Wargon.Nukecs.Collections;
 using static Wargon.Nukecs.UnsafeStatic;
 
@@ -684,7 +685,39 @@ namespace Wargon.Nukecs
             queries.Clear();
             PopulateQueries(world);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void CheckQuery(in ptr<QueryUnsafe> query)
+        {
+            if(index == 0) return;
+            
+            ref var q = ref query.Ref;
+            var matches = 0;
+            var hasNone = false;
+            foreach (var type in types)
+            {
+                if (q.HasNone(type))
+                {
+                    hasNone = true;
+                    break;
+                }
+            }
 
+            if (hasNone) return;
+            foreach (var type in types)
+            {
+                if (q.HasWith(type))
+                {
+                    matches++;
+                    if (matches == q.with.Count)
+                    {
+                        q.AddArchetype(index);
+                        queries.Add(q.Id, ref world->AllocatorRef);
+                        q.BatchAdd(packedEntities.Ptr, count);
+                        break;
+                    }
+                }
+            }
+        }
         internal void PopulateQueries(World.WorldUnsafe* worldPtr)
         {
             if(index == 0) return;
@@ -713,8 +746,6 @@ namespace Wargon.Nukecs
                         {
                             q.Ref.AddArchetype(index);
                             queries.Add(q.Ptr->Id, ref worldPtr->AllocatorRef);
-                            // q.Ptr->matchingArchetypes.Add(index, ref world->AllocatorRef);
-                            // q.Ptr->matchingArchetypesCount++;
                             break;
                         }
                     }

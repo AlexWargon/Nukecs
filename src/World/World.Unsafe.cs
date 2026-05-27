@@ -732,7 +732,7 @@ namespace Wargon.Nukecs
                     case SystemParamMetaType.Query:
                     {
                         int hash = paramDefault.GetHashCode();
-                        if (queriesHashToIndex.TryGetValue(hash, out int queryIndex))
+                        if (queriesHashToIndex.TryGetValue(hash, out var queryIndex))
                         {
                             param = AllocatorRef.AllocatePtr<TParam0>();
                             param.Ref = paramDefault;

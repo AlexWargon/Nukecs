@@ -49,6 +49,10 @@ namespace Wargon.Nukecs
             _query = world.Ref.CreateQueryPtr();
             _query.Ref.With(ComponentType<T1>.Index);
             id = _query.Ref.Id;
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         public void FixPointers(ref MemAllocator allocator)
@@ -119,7 +123,7 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
-
+            internal int id;
             public override int GetHashCode()
             {
                 unchecked { return typeof(T1).GetHashCode(); }
@@ -138,6 +142,11 @@ namespace Wargon.Nukecs
             {
                 _query = world.Ref.CreateQueryPtr();
                 _query.Ref.With(ComponentType<T1>.Index);
+                id = _query.Ref.Id;
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
+                }
             }
 
             public void FixPointers(ref MemAllocator allocator)
@@ -282,6 +291,10 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -398,6 +411,10 @@ namespace Wargon.Nukecs
                                 f.Setup(_query.Ptr);
                         break;
                 }
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
+                }
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -506,41 +523,34 @@ namespace Wargon.Nukecs
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
-
         {
             _query = world.Ref.CreateQueryPtr();
             id = _query.Ref.Id;
             _query.Ref.With(ComponentType<T1>.Index);
-
             _query.Ref.With(ComponentType<T2>.Index);
-
             TOption option = default;
 
             switch (option)
-
             {
                 case IComponent _:
-
                     _query.Ref.With(ComponentType<TOption>.Index);
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
                     break;
 
                 case IFilter filter:
-
                     filter.Setup(_query.Ptr);
-
                     break;
 
                 case ITuple tuple:
-
                     for (var i = 0; i < tuple.Length; i++)
-
                         if (tuple[i] is IFilter f)
                             f.Setup(_query.Ptr);
-
                     break;
+            }
+            
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
             }
         }
 
@@ -656,6 +666,11 @@ namespace Wargon.Nukecs
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
                         break;
+                }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
                 }
             }
 
@@ -791,6 +806,11 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+                        
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -917,6 +937,11 @@ namespace Wargon.Nukecs
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
                         break;
+                }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
                 }
             }
 
@@ -1053,6 +1078,11 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+                        
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1177,6 +1207,11 @@ namespace Wargon.Nukecs
                                 f.Setup(_query.Ptr);
                         break;
                 }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
+                }
             }
 
             public void FixPointers(ref MemAllocator allocator)
@@ -1291,6 +1326,11 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+                        
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1383,6 +1423,11 @@ namespace Wargon.Nukecs
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
                         break;
+                }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
                 }
             }
 
@@ -1494,6 +1539,11 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+                        
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1588,6 +1638,11 @@ namespace Wargon.Nukecs
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
                         break;
+                }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
                 }
             }
 
@@ -1703,6 +1758,11 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+                        
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1800,6 +1860,11 @@ namespace Wargon.Nukecs
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
                         break;
+                }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
                 }
             }
 
@@ -1918,6 +1983,11 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
+                        
+            foreach (var ptr in world.Ref.archetypesList)
+            {
+                ptr.Ref.CheckQuery(in _query);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2017,6 +2087,11 @@ namespace Wargon.Nukecs
                             if (tuple[i] is IFilter f)
                                 f.Setup(_query.Ptr);
                         break;
+                }
+                            
+                foreach (var ptr in world.Ref.archetypesList)
+                {
+                    ptr.Ref.CheckQuery(in _query);
                 }
             }
 
