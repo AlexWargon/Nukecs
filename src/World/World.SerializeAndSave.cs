@@ -119,7 +119,7 @@ namespace Wargon.Nukecs {
             if (!File.Exists(path)) Debug.LogError($"File not found: {path}");
             await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
             var data = new byte[fs.Length];
-            await fs.ReadAsync(data, 0, data.Length);
+            _ = await fs.ReadAsync(data, 0, data.Length);
             var decompressed = await DecompressAsync(data);
 
             // Synchronous deserialization — FastDeserialize modifies the local copy correctly
@@ -142,7 +142,6 @@ namespace Wargon.Nukecs {
 
                 await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 var data = new byte[fs.Length];
-
                 _ = await fs.ReadAsync(data, 0, data.Length);
                 var w = world.unsafeWorldPtr;
                 var allocatorHandler = w.Ref.AllocatorHandler;
@@ -217,7 +216,7 @@ namespace Wargon.Nukecs {
             }
         }
 
-        public unsafe void Load(string filePath) {
+        public void Load(string filePath) {
             if (!File.Exists(filePath)) Debug.LogError($"File not found: {filePath}");
             var id = Id;
             CompleteAllJobs(id);

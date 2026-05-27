@@ -78,6 +78,8 @@ namespace Wargon.Nukecs
             query = default;
             return false;
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
         
         public static implicit operator TRes(in Res<TRes> res)
         {
@@ -110,6 +112,8 @@ namespace Wargon.Nukecs
             query = default;
             return false;
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
 
 
     }

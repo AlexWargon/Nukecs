@@ -35,6 +35,8 @@ namespace Wargon.Nukecs
             throw new NotImplementedException();
 
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 
     public unsafe struct MutRes<TRes> : ISystemParam where TRes : unmanaged
@@ -77,6 +79,8 @@ namespace Wargon.Nukecs
         {
             throw new NotImplementedException();
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 
     internal interface IResourceCreate
@@ -132,5 +136,7 @@ namespace Wargon.Nukecs
             query = default;
             return false;
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 }

@@ -11,36 +11,40 @@ namespace Wargon.Nukecs
 {
     public unsafe struct Archetype
     {
-        internal ArchetypeUnsafe* impl => ptr.Ptr;
         internal ptr<ArchetypeUnsafe> ptr;
-        public bool IsCreated => impl != null;
+        internal ArchetypeUnsafe* Unsafe
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] 
+            get => ptr.Ptr;
+        }
+        public bool IsCreated => Unsafe != null;
         internal bool Has<T>() where T : unmanaged
         {
-            return impl->Has(ComponentType<T>.Index);
+            return Unsafe->Has(ComponentType<T>.Index);
         }
-
-        public Span<Entity> BatchCreateEntity(int count)
-        {
-            return ptr.Ref.BatchCreateEntity(count);
-        }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref Entity CreateEntity()
         {
-            return ref ptr.Ref.CreateEntity();
+            return ref Unsafe->CreateEntity();
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<Entity> BatchCreateEntity(int count)
+        {
+            return Unsafe->BatchCreateEntity(count);
         }
         public void Dispose()
         {
             //ArchetypeUnsafe.Destroy(impl);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetArchetype(in Entity entity)
         {
-            ptr.Ref.SetArchetype(entity);
+            Unsafe->SetArchetype(entity);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IComponent GetObject(in Entity entity, Type type)
         {
-            return ptr.Ref.GetObject(entity.id, ComponentTypeMap.GetComponentType(type).index);
+            return Unsafe->GetObject(entity.id, ComponentTypeMap.GetComponentType(type).index);
         }
     }
     [StructLayout(LayoutKind.Sequential)]
@@ -52,7 +56,7 @@ namespace Wargon.Nukecs
     [BurstCompile(CompileSynchronously = true)]
     public unsafe struct ArchetypeUnsafe
     {
-        private Spinner spinner;
+        private Spinner _spinner;
         public ptr<byte> data;
         internal DynamicBitmask mask;
         internal MemoryList<int> types;
@@ -62,7 +66,8 @@ namespace Wargon.Nukecs
         public MemoryArray<int> componentOffsets;
         internal BitMap1024<int> offsetMap;
         internal Edge destroyEdge;
-        [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
+        [NativeDisableUnsafePtrRestriction] 
+        internal World.WorldUnsafe* world;
         internal int hashId;
         internal int index;
         public int count;
@@ -100,19 +105,19 @@ namespace Wargon.Nukecs
             source.MoveEntityTo(loc.row, ref this);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal ref T GetComponent<T>(int entity, int size, int index) where T : unmanaged, IComponent
+        internal ref T GetComponent<T>(int entity, int size, int componentIndex) where T : unmanaged, IComponent
         {
-            var off = offsetMap.GetRef(index);
+            var off = offsetMap.GetRef(componentIndex);
             ref var loc = ref world->entityLocations.Ptr[entity];
             return ref *(T*)(data.Ptr + off + loc.row * size);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref T GetComponent<T>(int entity) where T : unmanaged, IComponent
         {
-            ref var d = ref ComponentType<T>.Data;
-            var off = offsetMap.GetRef(d.index);
+            ref var componentTypeData = ref ComponentType<T>.Data;
+            var off = offsetMap.GetRef(componentTypeData.index);
             ref var loc = ref world->entityLocations.Ptr[entity];
-            return ref *(T*)(data.Ptr + off + loc.row * d.size);
+            return ref *(T*)(data.Ptr + off + loc.row * componentTypeData.size);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref Entity GetEntity(int idx)
@@ -268,7 +273,7 @@ namespace Wargon.Nukecs
                 }
                 var size = ctData.size;
                 newOffsets.Ptr[i] = newOffset;
-                UnsafeUtility.MemCpy(newData.Ptr + newOffset, data.Ptr + oldOffset, count * size);
+                memcpy(newData.Ptr + newOffset, data.Ptr + oldOffset, count * size);
                 oldOffset += capacity * size;
                 newOffset += newCapacity * size;
             }
@@ -296,7 +301,7 @@ namespace Wargon.Nukecs
                 if (off < 0) continue;
                 var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
                 var dst = data.Ptr + off + row * ctData.size;
-                UnsafeUtility.MemClear(dst, ctData.size);
+                mem_clear(dst, ctData.size);
             }
 
             count++;
@@ -319,7 +324,7 @@ namespace Wargon.Nukecs
                 var size = ctData.size;
                 var src = data.Ptr + off + count * size;
                 var dst = data.Ptr + off + row * size;
-                UnsafeUtility.MemCpy(dst, src, size);
+                memcpy(dst, src, size);
             }
 
             var swappedEntity = packedEntities.Ptr[row];
@@ -345,7 +350,7 @@ namespace Wargon.Nukecs
                 var dstOff = target.offsetMap.GetRef(typeIndex);
                 if (dstOff < 0 || target.data.Ptr == null) continue;
                 var dst = target.data.Ptr + dstOff + newRow * srcSize;
-                UnsafeUtility.MemCpy(dst, src, srcSize);
+                memcpy(dst, src, srcSize);
             }
 
             world->entityLocations.Ptr[entityID] = new EntityLocation {
@@ -370,9 +375,9 @@ namespace Wargon.Nukecs
                 ref var pool = ref world->GetUntypedPool(typeIndex);
                 var src = pool.UnsafeBuffer->GetPtr(entityID);
                 if (src != null)
-                    UnsafeUtility.MemCpy(dst, src, ctData.size);
+                    memcpy(dst, src, ctData.size);
                 else
-                    UnsafeUtility.MemClear(dst, ctData.size);
+                    mem_clear(dst, ctData.size);
             }
         }
 
@@ -414,7 +419,7 @@ namespace Wargon.Nukecs
         {
             var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
             ref var arch = ref *ptr.Ptr;
-            arch.spinner = new Spinner();
+            arch._spinner = new Spinner();
             arch.world = world;
             arch.index = index;
             arch.count = 0;
@@ -447,7 +452,7 @@ namespace Wargon.Nukecs
         }
         internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, int[] typesSpan = default)
         {
-            spinner = new Spinner();
+            _spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
             hashId = 0;
@@ -484,7 +489,7 @@ namespace Wargon.Nukecs
         }
         internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, ref Span<int> typesSpan)
         {
-            spinner = new Spinner();
+            _spinner = new Spinner();
             this.world = world;
             mask = DynamicBitmask.CreateForComponents(world);
             hashId = 0;
@@ -522,7 +527,7 @@ namespace Wargon.Nukecs
 
         internal ArchetypeUnsafe(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, int index, bool copyList = false)
         {
-            spinner = new Spinner();
+            _spinner = new Spinner();
             this.world = world;
             this.index = index;
             count = 0;
@@ -557,7 +562,7 @@ namespace Wargon.Nukecs
             }
             InitPackedArrays(64);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref Entity CreateEntity()
         {
             ref var e = ref world->CreateEntity(index);
@@ -571,9 +576,9 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Span<Entity> BatchCreateEntity(int count)
+        internal Span<Entity> BatchCreateEntity(int amount)
         {
-            return BatchCreateEntity(world->lastEntityIndex, world->lastEntityIndex + count);
+            return BatchCreateEntity(world->lastEntityIndex, world->lastEntityIndex + amount);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -663,7 +668,7 @@ namespace Wargon.Nukecs
                 }
                 for (var i = 0; i < cnt; i++)
                 {
-                    UnsafeUtility.MemCpy(baseDst + i * ctData.size, srcPtr, ctData.size);
+                    memcpy(baseDst + i * ctData.size, srcPtr, ctData.size);
                 }
             }
 
@@ -680,13 +685,13 @@ namespace Wargon.Nukecs
             PopulateQueries(world);
         }
 
-        internal void PopulateQueries(World.WorldUnsafe* world)
+        internal void PopulateQueries(World.WorldUnsafe* worldPtr)
         {
             if(index == 0) return;
             
-            for (var i = 0; i < world->queries.Length; i++)
+            for (var i = 0; i < worldPtr->queries.Length; i++)
             {
-                ref var q = ref world->queries[i];
+                ref var q = ref worldPtr->queries[i];
                 var matches = 0;
                 var hasNone = false;
                 foreach (var type in types)
@@ -707,7 +712,7 @@ namespace Wargon.Nukecs
                         if (matches == q.Ptr->with.Count)
                         {
                             q.Ref.AddArchetype(index);
-                            queries.Add(q.Ptr->Id, ref world->AllocatorRef);
+                            queries.Add(q.Ptr->Id, ref worldPtr->AllocatorRef);
                             // q.Ptr->matchingArchetypes.Add(index, ref world->AllocatorRef);
                             // q.Ptr->matchingArchetypesCount++;
                             break;
@@ -721,7 +726,7 @@ namespace Wargon.Nukecs
         {
             var edge = new Edge(ref world->AllocatorRef);
             for (var i = 0; i < queries.Length; i++)
-                edge.RemoveEntity.Add(in Query(queries.ElementAt(i)), ref world->AllocatorRef);
+                edge.removeEntity.Add(in Query(queries.ElementAt(i)), ref world->AllocatorRef);
             return edge;
         }
 
@@ -753,7 +758,7 @@ namespace Wargon.Nukecs
                     var off = componentOffsets.Ptr[i];
                     if (off >= 0)
                     {
-                        UnsafeUtility.MemCpy(
+                        memcpy(
                             data.Ptr + off + toRow * ctData.size,
                             data.Ptr + off + fromRow * ctData.size,
                             ctData.size);
@@ -794,7 +799,7 @@ namespace Wargon.Nukecs
                     var off = componentOffsets.Ptr[i];
                     if (off >= 0)
                     {
-                        UnsafeUtility.MemCpy(
+                        memcpy(
                             data.Ptr + off + newRow * ctData.size,
                             data.Ptr + off + srcRow * ctData.size,
                             ctData.size);
@@ -863,7 +868,7 @@ namespace Wargon.Nukecs
                         }
                         else
                         {
-                            UnsafeUtility.MemCpy(
+                            memcpy(
                                 data.Ptr + off + newRow * ctData.size,
                                 data.Ptr + off + srcRow * ctData.size,
                                 ctData.size);
@@ -896,14 +901,14 @@ namespace Wargon.Nukecs
             {
                 if (transactions.TryGetValue(component, out var edge))
                 {
-                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.ToMove;
+                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.toMove;
                     edge.Ref.Execute(entity);
                 }
                 else
                 {
                     CreateTransaction(component);
                     edge = transactions[component];
-                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.ToMove;
+                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.toMove;
                     edge.Ref.Execute(entity);
                 }
             }
@@ -922,9 +927,9 @@ namespace Wargon.Nukecs
                     child.Value.Destroy();
                 }
             }
-            for (var index = 0; index < types.length; index++)
+            for (var idx = 0; idx < types.length; idx++)
             {
-                ref var pool = ref world->GetUntypedPool(types[index]);
+                ref var pool = ref world->GetUntypedPool(types[idx]);
                 pool.Remove(entity);
             }
 
@@ -933,17 +938,17 @@ namespace Wargon.Nukecs
         }
 
 
-        internal void SetEntityData(EntityData data)
+        internal void SetEntityData(EntityData eData)
         {
-            var loc = world->entityLocations.Ptr[data.Entity];
-            for (var i = 0; i < data.Components.Length; i++)
+            var loc = world->entityLocations.Ptr[eData.Entity];
+            for (var i = 0; i < eData.Components.Length; i++)
             {
                 var typeIndex = types[i];
                 var ctData = ComponentTypeMap.GetComponentType(typeIndex);
                 if (ctData.storageType == StorageType.Pool)
                 {
                     ref var pool = ref world->GetUntypedPool(typeIndex);
-                    pool.WriteBytes(data.Entity, data.Components[i]);
+                    pool.WriteBytes(eData.Entity, eData.Components[i]);
                 }
                 else
                 {
@@ -951,8 +956,8 @@ namespace Wargon.Nukecs
                     if (off >= 0)
                     {
                         var dst = this.data.Ptr + off + loc.row * ctData.size;
-                        fixed (byte* src = data.Components[i])
-                            UnsafeUtility.MemCpy(dst, src, ctData.size);
+                        fixed (byte* src = eData.Components[i])
+                            memcpy(dst, src, ctData.size);
                     }
                 }
             }
@@ -962,12 +967,12 @@ namespace Wargon.Nukecs
 #endif
         internal void OnEntityFree(int entity)
         {
-            for (var index = 0; index < types.length; index++)
+            for (var idx = 0; idx < types.length; idx++)
             {
-                var ctData = ComponentTypeMap.GetComponentType(types[index]);
+                var ctData = ComponentTypeMap.GetComponentType(types[idx]);
                 if (ctData.storageType == StorageType.Pool)
                 {
-                    ref var pool = ref world->GetUntypedPool(types[index]);
+                    ref var pool = ref world->GetUntypedPool(types[idx]);
                     pool.Remove(entity);
                 }
             }
@@ -977,9 +982,9 @@ namespace Wargon.Nukecs
         internal int FollowEdge(int component)
         {
             if (transactions.TryGetValue(component, out var edge))
-                return edge.Ref.ToMove;
+                return edge.Ref.toMove;
             CreateTransaction(component);
-            return transactions[component].Ref.ToMove;
+            return transactions[component].Ref.toMove;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1012,22 +1017,22 @@ namespace Wargon.Nukecs
             if (remove == false) newTypes.Add(component, ref world->AllocatorRef);
 
             var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
-            var otherArchetype = otherArchetypeStruct.impl;
+            var otherArchetype = otherArchetypeStruct.Unsafe;
             var otherEdge = new Edge(otherArchetypeStruct.ptr.Ref.index, ref world->AllocatorRef);
 
-            for (var index = 0; index < queries.Length; index++)
+            for (var idx = 0; idx < queries.Length; idx++)
             {
-                var t = queries[index];
+                var t = queries[idx];
                 ref var thisQuery = ref Query(t);
                 if (otherArchetype->queries.Contains(thisQuery.Ref.Id) == false)
-                    otherEdge.RemoveEntity.Add(thisQuery, ref world->AllocatorRef);
+                    otherEdge.removeEntity.Add(thisQuery, ref world->AllocatorRef);
             }
 
-            for (var index = 0; index < otherArchetype->queries.Length; index++)
+            for (var idx = 0; idx < otherArchetype->queries.Length; idx++)
             {
-                ref var otherQuery = ref Query(otherArchetype->queries[index]);
+                ref var otherQuery = ref Query(otherArchetype->queries[idx]);
                 if (queries.Contains(otherQuery.Ref.Id) == false)
-                    otherEdge.AddEntity.Add(otherQuery, ref world->AllocatorRef);
+                    otherEdge.addEntity.Add(otherQuery, ref world->AllocatorRef);
             }
 
             var ptr = world->_allocate_ptr<Edge>();
@@ -1139,41 +1144,41 @@ namespace Wargon.Nukecs
     }
     internal unsafe struct Edge
     {
-        internal MemoryList<ptr<QueryUnsafe>> AddEntity;
-        internal MemoryList<ptr<QueryUnsafe>> RemoveEntity;
+        internal MemoryList<ptr<QueryUnsafe>> addEntity;
+        internal MemoryList<ptr<QueryUnsafe>> removeEntity;
 
-        internal int ToMove;
+        internal int toMove;
 
         public Edge(int archetype, ref MemAllocator allocator) {
-            ToMove = archetype;
-            AddEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
+            toMove = archetype;
+            addEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
+            removeEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
         }
 
         public Edge(ref MemAllocator allocator)
         {
-            AddEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            RemoveEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            ToMove = 0;
+            addEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
+            removeEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
+            toMove = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Execute(int entity)
         {
-            for (var i = 0; i < RemoveEntity.length; i++) RemoveEntity.ElementAt(i).Ref.Remove(entity);
+            for (var i = 0; i < removeEntity.length; i++) removeEntity.ElementAt(i).Ref.Remove(entity);
 
-            for (var i = 0; i < AddEntity.length; i++) AddEntity.ElementAt(i).Ref.Add(entity);
+            for (var i = 0; i < addEntity.length; i++) addEntity.ElementAt(i).Ref.Add(entity);
         }
 
         public void OnDeserialize(ref MemAllocator alloc, World.WorldUnsafe* w)
         {
-            AddEntity.OnDeserialize(ref alloc);
-            foreach (ref var ptr in AddEntity)
+            addEntity.OnDeserialize(ref alloc);
+            foreach (ref var ptr in addEntity)
             {
                 ptr.OnDeserialize(ref alloc);
             }
-            RemoveEntity.OnDeserialize(ref alloc);
-            foreach (ref var ptr in RemoveEntity)
+            removeEntity.OnDeserialize(ref alloc);
+            foreach (ref var ptr in removeEntity)
             {
                 ptr.OnDeserialize(ref alloc);
             }

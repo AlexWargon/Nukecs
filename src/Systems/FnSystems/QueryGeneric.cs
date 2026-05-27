@@ -49,6 +49,7 @@ namespace Wargon.Nukecs {
         void Update(ref World world, IntPtr data);
         IntPtr GetData();
         bool TryGetQuery(out ptr<QueryUnsafe> query);
+        void SetQueryPtr(ptr<QueryUnsafe> q);
         public Type ParamType => GetType();
     }
 
@@ -171,5 +172,7 @@ namespace Wargon.Nukecs {
         {
             throw new NotImplementedException();
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 }

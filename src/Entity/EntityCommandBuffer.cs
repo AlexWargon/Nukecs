@@ -335,11 +335,11 @@ namespace Wargon.Nukecs {
                 }
 
                 var targetArch = w->GetOrCreateArchetype(ref tempMask);
-                var targetArchIdx = targetArch.impl->index;
+                var targetArchIdx = targetArch.Unsafe->index;
 
                 if (targetArchIdx != originalArchIdx) {
                     ref var srcArch = ref w->archetypesList.Ptr[originalArchIdx].Ref;
-                    ref var dstArch = ref *targetArch.impl;
+                    ref var dstArch = ref *targetArch.Unsafe;
 
                     if (originalArchIdx == 0) {
                         var newRow = dstArch.AllocateEntity(entity);

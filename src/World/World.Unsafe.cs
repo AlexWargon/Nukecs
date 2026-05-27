@@ -104,6 +104,7 @@ namespace Wargon.Nukecs
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                queriesHashToIndex = new HashMap<int, int>(64, ref AllocatorHandler);
                 
                 DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef, clear:true);
                 config = worldConfig;
@@ -683,6 +684,10 @@ namespace Wargon.Nukecs
                         break;
                     case SystemParamMetaType.Service:
                     case SystemParamMetaType.Query:
+                        param = AllocatorRef.AllocatePtr<TParam0>();
+                        param.Ref = paramDefault;
+                        param.Ref.Init(ref selfPtr);
+                        break;
                     case SystemParamMetaType.Single:
                     case SystemParamMetaType.Local:
                         param = AllocatorRef.AllocatePtr<TParam0>();
@@ -720,11 +725,28 @@ namespace Wargon.Nukecs
                         }
                         break;
                     case SystemParamMetaType.Service:
-                    case SystemParamMetaType.Query:
                         param = AllocatorRef.AllocatePtr<TParam0>();
                         param.Ref = paramDefault;
                         param.Ref.Init(ref selfPtr);
                         break;
+                    case SystemParamMetaType.Query:
+                    {
+                        int hash = paramDefault.GetHashCode();
+                        if (queriesHashToIndex.TryGetValue(hash, out int queryIndex))
+                        {
+                            param = AllocatorRef.AllocatePtr<TParam0>();
+                            param.Ref = paramDefault;
+                            param.Ref.SetQueryPtr(queries[queryIndex]);
+                        }
+                        else
+                        {
+                            param = AllocatorRef.AllocatePtr<TParam0>();
+                            param.Ref = paramDefault;
+                            param.Ref.Init(ref selfPtr);
+                            queriesHashToIndex.TryAdd(hash, queries.length - 1);
+                        }
+                        break;
+                    }
                     case SystemParamMetaType.Single:
                     case SystemParamMetaType.Local:
                         param = AllocatorRef.AllocatePtr<TParam0>();
@@ -741,7 +763,7 @@ namespace Wargon.Nukecs
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public byte* GetComponentDataPtr(int entityId, int typeIndex)
+            internal byte* GetComponentDataPtr(int entityId, int typeIndex)
             {
                 var data = ComponentTypeMap.GetComponentType(typeIndex);
                 if (data.storageType == StorageType.Pool)

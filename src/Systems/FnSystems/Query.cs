@@ -31,6 +31,11 @@ namespace Wargon.Nukecs
         internal int id;
         private Range _range;
 
+        public override int GetHashCode()
+        {
+            unchecked { return typeof(T1).GetHashCode(); }
+        }
+        
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -54,6 +59,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -76,9 +82,9 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+                return new QueryParIterWithEntity<EntityRefTuple<T1>>(_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
@@ -113,6 +119,11 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked { return typeof(T1).GetHashCode(); }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -169,9 +180,9 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, TOption>> GetEnumerator()
+        public QueryParIter<RefTuple<T1, TOption>> GetEnumerator()
         {
-            return new QueryIter<RefTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         public bool IsEmpty
@@ -234,6 +245,11 @@ namespace Wargon.Nukecs
         internal int id;
         private Range _range;
         public Range Range => _range;
+
+        public override int GetHashCode()
+        {
+            unchecked { return typeof(T1).GetHashCode() * 397 ^ typeof(TOption).GetHashCode(); }
+        }
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -300,9 +316,9 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, TOption>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1, TOption>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1, TOption>>(in _query.Ref.matchingArchetypes,
+                return new QueryParIterWithEntity<EntityRefTuple<T1, TOption>>(_range, in _query.Ref.matchingArchetypes,
                     _query.Ref.world);
             }
 
@@ -341,6 +357,11 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked { return typeof(T1).GetHashCode() * 397 ^ typeof(TOption).GetHashCode(); }
+            }
 
             public void SetRange(Range range)
             {
@@ -424,9 +445,9 @@ namespace Wargon.Nukecs
 
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, TOption>> GetEnumerator()
+        public QueryParIter<RefTuple<T1, T2, TOption>> GetEnumerator()
         {
-            return new QueryIter<RefTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -464,6 +485,17 @@ namespace Wargon.Nukecs
         public ptr<QueryUnsafe> _query;
         internal int id;
         private Range _range;
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -521,6 +553,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -545,10 +578,9 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, TOption>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1, T2, TOption>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes,
-                    _query.Ref.world);
+                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -581,6 +613,17 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -660,9 +703,9 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, T3, TOption>> GetEnumerator()
+        public QueryParIter<RefTuple<T1, T2, T3, TOption>> GetEnumerator()
         {
-            return new QueryIter<RefTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -701,6 +744,18 @@ namespace Wargon.Nukecs
         internal int id;
         private Range _range;
 
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(T3).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
@@ -711,43 +766,29 @@ namespace Wargon.Nukecs
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
-
         {
             _query = world.Ref.CreateQueryPtr();
-
             _query.Ref.With(ComponentType<T1>.Index);
-
             _query.Ref.With(ComponentType<T2>.Index);
-
             _query.Ref.With(ComponentType<T3>.Index);
-
             id = _query.Ref.Id;
             TOption option = default;
 
             switch (option)
-
             {
                 case IComponent _:
-
                     _query.Ref.With(ComponentType<TOption>.Index);
-
                     QueryParamInfo<TOption>.IsComponent = true;
-
                     break;
 
                 case IFilter filter:
-
                     filter.Setup(_query.Ptr);
-
                     break;
-
+                
                 case ITuple tuple:
-
                     for (var i = 0; i < tuple.Length; i++)
-
                         if (tuple[i] is IFilter f)
                             f.Setup(_query.Ptr);
-
                     break;
             }
         }
@@ -761,6 +802,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -785,10 +827,9 @@ namespace Wargon.Nukecs
 
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes,
-                    _query.Ref.world);
+                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -827,6 +868,18 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(T3).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -910,9 +963,9 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, T3, T4, TOption>> GetEnumerator()
+        public QueryParIter<RefTuple<T1, T2, T3, T4, TOption>> GetEnumerator()
         {
-            return new QueryIter<RefTuple<T1, T2, T3, T4, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -950,6 +1003,19 @@ namespace Wargon.Nukecs
         public ptr<QueryUnsafe> _query;
         internal int id;
         private Range _range;
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(T3).GetHashCode();
+                hash = hash * 397 ^ typeof(T4).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -998,6 +1064,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -1020,10 +1087,9 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>>(
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
+                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1062,6 +1128,19 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(T3).GetHashCode();
+                    hash = hash * 397 ^ typeof(T4).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1145,10 +1224,9 @@ namespace Wargon.Nukecs
 
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>> GetEnumerator()
+        public QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> GetEnumerator()
         {
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(in _query.Ref.matchingArchetypes,
-                _query.Ref.world);
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1161,6 +1239,20 @@ namespace Wargon.Nukecs
         public ptr<QueryUnsafe> _query;
         internal int id;
         private Range _range;
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(T3).GetHashCode();
+                hash = hash * 397 ^ typeof(T4).GetHashCode();
+                hash = hash * 397 ^ typeof(T5).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1210,6 +1302,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -1232,14 +1325,27 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, TOption>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, TOption>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, TOption>>(
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
+                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(T3).GetHashCode();
+                    hash = hash * 397 ^ typeof(T4).GetHashCode();
+                    hash = hash * 397 ^ typeof(T5).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1325,15 +1431,29 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> GetEnumerator()
+        public QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> GetEnumerator()
         {
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _query.Ref.matchingArchetypes,
-                _query.Ref.world);
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         public ptr<QueryUnsafe> _query;
         internal int id;
         private Range _range;
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(T3).GetHashCode();
+                hash = hash * 397 ^ typeof(T4).GetHashCode();
+                hash = hash * 397 ^ typeof(T5).GetHashCode();
+                hash = hash * 397 ^ typeof(T6).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
 
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1385,6 +1505,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -1407,14 +1528,28 @@ namespace Wargon.Nukecs
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, TOption>> GetEnumerator()
+            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, TOption>> GetEnumerator()
             {
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, TOption>>(
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
+                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(T3).GetHashCode();
+                    hash = hash * 397 ^ typeof(T4).GetHashCode();
+                    hash = hash * 397 ^ typeof(T5).GetHashCode();
+                    hash = hash * 397 ^ typeof(T6).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1512,6 +1647,22 @@ namespace Wargon.Nukecs
         internal int id;
         private Range _range;
 
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(T3).GetHashCode();
+                hash = hash * 397 ^ typeof(T4).GetHashCode();
+                hash = hash * 397 ^ typeof(T5).GetHashCode();
+                hash = hash * 397 ^ typeof(T6).GetHashCode();
+                hash = hash * 397 ^ typeof(T7).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
@@ -1563,6 +1714,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -1593,6 +1745,22 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(T3).GetHashCode();
+                    hash = hash * 397 ^ typeof(T4).GetHashCode();
+                    hash = hash * 397 ^ typeof(T5).GetHashCode();
+                    hash = hash * 397 ^ typeof(T6).GetHashCode();
+                    hash = hash * 397 ^ typeof(T7).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
@@ -1692,6 +1860,23 @@ namespace Wargon.Nukecs
         internal int id;
         private Range _range;
 
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = typeof(T1).GetHashCode();
+                hash = hash * 397 ^ typeof(T2).GetHashCode();
+                hash = hash * 397 ^ typeof(T3).GetHashCode();
+                hash = hash * 397 ^ typeof(T4).GetHashCode();
+                hash = hash * 397 ^ typeof(T5).GetHashCode();
+                hash = hash * 397 ^ typeof(T6).GetHashCode();
+                hash = hash * 397 ^ typeof(T7).GetHashCode();
+                hash = hash * 397 ^ typeof(T8).GetHashCode();
+                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                return hash;
+            }
+        }
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
@@ -1744,6 +1929,7 @@ namespace Wargon.Nukecs
         public void SetQueryPtr(ptr<QueryUnsafe> q)
         {
             _query = q;
+            id = q.Ref.Id;
         }
 
         public void Update(ref World world, IntPtr data)
@@ -1774,6 +1960,23 @@ namespace Wargon.Nukecs
 
             public ptr<QueryUnsafe> _query;
             private Range _range;
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = typeof(T1).GetHashCode();
+                    hash = hash * 397 ^ typeof(T2).GetHashCode();
+                    hash = hash * 397 ^ typeof(T3).GetHashCode();
+                    hash = hash * 397 ^ typeof(T4).GetHashCode();
+                    hash = hash * 397 ^ typeof(T5).GetHashCode();
+                    hash = hash * 397 ^ typeof(T6).GetHashCode();
+                    hash = hash * 397 ^ typeof(T7).GetHashCode();
+                    hash = hash * 397 ^ typeof(T8).GetHashCode();
+                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                    return hash;
+                }
+            }
 
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 

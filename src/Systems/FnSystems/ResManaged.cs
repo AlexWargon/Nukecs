@@ -47,5 +47,7 @@ namespace Wargon.Nukecs
             query = default;
             return false;
         }
+
+        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 }

@@ -17,10 +17,5 @@ namespace Wargon.Nukecs
         // {
         //     return entity.ArchetypeRef.GetEntityData(entity);
         // }
-
-        public static void SetData(this ref Entity entity, EntityData data)
-        {
-            entity.ArchetypeRef.SetEntityData(data);
-        }
     }
 }

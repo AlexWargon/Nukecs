@@ -202,14 +202,14 @@ namespace Wargon.Nukecs.Editor
                 total += arch->types.GetMemorySizeUsed();
                 total += arch->queries.GetMemorySizeUsed();
                 total += arch->transactions.GetMemorySizeUsed();
-                total += arch->destroyEdge.AddEntity.GetMemorySizeUsed();
-                total += arch->destroyEdge.RemoveEntity.GetMemorySizeUsed();
+                total += arch->destroyEdge.addEntity.GetMemorySizeUsed();
+                total += arch->destroyEdge.removeEntity.GetMemorySizeUsed();
 
                 foreach (var kv in arch->transactions)
                 {
                     ref var edge = ref kv.Value.Ref;
-                    total += edge.AddEntity.GetMemorySizeUsed();
-                    total += edge.RemoveEntity.GetMemorySizeUsed();
+                    total += edge.addEntity.GetMemorySizeUsed();
+                    total += edge.removeEntity.GetMemorySizeUsed();
                 }
             }
             return total;

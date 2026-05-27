@@ -60,7 +60,7 @@ namespace Wargon.Nukecs
         {
             UnsafeUtility.MemCpy(dest, src, length);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
         public static unsafe void mem_move(void* dest, void* src, long length)
         {
