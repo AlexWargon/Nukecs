@@ -39,7 +39,7 @@ namespace Wargon.Nukecs
         {
             return (T*)cached;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ptr<T> AsTyped<T>() where T : unmanaged
         {
             return new ptr<T>(cached, offset.Offset, true);

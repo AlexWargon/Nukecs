@@ -281,11 +281,22 @@ namespace Wargon.Nukecs.HotReload
             sb.AppendLine("using Unity.Jobs;");
             sb.AppendLine("using Unity.Jobs.LowLevel.Unsafe;");
             sb.AppendLine("using Wargon.Nukecs;");
+            var addedNamespaces = new HashSet<string>();
             foreach (var u in fileUsings)
             {
                 if (u != "using System;" && !u.Contains("Runtime.CompilerServices") &&
                     !u.Contains("using Wargon.Nukecs;"))
+                {
                     sb.AppendLine(u);
+                    var ns = u.Trim().TrimEnd(';').Replace("using ", "").Trim();
+                    addedNamespaces.Add(ns);
+                }
+            }
+            foreach (var method in methods)
+            {
+                var ns = method.DeclaringType?.Namespace;
+                if (!string.IsNullOrEmpty(ns) && addedNamespaces.Add(ns))
+                    sb.AppendLine($"using {ns};");
             }
             sb.AppendLine();
 

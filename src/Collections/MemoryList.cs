@@ -1,18 +1,30 @@
-﻿using System.Runtime.InteropServices;
-
-namespace Wargon.Nukecs.Collections
+﻿namespace Wargon.Nukecs.Collections
 {
     using System;
     using System.Runtime.CompilerServices;
+    using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Mathematics;
-
-    public readonly struct NoCopyList<T> where T : unmanaged
+    
+    public readonly struct ReadOnlyList<T> where T : unmanaged
     {
         public readonly MemoryList<ptr<MemoryList<T>>> list;
     }
-
+    
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ClearListProxy
+    {
+        public ptr_offset PtrOffset;
+        public int capacity;
+        public int length;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Clear()
+        {
+            length = 0;
+        }
+    }
+    
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct MemoryList<T> where T : unmanaged 
     {

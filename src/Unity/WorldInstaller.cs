@@ -7,6 +7,7 @@ using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs
 {
+    using static SystemPath;
     public class WorldInstaller : MonoBehaviour
     {
         [ReadOnly][SerializeField] public int WorldId;

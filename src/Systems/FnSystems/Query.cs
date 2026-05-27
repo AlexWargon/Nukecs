@@ -21,16 +21,14 @@ namespace Wargon.Nukecs
     public unsafe struct Query<T1> : IQuery, ISystemParam
         where T1 : unmanaged, IComponent
     {
+        public ptr<QueryUnsafe> _query;
+        internal int id;
+        private Range _range;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIterT1<T1> GetEnumerator()
         {
             return new QueryIterT1<T1>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
-
-        public ptr<QueryUnsafe> _query;
-        internal int id;
-        private Range _range;
-
         public override int GetHashCode()
         {
             unchecked { return typeof(T1).GetHashCode(); }
@@ -85,6 +83,10 @@ namespace Wargon.Nukecs
 
         public struct WithEntity : IQuery, ISystemParam
         {
+            public ptr<QueryUnsafe> _query;
+            private Range _range;
+            internal int id;
+            
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public QueryParIterWithEntity<EntityRefTuple<T1>> GetEnumerator()
             {
@@ -121,9 +123,6 @@ namespace Wargon.Nukecs
                 return new QueryIterWithEntity<EntityRefTuple<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
-            public ptr<QueryUnsafe> _query;
-            private Range _range;
-            internal int id;
             public override int GetHashCode()
             {
                 unchecked { return typeof(T1).GetHashCode(); }
@@ -188,6 +187,12 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        
+        public ptr<QueryUnsafe> _query;
+        internal int id;
+        private Range _range;
+        public Range Range => _range;
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryParIter<RefTuple<T1, TOption>> GetEnumerator()
         {
@@ -250,10 +255,6 @@ namespace Wargon.Nukecs
             return new QueryIter<RefTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-        public ptr<QueryUnsafe> _query;
-        internal int id;
-        private Range _range;
-        public Range Range => _range;
 
         public override int GetHashCode()
         {

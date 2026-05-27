@@ -80,5 +80,11 @@ namespace Wargon.Nukecs{
             }
             w.prefabsToSpawn.Clear();
         }
+
+        [System, BurstCompile]
+        public static void ClearEvents(ref World world)
+        {
+            world.UnsafeWorldRef.eventsStorage.ClearAll();
+        }
     }
 }

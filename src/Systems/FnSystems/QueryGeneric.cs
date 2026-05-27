@@ -11,25 +11,6 @@ namespace Wargon.Nukecs {
     public interface IQuery {
         int Count { get; }
     }
-    [BurstCompile(CompileSynchronously = true)]
-    public static class QueryGenericExtensions {
-        // internal static void FetchRange<TQuery>(this TQuery query, int start, int end)
-        //     where TQuery : unmanaged, IQuery {
-        //     query.Range = new Range(start, end);
-        // }
-        
-
-        // public static bool MoveNext<TQuery>(this TQuery query)  where TQuery : unmanaged, IQuery {
-        //     var range = query.Range;
-        //     return false;
-        // }
-        // [BurstCompile(CompileSynchronously = true)][MethodImpl(MethodImplOptions.AggressiveInlining)]
-        // public static TQueryEnumerator GetEnumerator<TQueryEnumerator>(this TQueryEnumerator query)
-        //     where TQueryEnumerator :  struct, IQuery
-        // {
-        //     return query;
-        // }
-    }
 
     public enum SystemParamMetaType : byte
     {
@@ -43,13 +24,23 @@ namespace Wargon.Nukecs {
         Local = 7
     }
 
+    public struct SetQueryPtrProxy
+    {
+        private ptr<QueryUnsafe> _query;
+        internal int id;
+        public void SetQueryPtr(ptr<QueryUnsafe> q)
+        {
+            _query = q;
+            id = q.Ref.Id;
+        }
+    }
     public interface ISystemParam {
         SystemParamMetaType MetaType { get; }
         void Init(ref ptr<World.WorldUnsafe> world);
         void Update(ref World world, IntPtr data);
-        IntPtr GetData();
-        bool TryGetQuery(out ptr<QueryUnsafe> query);
-        void SetQueryPtr(ptr<QueryUnsafe> q);
+        //IntPtr GetData();
+        //bool TryGetQuery(out ptr<QueryUnsafe> query);
+        //void SetQueryPtr(ptr<QueryUnsafe> q);
         public Type ParamType => GetType();
     }
 
@@ -162,17 +153,6 @@ namespace Wargon.Nukecs {
         {
             throw new NotImplementedException();
         }
-
-        IntPtr ISystemParam.GetData()
-        {
-            throw new NotImplementedException();
-        }
-
-        bool ISystemParam.TryGetQuery(out ptr<QueryUnsafe> query)
-        {
-            throw new NotImplementedException();
-        }
-
         public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 }

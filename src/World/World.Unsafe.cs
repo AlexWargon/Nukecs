@@ -8,6 +8,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using static Wargon.Nukecs.UnsafeStatic;
 
 namespace Wargon.Nukecs
 {
@@ -48,6 +49,7 @@ namespace Wargon.Nukecs
             internal TimeData timeData;
             internal ptr<WorldUnsafe> selfPtr;
             internal ResStorage resStorage;
+            internal EventsStorage eventsStorage;
             internal ref WorldUnsafe SelfRef => ref selfPtr.Ref;
             internal WorldUnsafe* Self => selfPtr.Ptr;
             internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
@@ -128,6 +130,7 @@ namespace Wargon.Nukecs
                 //CreatePools();
                rootArchetype = CreateRootArchetype();
                resStorage = new ResStorage(ref AllocatorRef);
+               eventsStorage = new EventsStorage(ref AllocatorHandler);
 #if NUKECS_DEBUG
                 CreateStoryLogList(1024);
                 entitiesDens = new AliveEntitiesSet(config.StartEntitiesAmount, ref AllocatorRef);
@@ -710,6 +713,7 @@ namespace Wargon.Nukecs
                 switch (paramDefault.MetaType)
                 {
                     case SystemParamMetaType.Events:
+                        param = eventsStorage.Get<TParam0>(ref selfPtr);
                         break;
                     case SystemParamMetaType.Resource:
                         if (resStorage.HasRes<TParam0>())
@@ -736,7 +740,8 @@ namespace Wargon.Nukecs
                         {
                             param = AllocatorRef.AllocatePtr<TParam0>();
                             param.Ref = paramDefault;
-                            param.Ref.SetQueryPtr(queries[queryIndex]);
+                            as_ref<SetQueryPtrProxy>(param.cached).SetQueryPtr(queries[queryIndex]);
+                            //param.Ref.SetQueryPtr(queries[queryIndex]);
                         }
                         else
                         {

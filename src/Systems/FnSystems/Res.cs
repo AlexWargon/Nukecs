@@ -94,7 +94,8 @@ namespace Wargon.Nukecs
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
         public void Init(ref ptr<World.WorldUnsafe> worldPtr)
         {
-            data = worldPtr.Ref.AllocatorRef.AllocatePtr(size_of<TRes>()).as_ptr_str<TRes>();
+            var size = size_of<TRes>();
+            data = worldPtr.Ref.AllocatorRef.AllocatePtr(size).as_ptr_str<TRes>();
         }
 
         public void Update(ref World world, IntPtr data)
@@ -114,7 +115,5 @@ namespace Wargon.Nukecs
         }
 
         public void SetQueryPtr(ptr<QueryUnsafe> q) { }
-
-
     }
 }

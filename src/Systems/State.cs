@@ -26,17 +26,6 @@ namespace Wargon.Nukecs
             
         }
 
-        IntPtr ISystemParam.GetData()
-        {
-            return IntPtr.Zero;
-            
-        }
-        bool ISystemParam.TryGetQuery(out ptr<QueryUnsafe> query)
-        {
-            query = default;
-            return false;
-        }
-
         public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 }

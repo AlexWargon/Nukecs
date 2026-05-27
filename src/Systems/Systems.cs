@@ -4,12 +4,12 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
+using static Wargon.Nukecs.SystemPath;
 
 namespace Wargon.Nukecs
 {
+    
     public unsafe class Systems
     {
         public readonly List<ISystemDestroyer> systemDestroyers;
@@ -18,13 +18,13 @@ namespace Wargon.Nukecs
         public readonly List<ISystemRunner> runners;
         public readonly List<ISystemRunner> mtFixedRunners;
         public readonly List<ISystemRunner> mtRunners;
-        internal SystemsDependencies SystemsDependencies;
         public World World;
         private State _state;
         internal ref State State => ref _state;
         private const float FIXED_UPDATE_INTERVAL = 0.016f;
         private float _timeSinceLastFixedUpdate;
         internal ActionRef<World> onWorldDispose;
+        private static Marker _allSystems = new("ALL SYSTEMS");
         public Systems(ref World world)
         {
             Dependencies = default;
@@ -33,12 +33,33 @@ namespace Wargon.Nukecs
             mtRunners = new List<ISystemRunner>();
             mtFixedRunners = new List<ISystemRunner>();
             systemDestroyers = new List<ISystemDestroyer>();
-            SystemsDependencies = SystemsDependencies.Create();
             World = world;
             WorldSystems.Add(world.UnsafeWorld->Id, this);
         }
 
-        private static Marker _allSystems = new("ALL SYSTEMS");
+        private readonly List<ISystemRunner> _onCreate;
+        private readonly List<ISystemRunner> _onUpdate;
+        private readonly List<ISystemRunner> _onFixedUpdate;
+        private readonly List<ISystemRunner> _onDestroy;
+        private void AddRunner(int path, ISystemRunner runner)
+        {
+            switch (path)
+            {
+                case Create:
+                    _onCreate.Add(runner);
+                    break;
+                case Update:
+                    _onUpdate.Add(runner);
+                    break;
+                case FixedUpdate:
+                    _onFixedUpdate.Add(runner);
+                    break;
+                case Destroy:
+                    _onDestroy.Add(runner);
+                    break;
+            }
+        }
+        
         public void OnUpdate(float dt, float time)
         {
             _allSystems.Start();
@@ -88,7 +109,7 @@ namespace Wargon.Nukecs
         {
             Add<EntityDestroySystem>();
             this.Add(DefaultSystems.OnPrefabSpawn);
-            //Add<OnPrefabSpawnSystem>();
+            this.Add(DefaultSystems.ClearEvents);
             Add<ClearEntityCreatedEventSystem>();
             return this;
         }
@@ -319,7 +340,6 @@ namespace Wargon.Nukecs
             Complete();
             onWorldDispose?.Invoke(ref World);
             foreach (var systemDestroyer in systemDestroyers) systemDestroyer.Destroy(ref World);
-            SystemsDependencies.Dispose();
         }
         // public void Run(float dt) {
         //     for (var i = 0; i < runners.Count; i++) {
@@ -398,12 +418,12 @@ namespace Wargon.Nukecs
         }
     }
 
-    public static unsafe class SystemPath
+    public static class SystemPath
     {
-        public static delegate*<void> OnCreate;
-        public static delegate*<void> OnUpdate;
-        public static delegate*<void> OnFixedUpdate;
-        public static delegate*<void> OnDestroy;
+        public const int Create      = 0;
+        public const int Update      = 1;
+        public const int FixedUpdate = 2;
+        public const int Destroy     = 3;
     }
     public enum Threads
     {
@@ -560,64 +580,6 @@ namespace Wargon.Nukecs
         internal static SharedStatic<int> data = SharedStatic<int>.GetOrCreate<SystemInfo<T>>();
         internal static int Index => data.Data;
     }
-
-    public struct SystemsDependencies
-    {
-        private NativeList<JobHandle> list;
-        private NativeArray<JobHandle> array;
-        //private int lastDefault;
-
-        public static SystemsDependencies Create()
-        {
-            var systemsDependencies = new SystemsDependencies
-            {
-                list = new NativeList<JobHandle>(16, Allocator.Persistent),
-                //lastDefault = 0
-            };
-            systemsDependencies.list.Add(new JobHandle());
-            return systemsDependencies;
-        }
-
-        public void Complete()
-        {
-            if (!array.IsCreated) array = list.AsArray();
-            JobHandle.CompleteAll(array);
-        }
-
-        public void Dispose()
-        {
-            if (list.IsCreated) list.Dispose();
-            if (array.IsCreated) array.Dispose();
-        }
-
-        public int GetIndex<T>()
-        {
-            return SystemInfo<T>.Index;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JobHandle GetDependencies<T>()
-        {
-            return list[SystemInfo<T>.Index];
-        }
-
-        public void SetDependenciesNew<TTo>(JobHandle handle = default)
-        {
-            SystemInfo<TTo>.data.Data = list.Length;
-            list.Add(handle);
-        }
-
-        public void SetDependencies<TFrom, TTo>()
-        {
-            SystemInfo<TTo>.data.Data = SystemInfo<TFrom>.Index;
-        }
-
-        public void SetDependenciesDefault<TTo>()
-        {
-            SystemInfo<TTo>.data.Data = 0;
-        }
-    }
-
 
     [AttributeUsage((AttributeTargets.Method))]
     public class SystemAttribute : Attribute

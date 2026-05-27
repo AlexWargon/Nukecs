@@ -104,6 +104,7 @@ namespace Wargon.Nukecs {
                 DefaultNoneTypes.OnDeserialize(ref allocator);
                 aspects.OnDeserialize(ref allocator);
                 resStorage.OnDeserialize(ref allocator);
+                eventsStorage.OnDeserialize(ref allocator);
             }
         }
     }
