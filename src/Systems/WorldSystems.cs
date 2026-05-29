@@ -33,6 +33,12 @@ namespace Wargon.Nukecs
             }
         }
 
+        internal static void Remove(int id)
+        {
+            if (systemsMap.ContainsKey(id))
+                systemsMap.Remove(id);
+        }
+
         public static void Dispose()
         {
             systemsMap.Clear();

@@ -2,34 +2,19 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-#if UNITY_EDITOR
 using System.Threading.Tasks;
 using UnityEngine;
-using Wargon.Nukecs.HotReload;
-#endif
 
 namespace Wargon.Nukecs.HotReload
 {
     public class HotReloadSystems : IDisposable
     {
-        private struct SystemEntry
-        {
-            public string FilePath;
-            public string MethodName;
-            public string DeclaringTypeName;
-            public Threads ThreadMode;
-            public int RunnerIndex;
-        }
-
-        private Systems _systems;
+        private readonly List<SystemEntry> _entries = new();
         private bool _disposed;
-        private readonly List<SystemEntry> _entries = new List<SystemEntry>();
-
-        public Systems Systems => _systems;
 
         public HotReloadSystems(ref World world)
         {
-            _systems = new Systems(ref world);
+            Systems = new Systems(ref world);
 #if UNITY_EDITOR
             HotReloadCompiler.PrewarmCache();
             HotReloadCompiler.OnSystemsCompiled += OnSystemsCompiled;
@@ -38,12 +23,14 @@ namespace Wargon.Nukecs.HotReload
 
         public HotReloadSystems(Systems systems)
         {
-            _systems = systems;
+            Systems = systems;
 #if UNITY_EDITOR
             HotReloadCompiler.PrewarmCache();
             HotReloadCompiler.OnSystemsCompiled += OnSystemsCompiled;
 #endif
         }
+
+        public Systems Systems { get; private set; }
 
         public void Dispose()
         {
@@ -52,7 +39,7 @@ namespace Wargon.Nukecs.HotReload
 #if UNITY_EDITOR
             HotReloadCompiler.OnSystemsCompiled -= OnSystemsCompiled;
             foreach (var entry in _entries)
-                HotReloadWatcher.StopWatching(entry.FilePath);
+                HotReloadWatcher.StopWatching(entry.filePath);
 #endif
             dbug.log("[HotReload] Disposed");
         }
@@ -62,7 +49,8 @@ namespace Wargon.Nukecs.HotReload
 #if UNITY_EDITOR
             Task.Run(() =>
             {
-                TrackRunnerList(_systems.onUpdate);
+                TrackRunnerList(Systems.onUpdate);
+                TrackRunnerList(Systems.onFixedUpdate);
                 dbug.log("[HotReload] Start Tracking");
             });
 #endif
@@ -70,19 +58,22 @@ namespace Wargon.Nukecs.HotReload
 
         public void SetSystems(Systems systems)
         {
-            _systems = systems;
+            Systems = systems;
         }
 
-        public void OnUpdate(float dt, float time)
+        private struct SystemEntry
         {
-            if (_systems != null)
-                _systems.OnUpdate(dt, time);
+            public string filePath;
+            public string methodName;
+            public string declaringTypeName;
+            public Threads threadMode;
+            public int runnerIndex;
         }
 
 #if UNITY_EDITOR
         private void TrackRunnerList(List<ISystemRunner> runners)
         {
-            for (int i = 0; i < runners.Count; i++)
+            for (var i = 0; i < runners.Count; i++)
             {
                 var runner = runners[i];
                 var runnerName = runner.Name;
@@ -94,7 +85,8 @@ namespace Wargon.Nukecs.HotReload
                 var methodName = systemMethod.Name;
                 var sourcePath = TryFindSourceFile(declaringType);
 
-                var modeField = runner.GetType().GetField("Mode", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                var modeField = runner.GetType().GetField("Mode",
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var threadMode = modeField != null ? (Threads)modeField.GetValue(runner) : Threads.Main;
 
                 if (!string.IsNullOrEmpty(sourcePath))
@@ -102,68 +94,67 @@ namespace Wargon.Nukecs.HotReload
                     var fullPath = sourcePath;
                     if (!Path.IsPathRooted(sourcePath))
                         fullPath = Path.GetFullPath(Path.Combine(
-                            UnityEngine.Application.dataPath, "..", sourcePath));
+                            Application.dataPath, "..", sourcePath));
                     HotReloadWatcher.Watch(fullPath);
                     sourcePath = fullPath;
                 }
 
                 var entry = new SystemEntry
                 {
-                    FilePath = sourcePath ?? "",
-                    MethodName = methodName,
-                    DeclaringTypeName = declaringType?.Name ?? "",
-                    ThreadMode = threadMode,
-                    RunnerIndex = i
+                    filePath = sourcePath ?? "",
+                    methodName = methodName,
+                    declaringTypeName = declaringType?.Name ?? "",
+                    threadMode = threadMode,
+                    runnerIndex = i
                 };
                 _entries.Add(entry);
             }
         }
 
-        private unsafe void OnSystemsCompiled(string filePath, MethodInfo[] methods, Func<IntPtr, Threads, ISystemRunner>[] factories)
+        private unsafe void OnSystemsCompiled(string filePath, MethodInfo[] methods,
+            Func<IntPtr, Threads, ISystemRunner>[] factories)
         {
-            if (_systems == null) return;
+            if (Systems == null) return;
 
             var matchedMethods = new HashSet<int>();
 
-            for (int i = 0; i < _entries.Count; i++)
+            for (var i = 0; i < _entries.Count; i++)
             {
                 var entry = _entries[i];
-                if (entry.FilePath != filePath) continue;
+                if (entry.filePath != filePath) continue;
 
-                for (int j = 0; j < methods.Length; j++)
-                {
-                    if (methods[j].Name == entry.MethodName &&
-                        methods[j].DeclaringType?.Name == entry.DeclaringTypeName)
+                for (var j = 0; j < methods.Length; j++)
+                    if (methods[j].Name == entry.methodName &&
+                        methods[j].DeclaringType?.Name == entry.declaringTypeName)
                     {
-                        var worldPtr = _systems.World.UnsafeWorld;
+                        var worldPtr = Systems.World.UnsafeWorld;
                         ISystemRunner runner;
                         try
                         {
-                            runner = factories[j]((IntPtr)worldPtr, entry.ThreadMode);
+                            runner = factories[j]((IntPtr)worldPtr, entry.threadMode);
                         }
                         catch (Exception ex)
                         {
-                            Debug.LogError($"[HotReload] Factory failed for {entry.MethodName}: {ex}");
+                            Debug.LogError($"[HotReload] Factory failed for {entry.methodName}: {ex}");
                             break;
                         }
 
-                        if (entry.RunnerIndex >= 0 && entry.RunnerIndex < _systems.onUpdate.Count)
-                            _systems.onUpdate[entry.RunnerIndex] = runner;
+                        if (entry.runnerIndex >= 0 && entry.runnerIndex < Systems.onUpdate.Count)
+                            Systems.onUpdate[entry.runnerIndex] = runner;
                         else
-                            _systems.onUpdate.Add(runner);
+                            Systems.onUpdate.Add(runner);
 
                         matchedMethods.Add(j);
                         break;
                     }
-                }
             }
 
-            for (int j = 0; j < methods.Length; j++)
+            for (var j = 0; j < methods.Length; j++)
             {
                 if (matchedMethods.Contains(j)) continue;
 
                 var method = methods[j];
-                var worldPtr = _systems.World.UnsafeWorld;
+                var worldPtr = Systems.World.UnsafeWorld;
                 ISystemRunner runner;
                 try
                 {
@@ -175,24 +166,24 @@ namespace Wargon.Nukecs.HotReload
                     continue;
                 }
 
-                var runnerIndex = _systems.onUpdate.Count;
-                _systems.onUpdate.Add(runner);
+                var runnerIndex = Systems.onUpdate.Count;
+                Systems.onUpdate.Add(runner);
 
                 var declaringType = method.DeclaringType;
                 _entries.Add(new SystemEntry
                 {
-                    FilePath = filePath,
-                    MethodName = method.Name,
-                    DeclaringTypeName = declaringType?.Name ?? "",
-                    ThreadMode = Threads.Main,
-                    RunnerIndex = runnerIndex
+                    filePath = filePath,
+                    methodName = method.Name,
+                    declaringTypeName = declaringType?.Name ?? "",
+                    threadMode = Threads.Main,
+                    runnerIndex = runnerIndex
                 });
 
                 Debug.Log($"[HotReload] Added new system: {method.Name}");
             }
         }
 
-        private static readonly Dictionary<Type, string> SourceFileCache = new Dictionary<Type, string>();
+        private static readonly Dictionary<Type, string> SourceFileCache = new();
         private static Dictionary<string, MethodInfo> _runnerNameCache;
 
         private static void EnsureRunnerNameCache()
@@ -201,24 +192,21 @@ namespace Wargon.Nukecs.HotReload
             _runnerNameCache = new Dictionary<string, MethodInfo>();
 
             foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-            {
                 try
                 {
                     foreach (var type in asm.GetTypes())
-                    {
-                        foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                    foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic |
+                                                           BindingFlags.Static))
+                        if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
                         {
-                            if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
-                            {
-                                var key = $"{type.Name}_{method.Name}Job";
-                                if (!_runnerNameCache.ContainsKey(key))
-                                    _runnerNameCache[key] = method;
-                            }
+                            var key = $"{type.Name}_{method.Name}Job";
+                            _runnerNameCache.TryAdd(key, method);
                         }
-                    }
                 }
-                catch { }
-            }
+                catch
+                {
+                    // ignored
+                }
         }
 
         private static MethodInfo FindSystemMethodByRunnerName(string runnerName)
@@ -236,7 +224,7 @@ namespace Wargon.Nukecs.HotReload
 
             var typeName = declaringType.Name;
             var typeNamespace = declaringType.Namespace;
-            var assetsPath = UnityEngine.Application.dataPath;
+            var assetsPath = Application.dataPath;
 
             var directMatch = TryFindFile(assetsPath, typeName + ".cs");
             if (directMatch != null)
@@ -246,7 +234,6 @@ namespace Wargon.Nukecs.HotReload
             }
 
             foreach (var file in Directory.GetFiles(assetsPath, "*.cs", SearchOption.AllDirectories))
-            {
                 try
                 {
                     var content = File.ReadAllText(file);
@@ -259,8 +246,10 @@ namespace Wargon.Nukecs.HotReload
                         return fullPath;
                     }
                 }
-                catch { }
-            }
+                catch
+                {
+                    // ignored
+                }
 
             SourceFileCache[declaringType] = null;
             return null;
@@ -269,9 +258,7 @@ namespace Wargon.Nukecs.HotReload
         private static string TryFindFile(string directory, string fileName)
         {
             foreach (var file in Directory.GetFiles(directory, fileName, SearchOption.AllDirectories))
-            {
                 return Path.GetFullPath(file);
-            }
             return null;
         }
 #endif
@@ -283,10 +270,7 @@ namespace Wargon.Nukecs.HotReload
         {
             var hts = new HotReloadSystems(systems);
             hts.StartTracking();
-            systems.onWorldDispose +=  (ref World _) =>
-            {
-                hts.Dispose();
-            };
+            systems.onWorldDispose += (ref World _) => { hts.Dispose(); };
             return systems;
         }
     }

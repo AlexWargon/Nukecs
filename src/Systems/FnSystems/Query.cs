@@ -579,10 +579,8 @@ namespace Wargon.Nukecs
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
-
         {
             query = _query;
-
             return true;
         }
 
@@ -639,7 +637,6 @@ namespace Wargon.Nukecs
             public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
             public int Count
-
             {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => _query.Ref.count;

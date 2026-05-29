@@ -53,13 +53,18 @@ namespace Wargon.Nukecs
             staticInited = true;
         }
         public static int WorldCapacity => worlds.Data.Capacity;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref World Get(int index)
         {
             if(worlds.Data.IsCreated)
                 return ref worlds.Data.ElementAt(index);
             return ref dummyWorld.Data;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static ref World GetInternal(int index)
+        {
+            return ref worlds.Data.ElementAt(index);
+        }
         public static bool TryGet(int worldID, out World world)
         {
             var w = worlds.Data.ElementAt(worldID);
@@ -165,6 +170,7 @@ namespace Wargon.Nukecs
             lastWorldID = 0;
             worldCount = 0;
             SingletonRegistry.ResetAll();
+            WorldSystems.Dispose();
             if (domainAllocator.Data.IsActive)
                 domainAllocator.Data.Dispose();
             EntityPrefabMap.Dispose();

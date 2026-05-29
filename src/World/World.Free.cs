@@ -10,8 +10,9 @@ namespace Wargon.Nukecs
         {
             public void Free()
             {
-                ECB.Dispose();
                 WorldSystems.CompleteAll(Id);
+                WorldSystems.Remove(Id);
+                ECB.Dispose();
                 selfPtr = default;
             }
         }

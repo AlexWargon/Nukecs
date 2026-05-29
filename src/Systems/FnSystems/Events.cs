@@ -12,10 +12,12 @@ namespace Wargon.Nukecs
         private MemoryList<TEvent> _list;
         private Spinner _spinner;
         private byte _worldId;
+        private Range _range;
+        public Range Range => _range;
         private ref World World
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref World.Get(_worldId);
+            get => ref World.GetInternal(_worldId);
         }
         
         public SystemParamMetaType MetaType => SystemParamMetaType.Events;
@@ -24,6 +26,7 @@ namespace Wargon.Nukecs
             _list = new MemoryList<TEvent>(capacity, ref world->AllocatorRef);
             _worldId = world->Id;
             _spinner = default;
+            _range = default;
         }
         
         public int Count => _list.Length;
@@ -53,7 +56,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public EventsParallelReader<TEvent> GetParallelReader()
+        public EventsParallelReader<TEvent> ReadPar()
         {
             return new EventsParallelReader<TEvent>(_list.Ptr, _list.Length);
         }
@@ -62,19 +65,47 @@ namespace Wargon.Nukecs
         {
             _list.Clear();
         }
-        public MemoryList<TEvent>.Enumerator GetEnumerator()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RangeEnumerator GetEnumerator()
         {
-            return _list.GetEnumerator();
+            return new RangeEnumerator(_list.Ptr, _range);
         }
 
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            this = new Events<TEvent>(256, world.Ptr);
+            this = new Events<TEvent>(4096, world.Ptr);
         }
 
         public void Update(ref World world, IntPtr data)
         {
+            _range = data == IntPtr.Zero 
+                ? new Range(0, _list.Length) 
+                : *(Range*)data;
+        }
 
+        public ref struct RangeEnumerator
+        {
+            internal TEvent* ptr;
+            internal int start;
+            internal int end;
+            internal int index;
+
+            public RangeEnumerator(TEvent* ptr, Range range)
+            {
+                this.ptr = ptr;
+                this.start = range.start;
+                this.end = range.end;
+                this.index = range.start - 1;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public bool MoveNext() => ++index < end;
+
+            public ref TEvent Current
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref ptr[index];
+            }
         }
     }
 
@@ -92,7 +123,7 @@ namespace Wargon.Nukecs
 
         public ref TEvent this[int index] => ref _ptr[index];
 
-        public Enumerator GetEnumerator() => new Enumerator { ptr = _ptr, length = Length, index = -1 };
+        public Enumerator GetEnumerator() => new () { ptr = _ptr, length = Length, index = -1 };
 
         public ref struct Enumerator
         {

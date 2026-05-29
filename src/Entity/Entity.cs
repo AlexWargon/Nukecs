@@ -9,8 +9,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
-    [StructLayout(LayoutKind.Sequential)]
-    [Serializable]
+    [Serializable,StructLayout(LayoutKind.Sequential)]
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
@@ -21,11 +20,6 @@ namespace Wargon.Nukecs
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
 
-        public EntityIndex Index => new()
-        {
-            component = id % Chunk.MAX_CHUNK_SIZE,
-            chunk = id / Chunk.MAX_CHUNK_SIZE
-        };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, byte world)
         {

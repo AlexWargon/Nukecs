@@ -32,7 +32,7 @@ namespace Wargon.Nukecs
             return false;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static void RemoveResource(int hash) => resources.TryRemove(hash, out _);
+        internal static void RemoveResource(int hash) => resources.TryRemove(hash, out var _);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool HasResource(int hash) => resources.ContainsKey(hash);

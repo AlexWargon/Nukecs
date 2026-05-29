@@ -153,45 +153,22 @@ namespace Wargon.Nukecs {
         }
         public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
+    
+    public static class DefineType
+    {
+        public const string None = nameof(None);
+        public const string Component = nameof(Component);
+        public const string Resource = nameof(Resource);
+        public const string System = nameof(System);
+    }
+    
+    public class @def : Attribute
+    {
+        public string define;
 
-    public enum _
-    {
-        None = 0,
-        Component = 1,
-        Resource = 2,
-        System = 3,
-    }
-    public static class DefType
-    {
-        public const int None = 0;
-        public const int Component = 1;
-        public const int Resource = 2;
-        public const int System = 3;
-    }
-    public class def : Attribute
-    {
-        public int defType;
-        public @def(int defType)
+        public @def(string define)
         {
-            this.defType = defType;
-        }
-        public @def(string defType)
-        {
-            switch (defType)
-            {
-                case "None":
-                    this.defType = DefType.None;
-                    break;
-                case "Component":
-                    this.defType = DefType.Component;
-                    break;
-                case "Resource":
-                    this.defType = DefType.Resource;
-                    break;
-                case "System":
-                    this.defType = DefType.System;
-                    break;
-            }
+            this.define = define;
         }
     }
 }

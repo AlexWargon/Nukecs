@@ -652,49 +652,6 @@ namespace Wargon.Nukecs
                 ECB.Playback(Self);
             }
 
-            internal ptr<TParam0> GetSystemParam<TParam0>() 
-                where TParam0 :  unmanaged, ISystemParam
-            {
-                TParam0 paramDefault = default;
-                var param = ptr<TParam0>.NULL;
-                switch (paramDefault.MetaType)
-                {
-                    case SystemParamMetaType.Events:
-                        break;
-                    case SystemParamMetaType.Resource:
-                        if (resStorage.HasRes<TParam0>())
-                        {
-                            param = resStorage.GetRes<TParam0>();
-                        }
-                        else 
-                        {
-                            resStorage.AddRes(in paramDefault, Self);
-                            param = resStorage.GetRes<TParam0>();
-                            param.Ref = paramDefault;
-                            param.Ref.Init(ref selfPtr);
-                        }
-                        break;
-                    case SystemParamMetaType.Service:
-                    case SystemParamMetaType.Query:
-                        param = AllocatorRef.AllocatePtr<TParam0>();
-                        param.Ref = paramDefault;
-                        param.Ref.Init(ref selfPtr);
-                        break;
-                    case SystemParamMetaType.Single:
-                    case SystemParamMetaType.Local:
-                        param = AllocatorRef.AllocatePtr<TParam0>();
-                        param.Ref = paramDefault;
-                        param.Ref.Init(ref selfPtr);
-                        break;
-                    case SystemParamMetaType.World:
-                        break;
-                    case SystemParamMetaType.State:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-                return param;
-            }
             public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 : unmanaged, ISystemParam
             {
                 TParam0 paramDefault = default;

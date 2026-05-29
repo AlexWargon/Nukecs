@@ -9,6 +9,7 @@ using Wargon.Nukecs.Tests;
 namespace Wargon.Nukecs
 {
     using static UnsafeStatic;
+
     /// <summary>
     /// Provides read/write access to a singleton resource
     /// from a system parameter.
@@ -27,7 +28,6 @@ namespace Wargon.Nukecs
 
         void IResourceGetSet.SetResource(IRes res)
         {
-            
             Ref = (TRes)res;
         }
 
@@ -43,10 +43,6 @@ namespace Wargon.Nukecs
 
         public Res(in TRes resource)
         {
-            //_field = ALLOCATOR.PER_WORLD[worldId].AllocatePtr(size_of<TRes>()).as_ptr_str<TRes>();
-            //_field.Ref = resource;
-            //world = worldId;
-
             if (!StructSingleton<TRes>.IsCreated)
             {
                 StructSingleton<TRes>.Create(resource);
@@ -89,36 +85,23 @@ namespace Wargon.Nukecs
     [StructLayout(LayoutKind.Sequential)]
     public struct SaveRes<TRes> : ISystemParam where TRes : struct, IRes
     {
-        private ptr_str<TRes> data;
-        public ref TRes Ref => ref data.Ref;
+        public TRes Ref;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
         public void Init(ref ptr<World.WorldUnsafe> worldPtr)
         {
-            var size = size_of<TRes>();
-            data = worldPtr.Ref.AllocatorRef.AllocatePtr(size).as_ptr_str<TRes>();
         }
 
         public void Update(ref World world, IntPtr dt)
         {
-            this.data.Ref.OnUpdate(ref world);
         }
     }
-
-    public struct TimeRes : IRes
+    
+    public struct TimeRes
     {
         public float DeltaTime;
         public float DeltaTimeFixed;
         public float Time;
         public double ElapsedTime;
         public uint TickCount;
-        public void OnCreate(ref World world)
-        {
-    
-        }
-
-        public void OnUpdate(ref World world)
-        {
-            TickCount++;
-        }
     }
 }

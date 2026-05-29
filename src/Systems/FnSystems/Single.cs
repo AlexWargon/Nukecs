@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Allocators;
 
@@ -113,17 +114,17 @@ namespace Wargon.Nukecs
 
     public struct Local<TData> : ISystemParam where TData : unmanaged, IRes
     {
-        public TData Value;
+        public TData Ref;
         public SystemParamMetaType MetaType => SystemParamMetaType.Local;
-        public unsafe void Init(ref ptr<World.WorldUnsafe> world)
+        public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            Value = default;
-            Value.OnCreate(ref world.Ref.ManagedWorld.Ref);
+            Ref = default;
+            Ref.OnCreate(ref world.Ref.ManagedWorld.Ref);
         }
 
         public unsafe void Update(ref World world, IntPtr data)
         {
-            Value.OnUpdate(ref world);
+            Ref.OnUpdate(ref world);
         }
 
         public IntPtr GetData()

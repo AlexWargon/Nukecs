@@ -18,7 +18,7 @@ namespace Wargon.Nukecs
         internal byte worldId;
         internal int id;
         internal int version;
-
+        
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -362,10 +362,24 @@ namespace Wargon.Nukecs.HotReload
 
             var hasQuery = queryParamIndex >= 0;
 
+            var eventsParamIndex = -1;
+            for (int i = 0; i < sourceParams.Length; i++)
+            {
+                if (i != queryParamIndex && IsEventsType(sourceParams[i].TypeName))
+                {
+                    eventsParamIndex = i;
+                    break;
+                }
+            }
+            var hasEvents = eventsParamIndex >= 0;
+            var isEventsDriven = hasEvents && !hasQuery;
+            var eventsParamName = hasEvents ? sourceParams[eventsParamIndex].Name : "";
+
             var onUpdateParamsList = new List<string>();
             var onUpdateCallArgsList = new List<string>();
             var systemParamFields = new List<(string name, string type)>();
             var systemParamUpdateBatchedList = new List<string>();
+            var systemParamUpdateParallelList = new List<string>();
 
             for (int i = 0; i < sourceParams.Length; i++)
             {
@@ -391,8 +405,24 @@ namespace Wargon.Nukecs.HotReload
                 else
                 {
                     systemParamFields.Add((p.Name, p.TypeName));
-                    systemParamUpdateBatchedList.Add(
-                        $"                {p.Name}.Update(ref {stateParamName}.World, IntPtr.Zero);");
+                    if (isEventsDriven && i == eventsParamIndex)
+                    {
+                        systemParamUpdateBatchedList.Add(
+                            $"                Range _range_{p.Name} = new Range(0, {p.Name}.Count);");
+                        systemParamUpdateBatchedList.Add(
+                            $"                {p.Name}.Update(ref {stateParamName}.World, (IntPtr)UnsafeUtility.AddressOf(ref _range_{p.Name}));");
+                        systemParamUpdateParallelList.Add(
+                            $"                var _copy_{p.Name} = {p.Name};");
+                        systemParamUpdateParallelList.Add(
+                            $"                _copy_{p.Name}.Update(ref {stateParamName}.World, (IntPtr)UnsafeUtility.AddressOf(ref range));");
+                    }
+                    else
+                    {
+                        systemParamUpdateBatchedList.Add(
+                            $"                {p.Name}.Update(ref {stateParamName}.World, IntPtr.Zero);");
+                        systemParamUpdateParallelList.Add(
+                            $"                {p.Name}.Update(ref {stateParamName}.World, IntPtr.Zero);");
+                    }
                 }
             }
 
@@ -419,8 +449,21 @@ namespace Wargon.Nukecs.HotReload
                 ? onUpdateCallArgs.Replace($"ref {queryParamName}", "ref _copy")
                 : onUpdateCallArgs;
 
+            var parallelCallArgsEventsList = new List<string>(onUpdateCallArgsList);
+            if (isEventsDriven)
+            {
+                var evIdx = onUpdateCallArgsList.IndexOf(eventsParamName);
+                if (evIdx >= 0)
+                    parallelCallArgsEventsList[evIdx] = $"_copy_{eventsParamName}";
+            }
+            var parallelCallArgsEvents = string.Join(", ", parallelCallArgsEventsList);
+
             var systemParamUpdateBatched = systemParamUpdateBatchedList.Count > 0
                 ? string.Join("\n", systemParamUpdateBatchedList) + "\n"
+                : "";
+
+            var systemParamUpdateParallel = systemParamUpdateParallelList.Count > 0
+                ? string.Join("\n", systemParamUpdateParallelList) + "\n"
                 : "";
 
             sb.AppendLine($"    public struct {jobName} {{");
@@ -451,6 +494,11 @@ namespace Wargon.Nukecs.HotReload
                 sb.AppendLine($"                _copy.Update(ref {stateParamName}.World, (IntPtr)UnsafeUtility.AddressOf(ref range));");
                 sb.Append(systemParamUpdateBatched);
                 sb.AppendLine($"                OnUpdate({parallelCallArgs});");
+            }
+            else if (isEventsDriven)
+            {
+                sb.Append(systemParamUpdateParallel);
+                sb.AppendLine($"                OnUpdate({parallelCallArgsEvents});");
             }
             else
             {
@@ -502,6 +550,11 @@ namespace Wargon.Nukecs.HotReload
                 sb.AppendLine("                Range range = new Range(0, Query.Ref.Count);");
                 sb.AppendLine("                Query.Ref.Update(ref state.World, (IntPtr)UnsafeUtility.AddressOf(ref range));");
             }
+            else if (isEventsDriven)
+            {
+                sb.AppendLine($"                Range _range_{eventsParamName} = new Range(0, {eventsParamName}.Ref.Count);");
+                sb.AppendLine($"                {eventsParamName}.Ref.Update(ref state.World, (IntPtr)UnsafeUtility.AddressOf(ref _range_{eventsParamName}));");
+            }
 
             var runCallArgsList = new List<string>();
             if (hasQuery) runCallArgsList.Add("ref Query.Ref");
@@ -527,6 +580,11 @@ namespace Wargon.Nukecs.HotReload
             {
                 sb.AppendLine("            Range range = new Range(0, Query.Ref.Count);");
                 sb.AppendLine("            Query.Ref.Update(ref state.World, (IntPtr)UnsafeUtility.AddressOf(ref range));");
+            }
+            else if (isEventsDriven)
+            {
+                sb.AppendLine($"            Range _range_{eventsParamName} = new Range(0, {eventsParamName}.Ref.Count);");
+                sb.AppendLine($"            {eventsParamName}.Ref.Update(ref state.World, (IntPtr)UnsafeUtility.AddressOf(ref _range_{eventsParamName}));");
             }
             sb.AppendLine($"            System.OnUpdate({runCallArgs});");
             sb.AppendLine("            state.World.UnsafeWorld->ECB.Playback(ref state.World);");
@@ -593,6 +651,26 @@ namespace Wargon.Nukecs.HotReload
                 : null;
             var queryParamName = hasQuery ? parameters[queryParamIndex].Name! : null;
 
+            var eventsParamIndex = -1;
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (i == queryParamIndex) continue;
+                var elemType = parameters[i].ParameterType.IsByRef
+                    ? parameters[i].ParameterType.GetElementType()!
+                    : parameters[i].ParameterType;
+                var elemTypeName = GetFullTypeName(elemType);
+                if (IsEventsType(elemTypeName))
+                {
+                    eventsParamIndex = i;
+                    break;
+                }
+            }
+            var hasEvents = eventsParamIndex >= 0;
+            var isEventsDriven = hasEvents && !hasQuery;
+            var eventsParamName = hasEvents
+                ? parameters[eventsParamIndex].Name!
+                : "";
+
             var hasStateParam = false;
             var stateParamName = "state";
             for (int i = 0; i < parameters.Length; i++)
@@ -612,6 +690,7 @@ namespace Wargon.Nukecs.HotReload
             var onUpdateCallArgsList = new List<string>();
             var systemParamFields = new List<(string name, string type)>();
             var systemParamUpdateBatchedList = new List<string>();
+            var systemParamUpdateParallelList = new List<string>();
 
             for (int i = 0; i < parameters.Length; i++)
             {
@@ -643,8 +722,24 @@ namespace Wargon.Nukecs.HotReload
                     var spName = pName;
                     var spType = pTypeName;
                     systemParamFields.Add((spName, spType));
-                    systemParamUpdateBatchedList.Add(
-                        $"                {spName}.Update(ref {stateParamName}.World, IntPtr.Zero);");
+                    if (isEventsDriven && i == eventsParamIndex)
+                    {
+                        systemParamUpdateBatchedList.Add(
+                            $"                Range _range_{spName} = new Range(0, {spName}.Count);");
+                        systemParamUpdateBatchedList.Add(
+                            $"                {spName}.Update(ref {stateParamName}.World, (IntPtr)UnsafeUtility.AddressOf(ref _range_{spName}));");
+                        systemParamUpdateParallelList.Add(
+                            $"                var _copy_{spName} = {spName};");
+                        systemParamUpdateParallelList.Add(
+                            $"                _copy_{spName}.Update(ref {stateParamName}.World, (IntPtr)UnsafeUtility.AddressOf(ref range));");
+                    }
+                    else
+                    {
+                        systemParamUpdateBatchedList.Add(
+                            $"                {spName}.Update(ref {stateParamName}.World, IntPtr.Zero);");
+                        systemParamUpdateParallelList.Add(
+                            $"                {spName}.Update(ref {stateParamName}.World, IntPtr.Zero);");
+                    }
                 }
             }
 
@@ -671,8 +766,21 @@ namespace Wargon.Nukecs.HotReload
                 ? onUpdateCallArgs.Replace($"ref {queryParamName}", "ref _copy")
                 : onUpdateCallArgs;
 
+            var parallelCallArgsEventsList = new List<string>(onUpdateCallArgsList);
+            if (isEventsDriven)
+            {
+                var evIdx = onUpdateCallArgsList.IndexOf(eventsParamName);
+                if (evIdx >= 0)
+                    parallelCallArgsEventsList[evIdx] = $"_copy_{eventsParamName}";
+            }
+            var parallelCallArgsEvents = string.Join(", ", parallelCallArgsEventsList);
+
             var systemParamUpdateBatched = systemParamUpdateBatchedList.Count > 0
                 ? string.Join("\n", systemParamUpdateBatchedList) + "\n"
+                : "";
+
+            var systemParamUpdateParallel = systemParamUpdateParallelList.Count > 0
+                ? string.Join("\n", systemParamUpdateParallelList) + "\n"
                 : "";
 
             sb.AppendLine($"    public struct {jobName} : {interfaceName} {{");
@@ -703,6 +811,11 @@ namespace Wargon.Nukecs.HotReload
                 sb.AppendLine($"                _copy.Update(ref {stateParamName}.World, (IntPtr)UnsafeUtility.AddressOf(ref range));");
                 sb.Append(systemParamUpdateBatched);
                 sb.AppendLine($"                OnUpdate({parallelCallArgs});");
+            }
+            else if (isEventsDriven)
+            {
+                sb.Append(systemParamUpdateParallel);
+                sb.AppendLine($"                OnUpdate({parallelCallArgsEvents});");
             }
             else
             {
@@ -1014,6 +1127,12 @@ namespace Wargon.Nukecs.HotReload
         {
             var shortName = typeName.Contains('.') ? typeName.Substring(typeName.LastIndexOf('.') + 1) : typeName;
             return shortName == "State";
+        }
+
+        private static bool IsEventsType(string typeName)
+        {
+            var shortName = typeName.Contains('.') ? typeName.Substring(typeName.LastIndexOf('.') + 1) : typeName;
+            return shortName.StartsWith("Events<");
         }
 
         private static bool IsWorldType(string typeName)
