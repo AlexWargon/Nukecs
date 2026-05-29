@@ -98,22 +98,27 @@ namespace Wargon.Nukecs
             data = worldPtr.Ref.AllocatorRef.AllocatePtr(size).as_ptr_str<TRes>();
         }
 
-        public void Update(ref World world, IntPtr data)
+        public void Update(ref World world, IntPtr dt)
         {
             this.data.Ref.OnUpdate(ref world);
         }
+    }
 
-        public IntPtr GetData()
+    public struct TimeRes : IRes
+    {
+        public float DeltaTime;
+        public float DeltaTimeFixed;
+        public float Time;
+        public double ElapsedTime;
+        public uint TickCount;
+        public void OnCreate(ref World world)
         {
-            return IntPtr.Zero;
+    
         }
 
-        public bool TryGetQuery(out ptr<QueryUnsafe> query)
+        public void OnUpdate(ref World world)
         {
-            query = default;
-            return false;
+            TickCount++;
         }
-
-        public void SetQueryPtr(ptr<QueryUnsafe> q) { }
     }
 }

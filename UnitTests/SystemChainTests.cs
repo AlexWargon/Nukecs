@@ -645,6 +645,115 @@ namespace Wargon.Nukecs.Tests
         }
 
         [Test]
+        public void Chain_AddSystems_BareArgs_DefaultParallel()
+        {
+            var world = World.Create(WorldConfig.Default1024);
+            var systems = new Systems(ref world);
+            systems.AddSystems(SystemPath.Update,
+                ChainSystems.AccelerationToVelocity,
+                ChainSystems.VelocityToPosition,
+                ChainSystems.PositionToDistance);
+
+            var arch = world.GetArchetype(
+                typeof(ChainAcceleration),
+                typeof(ChainVelocity),
+                typeof(ChainPosition),
+                typeof(ChainDistance));
+            var entity = arch.CreateEntity();
+            entity.Get<ChainAcceleration>().Value = 4f;
+            world.Update();
+
+            systems.OnUpdate(1f, 1f);
+
+            Assert.AreEqual(4f, entity.Get<ChainVelocity>().X, "AddSystems bare: vel X");
+            Assert.AreEqual(4f, entity.Get<ChainPosition>().X, "AddSystems bare: pos X");
+            Assert.AreEqual(32f, entity.Get<ChainDistance>().Value, "AddSystems bare: dist = 4*4+4*4");
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void Chain_AddSystems_TupleArgs_CustomThreads()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+            systems.AddSystems(SystemPath.Update,
+                (ChainSystems.AccelerationToVelocity, Threads.Main),
+                (ChainSystems.VelocityToPosition, Threads.Main),
+                (ChainSystems.PositionToDistance, Threads.Main));
+
+            var arch = world.GetArchetype(
+                typeof(ChainAcceleration),
+                typeof(ChainVelocity),
+                typeof(ChainPosition),
+                typeof(ChainDistance));
+            var entity = arch.CreateEntity();
+            entity.Get<ChainAcceleration>().Value = 10f;
+            world.Update();
+
+            systems.OnUpdate(1f, 1f);
+
+            Assert.AreEqual(10f, entity.Get<ChainVelocity>().X, "AddSystems tuple: vel X = 10*1");
+            Assert.AreEqual(10f, entity.Get<ChainPosition>().X, "AddSystems tuple: pos X = 10*1");
+            Assert.AreEqual(200f, entity.Get<ChainDistance>().Value, "AddSystems tuple: dist = 10*10*2");
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void Chain_AddSystems_MixedBareAndTuple()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+            systems.AddSystems(SystemPath.Update,
+                ChainSystems.AccelerationToVelocity,
+                (ChainSystems.VelocityToPosition, Threads.Main),
+                ChainSystems.PositionToDistance);
+
+            var arch = world.GetArchetype(
+                typeof(ChainAcceleration),
+                typeof(ChainVelocity),
+                typeof(ChainPosition),
+                typeof(ChainDistance));
+            var entity = arch.CreateEntity();
+            entity.Get<ChainAcceleration>().Value = 4f;
+            world.Update();
+
+            systems.OnUpdate(1f, 1f);
+
+            Assert.AreEqual(4f, entity.Get<ChainVelocity>().X, "AddSystems mixed: vel X");
+            Assert.AreEqual(4f, entity.Get<ChainPosition>().X, "AddSystems mixed: pos X");
+            Assert.AreEqual(32f, entity.Get<ChainDistance>().Value, "AddSystems mixed: dist = 4*4+4*4");
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void Chain_AddSystems_DamageDeathClamp()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+            systems.AddSystems(SystemPath.Update,
+                (ChainSystems.ApplyDamage, Threads.Main),
+                (ChainSystems.CheckDeath, Threads.Main),
+                (ChainSystems.ClampDeadHealth, Threads.Main));
+
+            var damageArch = world.GetArchetype(
+                typeof(ChainDamageEvent), typeof(ChainHealth), typeof(ChainDeadFlag));
+            var entity = damageArch.CreateEntity();
+            entity.Get<ChainDamageEvent>().Amount = 60;
+            entity.Get<ChainHealth>().Value = 50;
+            world.Update();
+
+            systems.OnUpdate(1f, 1f);
+
+            Assert.AreEqual(0, entity.Get<ChainHealth>().Value, "AddSystems damage: hp clamped to 0");
+            Assert.IsTrue(entity.Get<ChainDeadFlag>().IsDead, "AddSystems damage: dead");
+
+            world.Dispose();
+        }
+
+        [Test]
         public void Chain_FractionalDeltaTime_AccumulatesCorrectly()
         {
             var world = World.Create(WorldConfig.Default256);

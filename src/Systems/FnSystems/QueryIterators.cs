@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
@@ -281,4 +282,17 @@ namespace Wargon.Nukecs
             return iter;
         }
     }
+    
+    public unsafe struct Items
+    {
+        [NativeDisableUnsafePtrRestriction] public byte* _items;
+        public int count;
+
+    }
+
+
+
+
+
+
 }

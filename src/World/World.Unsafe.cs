@@ -28,7 +28,6 @@ namespace Wargon.Nukecs
             public MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
             internal Archetype rootArchetype;
-            internal MemoryList<int> entitiesArchetypes;
             internal MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
             internal DynamicBitmask tempMask;
@@ -100,7 +99,6 @@ namespace Wargon.Nukecs
                 entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
                 reservedEntities = new MemoryList<int>(128, ref AllocatorRef, clear:true);
-                entitiesArchetypes = new MemoryList<int>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 entityLocations = new MemoryList<EntityLocation>(worldConfig.StartEntitiesAmount, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 pools = new MemoryList<GenericPool>(200, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
@@ -144,7 +142,6 @@ namespace Wargon.Nukecs
                 if (lastEntityIndex >= entities.Capacity - 1) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
                 entitiesAmount++;
@@ -155,9 +152,9 @@ namespace Wargon.Nukecs
                 } else {
                     lastEntityIndex++;
                 }
+
                 ref var e = ref entities.ElementAt(last);
                 e = new Entity(last, Id);
-                entitiesArchetypes.ElementAt(e.id) = 0;
                 entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
@@ -170,7 +167,6 @@ namespace Wargon.Nukecs
                 if (lastEntityIndex >= entities.capacity) {
                     var newCapacity = lastEntityIndex * 2;
                     entities.Resize(newCapacity, ref AllocatorRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
 
@@ -187,7 +183,6 @@ namespace Wargon.Nukecs
 
                 ref var e = ref entities.ElementAt(last);
                 e = new Entity(last, Id);
-                entitiesArchetypes.ElementAt(last) = archetype;
                 entityLocations.ElementAt(last) = new EntityLocation { archetypeIndex = archetype, row = 0 };
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
@@ -323,7 +318,7 @@ namespace Wargon.Nukecs
                 reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
-                entitiesArchetypes.Ptr[entity] = 0;
+                entityLocations.Ptr[entity] = default;
 #if NUKECS_DEBUG
                 entitiesDens.Remove(entity);
 #endif
@@ -339,7 +334,6 @@ namespace Wargon.Nukecs
             //     if (lastEntityIndex >= entities.m_capacity) {
             //         var newCapacity = lastEntityIndex * 2;
             //         UnsafeHelp.ResizeUnsafeList(ref entities, newCapacity);
-            //         UnsafeHelp.ResizeUnsafeList(ref entitiesArchetypes, newCapacity);
             //     }
             //     Entity e;
             //     entitiesAmount++;
@@ -420,7 +414,6 @@ namespace Wargon.Nukecs
                     var newCapacity = entities.Capacity * 2;
                     if (newCapacity < needed) newCapacity = needed;
                     entities.Resize(newCapacity, ref AllocatorRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
 
@@ -433,7 +426,6 @@ namespace Wargon.Nukecs
                 {
                     var id = reservedEntities.ElementAt(reservedCount - 1 - i);
                     entities.ElementAt(id) = new Entity(id, Id);
-                    entitiesArchetypes.ElementAt(id) = archetype;
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
@@ -443,7 +435,6 @@ namespace Wargon.Nukecs
                 {
                     var id = lastEntityIndex++;
                     entities.ElementAt(id) = new Entity(id, Id);
-                    entitiesArchetypes.ElementAt(id) = archetype;
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
@@ -481,13 +472,11 @@ namespace Wargon.Nukecs
                     var newCapacity = entities.Capacity * 2;
                     if (newCapacity < end + 1) newCapacity = end + 1;
                     entities.Resize(newCapacity, ref AllocatorRef);
-                    entitiesArchetypes.Resize(newCapacity, ref AllocatorRef);
                     entityLocations.Resize(newCapacity, ref AllocatorRef);
                 }
 
                 entitiesAmount += count;
 
-                new Span<int>(entitiesArchetypes.Ptr + start, count).Fill(archetype);
                 new Span<EntityLocation>(entityLocations.Ptr + start, count).Fill(new EntityLocation { archetypeIndex = archetype });
                 for (var i = start; i < end; i++)
                 {
@@ -590,7 +579,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             public ref ptr<ArchetypeUnsafe> GetEntityArchetypePtr(int ent) {
-                return ref archetypesList.Ptr[entitiesArchetypes.Ptr[ent]];
+                return ref archetypesList.Ptr[entityLocations.Ptr[ent].archetypeIndex];
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -741,7 +730,6 @@ namespace Wargon.Nukecs
                             param = AllocatorRef.AllocatePtr<TParam0>();
                             param.Ref = paramDefault;
                             as_ref<SetQueryPtrProxy>(param.cached).SetQueryPtr(queries[queryIndex]);
-                            //param.Ref.SetQueryPtr(queries[queryIndex]);
                         }
                         else
                         {

@@ -232,10 +232,10 @@ namespace Wargon.Nukecs.Editor
         {
             
             var allRunners = new List<ISystemRunner>();
-            allRunners.AddRange(systems.runners);
-            allRunners.AddRange(systems.fixedRunners);
-            allRunners.AddRange(systems.mtRunners);
-            allRunners.AddRange(systems.mtFixedRunners);
+            allRunners.AddRange(systems.onStart);
+            allRunners.AddRange(systems.onUpdate);
+            allRunners.AddRange(systems.onFixedUpdate);
+            allRunners.AddRange(systems.onDestroy);
 
             var maxDisplay = 12;
             var displayCount = Mathf.Min(allRunners.Count, maxDisplay);

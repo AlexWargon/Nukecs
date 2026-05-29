@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 #if UNITY_EDITOR
+using System.Threading.Tasks;
 using UnityEngine;
 using Wargon.Nukecs.HotReload;
 #endif
@@ -59,7 +60,11 @@ namespace Wargon.Nukecs.HotReload
         public void StartTracking()
         {
 #if UNITY_EDITOR
-            TrackRunnerList(_systems.runners);
+            Task.Run(() =>
+            {
+                TrackRunnerList(_systems.onUpdate);
+                dbug.log("[HotReload] Start Tracking");
+            });
 #endif
         }
 
@@ -142,10 +147,10 @@ namespace Wargon.Nukecs.HotReload
                             break;
                         }
 
-                        if (entry.RunnerIndex >= 0 && entry.RunnerIndex < _systems.runners.Count)
-                            _systems.runners[entry.RunnerIndex] = runner;
+                        if (entry.RunnerIndex >= 0 && entry.RunnerIndex < _systems.onUpdate.Count)
+                            _systems.onUpdate[entry.RunnerIndex] = runner;
                         else
-                            _systems.runners.Add(runner);
+                            _systems.onUpdate.Add(runner);
 
                         matchedMethods.Add(j);
                         break;
@@ -170,8 +175,8 @@ namespace Wargon.Nukecs.HotReload
                     continue;
                 }
 
-                var runnerIndex = _systems.runners.Count;
-                _systems.runners.Add(runner);
+                var runnerIndex = _systems.onUpdate.Count;
+                _systems.onUpdate.Add(runner);
 
                 var declaringType = method.DeclaringType;
                 _entries.Add(new SystemEntry

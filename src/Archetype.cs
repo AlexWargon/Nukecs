@@ -331,7 +331,34 @@ namespace Wargon.Nukecs
             var swappedEntity = packedEntities.Ptr[row];
             world->entityLocations.Ptr[swappedEntity].row = row;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void DestroyEntity(int row)
+        {
+            count--;
+            if (row == count) return;
 
+            packedEntities.Ptr[row] = packedEntities.Ptr[count];
+
+            for (var i = 0; i < types.length; i++)
+            {
+                var off = componentOffsets.Ptr[i];
+                if (off < 0) continue;
+                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
+
+                var size = ctData.size;
+                var src = data.Ptr + off + count * size;
+                var dst = data.Ptr + off + row * size;
+                if (ctData.isDisposable)
+                {
+                    ctData.DisposeFn().Invoke(dst, 0);
+                }
+                memcpy(dst, src, size);
+            }
+
+            var swappedEntity = packedEntities.Ptr[row];
+            world->entityLocations.Ptr[swappedEntity].row = row;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void MoveEntityTo(int row, ref ArchetypeUnsafe target)
         {
             if (packedEntities.Ptr == null || row < 0 || row >= count) return;
@@ -354,12 +381,9 @@ namespace Wargon.Nukecs
                 memcpy(dst, src, srcSize);
             }
 
-            world->entityLocations.Ptr[entityID] = new EntityLocation {
-                archetypeIndex = target.index,
-                row = newRow
-            };
-            world->entitiesArchetypes.Ptr[entityID] = target.index;
-
+            ref var loc = ref world->entityLocations.Ptr[entityID];
+            loc.archetypeIndex = target.index;
+            loc.row = newRow;
             RemoveEntity(row);
         }
 
@@ -381,12 +405,12 @@ namespace Wargon.Nukecs
                     mem_clear(dst, ctData.size);
             }
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ref QueryUnsafe IdToQueryRef(int qId)
         {
             return ref world->queries.Ptr[qId].Ref;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private ref ptr<QueryUnsafe> Query(int qId)
         {
             return ref world->queries.Ptr[qId];
@@ -932,14 +956,14 @@ namespace Wargon.Nukecs
             {
                 if (transactions.TryGetValue(component, out var edge))
                 {
-                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.toMove;
+                    world->entityLocations.Ptr[entity].archetypeIndex = edge.Ref.toMove;
                     edge.Ref.Execute(entity);
                 }
                 else
                 {
                     CreateTransaction(component);
                     edge = transactions[component];
-                    world->entitiesArchetypes.ElementAt(entity) = edge.Ref.toMove;
+                    world->entityLocations.Ptr[entity].archetypeIndex = edge.Ref.toMove;
                     edge.Ref.Execute(entity);
                 }
             }

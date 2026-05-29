@@ -1,7 +1,8 @@
+using Unity.Burst;
+using Unity.Mathematics;
 namespace Wargon.Nukecs.Transforms
 {
-    using Unity.Burst;
-    using Unity.Mathematics;
+
     [BurstCompile]
     public struct TransformChildSystem : IEntityJobSystem
     {
@@ -23,39 +24,6 @@ namespace Wargon.Nukecs.Transforms
             transform.Position = math.mul(parentTransform.Rotation, localTransform.Position * parentTransform.Scale) + parentTransform.Position;
             transform.Rotation = math.mul(parentTransform.Rotation, localTransform.Rotation);
             transform.Scale = localTransform.Scale * parentTransform.Scale;
-        }
-    }
-
-    public static partial class Transforms
-    {
-        [BurstCompile, System]
-        public static void ChildSystem(
-            ref Query<ChildOf, Transform, LocalTransform, None<OnAddChildWithTransformEvent>> query)
-        {
-            foreach (var (childOfRef, transformRef, localTransformRef,_) in query)
-            {
-                ref var transform = ref transformRef.Get;
-                ref var localTransform = ref localTransformRef.Get;
-                ref readonly var parentTransform =
-                    ref childOfRef.Get.Value.Get<Transform>();
-
-                transform.Position = Unity.Mathematics.math.mul(parentTransform.Rotation, localTransform.Position * parentTransform.Scale) + parentTransform.Position;
-                transform.Rotation = Unity.Mathematics.math.mul(parentTransform.Rotation, localTransform.Rotation);
-                transform.Scale = localTransform.Scale * parentTransform.Scale;
-            }
-        }
-        [System]
-        public static void SyncWithUnityTransformSystem(ref Query<Transform, TransformRef, None<NoneSyncTransform>> query)
-        {
-            foreach (var (tRef,tRefRef) in query)
-            {
-                var transformRef = tRefRef.Get.Value.Value;
-                ref var transform = ref tRef.Get;
-
-                transformRef.position = transform.Position;
-                transformRef.rotation = transform.Rotation;
-                transformRef.localScale = transform.Scale;
-            }
         }
     }
 }

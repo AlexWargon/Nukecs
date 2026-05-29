@@ -448,10 +448,8 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *data;
         }
-
-
-
     }
+    
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ArchetypeRef<TComponent> where TComponent : unmanaged
     {

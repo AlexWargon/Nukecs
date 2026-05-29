@@ -278,7 +278,7 @@ namespace Wargon.Nukecs {
 
             internal void ProcessEntityBatch(ref World world, int entity, ECBCommand* cmds, int count, byte* dataBuffer) {
                 var w = world.UnsafeWorld;
-                var originalArchIdx = w->entitiesArchetypes.Ptr[entity];
+                var originalArchIdx = w->entityLocations.Ptr[entity].archetypeIndex;
                 ref var originalArch = ref w->archetypesList.Ptr[originalArchIdx].Ref;
 
                 tempMask.CopyFrom(ref originalArch.mask);
@@ -319,7 +319,7 @@ namespace Wargon.Nukecs {
                 }
 
                 if (destroyed) {
-                    ref var arch = ref w->archetypesList.Ptr[w->entitiesArchetypes.Ptr[entity]].Ref;
+                    ref var arch = ref w->archetypesList.Ptr[w->entityLocations.Ptr[entity].archetypeIndex].Ref;
                     for (var index = 0; index < arch.types.length; index++) {
                         if (ComponentTypeMap.GetComponentType(arch.types.Ptr[index]).storageType == StorageType.Pool)
                         {
@@ -328,7 +328,7 @@ namespace Wargon.Nukecs {
                         }
                     }
                     var loc = w->entityLocations.Ptr[entity];
-                    arch.RemoveEntity(loc.row);
+                    arch.DestroyEntity(loc.row);
                     arch.destroyEdge.Execute(entity);
                     w->OnDestroyEntity(entity);
                     return;
@@ -347,7 +347,6 @@ namespace Wargon.Nukecs {
                             archetypeIndex = targetArchIdx,
                             row = newRow
                         };
-                        w->entitiesArchetypes.Ptr[entity] = targetArchIdx;
                         WriteComponentData(dataBuffer, ref dstArch, newRow, cmds, count);
                         for (var qi = 0; qi < dstArch.queries.length; qi++) {
                             ref var q = ref w->queries.Ptr[dstArch.queries.Ptr[qi]].Ref;

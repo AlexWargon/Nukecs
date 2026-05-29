@@ -13,8 +13,34 @@
             foreach (ref var entity in query)
             {
                 entity.Remove<Changed<T>>();
-                ComponentChangeEvent<T>.Invoke(ref entity.Get<T>(), ref entity);
+                ComponentChangeEvent<T>.Invoke(in entity.Get<T>(), in entity);
             }
+        }
+    }
+
+    public static partial class DefaultSystems
+    {
+        public static void ReactAndClearSystem<T>(in Query<T, Changed<T>>.WithEntity query) where T : unmanaged, IComponent
+        {
+            foreach (var (e, c1, c2) 
+                     in query)
+            {
+                e.Remove<Changed<T>>();
+                ComponentChangeEvent<T>.Invoke(in c1.Get, in e);
+            }
+        }
+    }
+    public struct ReactComponent : IRes
+    {
+        private int componentId;
+        public void OnCreate(ref World world)
+        {
+            
+        }
+
+        public void OnUpdate(ref World world)
+        {
+            
         }
     }
 }

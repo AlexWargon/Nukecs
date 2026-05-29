@@ -6,6 +6,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs {
     public interface IQuery {
@@ -38,9 +39,6 @@ namespace Wargon.Nukecs {
         SystemParamMetaType MetaType { get; }
         void Init(ref ptr<World.WorldUnsafe> world);
         void Update(ref World world, IntPtr data);
-        //IntPtr GetData();
-        //bool TryGetQuery(out ptr<QueryUnsafe> query);
-        //void SetQueryPtr(ptr<QueryUnsafe> q);
         public Type ParamType => GetType();
     }
 
@@ -154,5 +152,46 @@ namespace Wargon.Nukecs {
             throw new NotImplementedException();
         }
         public void SetQueryPtr(ptr<QueryUnsafe> q) { }
+    }
+
+    public enum _
+    {
+        None = 0,
+        Component = 1,
+        Resource = 2,
+        System = 3,
+    }
+    public static class DefType
+    {
+        public const int None = 0;
+        public const int Component = 1;
+        public const int Resource = 2;
+        public const int System = 3;
+    }
+    public class def : Attribute
+    {
+        public int defType;
+        public @def(int defType)
+        {
+            this.defType = defType;
+        }
+        public @def(string defType)
+        {
+            switch (defType)
+            {
+                case "None":
+                    this.defType = DefType.None;
+                    break;
+                case "Component":
+                    this.defType = DefType.Component;
+                    break;
+                case "Resource":
+                    this.defType = DefType.Resource;
+                    break;
+                case "System":
+                    this.defType = DefType.System;
+                    break;
+            }
+        }
     }
 }

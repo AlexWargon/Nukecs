@@ -28,10 +28,13 @@ namespace Wargon.Nukecs.HotReload
 
         public static void PrewarmCache()
         {
-            EnsureSystemMethodCache();
-            FindCsc();
-            CollectReferences();
-            HotReloadRoslynCompiler.Initialize();
+            Task.Run(static () =>
+            {
+                EnsureSystemMethodCache();
+                FindCsc();
+                CollectReferences();
+                HotReloadRoslynCompiler.Initialize();
+            });
         }
 
         public static string FindCsc()

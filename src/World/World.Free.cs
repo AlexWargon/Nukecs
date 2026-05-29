@@ -19,15 +19,12 @@ namespace Wargon.Nukecs
             //if (UnsafeWorld == null) return;
             var id = UnsafeWorld->Id;
             lastFreeSlot = id;
-            var allctr = UnsafeWorld->AllocatorHandler;
+            var allocator = UnsafeWorld->AllocatorHandler;
             UnsafeWorld->Free();
-            //AllocatorManager.Free(allocator.AllocatorHandle, UnsafeWorld);
-            allctr.Dispose();
+            allocator.Dispose();
             unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
-            //UnsafeUtility.FreeTracked(UnsafeWorld, Unity.Collections.Allocator.Persistent);
             worldCount--;
             Get(id) = this;
-            //Debug.Log($"World {id} Disposed. World slot {lastFreeSlot} free");
         }
     }
 }

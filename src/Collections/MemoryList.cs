@@ -1,4 +1,6 @@
-﻿namespace Wargon.Nukecs.Collections
+﻿using static Wargon.Nukecs.UnsafeStatic;
+
+namespace Wargon.Nukecs.Collections
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -11,7 +13,19 @@
     {
         public readonly MemoryList<ptr<MemoryList<T>>> list;
     }
-    
+    [StructLayout(LayoutKind.Sequential)]
+    public struct OnDeserializeListProxy
+    {
+        public ptr_offset PtrOffset;
+        public int capacity;
+        public int length;
+        [NativeDisableUnsafePtrRestriction]
+        public unsafe byte* Ptr;
+        public unsafe void OnDeserialize(ref MemAllocator memoryAllocator)
+        {
+            Ptr = PtrOffset.AsPtr<byte>(ref memoryAllocator);
+        }
+    }    
     [StructLayout(LayoutKind.Sequential)]
     public struct ClearListProxy
     {
@@ -47,7 +61,7 @@
 
             if (clear)
             {
-                UnsafeUtility.MemClear(Ptr, sizeof(T) * capacity);
+                mem_clear(Ptr, sizeof(T) * capacity);
             }
         }
 
@@ -115,7 +129,7 @@
         {
             var oldLength = length;
             Resize(length + count, ref allocator);
-            UnsafeUtility.MemCpy(Ptr + oldLength, src, sizeof(T) * count);
+            memcpy(Ptr + oldLength, src, sizeof(T) * count);
         }
         public void AddRange(in Span<T> span, ref MemAllocator allocator)
         {
@@ -173,7 +187,7 @@
         public void CopyFrom(ref MemoryList<T> other, ref MemAllocator allocatorHandler)
         {
             Resize(other.Length, ref allocatorHandler);
-            UnsafeUtility.MemCpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
+            memcpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
         }
         
         public void Resize(int len, ref MemAllocator allocatorHandler)
@@ -227,11 +241,11 @@
                 {
                     var itemsToCopy = math.min(newCapacity, oldCapacity);
                     var bytesToCopy = itemsToCopy * sizeOf;
-                    UnsafeUtility.MemCpy(newPointer, Ptr, bytesToCopy);
+                    memcpy(newPointer, Ptr, bytesToCopy);
                 }
                 if (newCapacity > oldCapacity)
                 {
-                    UnsafeUtility.MemClear(newPointer + oldCapacity, sizeOf * (newCapacity - oldCapacity));
+                    mem_clear(newPointer + oldCapacity, sizeOf * (newCapacity - oldCapacity));
                 }
             }
             Ptr = newPointer;

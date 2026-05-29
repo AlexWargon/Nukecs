@@ -31,7 +31,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 var list = WorldSystems.GetAll(_worldIndex);
                 var count = 0;
                 foreach (var systems in list)
-                    count += systems.runners.Count + systems.fixedRunners.Count;
+                    count += systems.onUpdate.Count + systems.onFixedUpdate.Count;
                 return count;
             }
         }
@@ -527,9 +527,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (!IsWorldValid()) return;
             ref var world = ref GetWorld();
-            ref var entity = ref world.UnsafeWorld->GetEntity(id);
+            ref var entity = ref world.GetEntity(id);
             if (entity.IsValid())
-                entity.Destroy();
+                entity.DestroyNow();
         }
 
         public void AddComponent(int entityId, string compName)

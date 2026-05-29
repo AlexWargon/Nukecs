@@ -185,7 +185,6 @@ namespace Wargon.Nukecs.Editor
         private static long CalculateEntitiesMemory(World.WorldUnsafe* w)
         {
             return w->entities.GetMemorySizeUsed()
-                 + w->entitiesArchetypes.GetMemorySizeUsed()
                  + w->reservedEntities.GetMemorySizeUsed()
                  + w->prefabsToSpawn.GetMemorySizeUsed();
         }
@@ -595,11 +594,11 @@ namespace Wargon.Nukecs.Editor
                 if (!arch.Has(typeIndex)) continue;
 
                 var entitiesList = _world.UnsafeWorld->entities;
-                var entitiesArchetypes = _world.UnsafeWorld->entitiesArchetypes;
+                var locations = _world.UnsafeWorld->entityLocations;
 
                 for (var e = 1; e < _world.UnsafeWorld->lastEntityIndex; e++)
                 {
-                    if (entitiesArchetypes.Ptr[e] == arch.index)
+                    if (locations.Ptr[e].archetypeIndex == arch.index)
                         count++;
                 }
             }

@@ -108,7 +108,6 @@ namespace Wargon.Nukecs
 #endif
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent
         {
-            //return entity.worldPointer->entitiesArchetypes.ElementAt(entity.id).ptr.Ptr->Has<T>();
             return entity.ArchetypeRef.Has<T>();
         }
 
@@ -447,7 +446,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetArchetypeHash(this in Entity entity)
         {
-            return entity.world.UnsafeWorldRef.entitiesArchetypes.Ptr[entity.id];
+            return entity.world.UnsafeWorldRef.entityLocations.Ptr[entity.id].archetypeIndex;
         }
     }
 
