@@ -219,11 +219,9 @@ namespace Wargon.Nukecs
                 onFixedUpdate.Add(runner);
             }
             else
-            if (system is IJobRunner)
             {
                 onUpdate.Add(runner);
             }
-
 
             if (system is IOnDestroy onDestroySystem)
             {
