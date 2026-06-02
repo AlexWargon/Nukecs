@@ -163,5 +163,11 @@ namespace Wargon.Nukecs
         {
             UnsafeUtility.AsRef<T>(ptr) = value;
         }
+
+        public static unsafe byte* malloc_on_stack<T>() where T : unmanaged
+        {
+            var ptr = stackalloc byte[sizeof(byte) * sizeof(T)];
+            return ptr;
+        }
     }
 }

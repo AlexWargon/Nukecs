@@ -112,9 +112,9 @@ namespace Wargon.Nukecs.Demos.Boids
         {
             const float maxSpeed     = 5.0f;
             const float minSpeed     = 1.0f;
-            const float boundsRadius = 4.0f;
+            const float boundsRadius = 3.0f;
             var dt = state.Time.DeltaTime;
-            
+
             foreach (var (t, v, f) in query.par_iter_unsafe())
             {
                 v->Value += f->Value * dt;

@@ -17,7 +17,7 @@ namespace Wargon.Nukecs
         private ref World World
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref World.GetInternal(_worldId);
+            get => ref World.Get(_worldId);
         }
         
         public SystemParamMetaType MetaType => SystemParamMetaType.Events;
@@ -30,6 +30,7 @@ namespace Wargon.Nukecs
         }
         
         public int Count => _list.Length;
+        public int Capacity => _list.capacity;
 
         public void Add(TEvent item)
         {
@@ -42,8 +43,10 @@ namespace Wargon.Nukecs
             _spinner.Acquire();
             if (_list.length >= _list.capacity)
             {
+                var savedLen = _list.length;
                 var newCap = _list.capacity == 0 ? 256 : _list.capacity * 2;
                 _list.Resize(newCap, ref World.AllocatorRef);
+                _list.length = savedLen;
             }
             _list.Ptr[_list.length++] = item;
             _spinner.Release();
@@ -51,8 +54,15 @@ namespace Wargon.Nukecs
 
         public void EnsureCapacity(int count)
         {
-            if (_list.length + count > _list.capacity)
-                _list.Resize(_list.length + count, ref World.AllocatorRef);
+            var needed = _list.length + count;
+            if (needed > _list.capacity)
+            {
+                var savedLen = _list.length;
+                var newCap = _list.capacity == 0 ? count : _list.capacity;
+                while (newCap < needed) newCap *= 2;
+                _list.Resize(newCap, ref World.AllocatorRef);
+                _list.length = savedLen;
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -73,7 +83,7 @@ namespace Wargon.Nukecs
 
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            this = new Events<TEvent>(4096, world.Ptr);
+            this = new Events<TEvent>(256, world.Ptr);
         }
 
         public void Update(ref World world, IntPtr data)

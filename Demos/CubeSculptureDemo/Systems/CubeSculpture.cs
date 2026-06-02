@@ -202,7 +202,7 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
         {
             var dt = state.Time.DeltaTime;
             var damping = 1f - math.min(3f * dt, 0.999f);
-            foreach (var (tRef, vRef, tagRef, offsetRef, phaseRef) in query.par_iter())
+            foreach (var (tRef, vRef, tagRef, offsetRef, phaseRef) in query)
             {
                 ref var tag = ref tagRef.Get;
                 if (tag.Value != CubeState.Swarm) continue;
@@ -210,10 +210,10 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
                 ref var t = ref tRef.Get;
                 ref var target = ref offsetRef.Get;
                 ref var phase = ref phaseRef.Get;
-
+            
                 phase.Time += dt;
                 var animTime = phase.Time;
-
+            
                 var amplitude = math.max(0f, 2f - animTime * 0.5f);
                 var spiralAngle = animTime * 2f;
                 var spiralOffset = new float3(
@@ -221,13 +221,13 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
                     math.sin(animTime * 3f) * amplitude * 0.3f,
                     math.sin(spiralAngle) * amplitude
                 );
-
+            
                 var effectiveTarget = target.Value + spiralOffset;
-
+            
                 var toTarget = effectiveTarget - t.Position;
                 var dist = math.length(toTarget);
                 var dir = dist > 0.001f ? toTarget / dist : float3.zero;
-
+            
                 vel.Value += dir * 8f * dt;
                 vel.Value *= damping;
                 t.Position += vel.Value * dt;
@@ -246,16 +246,16 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
             ref Res<ConfigData> config, 
             ref Res<SculptureData> sculpture)
         {
-            foreach (var (tRef, tagRef, offsetRef, slotRef, phaseRef) in query.par_iter())
+            foreach (var (tRef, tagRef, offsetRef, slotRef, phaseRef) in query)
             {
                 ref var tag = ref tagRef.Get;
                 if (tag.Value != CubeState.Swarm) continue;
-
+            
                 ref var t = ref tRef.Get;
                 ref var offset = ref offsetRef.Get;
                 var distSq = math.lengthsq(t.Position - offset.Value);
                 if (distSq > 1f) continue;
-
+            
                 tag.Value = CubeState.Assemble;
                 var slot = Interlocked.Increment(ref sculpture.Ref.SlotCounter) - 1;
                 slotRef.Get.Value = slot;
@@ -284,22 +284,22 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
             {
                 ref var tag = ref tagRef.Get;
                 if (tag.Value != CubeState.Assemble) continue;
-
+            
                 ref var slot = ref slotRef.Get;
                 if (slot.Value < 0) continue;
-
+            
                 ref var t = ref tRef.Get;
                 ref var vel = ref vRef.Get;
                 ref var phase = ref phaseRef.Get;
-
+            
                 phase.Time += dt;
                 var animTime = phase.Time;
-
+            
                 var target = SculptureTemplate.GetPosition(slot.Value, totalCount, scale, shapeIndex);
-
+            
                 var toTarget = target - t.Position;
                 var distSq = math.lengthsq(toTarget);
-
+            
                 if (distSq < 0.01f)
                 {
                     t.Position = target;
@@ -307,9 +307,9 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
                     tag.Value = CubeState.Assembled;
                     continue;
                 }
-
+            
                 var dist = math.sqrt(distSq);
-
+            
                 var approachAngle = animTime * 4f + slot.Value * 0.3f;
                 var spiralRadius = dist * 0.3f;
                 var spiralOffset = new float3(
@@ -317,12 +317,12 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
                     math.sin(approachAngle * 0.7f) * spiralRadius * 0.5f,
                     math.sin(approachAngle) * spiralRadius
                 );
-
+            
                 var effectiveTarget = target + spiralOffset;
                 var toEffective = effectiveTarget - t.Position;
                 var effectiveDist = math.length(toEffective);
                 var effectiveDir = effectiveDist > 0.001f ? toEffective / effectiveDist : float3.zero;
-
+            
                 var speed = math.min(effectiveDist, 15f * dt);
                 t.Position += effectiveDir * speed;
                 vel.Value = effectiveDir * speed / dt;

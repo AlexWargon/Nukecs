@@ -46,7 +46,7 @@ namespace Wargon.Nukecs.Tests
         [System]
         public static void Movement3_2(ref Query<PositionTest, VelocityTest, DamageTest> query, ref State state)
         {
-            foreach (var (pos, vel) in query)
+            foreach (var (pos, vel, _) in query)
             {
                 pos.Get.X += vel.Read.X * state.Time.DeltaTime;
                 pos.Get.Y += vel.Read.Y * state.Time.DeltaTime;

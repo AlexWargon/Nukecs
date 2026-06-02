@@ -65,15 +65,15 @@ namespace Wargon.Nukecs.Tests
         }
         [System]
         [BurstCompile]
-        public static void Iteration4_Iter_Chunk(ref Query<BenchPosition, BenchVelocity, BenchHealth, BenchDamage, None<BenchTag>> query)
+        public static void Iteration4_Iter_Chunk(ref Query<BenchPosition, BenchVelocity, BenchHealth, BenchDamage> query)
         {
             foreach (var chunk in query.iter_chunk())
             {
-                foreach (var c in chunk)
-                {
-                    c.C1.Value += c.C2.Value;
-                    c.C3.Value += c.C4.Value;
-                }
+                // foreach (var c in chunk)
+                // {
+                //     c.C1.Value += c.C2.Value;
+                //     c.C3.Value += c.C4.Value;
+                // }
             }
         }
         [System]

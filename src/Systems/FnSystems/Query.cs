@@ -19,16 +19,14 @@ namespace Wargon.Nukecs
     // ===========================================================================
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIterT1<T1> GetEnumerator()
-        {
-            return new QueryIterT1<T1>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
+        public Range _range;
+
         public override int GetHashCode()
         {
             unchecked { return typeof(T1).GetHashCode(); }
@@ -45,7 +43,7 @@ namespace Wargon.Nukecs
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
             _query = world.Ref.CreateQueryPtr();
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity) _query.Ref.With(ComponentType<T1>.Index);
             id = _query.Ref.Id;
             foreach (var ptr in world.Ref.archetypesList)
             {
@@ -81,21 +79,41 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIterT1<T1> iter_refs()
+        {
+            return new QueryIterT1<T1>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1>> iter()
+        {
+            return new QueryIter<RefTuple<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryParIter<RefTuple<T1>> par_iter()
+        {
+            return new QueryParIter<RefTuple<T1>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
+        {
+            return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
             internal int id;
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public QueryParIterWithEntity<EntityRefTuple<T1>> GetEnumerator()
             {
                 return new QueryParIterWithEntity<EntityRefTuple<T1>>(_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
-            {
-                return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -184,20 +202,15 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
         where TOption : unmanaged
     {
-        
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
         public Range Range => _range;
-        
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1, TOption>> GetEnumerator()
-        {
-            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
 
         public bool IsEmpty
         {
@@ -224,15 +237,16 @@ namespace Wargon.Nukecs
             throw new Exception("No entities found");
         }
 
-        public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
-        {
-            return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryIter<PtrTuple<T1, TOption>> iter_unsafe()
         {
             return new QueryIter<PtrTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
+        {
+            return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -255,6 +269,11 @@ namespace Wargon.Nukecs
             return new QueryIter<RefTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryParIter<RefTuple<T1, TOption>> iter_refs()
+        {
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
 
         public override int GetHashCode()
         {
@@ -274,7 +293,7 @@ namespace Wargon.Nukecs
 
         {
             _query = world.Ref.CreateQueryPtr();
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity) _query.Ref.With(ComponentType<T1>.Index);
             id = _query.Ref.Id;
             TOption option = default;
             switch (option)
@@ -327,6 +346,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -334,11 +354,6 @@ namespace Wargon.Nukecs
             {
                 return new QueryParIterWithEntity<EntityRefTuple<T1, TOption>>(_range, in _query.Ref.matchingArchetypes,
                     _query.Ref.world);
-            }
-
-            public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
-            {
-                return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -370,7 +385,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {
@@ -457,27 +472,23 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, T2, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
         where T2 : unmanaged, IComponent
         where TOption : unmanaged
 
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1, T2, TOption>> GetEnumerator()
+        public readonly QueryIter<PtrTuple<T1, T2, TOption>> iter_unsafe()
         {
-            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryIter<PtrTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2>> iter_chunk()
         {
             return new QueryChunkIter<Chunk<T1, T2>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<PtrTuple<T1, T2, TOption>> iter_unsafe()
-        {
-            return new QueryIter<PtrTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -494,6 +505,12 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryParIter<RefTuple<T1, T2, TOption>> iter_refs()
+        {
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryParIter<RefTuple<T1, T2, TOption>> par_iter()
         {
             return new QueryParIter<RefTuple<T1, T2, TOption>>(in _range, in _query.Ref.matchingArchetypes,
@@ -502,7 +519,7 @@ namespace Wargon.Nukecs
 
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
 
         public override int GetHashCode()
         {
@@ -527,7 +544,8 @@ namespace Wargon.Nukecs
         {
             _query = world.Ref.CreateQueryPtr();
             id = _query.Ref.Id;
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity)
+                _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             TOption option = default;
 
@@ -584,6 +602,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -621,7 +640,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {
@@ -710,27 +729,23 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, T2, T3, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1, T2, T3, TOption>> GetEnumerator()
+        public readonly QueryIter<PtrTuple<T1, T2, T3, TOption>> iter_unsafe()
         {
-            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryIter<PtrTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3>> iter_chunk()
         {
             return new QueryChunkIter<Chunk<T1, T2, T3>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<PtrTuple<T1, T2, T3, TOption>> iter_unsafe()
-        {
-            return new QueryIter<PtrTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -753,9 +768,15 @@ namespace Wargon.Nukecs
             return new QueryIter<RefTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryParIter<RefTuple<T1, T2, T3, TOption>> iter_refs()
+        {
+            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
 
         public override int GetHashCode()
         {
@@ -781,7 +802,8 @@ namespace Wargon.Nukecs
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
             _query = world.Ref.CreateQueryPtr();
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity)
+                _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             _query.Ref.With(ComponentType<T3>.Index);
             id = _query.Ref.Id;
@@ -841,6 +863,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
 
         {
@@ -855,12 +878,6 @@ namespace Wargon.Nukecs
             {
                 return new QueryIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes,
                     _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryChunkIter<Chunk<T1, T2, T3>> iter_chunk()
-            {
-                return new QueryChunkIter<Chunk<T1, T2, T3>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -885,7 +902,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {
@@ -973,20 +990,55 @@ namespace Wargon.Nukecs
 
     // ===========================================================================
 
-    // Query<T1..T4, TOption>
+    // Query<T1..T5> — Unified: Entity+4 components OR 5 components OR 4+filter
 
     // ===========================================================================
 
     [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct Query<T1, T2, T3, T4, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+    public unsafe struct Query<T1, T2, T3, T4, T5> : IQuery, ISystemParam
+        where T1 : unmanaged
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
-        where TOption : unmanaged
+        where T5 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
+        public ptr<QueryUnsafe> _query;
+        internal int id;
+        public Range _range;
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1, T2, T3, T4, TOption>> GetEnumerator()
+        public readonly QueryIter5<T1, T2, T3, T4, T5> iter_new()
+        {
+            return new QueryIter5<T1, T2, T3, T4, T5>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryRefIter5<T1, T2, T3, T4, T5> iter_new_ref()
+        {
+            return new QueryRefIter5<T1, T2, T3, T4, T5>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter5<T1, T2, T3, T4, T5> iter_unsafe() => iter_new();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryRefIter5<T1, T2, T3, T4, T5> iter() => iter_new_ref();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5>> par_iter()
+        {
+            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1, T2, T3, T4, T5>> par_iter_unsafe()
+        {
+            return new QueryParIter<PtrTuple<T1, T2, T3, T4, T5>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryParIter<RefTuple<T1, T2, T3, T4, T5>> iter_refs()
         {
             return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
@@ -997,36 +1049,6 @@ namespace Wargon.Nukecs
             return new QueryChunkIter<Chunk<T1, T2, T3, T4>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<PtrTuple<T1, T2, T3, T4, TOption>> iter_unsafe()
-        {
-            return new QueryIter<PtrTuple<T1, T2, T3, T4, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<PtrTuple<T1, T2, T3, T4, TOption>> par_iter_unsafe()
-        {
-            return new QueryParIter<PtrTuple<T1, T2, T3, T4, TOption>>(in _range, in _query.Ref.matchingArchetypes,
-                _query.Ref.world);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, TOption>> par_iter()
-        {
-            return new QueryParIter<RefTuple<T1, T2, T3, T4, TOption>>(in _range, in _query.Ref.matchingArchetypes,
-                _query.Ref.world);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, T4, TOption>> iter()
-        {
-            return new QueryIter<RefTuple<T1, T2, T3, T4, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
-
-        public ptr<QueryUnsafe> _query;
-        internal int id;
-        private Range _range;
-
         public override int GetHashCode()
         {
             unchecked
@@ -1035,7 +1057,7 @@ namespace Wargon.Nukecs
                 hash = hash * 397 ^ typeof(T2).GetHashCode();
                 hash = hash * 397 ^ typeof(T3).GetHashCode();
                 hash = hash * 397 ^ typeof(T4).GetHashCode();
-                hash = hash * 397 ^ typeof(TOption).GetHashCode();
+                hash = hash * 397 ^ typeof(T5).GetHashCode();
                 return hash;
             }
         }
@@ -1051,19 +1073,17 @@ namespace Wargon.Nukecs
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
             _query = world.Ref.CreateQueryPtr();
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity) _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             _query.Ref.With(ComponentType<T3>.Index);
             _query.Ref.With(ComponentType<T4>.Index);
-
             id = _query.Ref.Id;
-            TOption option = default;
-
+            T5 option = default;
             switch (option)
             {
                 case IComponent _:
-                    _query.Ref.With(ComponentType<TOption>.Index);
-                    QueryParamInfo<TOption>.IsComponent = true;
+                    _query.Ref.With(ComponentType<T5>.Index);
+                    QueryParamInfo<T5>.IsComponent = true;
                     break;
 
                 case IFilter filter:
@@ -1076,7 +1096,7 @@ namespace Wargon.Nukecs
                             f.Setup(_query.Ptr);
                     break;
             }
-                        
+
             foreach (var ptr in world.Ref.archetypesList)
             {
                 ptr.Ref.CheckQuery(in _query);
@@ -1111,133 +1131,6 @@ namespace Wargon.Nukecs
             query = _query;
             return true;
         }
-
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>> GetEnumerator()
-            {
-                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryChunkIter<Chunk<T1, T2, T3, T4>> iter_chunk()
-            {
-                return new QueryChunkIter<Chunk<T1, T2, T3, T4>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityPtrTuple<T1, T2, T3, T4, TOption>> iter_unsafe()
-            {
-                return new QueryIterWithEntity<EntityPtrTuple<T1, T2, T3, T4, TOption>>(
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityPtrTuple<T1, T2, T3, T4, TOption>> par_iter_unsafe()
-            {
-                return new QueryParIterWithEntity<EntityPtrTuple<T1, T2, T3, T4, TOption>>(in _range,
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>> par_iter()
-            {
-                return new QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>>(in _range,
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>> iter()
-            {
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, TOption>>(
-                    in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            private Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(T3).GetHashCode();
-                    hash = hash * 397 ^ typeof(T4).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-                _query.Ref.With(ComponentType<T1>.Index);
-                _query.Ref.With(ComponentType<T2>.Index);
-                _query.Ref.With(ComponentType<T3>.Index);
-                _query.Ref.With(ComponentType<T4>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
-        }
     }
 
     // ===========================================================================
@@ -1256,11 +1149,7 @@ namespace Wargon.Nukecs
         where TOption : unmanaged
 
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> GetEnumerator()
-        {
-            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> par_iter()
@@ -1269,9 +1158,37 @@ namespace Wargon.Nukecs
                 _query.Ref.world);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>> iter()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1, T2, T3, T4, T5, TOption>> iter_unsafe()
+        {
+            return new QueryIter<PtrTuple<T1, T2, T3, T4, T5, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1, T2, T3, T4, T5, TOption>> par_iter_unsafe()
+        {
+            return new QueryParIter<PtrTuple<T1, T2, T3, T4, T5, TOption>>(in _range, in _query.Ref.matchingArchetypes,
+                _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> iter_refs() => par_iter();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5>> iter_chunk()
+        {
+            return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
 
         public override int GetHashCode()
         {
@@ -1298,7 +1215,8 @@ namespace Wargon.Nukecs
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
             _query = world.Ref.CreateQueryPtr();
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity)
+                _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             _query.Ref.With(ComponentType<T3>.Index);
             _query.Ref.With(ComponentType<T4>.Index);
@@ -1360,6 +1278,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1369,7 +1288,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {
@@ -1465,7 +1384,7 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, T2, T3, T4, T5, T6, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
@@ -1473,15 +1392,47 @@ namespace Wargon.Nukecs
         where T6 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> GetEnumerator()
+        public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6>> iter_chunk()
         {
-            return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1, T2, T3, T4, T5, T6, TOption>> iter_unsafe()
+        {
+            return new QueryIter<PtrTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1, T2, T3, T4, T5, T6, TOption>> par_iter_unsafe()
+        {
+            return new QueryParIter<PtrTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> par_iter()
+        {
+            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> iter()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> iter_refs()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
 
         public override int GetHashCode()
         {
@@ -1510,7 +1461,8 @@ namespace Wargon.Nukecs
         {
             _query = world.Ref.CreateQueryPtr();
 
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity)
+                _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             _query.Ref.With(ComponentType<T3>.Index);
             _query.Ref.With(ComponentType<T4>.Index);
@@ -1573,6 +1525,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1582,7 +1535,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {
@@ -1680,7 +1633,7 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, T2, T3, T4, T5, T6, T7, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
@@ -1689,16 +1642,47 @@ namespace Wargon.Nukecs
         where T7 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> GetEnumerator()
+        public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7>> iter_chunk()
         {
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _query.Ref.matchingArchetypes,
-                _query.Ref.world);
+            return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> iter_unsafe()
+        {
+            return new QueryIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> par_iter_unsafe()
+        {
+            return new QueryParIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> par_iter()
+        {
+            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> iter()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> iter_refs()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
 
         public override int GetHashCode()
         {
@@ -1728,7 +1712,8 @@ namespace Wargon.Nukecs
         {
             _query = world.Ref.CreateQueryPtr();
 
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity)
+                _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             _query.Ref.With(ComponentType<T3>.Index);
             _query.Ref.With(ComponentType<T4>.Index);
@@ -1792,6 +1777,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1802,7 +1788,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {
@@ -1902,7 +1888,7 @@ namespace Wargon.Nukecs
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Query<T1, T2, T3, T4, T5, T6, T7, T8, TOption> : IQuery, ISystemParam
-        where T1 : unmanaged, IComponent
+        where T1 : unmanaged
         where T2 : unmanaged, IComponent
         where T3 : unmanaged, IComponent
         where T4 : unmanaged, IComponent
@@ -1912,16 +1898,47 @@ namespace Wargon.Nukecs
         where T8 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> GetEnumerator()
+        public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7, T8>> iter_chunk()
         {
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _query.Ref.matchingArchetypes,
-                _query.Ref.world);
+            return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7, T8>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> iter_unsafe()
+        {
+            return new QueryIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> par_iter_unsafe()
+        {
+            return new QueryParIter<PtrTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> par_iter()
+        {
+            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> iter()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> iter_refs()
+        {
+            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         public ptr<QueryUnsafe> _query;
         internal int id;
-        private Range _range;
+        public Range _range;
 
         public override int GetHashCode()
         {
@@ -1952,7 +1969,8 @@ namespace Wargon.Nukecs
         {
             _query = world.Ref.CreateQueryPtr();
 
-            _query.Ref.With(ComponentType<T1>.Index);
+            if (!T1IsEntity)
+                _query.Ref.With(ComponentType<T1>.Index);
             _query.Ref.With(ComponentType<T2>.Index);
             _query.Ref.With(ComponentType<T3>.Index);
             _query.Ref.With(ComponentType<T4>.Index);
@@ -2017,6 +2035,7 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
         public struct WithEntity : IQuery, ISystemParam
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -2027,7 +2046,7 @@ namespace Wargon.Nukecs
             }
 
             public ptr<QueryUnsafe> _query;
-            private Range _range;
+            public Range _range;
 
             public override int GetHashCode()
             {

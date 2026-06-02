@@ -169,7 +169,7 @@ namespace Wargon.Nukecs
 
         public int count;
         internal ptr<World.WorldUnsafe> worldPtr;
-        [NativeDisableUnsafePtrRestriction] internal World.WorldUnsafe* world;
+        [NativeDisableUnsafePtrRestriction] public World.WorldUnsafe* world;
         internal ptr<QueryUnsafe> self;
 
         public int Id;
@@ -429,7 +429,7 @@ namespace Wargon.Nukecs
     public unsafe struct Ref<TComponent> where TComponent : unmanaged
     {
         [NativeDisableUnsafePtrRestriction] 
-        internal TComponent* data;
+        public TComponent* data;
 
         public ref TComponent Val
         {
@@ -448,103 +448,21 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref *data;
         }
-    }
-    
-    [StructLayout(LayoutKind.Sequential)]
-    public unsafe struct ArchetypeRef<TComponent> where TComponent : unmanaged
-    {
-        [NativeDisableUnsafePtrRestriction] internal TComponent* ptr;
-
-        [NativeDisableUnsafePtrRestriction] internal byte* columnBase;
-        internal int componentSize;
-
-        [NativeDisableUnsafePtrRestriction] internal Chunk* chunks;
-        internal int poolEntityID;
-
-#pragma warning disable CS0169
-        [NativeDisableUnsafePtrRestriction] internal ComponentPoolUntyped* pool;
-        internal int index;
-#pragma warning restore CS0169
-
-        public ref TComponent Val
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *ptr;
-        }
-
-        public ref TComponent Get
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *ptr;
-        }
-
-        public ref readonly TComponent Read
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref *ptr;
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetArchetype(byte* data, int offset, int size)
+        public Ref(TComponent* ptr)
         {
-            columnBase = data + offset;
-            componentSize = size;
-            ptr = (TComponent*)columnBase;
+            data = ptr;
         }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetPool(Chunk* poolChunks, int entityID)
-        {
-            chunks = poolChunks;
-            poolEntityID = entityID;
-            ptr = Chunk.GetPtr<TComponent>(chunks, entityID);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void AdvanceArchetype(int row)
-        {
-            ptr = (TComponent*)(columnBase + row * componentSize);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Bump()
-        {
-            ptr = (TComponent*)((byte*)ptr + componentSize);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Reset()
-        {
-            ptr = (TComponent*)columnBase;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void AdvancePool(int entityID)
-        {
-            poolEntityID = entityID;
-            ptr = Chunk.GetPtr<TComponent>(chunks, entityID);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void ResolveChunks() { }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Set(byte* data, int offset, int currentRow, int size)
-        {
-            columnBase = data + offset;
-            componentSize = size;
-            ptr = (TComponent*)(columnBase + currentRow * componentSize);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void SetRow(int currentRow) => ptr = (TComponent*)(columnBase + currentRow * componentSize);
-        
-        public static implicit operator TComponent(ArchetypeRef<TComponent> r)
+        public static implicit operator TComponent(Ref<TComponent> r)
         {
             return r.Val;
         }
+        public static implicit operator Ref<TComponent>(TComponent r)
+        {
+            var ptr = (TComponent*)Unsafe.AsPointer(ref r);
+            return new Ref<TComponent>(ptr);
+        }
     }
-
 
     public readonly unsafe struct ReadRef<TComponent> where TComponent : unmanaged, IComponent
     {

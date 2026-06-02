@@ -1,5 +1,6 @@
 using UnityEngine;
 using Wargon.Nukecs.HotReload;
+using static Wargon.Nukecs.Demos.Boids.BoidsDemo;
 
 namespace Wargon.Nukecs.Demos.Boids
 {
@@ -27,12 +28,14 @@ namespace Wargon.Nukecs.Demos.Boids
                 Mesh = boidMesh,
                 Material = boidMaterial
             });
-            systems = new Systems(ref world);
-            systems.Add(BoidsDemo.SpawnBoids, Threads.MainRun);
-            systems.Add(BoidsDemo.BoidsCalculateForces, Threads.MainRun);
-            systems.Add(BoidsDemo.BoidsApplyMovement, Threads.Parallel);
-            systems.Add(BoidsDemo.DrawBoids, Threads.Main);
-            systems.AddHotReload();
+            systems = new Systems(ref world)
+                .AddSystems(
+                    SystemPath.Update,
+                    (SpawnBoids, Threads.MainRun),
+                    (BoidsCalculateForces, Threads.MainRun),
+                    BoidsApplyMovement,
+                    (DrawBoids, Threads.Main))
+            .AddHotReload();
         }
 
         private void Update()

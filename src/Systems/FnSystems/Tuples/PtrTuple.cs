@@ -9,25 +9,26 @@ namespace Wargon.Nukecs
         where T1 : unmanaged
         where T2 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1;
         [NativeDisableUnsafePtrRestriction] private T2* _p2;
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++;
+            if (!T1IsEntity) _p1++;
             if(QueryParamInfo<T2>.IsComponent) _p2++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             if(QueryParamInfo<T2>.IsComponent) _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             if(QueryParamInfo<T2>.IsComponent) _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
         }
 
@@ -44,27 +45,28 @@ namespace Wargon.Nukecs
         where T2 : unmanaged
         where T3 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1;
         [NativeDisableUnsafePtrRestriction] private T2* _p2;
         [NativeDisableUnsafePtrRestriction] private T3* _p3;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++;
+            if (!T1IsEntity) _p1++;
             _p2++;
             if(QueryParamInfo<T3>.IsComponent) _p3++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             if(QueryParamInfo<T3>.IsComponent) _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             if(QueryParamInfo<T3>.IsComponent) _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
         }
@@ -90,6 +92,7 @@ namespace Wargon.Nukecs
         where T3 : unmanaged
         where T4 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1;
         [NativeDisableUnsafePtrRestriction] private T2* _p2;
         [NativeDisableUnsafePtrRestriction] private T3* _p3;
@@ -97,16 +100,16 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++;
+            if (!T1IsEntity) _p1++;
             _p2++;
             _p3++;
-            if(QueryParamInfo<T4>.IsComponent) _p4++;
+            if(QueryParamInfo<T4>.IsComponent)_p4++;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
             var ptr = archetype.data.Ptr;
-            _p1 = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             _p3 = (T3*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
             if(QueryParamInfo<T4>.IsComponent)_p4 = (T4*)(ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index)));
@@ -114,7 +117,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             if(QueryParamInfo<T4>.IsComponent)_p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
@@ -145,6 +148,7 @@ namespace Wargon.Nukecs
         where T4 : unmanaged
         where T5 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1;
         [NativeDisableUnsafePtrRestriction] private T2* _p2;
         [NativeDisableUnsafePtrRestriction] private T3* _p3;
@@ -154,14 +158,15 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++; _p2++; _p3++; _p4++;
+            if (!T1IsEntity) _p1++;
+            _p2++; _p3++; _p4++;
             if (QueryParamInfo<T5>.IsComponent) _p5++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index)));
@@ -172,7 +177,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
@@ -197,6 +202,7 @@ namespace Wargon.Nukecs
         where T5 : unmanaged
         where T6 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1; 
         [NativeDisableUnsafePtrRestriction] private T2* _p2; 
         [NativeDisableUnsafePtrRestriction] private T3* _p3;
@@ -207,14 +213,15 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++; _p2++; _p3++; _p4++; _p5++;
+            if (!T1IsEntity) _p1++;
+            _p2++; _p3++; _p4++; _p5++;
             if (QueryParamInfo<T6>.IsComponent) _p6++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index)));
@@ -226,7 +233,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
@@ -255,6 +262,7 @@ namespace Wargon.Nukecs
         where T4 : unmanaged where T5 : unmanaged where T6 : unmanaged
         where T7 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1; 
         [NativeDisableUnsafePtrRestriction] private T2* _p2; 
         [NativeDisableUnsafePtrRestriction] private T3* _p3;
@@ -266,14 +274,15 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++; _p2++; _p3++; _p4++; _p5++; _p6++;
+            if (!T1IsEntity) _p1++;
+            _p2++; _p3++; _p4++; _p5++; _p6++;
             if (QueryParamInfo<T7>.IsComponent) _p7++;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index)));
@@ -287,7 +296,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
@@ -321,6 +330,7 @@ namespace Wargon.Nukecs
         where T4 : unmanaged where T5 : unmanaged where T6 : unmanaged
         where T7 : unmanaged where T8 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1; 
         [NativeDisableUnsafePtrRestriction] private T2* _p2; 
         [NativeDisableUnsafePtrRestriction] private T3* _p3; 
@@ -333,7 +343,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++; _p2++; _p3++; _p4++;
+            if (!T1IsEntity) _p1++;
+            _p2++; _p3++; _p4++;
             _p5++; _p6++; _p7++;
             if (QueryParamInfo<T8>.IsComponent) _p8++;
         }
@@ -341,7 +352,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index)));
@@ -356,7 +367,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;
@@ -391,6 +402,7 @@ namespace Wargon.Nukecs
         where T4 : unmanaged where T5 : unmanaged where T6 : unmanaged
         where T7 : unmanaged where T8 : unmanaged where T9 : unmanaged
     {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         [NativeDisableUnsafePtrRestriction] private T1* _p1; 
         [NativeDisableUnsafePtrRestriction] private T2* _p2; 
         [NativeDisableUnsafePtrRestriction] private T3* _p3; 
@@ -404,7 +416,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add()
         {
-            _p1++; _p2++; _p3++; _p4++;
+            if (!T1IsEntity) _p1++;
+            _p2++; _p3++; _p4++;
             _p5++; _p6++; _p7++; _p8++;
             if (QueryParamInfo<T9>.IsComponent) _p9++;
         }
@@ -412,7 +425,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetData(ref ArchetypeUnsafe archetype)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index)));
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index)));
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index)));
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index)));
@@ -427,7 +440,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart)
         {
-            _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
+            if (!T1IsEntity) _p1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T1>.Index))) + localStart;
             _p2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T2>.Index))) + localStart;
             _p3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T3>.Index))) + localStart;
             _p4 = (T4*)(archetype.data.Ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(ComponentType<T4>.Index))) + localStart;

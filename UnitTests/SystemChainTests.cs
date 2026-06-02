@@ -182,7 +182,7 @@ namespace Wargon.Nukecs.Tests
         public static void InputToVelocity(
             ref Query<ChainInput, ChainSpeed, ChainVelocity, None<ChainAirborneTag>> query)
         {
-            foreach (var (inp, spd, vel, _) in query)
+            foreach (var (inp, spd, vel) in query)
             {
                 vel.Get.X = inp.Read.MoveX * spd.Read.Value;
                 vel.Get.Y = inp.Read.MoveY * spd.Read.Value;

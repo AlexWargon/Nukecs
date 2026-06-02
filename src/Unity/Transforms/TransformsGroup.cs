@@ -16,20 +16,18 @@ namespace Wargon.Nukecs.Transforms
         
         [System, BurstCompile]
         public static void UpdateTransformOnAddChildSystem(
-            ref Query<ChildOf, Transform, With<OnAddChildWithTransformEvent>>.WithEntity query)
+            ref Query<Entity, ChildOf, Transform, With<OnAddChildWithTransformEvent>> query)
         {
-            foreach (var (child,childOfRef, transformRef) in query)
+            foreach (var (child, childOfRef, transformRef) in query)
             {
                 ref var chilfOf = ref childOfRef.Get;
                 ref var childTransform = ref transformRef.Get;
             
                 ref readonly var parentTransform = ref chilfOf.Value.Get<Transform>();
-                // Get local transform values relevent to parent
                 var localPosition = math.mul(math.inverse(parentTransform.Rotation), childTransform.Position - parentTransform.Position) / parentTransform.Scale;
                 var localRotation = math.mul(math.inverse(parentTransform.Rotation), childTransform.Rotation);
                 var localScale = childTransform.Scale / parentTransform.Scale;
 
-                // Add or update LocalTransform
                 if (child.Has<LocalTransform>())
                 {
                     ref var localTransform = ref child.Get<LocalTransform>();
@@ -50,11 +48,12 @@ namespace Wargon.Nukecs.Transforms
                 child.Remove<OnAddChildWithTransformEvent>();
             }
         }
+
         [BurstCompile, System]
         public static void TransformChildSystem(
             ref Query<ChildOf, Transform, LocalTransform, None<OnAddChildWithTransformEvent>> query)
         {
-            foreach (var (childOfRef, transformRef, localTransformRef,_) in query)
+            foreach (var (childOfRef, transformRef, localTransformRef) in query)
             {
                 ref var transform = ref transformRef.Get;
                 ref var localTransform = ref localTransformRef.Get;
