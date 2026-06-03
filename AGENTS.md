@@ -101,7 +101,7 @@ World → Archetype[] → Entity (int ID)
 
 | File | Description |
 |------|-------------|
-| `src/Systems/FnSystems/Query.cs` | Generic query iterators `Query<T1..T5, TOption>` with `WithEntity` variants |
+| `src/Systems/FnSystems/Query.cs` | Generic query iterators `Query<T1..T5, TOption>` with `Query<Entity, ...>` for entity+components |
 | `src/Systems/FnSystems/QueryGeneric.cs` | Generic query job system runners |
 | `src/Systems/FnSystems/QueryIterators.cs` | Query iterator implementations |
 | `src/Systems/FnSystems/QueryIteratorsParallel.cs` | Parallel query iterator implementations |
@@ -350,3 +350,534 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 - `src/Unity/Editor/World/` — Legacy debug windows (ECSDebugWindow, ECSMemoryProfilerWindow, etc.)
 - `src/Unity/Editor/Allocator/` — Allocator debug windows (separate `AllocatorEditor.asmdef`)
 - `Demos/` — Example projects: `RotateCubeDemo`, `BoidsDemo`, `CubeSculptureDemo`
+
+## 16. Usage Patterns (Quick Reference)
+
+### Namespaces
+
+```csharp
+using Wargon.Nukecs;
+using Wargon.Nukecs.Transforms;
+using Wargon.Nukecs.HotReload;
+using Unity.Burst;
+using Unity.Mathematics;
+using Unity.Collections;
+using UnityEngine;
+```
+
+### Component Definition
+
+```csharp
+// Data component
+public struct Health : IComponent
+{
+    public float Value;
+}
+
+// Tag component (no data)
+public struct EnemyTag : IComponent { }
+
+// Component with IDisposable (cleanup on entity destroy)
+public struct GameObjectView : IComponent, IDisposable
+{
+    public ObjectRef<GameObject> val;
+    public void Dispose()
+    {
+        if (val.IsValid() && val != null)
+        {
+            Object.Destroy(val.Value);
+            val.Dispose();
+        }
+    }
+}
+
+// Built-in tag components: DestroyEntity, EntityCreated, IsPrefab, ChildOf, Name
+// Interfaces: IComponent, IArrayComponent, IPoolComponent, IReactive
+```
+
+### Resource Definition
+
+```csharp
+// Unmanaged resource (struct IRes)
+public struct ConfigData : IRes
+{
+    public int TargetCount;
+    public float CubeScale;
+    public void OnCreate(ref World world) { }
+    public void OnUpdate(ref World world) { }
+}
+
+// Managed resource (class IRes)
+public class MeshData : IRes
+{
+    public Mesh Mesh;
+    public Material Material;
+    public void OnCreate(ref World world) { }
+    public void OnUpdate(ref World world) { }
+}
+```
+
+### System Definition ([System] static method — source-generated)
+
+```csharp
+// Thread modes: Main, MainRun, Single, Parallel (default)
+public class GameSystems
+{
+    // Query + State
+    [System, BurstCompile]
+    public static void MovementSystem(
+        ref Query<Position, Velocity> query,
+        ref State state)
+    {
+        var dt = state.Time.DeltaTime;
+        foreach (var (pos, vel) in query)
+        {
+            pos.Get.X += vel.Read.X * dt;
+            pos.Get.Y += vel.Read.Y * dt;
+        }
+    }
+
+    // Unsafe pointer iteration (for Burst)
+    [System, BurstCompile]
+    public static unsafe void FastMovement(
+        ref Query<Position, Velocity, With<EnemyTag>> query,
+        ref State state)
+    {
+        var dt = state.Time.DeltaTime;
+        foreach (var (pos, vel) in query.iter_unsafe())
+        {
+            pos->X += vel->X * dt;
+            pos->Y += vel->Y * dt;
+        }
+    }
+
+    // Parallel unsafe iteration
+    [System, BurstCompile]
+    public static unsafe void ParallelPhysics(
+        ref Query<Position, Velocity> query,
+        ref State state)
+    {
+        var dt = state.Time.DeltaTime;
+        foreach (var (pos, vel) in query.par_iter_unsafe())
+        {
+            pos->X += vel->X * dt;
+        }
+    }
+
+    // Query + Res + State
+    [System, BurstCompile]
+    public static void SpawnSystem(
+        ref State state,
+        ref Res<ConfigData> config)
+    {
+        var count = config.Ref.TargetCount;
+        config.Ref.timer -= state.Time.DeltaTime;
+    }
+
+    // Query + multiple Res + State
+    [System, BurstCompile]
+    public static void AISystem(
+        ref Query<Position, EnemyTag> query,
+        ref State state,
+        ref Res<ConfigData> config,
+        ref Res<GameWorldData> worldData)
+    {
+    }
+
+    // With Entity (get entity + components) — Entity is always first type param
+    [System]
+    public static void DamageSystem(
+        ref Query<Entity, Health> query,
+        ref State state,
+        ref Events<DamageEvent> events)
+    {
+        foreach (var (e, hp) in query)
+        {
+            if (hp.Read.Value <= 0)
+                e.Destroy();
+        }
+    }
+
+    // None<T> filter (exclude entities with component) + Entity
+    [System]
+    public static void AddVelocitySystem(
+        ref Query<Entity, Position, None<Velocity>> query)
+    {
+        foreach (var (e, _) in query)
+        {
+            e.Add(new Velocity { X = 0, Y = 0 });
+        }
+    }
+
+    // State only (no query)
+    [System, BurstCompile]
+    public static void TimerSystem(ref State state)
+    {
+    }
+
+    // ResManaged<T> for class resources
+    [System]
+    public static unsafe void RenderSystem(
+        ref Query<LocalTransform, EnemyTag> query,
+        ref ResManaged<MeshData> meshData)
+    {
+        var param = new RenderParams(meshData.Val.Material);
+    }
+
+    // 5 components + TOption
+    [System, BurstCompile]
+    public static void ComplexSystem(
+        ref Query<Position, Velocity, Health, EnemyTag, Weapon> query,
+        ref State state)
+    {
+    }
+}
+```
+
+### IEntityJobSystem (struct-based per-entity system)
+
+```csharp
+[BurstCompile]
+public struct RotateSystem : IEntityJobSystem
+{
+    public Threads Mode => Threads.Parallel;
+    public Query GetQuery(ref World world)
+    {
+        return world.Query().With<Transform>().With<RotationSpeed>();
+    }
+    public void OnUpdate(ref Entity entity, ref State state)
+    {
+        ref var transform = ref entity.Get<Transform>();
+        ref var speed = ref entity.Get<RotationSpeed>();
+        transform.Rotation = math.mul(
+            transform.Rotation,
+            quaternion.AxisAngle(math.up(), speed.RadiansPerSecond * state.Time.DeltaTime)
+        );
+    }
+}
+```
+
+### ISystem struct (manual query management)
+
+```csharp
+public struct CustomSystem : ISystem, IOnCreate
+{
+    private Query query;
+
+    public void OnCreate(ref World world)
+    {
+        query = world.Query().With<Position>().With<Velocity>();
+    }
+
+    public void OnUpdate(ref State state)
+    {
+        foreach (ref var e in query)
+        {
+            ref var pos = ref e.Get<Position>();
+            ref var vel = ref e.Get<Velocity>();
+            pos.X += vel.X * state.Time.DeltaTime;
+        }
+    }
+}
+```
+
+### World Setup
+
+```csharp
+// Create world
+var world = World.Create(WorldConfig.Default256);
+
+// Create systems
+var systems = new Systems(ref world)
+    .AddDefaults()
+    .Add(GameSystems.MovementSystem, Threads.Main)
+    .Add(GameSystems.FastMovement)
+    .Add(GameSystems.SpawnSystem, Threads.MainRun)
+    .Add<RotateSystem>()                         // IEntityJobSystem struct
+    .AddGroup(new TransformsGroup());             // ISystemsGroup
+
+// Register resources
+world.AddRes(new ConfigData { TargetCount = 100 });
+world.AddResManaged(new MeshData { Mesh = myMesh, Material = myMat });
+
+// Game loop
+void Update()
+{
+    systems.OnUpdate(Time.deltaTime, Time.time);
+}
+
+// Cleanup
+void OnDestroy()
+{
+    world.Dispose();
+}
+```
+
+### WorldConfig presets
+
+```csharp
+WorldConfig.Default16          // 16 entities
+WorldConfig.Default            // 64 entities
+WorldConfig.Default256         // 256 entities
+WorldConfig.Default1024        // 1024 entities
+WorldConfig.Default6144
+WorldConfig.Default16384
+WorldConfig.Default65536
+WorldConfig.Default163840
+WorldConfig.Default256000
+WorldConfig.Default_1_000_000
+```
+
+### Entity Creation
+
+```csharp
+// Empty entity
+ref var entity = ref world.Entity();
+
+// With components
+var e = world.Entity(new Health { Value = 100 }, new Position { X = 0, Y = 0 });
+
+// Create then add (deferred via ECB)
+ref var e = ref world.Entity();
+e.Add(new Health { Value = 100 });
+e.Add<EnemyTag>();
+e.Add(new Name("Player"));
+
+// Batch creation
+var entities = world.BatchCreateEntity(count);
+for (int i = 0; i < entities.Length; i++)
+{
+    ref var e = ref entities[i];
+    e.Add(new Position { X = i * 1.5f });
+    e.Add<Velocity>();
+}
+
+// From archetype
+var arch = world.GetArchetype(typeof(Position), typeof(Velocity));
+var e = arch.CreateEntity();
+e.Get<Position>().X = 5;
+
+// Batch from archetype
+var entities = arch.BatchCreateEntity(count);
+```
+
+### Entity Component Access
+
+```csharp
+ref var hp = ref entity.Get<Health>();             // Read
+entity.Set(new Health { Value = 75 });              // Write
+bool hasHp = entity.Has<Health>();                  // Check
+entity.Add(new Health { Value = 10 });              // Add (deferred via ECB)
+entity.Add<TagComponent>();                         // Add tag (deferred)
+entity.Remove<Health>();                            // Remove (deferred via ECB)
+ref var pos = ref entity.TryGet<Position>(out bool exist); // TryGet
+entity.Destroy();                                   // Deferred destroy
+entity.DestroyNow();                                // Immediate destroy
+```
+
+### Query API
+
+```csharp
+// Build queries via fluent API
+var q1 = world.Query().With<Health>();
+var q2 = world.Query().With<Health>().With<Velocity>();
+var q3 = world.Query().With<Health>().None<EnemyTag>();
+
+int count = q1.Count;
+bool empty = q1.IsEmpty;
+Entity first = q1.First();
+
+// Iterate non-generic query
+foreach (ref var entity in q1)
+{
+    ref var hp = ref entity.Get<Health>();
+}
+```
+
+### Query Iteration Modes
+
+```csharp
+// Ref-based (safe)
+foreach (var (pos, vel) in query)
+{
+    pos.Get.X += vel.Read.X;
+}
+
+// Pointer-based (unsafe, Burst-friendly)
+foreach (var (pos, vel) in query.iter_unsafe())
+{
+    pos->X += vel->X;
+}
+
+// Parallel ref
+foreach (var (pos, vel) in query.par_iter())
+{
+    pos.Get.X += vel.Read.X;
+}
+
+// Parallel pointer
+foreach (var (pos, vel) in query.par_iter_unsafe())
+{
+    pos->X += vel->X;
+}
+```
+
+### Events
+
+```csharp
+// Define event (plain struct, no interface)
+public struct DamageEvent
+{
+    public int EntityId;
+    public float Amount;
+}
+
+// Produce events (single-thread)
+[System]
+public static void ProduceDamage(
+    ref Query<Entity, Health> query,
+    ref Events<DamageEvent> events)
+{
+    foreach (var (e, hp) in query)
+    {
+        events.Add(new DamageEvent { EntityId = e.id, Amount = 10 });
+    }
+}
+
+// Produce events (parallel-safe)
+[System]
+public static void ProduceDamageParallel(
+    ref Query<Entity, Health> query,
+    ref Events<DamageEvent> events)
+{
+    foreach (var (e, hp) in query)
+    {
+        events.AddPar(new DamageEvent { EntityId = e.id, Amount = 10 });
+    }
+}
+
+// Consume events
+[System]
+public static void ApplyDamage(
+    ref State state,
+    ref Events<DamageEvent> events)
+{
+    foreach (ref var ev in events)
+    {
+        var e = state.World.GetEntity(ev.EntityId);
+        ref var hp = ref e.Get<Health>();
+        hp.Value -= ev.Amount;
+    }
+}
+
+// Consume events via parallel reader
+var reader = events.ReadPar();
+for (int i = 0; i < reader.Length; i++)
+{
+    ref var ev = ref reader[i];
+}
+```
+
+### ISystemsGroup (organize systems into a class)
+
+```csharp
+[BurstCompile]
+public class GameSystemsGroup : ISystemsGroup
+{
+    public void Build(Systems systems, ref World world)
+    {
+        systems
+            .Add(MovementSystem, Threads.Main)
+            .Add(FastPhysics)
+            .Add(SpawnSystem, Threads.MainRun)
+            .Add(RenderSystem, Threads.Main);
+    }
+
+    [System, BurstCompile]
+    public static void MovementSystem(/* ... */) { }
+
+    [System, BurstCompile]
+    public static void FastPhysics(/* ... */) { }
+}
+
+// Registration:
+systems.AddGroup(new GameSystemsGroup());
+```
+
+### WorldInstaller (Unity MonoBehaviour integration)
+
+```csharp
+public class GameBootstrap : WorldInstaller
+{
+    [SerializeField] int entityCount = 100;
+
+    protected override WorldConfig GetConfig() => WorldConfig.Default256;
+
+    protected override void OnWorldCreated(ref World world)
+    {
+        world.AddRes(new ConfigData { TargetCount = entityCount });
+        Systems.AddGroup(new GameSystemsGroup());
+    }
+
+    protected override void CreateEntities(ref World world)
+    {
+        var entities = world.BatchCreateEntity(entityCount);
+        for (int i = 0; i < entities.Length; i++)
+        {
+            entities[i].Add(new Position { X = i });
+            entities[i].Add<Velocity>();
+        }
+    }
+
+    void Update()
+    {
+        Systems.OnUpdate(Time.deltaTime, Time.time);
+    }
+}
+```
+
+### Systems.Add() Overloads
+
+```csharp
+// Function-based (source-generated runner)
+systems.Add(ClassName.MethodName, Threads.Main);
+systems.Add(ClassName.MethodName);             // Default = Parallel
+
+// IEntityJobSystem struct
+systems.Add<MyJobSystem>();
+systems.Add<MyJobSystem>(Threads.Parallel);
+
+// ISystem struct
+systems.Add<MyStructSystem>();
+
+// ISystem class (managed)
+systems.Add<MyClassSystem>();
+
+// ISystemsGroup
+systems.AddGroup(new MySystemsGroup());
+
+// Batch with tuples
+systems.AddSystems(SystemPath.Update,
+    Method1,                              // default Parallel
+    (Method2, Threads.Main),
+    (Method3, Threads.MainRun));
+
+// Built-in defaults (entity destroy, clear events)
+systems.AddDefaults();
+```
+
+### Important: ECB is Deferred
+
+```csharp
+// Component changes via Add/Remove/Destroy are DEFERRED (queued in ECB)
+var e = world.Entity();
+e.Add(new Health { Value = 10 });
+
+e.Has<Health>();        // FALSE — not visible yet
+query.Count;            // 0 — query doesn't match yet
+
+world.Update();         // <-- ECB playback happens here
+
+e.Has<Health>();        // TRUE
+query.Count;            // 1
+```
