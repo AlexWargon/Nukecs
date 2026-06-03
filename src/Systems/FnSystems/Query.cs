@@ -211,7 +211,7 @@ namespace Wargon.Nukecs
         internal int id;
         public Range _range;
         public Range Range => _range;
-
+        
         public bool IsEmpty
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

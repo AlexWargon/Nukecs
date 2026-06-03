@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using UnityEditor;
-using Wargon.Nukecs.Collections;
 // ReSharper disable EmptyGeneralCatchClause
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2

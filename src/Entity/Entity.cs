@@ -116,12 +116,13 @@ namespace Wargon.Nukecs
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Data;
-            ref var arch = ref entity.ArchetypeRef;
-            if (arch.Has(componentType.index))
+            var worldPtr = entity.worldPointer;
+            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
+            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            if (arch.offsetMap.Mask.HasFast(componentType.index))
             {
-                // var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
-                // var ptr = arch.GetComponentDataPtr(componentType, loc.row);
-                return ref arch.GetComponent<T>(entity.id, componentType.size, componentType.index);
+                var off = arch.offsetMap.GetRef(componentType.index);
+                return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
             }
             throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
         }

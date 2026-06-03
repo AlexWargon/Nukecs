@@ -7,7 +7,8 @@ namespace Wargon.Nukecs.Transforms
     {
         public void Build(Nukecs.Systems systems, ref World world)
         {
-            systems.AddSystems(SystemPath.Update, 
+            systems.AddSystems(
+                SystemPath.Update, 
                 UpdateTransformOnAddChildSystem, 
                 TransformChildSystem, 
                 (SyncWithUnityTransformSystem, Threads.Main));
@@ -53,6 +54,7 @@ namespace Wargon.Nukecs.Transforms
         public static void TransformChildSystem(
             ref Query<ChildOf, Transform, LocalTransform, None<OnAddChildWithTransformEvent>> query)
         {
+            
             foreach (var (childOfRef, transformRef, localTransformRef) in query)
             {
                 ref var transform = ref transformRef.Get;

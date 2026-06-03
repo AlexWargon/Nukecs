@@ -1,4 +1,5 @@
 ﻿using System;
+using Unity.Burst;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
@@ -78,5 +79,23 @@ namespace Wargon.Nukecs
             rollbacks = new byte[length][];
         }
 
+    }
+    public struct AspectType
+    {
+        public static readonly SharedStatic<int> Count = SharedStatic<int>.GetOrCreate<AspectType>();
+
+        static AspectType()
+        {
+            Count.Data = 0;
+        }
+    }
+    internal struct AspectType<T> where T : unmanaged, IAspect<T>, IAspect
+    {
+        public static readonly SharedStatic<int> Index = SharedStatic<int>.GetOrCreate<AspectType<T>>();
+
+        static AspectType()
+        {
+            Index.Data = AspectType.Count.Data++;
+        }
     }
 }
