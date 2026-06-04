@@ -948,26 +948,7 @@ namespace Wargon.Nukecs
 
             return newEntity;
         }
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        internal void OnEntityChangeECB(int entity, int component)
-        {
-            {
-                if (transactions.TryGetValue(component, out var edge))
-                {
-                    world->entityLocations.Ptr[entity].archetypeIndex = edge.Ref.toMove;
-                    edge.Ref.Execute(entity);
-                }
-                else
-                {
-                    CreateTransaction(component);
-                    edge = transactions[component];
-                    world->entityLocations.Ptr[entity].archetypeIndex = edge.Ref.toMove;
-                    edge.Ref.Execute(entity);
-                }
-            }
-        }
+
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif

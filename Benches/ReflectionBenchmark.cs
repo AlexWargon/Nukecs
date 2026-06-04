@@ -651,7 +651,6 @@ namespace Wargon.Nukecs.Tests
                 z = 3, 
                 level = 5
             };
-
             byte* ptr = (byte*)Unsafe.AsPointer(ref raw);
             var type = Reflect._type.Create(raw.GetType());
             Measure.Method(() =>

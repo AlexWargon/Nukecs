@@ -1,5 +1,7 @@
 using NUnit.Framework;
 using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.PerformanceTesting;
 using Wargon.Nukecs.Collections;
@@ -852,7 +854,7 @@ namespace Wargon.Nukecs.Tests
         {
             _world = World.Create(BenchConfig);
             var systems = new Systems(ref _world);
-            systems.Add(BenchTestSystems.CreateEntitiesBatchSystem, Threads.Main);
+            systems.Add(BenchTestSystems.CreateEntitiesBatchSystem, Threads.MainRun);
             var arch = _world.GetArchetype(typeof(BenchPosition), typeof(BenchVelocity));
             var e = _world.Entity();
             e.Add(new EntityCloneArchetype { val = arch });
@@ -1405,7 +1407,39 @@ namespace Wargon.Nukecs.Tests
         
         
         
-        
+        [Test]
+        [Performance]
+        public void GET_FAST_BitMap1024_1023_GET_Burst()
+        {
+            _world  = World.Create(BenchConfig);
+            var map = new BitMap1024<int>(1023, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
+            for (int i = 0; i < 1023; i++)
+            {
+                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            }
+            
+            Measure.Method(() => 
+                {
+                    for (int j = 0; j < 1000; j++)
+                    {
+                        for (int i = 0; i < 1023; i++)
+                        {
+                            var d = GetBurst.GetBitMap1024(ref map, i);
+                        }
+                    }
+
+                })
+                .WarmupCount(5)
+                .MeasurementCount(100)
+                .IterationsPerMeasurement(1)
+                .Run();
+            for (int i = 0; i < 512; i++)
+            {
+                Assert.True(map.Has(i));
+            }
+            _world.Dispose();
+        }
         
         
         
@@ -1573,6 +1607,27 @@ namespace Wargon.Nukecs.Tests
             for (int i = 0; i < 4095; i++)
             {
                 Assert.True(mask.Has(i));
+            }
+        }
+    }
+
+    
+    [BurstCompile]
+    public static class GetBurst
+    {
+        [BurstCompile]
+        public static ref T GetBitMap1024<T>(ref BitMap1024<T> map, int key) where T : unmanaged
+        {
+            return ref map.GetRef(key);
+        }
+        public struct BitMap1024Job<T> : IJob where T : unmanaged
+        {
+            public BitMap1024<T> map;
+            public NativeArray<T> ret;
+            public void Execute()
+            {
+                var c = map.Count;
+
             }
         }
     }
