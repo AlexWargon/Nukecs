@@ -65,7 +65,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -178,7 +179,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()
@@ -332,7 +334,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -447,7 +450,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -588,7 +592,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -703,7 +708,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()
@@ -846,10 +852,10 @@ namespace Wargon.Nukecs
         }
 
         public void Update(ref World world, IntPtr data)
-
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -972,7 +978,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()
@@ -1118,7 +1125,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -1264,7 +1272,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -1360,7 +1369,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()
@@ -1511,7 +1521,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -1609,7 +1620,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()
@@ -1763,7 +1775,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -1864,7 +1877,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()
@@ -2021,7 +2035,8 @@ namespace Wargon.Nukecs
         public void Update(ref World world, IntPtr data)
         {
             _query = world.UnsafeWorldRef.queries.ElementAt(id);
-            _range = *(Range*)(void*)data;
+            if (data == IntPtr.Zero) _range = new Range(0, Count);
+            else _range = *(Range*)(void*)data;
         }
 
         public IntPtr GetData()
@@ -2124,7 +2139,8 @@ namespace Wargon.Nukecs
 
             public void Update(ref World world, IntPtr data)
             {
-                _range = *(Range*)(void*)data;
+                if (data == IntPtr.Zero) _range = new Range(0, Count);
+                else _range = *(Range*)(void*)data;
             }
 
             public IntPtr GetData()

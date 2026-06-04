@@ -307,7 +307,12 @@ namespace Wargon.Nukecs
 #endif
         public static ref readonly T Read<T>(this ref Entity entity) where T : unmanaged, IComponent
         {
-            return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+            var componentType = ComponentType<T>.Data;
+            var worldPtr = entity.worldPointer;
+            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
+            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            var off = arch.offsetMap.GetRef(componentType.index);
+            return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
         }
 
 #if !NUKECS_DEBUG
@@ -379,7 +384,9 @@ namespace Wargon.Nukecs
                 timeStamp = entity.worldPointer->timeData.ElapsedTime
             });
 #endif
-            entity.Add(new DestroyEntity());
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Destroy(entity.id);
+            //entity.Add(new DestroyEntity());
         }
 
 #if !NUKECS_DEBUG
