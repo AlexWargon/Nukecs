@@ -154,7 +154,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public int GetEntityArchetypeIndex(int id)
         {
             if (!IsWorldValid()) return -1;
-            return GetWorld().UnsafeWorld->entityLocations.Ptr[id].archetypeIndex;
+            try
+            {
+                var uw = GetWorld().UnsafeWorld;
+                if (!IsEntityAlive(uw, id)) return -1;
+                return uw->entityLocations.Ptr[id].archetypeIndex;
+            }
+            catch
+            {
+                return -1;
+            }
         }
 
         private ref World GetWorld()
@@ -261,12 +270,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public EntityInfo GetEntityDetails(int entityId)
         {
-            if (!World.TryGet(_worldIndex, out var world))
+            if (!World.TryGet(_worldIndex, out var world) || !world.IsAlive || world.UnsafeWorld == null)
             {
                 return null;
             }
 
             var uw = world.UnsafeWorld;
+            if (!IsEntityAlive(uw, entityId)) return null;
 
             ref var archPtr = ref uw->GetEntityArchetypePtr(entityId);
             ref var arch = ref archPtr.Ref;
@@ -564,7 +574,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var uw = world.UnsafeWorld;
                 byte* ptr = uw->GetComponentDataPtr(entityId, typeIndex);
-                if (ptr != null)
+                if (ptr != null && !ComponentFieldAccessorCache.HasManagedFields(typeIndex))
                 {
                     ComponentFieldAccessorCache.WriteFieldPointer(typeIndex, ptr, fieldKey, value);
                     return;
@@ -589,6 +599,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private int FindTypeIndexByName(string name)
         {
             return ComponentTypeMap.Index(name);
+        }
+
+        private static bool IsEntityAlive(World.WorldUnsafe* uw, int entityId)
+        {
+            if (uw == null || entityId <= 0) return false;
+            try
+            {
+                var alive = uw->entitiesDens.GetAliveEntities();
+                for (var i = 0; i < alive.Length; i++)
+                    if (alive[i] == entityId) return true;
+            }
+            catch { }
+            return false;
         }
 
         private static string BuildArchetypeLabel(ref ArchetypeUnsafe arch)
@@ -668,6 +691,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 else
                 {
+                    var hasManagedFields = ComponentFieldAccessorCache.HasManagedFields(typeIdx);
+                    if (hasManagedFields)
+                    {
+                        try
+                        {
+                            var boxed = arch.GetObject(entityId, typeIdx);
+                            if (boxed != null)
+                            {
+                                ComponentFieldReader.ReadFields(boxed, info.Fields);
+                                components.Add(info);
+                                continue;
+                            }
+                        }
+                        catch { }
+                    }
+
                     try
                     {
                         byte* ptr;

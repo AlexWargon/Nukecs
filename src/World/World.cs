@@ -108,7 +108,12 @@ namespace Wargon.Nukecs
         {
             return ref UnsafeWorld->GetEntity(id);
         }
-
+        /// <summary>
+        /// Returns new instance of query. You need to cache it by your own.
+        /// Calling it in loop or update will be a case of memory leak.
+        /// </summary>
+        /// <param name="withDefaultNoneTypes"></param>
+        /// <returns></returns>
         public Query Query(bool withDefaultNoneTypes = true)
         {
             return new Query(UnsafeWorld->CreateQueryPtr(withDefaultNoneTypes));

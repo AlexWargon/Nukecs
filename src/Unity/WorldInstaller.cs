@@ -18,6 +18,7 @@ namespace Wargon.Nukecs
 
         private unsafe void Awake()
         {
+            World.DisposeStatic();
             world = World.Create(GetConfig());
             WorldId = world.Id;
             Systems = new Systems(ref world);
@@ -59,22 +60,5 @@ namespace Wargon.Nukecs
             world.Dispose();
         }
     }
-    
-    [BurstCompile]
-    public struct RotateCubeSystem : IEntityJobSystem
-    {
-        public Threads Mode => Threads.Parallel;
-        public Query GetQuery(ref World world)
-        {
-            return world.Query().With<Transform>().With<TransformRef>().With<Cube>();
-        }
-        public void OnUpdate(ref Entity entity, ref State state)
-        {
-            ref var transform = ref entity.Get<Transform>();
-            var angle = math.radians(30f * state.Time.DeltaTime);
-            transform.Rotation = math.mul(transform.Rotation, quaternion.AxisAngle(math.up(), angle));
-        }
-    }
-
     public struct Cube : IComponent { }
 }

@@ -150,11 +150,11 @@ namespace Wargon.Nukecs
             }
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryEnumerator GetEnumerator()
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryEnumerator2 GetEnumerator()
         {
             RestoreIfNeed();
-            return new QueryEnumerator(queryUnsafe);
+            return new QueryEnumerator2(in queryUnsafe->matchingArchetypes, queryUnsafe->world);
         }
     }
 
@@ -372,7 +372,54 @@ namespace Wargon.Nukecs
             return sb.ToString();
         }
     }
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe ref struct QueryEnumerator2
 
+    {
+        [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
+        [NativeDisableUnsafePtrRestriction] private ArchetypeUnsafe* _arch;
+        private readonly int _archesLen;
+        [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
+        private int _archIndex;
+        private int _remaining;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryEnumerator2(in MemoryList<int> arches, World.WorldUnsafe* world)
+        {
+            _arches = arches.Ptr;
+            _archesLen = arches.Length;
+            _world = world;
+            _archIndex = -1;
+            _remaining = 0;
+            _arch = default;
+        }
+
+        public ref Entity Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => ref _world->entities.Ptr[*_arch->packedEntities.Ptr];
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            if (_remaining > 0)
+            {
+                _remaining--;
+                return true;
+            }
+
+            while (++_archIndex < _archesLen)
+            {
+                _arch = _world->archetypesList.Ptr[_arches[_archIndex]].Ptr;
+                var count = _arch->count;
+                if (count <= 0) continue;
+                _remaining = count - 1;
+                return true;
+            }
+
+            return false;
+        }
+    }
     public unsafe ref struct QueryEnumerator
     {
         private int _lastIndex;

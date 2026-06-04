@@ -1,7 +1,6 @@
 using Unity.Burst;
 using Unity.Mathematics;
 using Wargon.Nukecs.Transforms;
-using Wargon.PixelHorde;
 using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs.Demos.HotReload

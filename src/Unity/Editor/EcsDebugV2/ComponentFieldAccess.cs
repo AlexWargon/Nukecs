@@ -87,6 +87,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return accessor;
         }
 
+        public static bool HasManagedFields(int typeIndex)
+        {
+            return GetOrCreate(typeIndex).HasManagedFields;
+        }
+
         public static void ReadFieldsPointer(int typeIndex, byte* ptr, List<(string Key, FieldValue Value)> fields)
         {
             var accessor = GetOrCreate(typeIndex);
@@ -97,14 +102,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
 
             if (accessor.Fields == null || accessor.Fields.Length == 0) return;
-
-            if (accessor.HasManagedFields)
-            {
-                var boxed = ReadBoxedFromPointer(ptr, accessor);
-                ComponentFieldReader.ReadFields(boxed, fields);
-                return;
-            }
-
             for (int i = 0; i < accessor.Fields.Length; i++)
             {
                 ref var fa = ref accessor.Fields[i];
@@ -123,6 +120,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     case FieldAccessorKind.EntityRef:
                         fields.Add((fa.Name, FieldValue.FromEntityRef(*(int*)fieldPtr)));
                         break;
+                    case FieldAccessorKind.Enum:
+                        fields.Add((fa.Name, ReadEnum(fieldPtr, fa)));
+                        break;
+                    case FieldAccessorKind.ObjectRef:
+                        fields.Add((fa.Name, FieldValue.FromObjectRef(fa.GenericArgType?.Name ?? fa.FieldType?.Name ?? "Object", "null", 0, true)));
+                        break;
                 }
             }
         }
@@ -130,15 +133,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static void WriteFieldPointer(int typeIndex, byte* ptr, string fieldKey, FieldValue value)
         {
             var accessor = GetOrCreate(typeIndex);
-
-            if (accessor.HasManagedFields)
-            {
-                var boxed = ReadBoxedFromPointer(ptr, accessor);
-                ComponentFieldWriter.WriteField(boxed, fieldKey, value);
-                WriteBoxedToPointer(ptr, boxed, accessor.Size);
-                return;
-            }
-
             if (accessor.Fields == null) return;
 
             for (int i = 0; i < accessor.Fields.Length; i++)
@@ -158,6 +152,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     case FieldAccessorKind.EntityRef:
                         *(int*)fieldPtr = value.EntityRefVal;
                         break;
+                    case FieldAccessorKind.Enum:
+                        WriteEnum(fieldPtr, fa.EnumUnderlyingType, value.Type == FieldValueType.Enum ? value.EnumRawValue : (long)value.NumberVal);
+                        break;
                 }
                 return;
             }
@@ -166,21 +163,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static void ClearCache()
         {
             _cache.Clear();
-        }
-
-        private static object ReadBoxedFromPointer(byte* ptr, TypeAccessor accessor)
-        {
-            if (accessor.ComponentType == null) return null;
-            var boxed = RuntimeHelpers.GetUninitializedObject(accessor.ComponentType);
-            ref var dest = ref Unsafe.As<object, byte>(ref boxed);
-            Unsafe.CopyBlock(ref dest, ref *ptr, (uint)accessor.Size);
-            return boxed;
-        }
-
-        private static void WriteBoxedToPointer(byte* ptr, object boxed, int size)
-        {
-            ref var src = ref Unsafe.As<object, byte>(ref boxed);
-            Unsafe.CopyBlock(ref *ptr, ref src, (uint)size);
         }
 
         private static void BuildFieldAccessors(Type compType, string prefix, int baseOffset, List<FieldAccessorEntry> fields, ref bool hasManaged)
@@ -207,14 +189,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 else if (ft.IsEnum)
                 {
-                    hasManaged = true;
                     fields.Add(new FieldAccessorEntry
                     {
                         Name = fullName,
                         ValueType = FieldAccessorKind.Enum,
                         ByteOffset = offset,
                         FieldType = ft,
-                        IsManaged = true,
+                        IsManaged = false,
                         EnumNames = Enum.GetNames(ft),
                         EnumUnderlyingType = Enum.GetUnderlyingType(ft)
                     });
@@ -346,6 +327,50 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     return 0;
                 }
             }
+        }
+
+        internal static FieldValue ReadEnum(byte* ptr, FieldAccessorEntry fa)
+        {
+            var raw = ReadEnumRaw(ptr, fa.EnumUnderlyingType);
+            var names = fa.EnumNames ?? Array.Empty<string>();
+            var rawValues = new long[names.Length];
+
+            try
+            {
+                var values = Enum.GetValues(fa.FieldType);
+                for (var i = 0; i < values.Length && i < rawValues.Length; i++)
+                    rawValues[i] = Convert.ToInt64(values.GetValue(i));
+            }
+            catch { }
+
+            var idx = Array.IndexOf(rawValues, raw);
+            return FieldValue.FromEnum(names, rawValues, idx, raw);
+        }
+
+        private static long ReadEnumRaw(byte* ptr, Type ft)
+        {
+            if (ft == typeof(byte)) return *(byte*)ptr;
+            if (ft == typeof(sbyte)) return *(sbyte*)ptr;
+            if (ft == typeof(short)) return *(short*)ptr;
+            if (ft == typeof(ushort)) return *(ushort*)ptr;
+            if (ft == typeof(int)) return *(int*)ptr;
+            if (ft == typeof(uint)) return *(uint*)ptr;
+            if (ft == typeof(long)) return *(long*)ptr;
+            if (ft == typeof(ulong)) return unchecked((long)*(ulong*)ptr);
+            return *(int*)ptr;
+        }
+
+        internal static void WriteEnum(byte* ptr, Type ft, long raw)
+        {
+            if (ft == typeof(byte)) { *(byte*)ptr = (byte)raw; return; }
+            if (ft == typeof(sbyte)) { *(sbyte*)ptr = (sbyte)raw; return; }
+            if (ft == typeof(short)) { *(short*)ptr = (short)raw; return; }
+            if (ft == typeof(ushort)) { *(ushort*)ptr = (ushort)raw; return; }
+            if (ft == typeof(int)) { *(int*)ptr = (int)raw; return; }
+            if (ft == typeof(uint)) { *(uint*)ptr = (uint)raw; return; }
+            if (ft == typeof(long)) { *(long*)ptr = raw; return; }
+            if (ft == typeof(ulong)) { *(ulong*)ptr = unchecked((ulong)raw); return; }
+            *(int*)ptr = (int)raw;
         }
 
         internal static FieldValue ReadNumber(byte* ptr, Type ft)
