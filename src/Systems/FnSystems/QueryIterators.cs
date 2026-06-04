@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
-using Wargon.Nukecs.Editor;
 
 namespace Wargon.Nukecs
 {

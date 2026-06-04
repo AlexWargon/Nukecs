@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +8,6 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 namespace Wargon.Nukecs.HotReload
@@ -1142,3 +1142,4 @@ namespace Wargon.Nukecs.HotReload
         }
     }
 }
+#endif

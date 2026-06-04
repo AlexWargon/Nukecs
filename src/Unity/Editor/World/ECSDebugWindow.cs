@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+#if UNITY_EDITOR && NUKECS_DEBUG
 using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
+#endif
 using UnityEngine.UIElements;
 
 #pragma warning disable CS0618 // Type or member is obsolete

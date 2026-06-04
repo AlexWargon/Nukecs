@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using Wargon.Nukecs.Editor;
 
 #pragma warning disable CS0168 // Variable is declared but never used
 namespace Wargon.Nukecs
