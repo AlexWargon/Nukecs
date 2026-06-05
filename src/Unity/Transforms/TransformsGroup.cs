@@ -19,6 +19,7 @@ namespace Wargon.Nukecs.Transforms
         public static void UpdateTransformOnAddChildSystem(
             ref Query<Entity, ChildOf, Transform, With<OnAddChildWithTransformEvent>> query)
         {
+            
             foreach (var (child, childOfRef, transformRef) in query)
             {
                 ref var chilfOf = ref childOfRef.Get;

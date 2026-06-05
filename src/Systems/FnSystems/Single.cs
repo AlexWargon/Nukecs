@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Wargon.Nukecs.Allocators;
+using Allocator = Unity.Collections.Allocator;
 
 namespace Wargon.Nukecs
 {
@@ -111,7 +112,27 @@ namespace Wargon.Nukecs
         /// <param name="world">ECS World : Wargon.Nukecs.World</param>
         void OnUpdate(ref World world);
     }
+    
+    public unsafe struct Data<T> where T : unmanaged
+    {
+        [NativeDisableUnsafePtrRestriction]
+        private T* _data;
 
+        public static Data<T> New()
+        {
+            Data<T> data = default;
+            data._data = (T*)UnsafeUtility.MallocTracked(
+                sizeof(T),
+                UnsafeUtility.AlignOf<T>(),
+                Allocator.Persistent, 0);
+            return data;
+        }
+
+        public static void Dispose(Data<T> data)
+        {
+            UnsafeUtility.FreeTracked(data._data, Allocator.Persistent);
+        }
+    }
     public struct Local<TData> : ISystemParam where TData : unmanaged, IRes
     {
         public TData Ref;
