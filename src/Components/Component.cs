@@ -293,6 +293,9 @@ namespace Wargon.Nukecs
         private readonly IntPtr _ptr;
         private readonly GCHandle _gcHandle;
 
+        /// <summary>Raw function pointer. Stable until this struct is disposed.</summary>
+        public IntPtr Ptr => _ptr;
+
         public T As<T>()
         {
             return new FunctionPointer<T>(_ptr).Invoke;
@@ -306,13 +309,13 @@ namespace Wargon.Nukecs
         public static UntypedUnmanagedDelegate Create<T>(T function) where T : Delegate
         {
 #if UNITY_EDITOR
-            var method = function.Method;
-            if (method == null || !method.IsStatic ||
-                method.GetCustomAttributes(typeof(AOT.MonoPInvokeCallbackAttribute), false).Length == 0)
-            {
-                throw new Exception(
-                    "Unmanaged delegate may only be created from static method with MonoPInvokeCallback attribute");
-            }
+            //var method = function.Method;
+            // if (method == null || !method.IsStatic ||
+            //     method.GetCustomAttributes(typeof(AOT.MonoPInvokeCallbackAttribute), false).Length == 0)
+            // {
+            //     throw new Exception(
+            //         "Unmanaged delegate may only be created from static method with MonoPInvokeCallback attribute");
+            // }
 #endif
             return new UntypedUnmanagedDelegate(Marshal.GetFunctionPointerForDelegate(function), GCHandle.Alloc(function));
         }
