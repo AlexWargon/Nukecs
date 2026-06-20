@@ -4,20 +4,21 @@ using Unity.Collections;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Реестр всех состояний реактивных типов для каждого мира. Содержится в
-    /// <see cref="ReactiveWorldRegistry"/> и адресуется неуниверсальной системой
-    /// <see cref="ReactiveCheckSystem"/> при планировании задачи проверки.
+    /// Per-world registry of all reactive type states. Held by
+    /// <see cref="ReactiveWorldRegistry"/> and addressed by the non-generic
+    /// <see cref="ReactiveCheckSystem"/> when scheduling the check job.
     ///
-    /// Это КЛАСС (а не структура) намеренно — современная Unity.Collections
-    /// хранит <see cref="NativeList{T}.Length"/> как встроенное поле структуры NativeList,
-    /// поэтому структура, содержащая NativeList, скопировала бы поле Length при присваивании,
-    /// и мутации, сделанные через копию, не были бы видны другим владельцам оригинала.
+    /// This is a CLASS (not struct) intentionally — modern Unity.Collections
+    /// stores <see cref="NativeList{T}.Length"/> as an inline field of the
+    /// NativeList struct, so a struct containing a NativeList would copy the
+    /// Length field on assignment and mutations made through the copy wouldn't
+    /// be visible to other holders of the original.
     /// </summary>
     public sealed class ReactiveWorldState : System.IDisposable
     {
-        // Плоский список состояний типов — задача Burst итерирует его через сырой указатель.
+        // Flat list of type states — the Burst job iterates this via raw pointer.
         public NativeList<ReactiveTypeState> TypeStates;
-        // typeIndex → индекс в TypeStates.
+        // typeIndex → index in TypeStates.
         public NativeHashMap<int, int> TypeIndexToStateIdx;
 
         public bool IsCreated => TypeStates.IsCreated;
@@ -34,9 +35,9 @@ namespace Wargon.Nukecs.Reactivity
                 return ref TypeStates.ElementAt(idx);
 
             idx = TypeStates.Length;
-            // Увеличиваем TypeStates — примечание: это может переместить базовый буфер. Существующие
-            // указатели, полученные через GetUnsafePtr(), становятся недействительными; вызывающие стороны должны
-            // получать их заново. Мы никогда не кэшируем указатель между мутациями.
+            // Grow TypeStates — note: this may move the underlying buffer. Existing
+            // pointers obtained from GetUnsafePtr() become invalid; callers must
+            // re-fetch. We never cache the pointer across mutations.
             TypeStates.ResizeUninitialized(idx + 1);
             ref var state = ref TypeStates.ElementAt(idx);
             state.Initialize(typeIndex, componentSize);

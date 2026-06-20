@@ -5,13 +5,13 @@ using Unity.Jobs;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Скомпилированная с Burst задача проверки. Итерирует все состояния реактивных типов
-    /// для мира параллельно (один тип на воркер). Для каждого типа сканирует
-    /// список сущностей <c>Alive</c>, находит байтовый указатель (byte*) компонента в архетипе
-    /// через неуниверсальный (non-generic) API и сравнивает его с сохраненным старым значением через MemCmp.
+    /// Burst-compiled check job. Iterates all reactive type states for a world in
+    /// parallel (one type per worker). For each type, scans the per-entity
+    /// <c>Alive</c> list, finds the component's byte* in the archetype via the
+    /// non-generic API, and compares against the stored oldValue via MemCmp.
     ///
-    /// Задача полностью неуниверсальна (старые значения хранятся как сырые байты),
-    /// что и делает компиляцию Burst стабильной — специализация универсальных типов (generic specialization) не нужна.
+    /// The job is fully non-generic (oldValues stored as raw bytes), which is what
+    /// makes Burst compilation stable — no generic specialization is needed.
     /// </summary>
     [BurstCompile]
     public unsafe struct ReactiveCheckJob : IJobParallelFor
@@ -37,13 +37,13 @@ namespace Wargon.Nukecs.Reactivity
             var changed = state.Changed;
             var pending = state.PendingTriggers;
 
-            // Сканируем подписанные сущности. Каждый воркер обрабатывает один тип
-            // состояния, поэтому здесь нет конкуренции (contention).
+            // Scan subscribed entities. Each worker handles one type state,
+            // so there is no contention here.
             for (int i = 0; i < alive.Length; i++)
             {
                 var id = alive[i];
 
-                // Проверка валидности: слот пуст, если id==0.
+                // IsValid: slot is empty if id==0.
                 if (entitiesPtr[id].id == 0) continue;
 
                 var loc = entityLocationsPtr[id];
@@ -65,11 +65,11 @@ namespace Wargon.Nukecs.Reactivity
                 }
                 else
                 {
-                    // Начальная загрузка (Bootstrap): копируем текущее значение в плоский буфер.
+                    // Bootstrap: copy current value into the flat buffer.
                     var newOffset = state.AppendBytes(currentPtr);
                     offsets.TryAdd(id, newOffset);
 
-                    // Поглощаем отложенный триггер (отложенный TriggerImmediately).
+                    // Consume pending trigger (deferred TriggerImmediately).
                     if (pending.TryGetValue(id, out var p) && p != 0)
                     {
                         pending.Remove(id);

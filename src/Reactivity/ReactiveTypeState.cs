@@ -6,13 +6,13 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// По-(мир, тип) неуправляемое состояние для скомпилированного с Burst конвейера проверки.
-    /// Все поля являются blittable — структура может находиться в <see cref="NativeList{T}"/>
-    /// и адресоваться через сырой указатель из задачи Burst.
+    /// Per-(world, type) unmanaged state for the Burst-compiled check pipeline.
+    /// All fields are blittable — the struct can live in a <see cref="NativeList{T}"/>
+    /// and be addressed through a raw pointer from a Burst job.
     ///
-    /// Старые значения компонентов хранятся в плоском байтовом буфере <see cref="Values"/>,
-    /// индексируемом через <see cref="Offsets"/> (entityId → смещение в байтах). Это позволяет
-    /// задаче проверки оставаться неуниверсальной (non-generic): ей не нужно знать тип T, только его размер.
+    /// Old component values are stored in a flat <see cref="Values"/> byte buffer,
+    /// indexed by <see cref="Offsets"/> (entityId → byte offset). This is what lets
+    /// the check job stay non-generic: it doesn't need to know T, only the size.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct ReactiveTypeState : IDisposable
@@ -20,15 +20,15 @@ namespace Wargon.Nukecs.Reactivity
         public int TypeIndex;
         public int ComponentSize;
 
-        // entityId → байтовое смещение в Values, где хранится снимок старого значения.
+        // entityId → byte offset within Values where the oldValue snapshot lives.
         public NativeHashMap<int, int> Offsets;
-        // Плоский байтовый буфер старых значений, плотно упакованный по ComponentSize.
+        // Flat byte buffer of oldValues, tightly packed per ComponentSize.
         public NativeList<byte> Values;
-        // Идентификаторы сущностей (EntityIds), у которых есть хотя бы одна подписка на сущность. Сканируются задачей.
+        // EntityIds that have at least one per-entity subscription. Scanned by the job.
         public NativeList<int> Alive;
-        // Очередь с блокировкой (spinlock), заполняемая задачей проверки (потокобезопасной) и очищаемая при диспетчеризации.
+        // Spinlock queue filled by the check job (parallel-safe) and drained by dispatch.
         public ChangedQueue<int> Changed;
-        // Читаемый Burst аналог TriggerPending (отложенный TriggerImmediately).
+        // Burst-readable mirror of TriggerPending (deferred TriggerImmediately).
         public NativeHashMap<int, byte> PendingTriggers;
 
         public bool IsCreated => Values.IsCreated;
@@ -44,7 +44,7 @@ namespace Wargon.Nukecs.Reactivity
             PendingTriggers = new NativeHashMap<int, byte>(4, Allocator.Persistent);
         }
 
-        /// <summary>Добавляет блок необработанных байтов в <see cref="Values"/> и возвращает его смещение.</summary>
+        /// <summary>Append a raw byte block to <see cref="Values"/> and return its offset.</summary>
         public int AppendBytes(byte* src)
         {
             int start = Values.Length;

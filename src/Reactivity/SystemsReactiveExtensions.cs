@@ -8,9 +8,9 @@ namespace Wargon.Nukecs.Reactivity
         private static bool _staticCleanupHooked;
 
         /// <summary>
-        /// Явно зарегистрировать систему проверки (неуниверсальную) и систему диспетчеризации (для конкретного типа T)
-        /// для мира. Автоматическая регистрация также происходит при первом вызове <c>OnChange&lt;T&gt;</c>,
-        /// поэтому вызывать это вручную не обязательно. Безопасно вызывать несколько раз; последующие вызовы игнорируются.
+        /// Explicitly register the non-generic check system and per-T dispatch system
+        /// for this world. Auto-registration also happens on first <c>OnChange&lt;T&gt;</c>,
+        /// so calling this manually is optional. Safe to call multiple times.
         /// </summary>
         public static Systems AddReactive<T>(this Systems systems) where T : unmanaged, IComponent
         {
@@ -19,8 +19,8 @@ namespace Wargon.Nukecs.Reactivity
         }
 
         /// <summary>
-        /// Убедиться, что <see cref="ReactiveCheckSystem"/> (один раз для Systems) и
-        /// <see cref="ReactDispatchSystem{T}"/> (для каждого типа) зарегистрированы.
+        /// Ensure <see cref="ReactiveCheckSystem"/> (once per Systems) and
+        /// <see cref="ReactDispatchSystem{T}"/> (per type) are registered.
         /// </summary>
         public static void EnsureRegistered<T>(World world) where T : unmanaged, IComponent
         {
@@ -70,7 +70,7 @@ namespace Wargon.Nukecs.Reactivity
         }
     }
 
-    /// <summary>Маркер для каждого типа T, указывающий, что "ReactDispatchSystem&lt;T&gt; уже зарегистрирован".</summary>
+    /// <summary>Per-T marker: "ReactDispatchSystem&lt;T&gt; already registered".</summary>
     internal static class DispatchRegistered<T> where T : unmanaged, IComponent
     {
         private static readonly HashSet<Systems> Set = new();

@@ -4,10 +4,10 @@ using System.Collections.Generic;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Управляемое хранилище по (мир, тип) для диспетчеризации и моста подписок.
-    /// Содержит списки диспетчеризации (управляемые делегаты) и синхронизирует
-    /// вызовы Subscribe/Unsubscribe с неуправляемым <see cref="ReactiveTypeState"/>,
-    /// из которого читает скомпилированная с Burst задача <see cref="ReactiveCheckJob"/>.
+    /// Managed per-(world, type) storage for dispatch and subscription bridge.
+    /// Holds dispatch lists (managed delegates) and synchronizes Subscribe/Unsubscribe
+    /// calls with the unmanaged <see cref="ReactiveTypeState"/> that the Burst-compiled
+    /// <see cref="ReactiveCheckJob"/> reads from.
     /// </summary>
     internal sealed class ReactiveStorage<T> : IDisposable where T : unmanaged, IComponent
     {
@@ -15,7 +15,7 @@ namespace Wargon.Nukecs.Reactivity
         public readonly int TypeIndex;
         public readonly int ComponentSize;
 
-        // Подписки по сущностям для диспетчеризации.
+        // Per-entity subscriptions for dispatch.
         public Dictionary<int, List<Subscription<T>>> ManagedPerEntity = new();
         private readonly Dictionary<long, Subscription<T>> _byToken = new();
         private long _nextToken = 1;
@@ -26,7 +26,7 @@ namespace Wargon.Nukecs.Reactivity
             TypeIndex = ComponentType<T>.Index;
             ComponentSize = System.Runtime.InteropServices.Marshal.SizeOf<T>();
 
-            // Убеждаемся, что неуправляемый ReactiveTypeState существует в этом мире.
+            // Ensure the unmanaged ReactiveTypeState exists in this world.
             var worldState = ReactiveWorldRegistry.GetOrCreate(world);
             worldState.GetOrCreate(TypeIndex, ComponentSize);
         }
@@ -59,7 +59,7 @@ namespace Wargon.Nukecs.Reactivity
             }
             list.Add(sub);
 
-            // Отражаем (Mirror) в неуправляемом состоянии — добавляем entityId в Alive, если его там нет.
+            // Mirror to unmanaged state — add entityId to Alive if not present.
             ref var ts = ref TypeStateRef;
             var alive = ts.Alive;
             for (int i = 0; i < alive.Length; i++)
@@ -114,9 +114,10 @@ namespace Wargon.Nukecs.Reactivity
     }
 
     /// <summary>
-    /// Реестр <see cref="ReactiveStorage{T}"/> по (мир, тип). Статический конструктор каждого
-    /// закрытого универсального типа регистрирует свой DisposeAll в <see cref="ReactiveStorageAll"/>,
-    /// так что StaticCleanup может очистить все хранилища без перечисления закрытых универсальных типов.
+    /// Per-(world, type) registry for <see cref="ReactiveStorage{T}"/>. Each closed
+    /// generic type's static constructor registers its DisposeAll in
+    /// <see cref="ReactiveStorageAll"/> so StaticCleanup can reach all storages
+    /// without enumerating closed generic types.
     /// </summary>
     internal static class ReactiveStorageRegistry<T> where T : unmanaged, IComponent
     {
@@ -159,7 +160,7 @@ namespace Wargon.Nukecs.Reactivity
     }
 
     /// <summary>
-    /// Реестр кросс-типовых callback-функций DisposeAll.
+    /// Cross-T registry of DisposeAll callbacks.
     /// </summary>
     internal static class ReactiveStorageAll
     {

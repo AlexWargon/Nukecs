@@ -3,9 +3,8 @@ using System.Collections.Generic;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Система диспетчеризации для каждого типа T. Запускается после
-    /// <see cref="ReactiveCheckSystem"/> (порядок в списке onUpdate системы).
-    /// Очищает очередь ChangedQueue по типам и вызывает зарегистрированные управляемые колбэки.
+    /// Per-T dispatch system. Runs after <see cref="ReactiveCheckSystem"/>.
+    /// Drains the per-type ChangedQueue and invokes registered managed callbacks.
     /// </summary>
     public struct ReactDispatchSystem<T> : ISystem, IOnCreate
         where T : unmanaged, IComponent
@@ -40,7 +39,7 @@ namespace Wargon.Nukecs.Reactivity
 
             changed.Clear();
 
-            // Периодическая очистка: удаляем подписки на уничтоженных сущностях.
+            // Periodic cleanup: remove subscriptions on dead entities.
             CleanupDeadSubscriptions();
         }
 
@@ -55,7 +54,7 @@ namespace Wargon.Nukecs.Reactivity
                 sub.Managed?.Invoke(in current, in entity);
             }
 
-            // Удаляем одноразовые (one-shots).
+            // Remove one-shots (after dispatch, last-fired-first).
             for (int j = list.Count - 1; j >= 0; j--)
             {
                 if (list[j].IsOnce)

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Статический реестр <see cref="ReactiveWorldState"/> по worldId. Подписывается на
-    /// <see cref="World.OnDisposeStatic"/> для очистки кэшей между сессиями (тесты,
-    /// перезагрузка домена). Public — нужен для source-generated code.
+    /// Static registry of <see cref="ReactiveWorldState"/> per worldId. Subscribes to
+    /// <see cref="World.OnDisposeStatic"/> to wipe caches between sessions (tests,
+    /// domain reloads). Public — needed by source-generated code.
     /// </summary>
     public static class ReactiveWorldRegistry
     {
@@ -69,7 +69,7 @@ namespace Wargon.Nukecs.Reactivity
         private static void StaticCleanup()
         {
             DisposeAll();
-            // World.DisposeStatic очищает свое поле события — разрешаем повторную привязку (re-hook) при следующем доступе.
+            // World.DisposeStatic wipes its event field — allow re-hook on next access.
             _staticCleanupHooked = false;
         }
     }

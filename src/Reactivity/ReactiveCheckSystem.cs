@@ -5,13 +5,13 @@ using Unity.Jobs;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Неуниверсальная (non-generic) система проверки. Планирует <see cref="ReactiveCheckJob"/>
-    /// один раз за кадр для текущего мира. Задача обрабатывает все состояния реактивных типов
-    /// параллельно (один тип на воркер).
+    /// Non-generic check system. Schedules <see cref="ReactiveCheckJob"/> once per
+    /// frame for the current world. The job processes every reactive type state in
+    /// parallel (one type per worker).
     ///
-    /// Существует только один экземпляр этой системы на мир (регистрируется автоматически
-    /// при первом вызове <c>OnChange&lt;T&gt;</c>). Заменяет N универсальных систем проверки для каждого типа T
-    /// одним скомпилированным с помощью Burst конвейером.
+    /// Only one instance of this system exists per world (registered automatically
+    /// on the first <c>OnChange&lt;T&gt;</c>). Replaces N per-T generic check systems
+    /// with a single Burst-compiled pipeline.
     /// </summary>
     public unsafe struct ReactiveCheckSystem : ISystem, IOnCreate
     {

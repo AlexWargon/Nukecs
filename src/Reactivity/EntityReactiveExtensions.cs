@@ -3,14 +3,14 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// Пользовательский API для реактивных подписок на сущность.
+    /// User-facing API for per-entity reactive subscriptions.
     /// </summary>
     public static class EntityReactiveExtensions
     {
         /// <summary>
-        /// Подписаться на изменения компонента <typeparamref name="T"/> у этой сущности.
-        /// Колбэк срабатывает в следующем кадре после обнаружения изменения.
-        /// Возвращает токен, который можно передать в <see cref="OffChange{T}(Wargon.Nukecs.Entity,long)"/>.
+        /// Subscribe to changes of component <typeparamref name="T"/> on this entity.
+        /// Callback fires next frame after the change is detected.
+        /// Returns a token that can be passed to <see cref="OffChange{T}(Wargon.Nukecs.Entity,long)"/>.
         /// </summary>
         public static long OnChange<T>(this Entity entity, ReactDelegate<T> callback, ReactOptions options = ReactOptions.None)
             where T : unmanaged, IComponent
@@ -18,21 +18,21 @@ namespace Wargon.Nukecs.Reactivity
             return Subscribe(entity, callback, options, null);
         }
 
-        /// <summary>Подписаться с предикатом фильтрации (пропускает диспетчеризацию, если фильтр возвращает false).</summary>
+        /// <summary>Subscribe with a filter predicate (skips dispatch when filter returns false).</summary>
         public static long OnChange<T>(this Entity entity, ReactDelegate<T> callback, ReactFilter<T> filter, ReactOptions options = ReactOptions.None)
             where T : unmanaged, IComponent
         {
             return Subscribe(entity, callback, options, filter);
         }
 
-        /// <summary>Отписаться по токену, возвращенному из <c>OnChange</c>.</summary>
+        /// <summary>Unsubscribe by the token returned from <c>OnChange</c>.</summary>
         public static void OffChange<T>(this Entity entity, long token) where T : unmanaged, IComponent
         {
             if (ReactiveStorageRegistry<T>.TryGet(entity.worldIndex, out var storage))
                 storage.Remove(token);
         }
 
-        /// <summary>Удалить все подписки типа <typeparamref name="T"/> у этой сущности.</summary>
+        /// <summary>Remove all subscriptions of type <typeparamref name="T"/> from this entity.</summary>
         public static void OffChange<T>(this Entity entity) where T : unmanaged, IComponent
         {
             if (ReactiveStorageRegistry<T>.TryGet(entity.worldIndex, out var storage))
@@ -55,7 +55,7 @@ namespace Wargon.Nukecs.Reactivity
 
             var token = storage.AddEntitySubscription(entity.id, sub);
 
-            // Начальная загрузка (Bootstrap) снимка старого значения, чтобы первое изменение не вызывало ложного срабатывания.
+            // Bootstrap the oldValue snapshot so the first change doesn't false-positive.
             ref var ts = ref storage.TypeStateRef;
             if (entity.Has<T>())
             {
@@ -70,10 +70,10 @@ namespace Wargon.Nukecs.Reactivity
                 }
             }
 
-            // TriggerImmediately: запускается синхронно с текущим значением, если это возможно.
-            // Если T еще нет у сущности (отложенное добавление через ECB), откладываем запуск —
-            // система проверки поставит сущность в очередь при первом обнаружении, и диспетчеризация
-            // запустит колбэк в следующем OnUpdate (после воспроизведения ECB).
+            // TriggerImmediately: fire synchronously with current value when possible.
+            // If T is not on the entity yet (deferred Add via ECB), defer the trigger —
+            // the check system will enqueue the entity on first observation and dispatch
+            // will fire the callback on the next OnUpdate (after ECB playback).
             if ((options & ReactOptions.TriggerImmediately) != 0)
             {
                 if (entity.Has<T>())
