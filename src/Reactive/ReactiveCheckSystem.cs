@@ -28,27 +28,27 @@ namespace Wargon.Nukecs.Reactive
     //     }
     // }
 
-    public unsafe struct ReactiveCheckSystem<T> : IEntityJobSystem where T : unmanaged, IComponent, IReactive
+    public unsafe struct ReactiveCheckSystem<T> : IEntityJobSystem where T : unmanaged, IComponent
     {
         public Threads Mode => Threads.Single;
         public Query GetQuery(ref World world)
         {
-            return world.Query().With<T>().With<Reactive<T>>();
+            return world.Query().With<T>().With<T>();
         }
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            ref var c = ref entity.Get<T>();
-            ref var cOld = ref entity.Get<Reactive<T>>();
-            if(UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref c), UnsafeUtility.AddressOf(ref cOld.oldValue), UnsafeUtility.SizeOf<T>()) != 0)
-            {
-                entity.Add<Changed<T>>();
-                cOld.oldValue = c;
-            }
+            // ref var c = ref entity.Get<T>();
+            // ref var cOld = ref entity.Get<Reactive<T>>();
+            // if(UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref c), UnsafeUtility.AddressOf(ref cOld.oldValue), UnsafeUtility.SizeOf<T>()) != 0)
+            // {
+            //     entity.Add<Changed<T>>();
+            //     cOld.oldValue = c;
+            // }
         }
     }
     public static class SystemsExtensions
     {
-        public static Systems AddReactive<T>(this Systems systems) where T : unmanaged, IComponent, IReactive
+        public static Systems AddReactive<T>(this Systems systems) where T : unmanaged, IComponent
         {
             // var reactiveCheckSystem = new ReactiveCheckSystemPointerReflectionSystem(
             //     ComponentType<T>.Index, 

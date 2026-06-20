@@ -4,9 +4,15 @@ using Wargon.Nukecs.Reactivity;
 
 namespace Wargon.Nukecs.Tests
 {
+    public struct Speed : IComponent
+    {
+        public float value;
+    }
+
     public struct ReactiveHealth : IComponent
     {
         public float Value;
+        public float MaxValue;
     }
 
     public struct ReactiveCounter : IComponent
@@ -15,25 +21,75 @@ namespace Wargon.Nukecs.Tests
         public float LastValue;
     }
 
+    public struct ChangedHitCount : IComponent
+    {
+        public int Count;
+    }
+
+    public struct Mana : IComponent
+    {
+        public float Value;
+    }
+
+    public struct PlayerTag : IComponent { }
+
+    public struct DamageFlash : IComponent
+    {
+        public float Intensity;
+    }
+
+    public static class ChangedQueryTestSystems
+    {
+        [System, BurstCompile]
+        public static void ProcessChangedHealth(ref Query<ReactiveHealth, Changed<ReactiveHealth>> query, ref State state)
+        {
+            foreach (ref var hp in query)
+            {
+                hp.Value += 1f;
+            }
+        }
+
+        [System, BurstCompile]
+        public static void CountChangedHealth(
+            ref Query<ChangedHitCount, Changed<ReactiveHealth>> query,
+            ref State state)
+        {
+            foreach (ref var count in query)
+            {
+                count.Count++;
+            }
+        }
+
+        // Multi-component: reads both Health and Mana for changed Health entities.
+        [System, BurstCompile]
+        public static void MultiComponentChanged(
+            ref Query<ReactiveHealth, Mana, DamageFlash, Changed<ReactiveHealth>> query,
+            ref State state)
+        {
+            foreach (var (hp, mp, flash) in query)
+            {
+                flash.Get.Intensity = hp.Get.Value + mp.Get.Value;
+            }
+        }
+
+        // Changed<Mana> — different changed type in same frame.
+        [System, BurstCompile]
+        public static void CountChangedMana(
+            ref Query<ChangedHitCount, Changed<Mana>> query,
+            ref State state)
+        {
+            foreach (ref var count in query)
+            {
+                count.Count += 100;
+            }
+        }
+    }
+
     [TestFixture]
     public class ReactivityTests
     {
-        // Static state for Burst callbacks (they cannot capture closures).
-        // Reset in SetUp so each test starts clean.
-        private static int s_burstHits;
-        private static float s_burstLastValue;
-        private static int s_burstFilterHits;
-        private static int s_worldBurstHits;
-
         [SetUp]
-        public void SetUp()
-        {
-            World.DisposeStatic();
-            s_burstHits = 0;
-            s_burstLastValue = -1f;
-            s_burstFilterHits = 0;
-            s_worldBurstHits = 0;
-        }
+        public void SetUp() => World.DisposeStatic();
 
         [TearDown]
         public void TearDown() => World.DisposeStatic();
@@ -47,21 +103,16 @@ namespace Wargon.Nukecs.Tests
             var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(ReactiveCounter));
             ref var e = ref arch.CreateEntity();
             e.Get<ReactiveHealth>().Value = 100f;
-
-            // Run one frame so systems exist & component is committed.
             systems.OnUpdate(0.016f, 0.016f);
 
-            long token = e.OnChange<ReactiveHealth>(static (in ReactiveHealth h, in Entity ent) =>
+            e.OnChange<ReactiveHealth>(static (in ReactiveHealth h, in Entity ent) =>
             {
                 ref var c = ref ent.Get<ReactiveCounter>();
                 c.Hits++;
                 c.LastValue = h.Value;
             });
 
-            // Change the value.
             e.Get<ReactiveHealth>().Value = 50f;
-
-            // Next frame: check detects → dispatch fires.
             systems.OnUpdate(0.016f, 0.032f);
 
             Assert.AreEqual(1, e.Get<ReactiveCounter>().Hits, "callback should fire once");
@@ -251,29 +302,6 @@ namespace Wargon.Nukecs.Tests
 
             world.Dispose();
         }
-        
-        [Test]
-        public void Reactivity_WorldLevel_FiresForAnyEntity()
-        {
-            var world = World.Create(WorldConfig.Default256);
-            var systems = new Systems(ref world).AddDefaults();
-
-            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(ReactiveCounter));
-            ref var e1 = ref arch.CreateEntity();
-            ref var e2 = ref arch.CreateEntity();
-            systems.OnUpdate(0.016f, 0.016f);
-
-            int worldHits = 0;
-            world.OnChange<ReactiveHealth>((in ReactiveHealth h, in Entity ent) => worldHits++);
-
-            e1.Get<ReactiveHealth>().Value = 1f;
-            e2.Get<ReactiveHealth>().Value = 2f;
-            systems.OnUpdate(0.016f, 0.032f);
-
-            Assert.AreEqual(2, worldHits, "world-level callback should fire for both entities");
-
-            world.Dispose();
-        }
 
         [Test]
         public void Reactivity_AutoCleanup_DeadEntityNoStaleCallback()
@@ -286,7 +314,7 @@ namespace Wargon.Nukecs.Tests
             systems.OnUpdate(0.016f, 0.016f);
 
             int hits = 0;
-            e.OnChange((in ReactiveHealth h, in Entity ent) => hits++);
+            e.OnChange<ReactiveHealth>((in ReactiveHealth h, in Entity ent) => hits++);
 
             // Destroy the entity.
             e.Destroy();
@@ -415,200 +443,193 @@ namespace Wargon.Nukecs.Tests
             world.Dispose();
         }
 
-        // ============ Burst callback tests ============
-        //
-        // Burst callbacks must be static methods with [BurstCompile] and
-        // [AOT.MonoPInvokeCallback(typeof(ReactDelegate<T>))]. State is shared
-        // through static fields (closures are not allowed).
-
-        [BurstCompile(CompileSynchronously = true)]
-        [AOT.MonoPInvokeCallback(typeof(ReactDelegateBurst))]
-        public static void BurstHealthCallback(in Entity ent)
-        {
-            ref var h = ref ent.Get<ReactiveHealth>();
-            s_burstHits++;
-            s_burstLastValue = h.Value;
-        }
-
-        [BurstCompile]
-        [AOT.MonoPInvokeCallback(typeof(ReactFilterBurst))]
-        public static bool BurstHealthFilter(in Entity ent)
-        {
-            // Pass only when value drops below 10.
-            return ent.Get<ReactiveHealth>().Value < 10f;
-        }
-
-        [BurstCompile]
-        [AOT.MonoPInvokeCallback(typeof(ReactDelegateBurst))]
-        public static void BurstWorldHealthCallback(in Entity ent)
-        {
-            s_worldBurstHits++;
-        }
+        // ============ Changed<T> query filter tests ============
 
         [Test]
-        public void Reactivity_BurstCallback_FiresOnChange()
+        public void Reactivity_ChangedQuery_ProcessesOnlyChanged()
         {
             var world = World.Create(WorldConfig.Default256);
             var systems = new Systems(ref world).AddDefaults();
 
-            var arch = world.GetArchetype(typeof(ReactiveHealth));
-            ref var e = ref arch.CreateEntity();
-            e.Get<ReactiveHealth>().Value = 100f;
+            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(ChangedHitCount));
+            ref var e1 = ref arch.CreateEntity();
+            e1.Get<ReactiveHealth>().Value = 10f;
+            ref var e2 = ref arch.CreateEntity();
+            e2.Get<ReactiveHealth>().Value = 20f;
+
+            // First frame: bootstrap (entities created, no changes yet).
+            systems.Add(ChangedQueryTestSystems.CountChangedHealth);
             systems.OnUpdate(0.016f, 0.016f);
 
-            e.OnChangeBurst<ReactiveHealth>((in Entity ent) =>
+            // Change ONLY e1.
+            e1.Get<ReactiveHealth>().Value = 100f;
+
+            // Second frame: _Fetch scans all Health entities, populates ChangedList.
+            // CountChangedHealth processes only changed entities.
+            systems.OnUpdate(0.016f, 0.032f);
+
+            Assert.AreEqual(1, e1.Get<ChangedHitCount>().Count, "e1 changed → Count should be 1");
+            Assert.AreEqual(0, e2.Get<ChangedHitCount>().Count, "e2 unchanged → Count should be 0");
+
+            // Third frame: no changes → Count should stay same.
+            systems.OnUpdate(0.016f, 0.048f);
+            Assert.AreEqual(1, e1.Get<ChangedHitCount>().Count, "no change → Count stays 1");
+            Assert.AreEqual(0, e2.Get<ChangedHitCount>().Count, "no change → Count stays 0");
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void Reactivity_ChangedQuery_MultiComponent_ReadsBothComponents()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world).AddDefaults();
+
+            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(Mana), typeof(DamageFlash));
+            ref var e1 = ref arch.CreateEntity();
+            e1.Get<ReactiveHealth>().Value = 50f;
+            e1.Get<Mana>().Value = 30f;
+            ref var e2 = ref arch.CreateEntity();
+            e2.Get<ReactiveHealth>().Value = 80f;
+            e2.Get<Mana>().Value = 20f;
+
+            
+            systems.Add(ChangedQueryTestSystems.MultiComponentChanged);
+            systems.OnUpdate(0.016f, 0.016f); // bootstrap
+
+            // Change only e1's Health. Mana unchanged.
+            e1.Get<ReactiveHealth>().Value = 100f;
+            systems.OnUpdate(0.016f, 0.032f);
+
+            // MultiComponentChanged should fire on e1 (Health changed).
+            // Intensity = Health.Value + Mana.Value = 100 + 30 = 130.
+            Assert.AreEqual(130f, e1.Get<DamageFlash>().Intensity, "e1: flash should be hp+mana");
+            // e2 unchanged → Intensity stays 0 (default).
+            Assert.AreEqual(0f, e2.Get<DamageFlash>().Intensity, "e2: unchanged → no flash");
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void Reactivity_ChangedQuery_DifferentChangedTypes_SameFrame()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world).AddDefaults();
+
+            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(Mana), typeof(ChangedHitCount));
+            ref var e = ref arch.CreateEntity();
+            e.Get<ReactiveHealth>().Value = 10f;
+            e.Get<Mana>().Value = 5f;
+
+            // Two systems with different Changed<T> types.
+            systems.Add(ChangedQueryTestSystems.CountChangedHealth);  // Changed<ReactiveHealth>
+            systems.Add(ChangedQueryTestSystems.CountChangedMana);    // Changed<Mana>
+            systems.OnUpdate(0.016f, 0.016f); // bootstrap
+
+            // Change BOTH Health and Mana.
+            e.Get<ReactiveHealth>().Value = 99f;
+            e.Get<Mana>().Value = 77f;
+            systems.OnUpdate(0.016f, 0.032f);
+
+            // CountChangedHealth → Count += 1
+            // CountChangedMana → Count += 100
+            // Both systems fire on same entity (different Changed<T> → independent ChangedLists).
+            Assert.AreEqual(101, e.Get<ChangedHitCount>().Count, "both changed systems should fire: 1 + 100 = 101");
+
+            // Next frame: no changes → neither fires.
+            systems.OnUpdate(0.016f, 0.048f);
+            Assert.AreEqual(101, e.Get<ChangedHitCount>().Count, "no changes → Count stays 101");
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void Reactivity_ChangedQuery_MultipleEntities_PartialChange()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world).AddDefaults();
+
+            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(ChangedHitCount));
+            var entities = new Entity[10];
+            for (int i = 0; i < 10; i++)
             {
-                ref var h = ref ent.Get<ReactiveHealth>();
-                s_burstHits++;
-                s_burstLastValue = h.Value;
-            });
+                ref var e = ref arch.CreateEntity();
+                e.Get<ReactiveHealth>().Value = i;
+                entities[i] = e;
+            }
 
-            e.Get<ReactiveHealth>().Value = 25f;
+            systems.Add(ChangedQueryTestSystems.CountChangedHealth);
+            systems.OnUpdate(0.016f, 0.016f); // bootstrap
+
+            // Change only odd-indexed entities.
+            for (int i = 1; i < 10; i += 2)
+                entities[i].Get<ReactiveHealth>().Value = 1000 + i;
+
             systems.OnUpdate(0.016f, 0.032f);
 
-            Assert.AreEqual(1, s_burstHits, "burst callback should fire once");
-            Assert.AreEqual(25f, s_burstLastValue, "burst callback should see new value");
+            for (int i = 0; i < 10; i++)
+            {
+                if (i % 2 == 1)
+                    Assert.AreEqual(1, entities[i].Get<ChangedHitCount>().Count, $"entity {i} changed → Count 1");
+                else
+                    Assert.AreEqual(0, entities[i].Get<ChangedHitCount>().Count, $"entity {i} unchanged → Count 0");
+            }
 
             world.Dispose();
         }
 
         [Test]
-        public void Reactivity_BurstCallback_NoChange_NoFire()
+        public void Reactivity_ChangedQuery_RepeatedChanges_AllDetected()
         {
             var world = World.Create(WorldConfig.Default256);
             var systems = new Systems(ref world).AddDefaults();
 
-            var arch = world.GetArchetype(typeof(ReactiveHealth));
+            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(ChangedHitCount));
             ref var e = ref arch.CreateEntity();
-            e.Get<ReactiveHealth>().Value = 100f;
-            systems.OnUpdate(0.016f, 0.016f);
+            e.Get<ReactiveHealth>().Value = 0;
 
-            e.OnChangeBurst<ReactiveHealth>(BurstHealthCallback);
+            systems.Add(ChangedQueryTestSystems.CountChangedHealth);
+            systems.OnUpdate(0.016f, 0.016f); // bootstrap
 
-            // Don't change.
-            systems.OnUpdate(0.016f, 0.032f);
+            for (int i = 0; i < 5; i++)
+            {
+                e.Get<ReactiveHealth>().Value = i + 1;
+                systems.OnUpdate(0.016f, 0.016f * (i + 2));
+            }
 
-            Assert.AreEqual(0, s_burstHits, "no change → no burst callback");
+            Assert.AreEqual(5, e.Get<ChangedHitCount>().Count, "5 distinct changes → Count 5");
 
             world.Dispose();
         }
 
         [Test]
-        public void Reactivity_BurstCallback_Filter_OnlyMatchingChangesFire()
+        public void Reactivity_ChangedQuery_OnlyChangedType_TriggersCorrectSystem()
         {
             var world = World.Create(WorldConfig.Default256);
             var systems = new Systems(ref world).AddDefaults();
 
-            var arch = world.GetArchetype(typeof(ReactiveHealth));
+            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(Mana), typeof(ChangedHitCount));
             ref var e = ref arch.CreateEntity();
-            e.Get<ReactiveHealth>().Value = 100f;
-            systems.OnUpdate(0.016f, 0.016f);
+            e.Get<ReactiveHealth>().Value = 10f;
+            e.Get<Mana>().Value = 20f;
 
-            // Filter passes only when Value < 10.
-            e.OnChangeBurst<ReactiveHealth>(BurstHealthCallback, BurstHealthFilter);
+            systems.Add(ChangedQueryTestSystems.CountChangedHealth);
+            systems.Add(ChangedQueryTestSystems.CountChangedMana);
+            systems.OnUpdate(0.016f, 0.016f); // bootstrap
 
-            // Change but still above 10 — filter blocks.
+            // Change ONLY Health, NOT Mana.
             e.Get<ReactiveHealth>().Value = 50f;
             systems.OnUpdate(0.016f, 0.032f);
-            Assert.AreEqual(0, s_burstHits, "filter should block change above 10");
 
-            // Change below 10 — filter passes.
-            e.Get<ReactiveHealth>().Value = 5f;
+            // CountChangedHealth fires (+1), CountChangedMana does NOT (+0).
+            Assert.AreEqual(1, e.Get<ChangedHitCount>().Count, "only Health changed → Count 1");
+
+            // Next frame: change ONLY Mana, NOT Health.
+            e.Get<Mana>().Value = 99f;
             systems.OnUpdate(0.016f, 0.048f);
-            Assert.AreEqual(1, s_burstHits, "filter should pass change below 10");
-            Assert.AreEqual(5f, s_burstLastValue, "burst callback should see new value");
 
-            world.Dispose();
-        }
-
-        [Test]
-        public void Reactivity_BurstCallback_TriggerImmediately_FiresSync()
-        {
-            var world = World.Create(WorldConfig.Default256);
-            var systems = new Systems(ref world).AddDefaults();
-
-            var arch = world.GetArchetype(typeof(ReactiveHealth));
-            ref var e = ref arch.CreateEntity();
-            e.Get<ReactiveHealth>().Value = 77f;
-            systems.OnUpdate(0.016f, 0.016f);
-
-            e.OnChangeBurst<ReactiveHealth>(BurstHealthCallback, ReactOptions.TriggerImmediately);
-
-            // Sync trigger should fire immediately with current value.
-            Assert.AreEqual(1, s_burstHits, "burst TriggerImmediately should fire synchronously");
-            Assert.AreEqual(77f, s_burstLastValue, "should see current value at subscribe time");
-
-            world.Dispose();
-        }
-
-        [Test]
-        public void Reactivity_BurstCallback_OffChange_StopsCallbacks()
-        {
-            var world = World.Create(WorldConfig.Default256);
-            var systems = new Systems(ref world).AddDefaults();
-
-            var arch = world.GetArchetype(typeof(ReactiveHealth));
-            ref var e = ref arch.CreateEntity();
-            systems.OnUpdate(0.016f, 0.016f);
-
-            long token = e.OnChangeBurst<ReactiveHealth>(BurstHealthCallback);
-
-            e.Get<ReactiveHealth>().Value = 1f;
-            systems.OnUpdate(0.016f, 0.032f);
-            Assert.AreEqual(1, s_burstHits, "first change fires burst callback");
-
-            e.OffChange<ReactiveHealth>(token);
-
-            e.Get<ReactiveHealth>().Value = 2f;
-            systems.OnUpdate(0.016f, 0.048f);
-            Assert.AreEqual(1, s_burstHits, "after OffChange no burst callback");
-
-            world.Dispose();
-        }
-
-        [Test]
-        public void Reactivity_WorldLevel_BurstCallback_FiresForAnyEntity()
-        {
-            var world = World.Create(WorldConfig.Default256);
-            var systems = new Systems(ref world).AddDefaults();
-
-            var arch = world.GetArchetype(typeof(ReactiveHealth));
-            ref var e1 = ref arch.CreateEntity();
-            ref var e2 = ref arch.CreateEntity();
-            systems.OnUpdate(0.016f, 0.016f);
-
-            world.OnChangeBurst<ReactiveHealth>(BurstWorldHealthCallback);
-
-            e1.Get<ReactiveHealth>().Value = 1f;
-            e2.Get<ReactiveHealth>().Value = 2f;
-            systems.OnUpdate(0.016f, 0.032f);
-
-            Assert.AreEqual(2, s_worldBurstHits, "world-level burst callback should fire for both entities");
-
-            world.Dispose();
-        }
-
-        [Test]
-        public void Reactivity_MixedManagedAndBurst_BothFire()
-        {
-            var world = World.Create(WorldConfig.Default256);
-            var systems = new Systems(ref world).AddDefaults();
-
-            var arch = world.GetArchetype(typeof(ReactiveHealth), typeof(ReactiveCounter));
-            ref var e = ref arch.CreateEntity();
-            systems.OnUpdate(0.016f, 0.016f);
-
-            int managedHits = 0;
-            // Per-entity managed
-            e.OnChange<ReactiveHealth>((in ReactiveHealth h, in Entity ent) => managedHits++);
-            // Per-entity burst — uses static counter
-            e.OnChangeBurst<ReactiveHealth>(BurstHealthCallback);
-
-            e.Get<ReactiveHealth>().Value = 9f;
-            systems.OnUpdate(0.016f, 0.032f);
-
-            Assert.AreEqual(1, managedHits, "managed callback should fire");
-            Assert.AreEqual(1, s_burstHits, "burst callback should fire on same change");
+            // CountChangedMana fires (+100).
+            Assert.AreEqual(101, e.Get<ChangedHitCount>().Count, "only Mana changed → Count 1+100=101");
 
             world.Dispose();
         }

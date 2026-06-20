@@ -176,6 +176,14 @@ namespace Wargon.Nukecs
         internal byte oldVersion;
         internal byte newVersion;
 
+        // Changed<T> storage pointers — resolved in Changed<T>.Setup (non-Burst context).
+        // Burst-compiled OnUpdateBatched reads these directly — no managed calls.
+        // void* is used for Burst compatibility (NativeContainer pointer cast at point of use).
+        [NativeDisableUnsafePtrRestriction] public void* ChangedEntitiesPtr;
+        [NativeDisableUnsafePtrRestriction] public void* ChangedOffsetsPtr;
+        [NativeDisableUnsafePtrRestriction] public void* ChangedValuesPtr;
+        public int ChangedComponentSize;
+
         public bool IsDirty()
         {
             if (oldVersion != newVersion)
@@ -226,6 +234,10 @@ namespace Wargon.Nukecs
             this.matchingArchetypes = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
             this.matchingArchetypesCount = 0;
             this.Id = world.Ptr->queries.Length;
+            this.ChangedEntitiesPtr = null;
+            this.ChangedOffsetsPtr = null;
+            this.ChangedValuesPtr = null;
+            this.ChangedComponentSize = 0;
 
             this.self = self;
             if (withDefaultNoneTypes)

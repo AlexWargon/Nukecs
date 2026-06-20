@@ -8,10 +8,9 @@ namespace Wargon.Nukecs.Reactivity
         private static bool _staticCleanupHooked;
 
         /// <summary>
-        /// Explicitly register the three reactive systems (Check/BurstDispatch/ManagedDispatch)
-        /// for component type <typeparamref name="T"/> on this world. Auto-registration also
-        /// happens on the first call to <c>OnChange&lt;T&gt;</c>, so calling this manually is optional.
-        /// Safe to call multiple times; subsequent calls are no-ops.
+        /// Явно зарегистрировать систему проверки (неуниверсальную) и систему диспетчеризации (для конкретного типа T)
+        /// для мира. Автоматическая регистрация также происходит при первом вызове <c>OnChange&lt;T&gt;</c>,
+        /// поэтому вызывать это вручную не обязательно. Безопасно вызывать несколько раз; последующие вызовы игнорируются.
         /// </summary>
         public static Systems AddReactive<T>(this Systems systems) where T : unmanaged, IComponent
         {
@@ -20,42 +19,43 @@ namespace Wargon.Nukecs.Reactivity
         }
 
         /// <summary>
-        /// Register reactive systems for <typeparamref name="T"/> against every
-        /// <see cref="Systems"/> instance attached to the given world. Idempotent.
+        /// Убедиться, что <see cref="ReactiveCheckSystem"/> (один раз для Systems) и
+        /// <see cref="ReactDispatchSystem{T}"/> (для каждого типа) зарегистрированы.
         /// </summary>
-        internal static void EnsureRegistered<T>(World world) where T : unmanaged, IComponent
+        public static void EnsureRegistered<T>(World world) where T : unmanaged, IComponent
         {
             HookStaticCleanup();
 
-            var storage = ReactiveWorldRegistry.GetOrCreate<T>(world);
-            if (storage.SystemsRegistered) return;
+            ReactiveStorageRegistry<T>.GetOrCreate(world);
 
-            var list = WorldSystems.GetAll(world.Id);
-            if (list.Count == 0)
+            var systemsList = WorldSystems.GetAll(world.Id);
+            foreach (var systems in systemsList)
             {
-                // No Systems instance yet — defer registration until one is created
-                // (a subsequent OnChange call will retry).
-                return;
-            }
-
-            storage.SystemsRegistered = true;
-            foreach (var systems in list)
-            {
-                // Pass explicit int dummy to force the `Add<T>(int) where T : struct, ISystem` overload.
-                systems.Add<ReactiveCheckSystem<T>>(0);
-                systems.Add<ReactBurstDispatchSystem<T>>(0);
-                systems.Add<ReactManagedDispatchSystem<T>>(0);
-
+                // Check FIRST — schedules Burst job, stores handle in ReactiveJobSync.
                 if (HookedSystems.Add(systems))
+                {
+                    systems.Add<ReactiveCheckSystem>(0);
                     systems.onWorldDispose += OnDisposeWorld;
+                }
+                // Dispatch SECOND — waits on check job ONLY (via ReactiveJobSync),
+                // reads ChangedQueue, invokes callbacks on main thread.
+                if (!DispatchRegistered<T>.IsRegistered(systems))
+                {
+                    DispatchRegistered<T>.MarkRegistered(systems);
+                    systems.Add<ReactDispatchSystem<T>>(0);
+                }
             }
+        }
+
+        private static void OnDisposeWorld(ref World w)
+        {
+            ReactiveWorldRegistry.DisposeWorld(w.Id);
+            var list = WorldSystems.GetAll(w.Id);
+            foreach (var s in list) HookedSystems.Remove(s);
         }
 
         private static void HookStaticCleanup()
         {
-            // World.DisposeStatic() wipes its event field each call (`OnDisposeStaticEvent = null`),
-            // so re-subscribe on every EnsureRegistered call if we may have been unsubscribed.
-            // Tracking flag is reset inside StaticCleanup so we re-hook after each wipe.
             if (_staticCleanupHooked) return;
             _staticCleanupHooked = true;
             World.OnDisposeStatic(StaticCleanup);
@@ -64,19 +64,33 @@ namespace Wargon.Nukecs.Reactivity
         private static void StaticCleanup()
         {
             ReactiveWorldRegistry.DisposeAll();
+            ReactiveStorageAll.DisposeAll();
             HookedSystems.Clear();
-            // Allow re-hook on next EnsureRegistered — World.DisposeStatic wiped the event.
             _staticCleanupHooked = false;
         }
+    }
 
-        private static void OnDisposeWorld(ref World w)
+    /// <summary>Маркер для каждого типа T, указывающий, что "ReactDispatchSystem&lt;T&gt; уже зарегистрирован".</summary>
+    internal static class DispatchRegistered<T> where T : unmanaged, IComponent
+    {
+        private static readonly HashSet<Systems> Set = new();
+        private static bool _cleanupHooked;
+
+        public static bool IsRegistered(Systems systems) => Set.Contains(systems);
+        public static void MarkRegistered(Systems systems)
         {
-            var worldId = w.Id;
-            ReactiveWorldRegistry.DisposeWorld(worldId);
-            // Drop dispose hooks for Systems instances of this world (otherwise we'd
-            // leak them in the static set; CompleteAll runs before WorldSystems.Remove).
-            var list = WorldSystems.GetAll(worldId);
-            foreach (var s in list) HookedSystems.Remove(s);
+            Set.Add(systems);
+            if (!_cleanupHooked)
+            {
+                _cleanupHooked = true;
+                World.OnDisposeStatic(ClearAll);
+            }
+        }
+
+        public static void ClearAll()
+        {
+            Set.Clear();
+            _cleanupHooked = false;
         }
     }
 }

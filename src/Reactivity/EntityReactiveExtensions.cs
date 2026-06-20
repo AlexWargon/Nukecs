@@ -1,130 +1,90 @@
-using System;
-using Wargon.Nukecs;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
-    /// User-facing API for per-entity reactive subscriptions.
+    /// Пользовательский API для реактивных подписок на сущность.
     /// </summary>
     public static class EntityReactiveExtensions
     {
-        // ============ Managed callbacks ============
-
         /// <summary>
-        /// Subscribe to changes of component <typeparamref name="T"/> on this entity.
-        /// Callback fires next frame after the change is detected.
-        /// Returns a token that can be passed to <see cref="OffChange{T}(Wargon.Nukecs.Entity,long)"/>.
+        /// Подписаться на изменения компонента <typeparamref name="T"/> у этой сущности.
+        /// Колбэк срабатывает в следующем кадре после обнаружения изменения.
+        /// Возвращает токен, который можно передать в <see cref="OffChange{T}(Wargon.Nukecs.Entity,long)"/>.
         /// </summary>
         public static long OnChange<T>(this Entity entity, ReactDelegate<T> callback, ReactOptions options = ReactOptions.None)
             where T : unmanaged, IComponent
         {
-            return Subscribe(entity, callback, null, options, null, null);
+            return Subscribe(entity, callback, options, null);
         }
 
-        /// <summary>Subscribe with a filter predicate (skips dispatch when filter returns false).</summary>
+        /// <summary>Подписаться с предикатом фильтрации (пропускает диспетчеризацию, если фильтр возвращает false).</summary>
         public static long OnChange<T>(this Entity entity, ReactDelegate<T> callback, ReactFilter<T> filter, ReactOptions options = ReactOptions.None)
             where T : unmanaged, IComponent
         {
-            return Subscribe(entity, callback, null, options, filter, null);
+            return Subscribe(entity, callback, options, filter);
         }
 
-        // ============ Burst callbacks (function-pointer) ============
-
-        /// <summary>
-        /// Subscribe a Burst-compiled static method. The callback receives only the
-        /// entity (non-generic delegate signature — required for FunctionPointer
-        /// invocation under Mono). Read the component inside via <c>entity.Get&lt;T&gt;()</c>.
-        ///
-        /// The callback must be marked with
-        /// <c>[BurstCompile] [AOT.MonoPInvokeCallback(typeof(ReactDelegateBurst))]</c>.
-        /// </summary>
-        public static long OnChangeBurst<T>(this Entity entity, ReactDelegateBurst burstCallback, ReactOptions options = ReactOptions.None)
-            where T : unmanaged, IComponent
-        {
-            return Subscribe<T>(entity, null, burstCallback, options | ReactOptions.IsBurst, null, null);
-        }
-
-        /// <summary>Burst callback + burst filter (both must be Burst-compiled static methods).</summary>
-        public static long OnChangeBurst<T>(this Entity entity, ReactDelegateBurst burstCallback, ReactFilterBurst burstFilter, ReactOptions options = ReactOptions.None)
-            where T : unmanaged, IComponent
-        {
-            return Subscribe<T>(entity, null, burstCallback, options | ReactOptions.IsBurst, null, burstFilter);
-        }
-
-        // ============ Unsubscribe ============
-
-        /// <summary>Unsubscribe by the token returned from <c>OnChange*</c>.</summary>
+        /// <summary>Отписаться по токену, возвращенному из <c>OnChange</c>.</summary>
         public static void OffChange<T>(this Entity entity, long token) where T : unmanaged, IComponent
         {
-            if (ReactiveWorldRegistry.TryGet<T>(entity.world, out var storage))
+            if (ReactiveStorageRegistry<T>.TryGet(entity.worldIndex, out var storage))
                 storage.Remove(token);
         }
 
-        /// <summary>Remove all subscriptions of type <typeparamref name="T"/> from this entity.</summary>
+        /// <summary>Удалить все подписки типа <typeparamref name="T"/> у этой сущности.</summary>
         public static void OffChange<T>(this Entity entity) where T : unmanaged, IComponent
         {
-            if (ReactiveWorldRegistry.TryGet<T>(entity.world, out var storage))
+            if (ReactiveStorageRegistry<T>.TryGet(entity.worldIndex, out var storage))
                 storage.RemoveAllForEntity(entity.id);
         }
 
-        // ============ Internals ============
         private static long Subscribe<T>(
             Entity entity,
-            ReactDelegate<T> managed,
-            ReactDelegateBurst burstDelegate,
+            ReactDelegate<T> callback,
             ReactOptions options,
-            ReactFilter<T> managedFilter,
-            ReactFilterBurst burstFilter)
+            ReactFilter<T> filter)
             where T : unmanaged, IComponent
         {
             ref var world = ref entity.world;
             SystemsReactiveExtensions.EnsureRegistered<T>(world);
-            var storage = ReactiveWorldRegistry.GetOrCreate<T>(world);
+            var storage = ReactiveStorageRegistry<T>.GetOrCreate(world);
 
-            var sub = new Subscription<T> { Options = options };
-
-            if (burstDelegate != null)
-            {
-                sub.SetBurst(burstDelegate);
-                if (burstFilter != null) sub.SetBurstFilter(burstFilter);
-            }
-            else
-            {
-                sub.Managed = managed;
-                if (managedFilter != null) sub.SetManagedFilter(managedFilter);
-            }
+            var sub = new Subscription<T> { Options = options, Managed = callback };
+            if (filter != null) sub.SetManagedFilter(filter);
 
             var token = storage.AddEntitySubscription(entity.id, sub);
 
-            // Bootstrap OldValues with current value so first change doesn't false-positive.
+            // Начальная загрузка (Bootstrap) снимка старого значения, чтобы первое изменение не вызывало ложного срабатывания.
+            ref var ts = ref storage.TypeStateRef;
             if (entity.Has<T>())
-                storage.OldValues.TryAdd(entity.id, entity.Get<T>());
+            {
+                if (!ts.Offsets.ContainsKey(entity.id))
+                {
+                    ref var current = ref entity.Get<T>();
+                    unsafe
+                    {
+                        var newOffset = ts.AppendBytes((byte*)UnsafeUtility.AddressOf(ref current));
+                        ts.Offsets.TryAdd(entity.id, newOffset);
+                    }
+                }
+            }
 
-            // TriggerImmediately: fire synchronously with current value when possible.
-            // If T is not on the entity yet (deferred Add via ECB), defer the trigger —
-            // the check system will enqueue the entity on first observation and dispatch
-            // will fire the callback on the next OnUpdate (after ECB playback).
+            // TriggerImmediately: запускается синхронно с текущим значением, если это возможно.
+            // Если T еще нет у сущности (отложенное добавление через ECB), откладываем запуск —
+            // система проверки поставит сущность в очередь при первом обнаружении, и диспетчеризация
+            // запустит колбэк в следующем OnUpdate (после воспроизведения ECB).
             if ((options & ReactOptions.TriggerImmediately) != 0)
             {
                 if (entity.Has<T>())
                 {
-                    // Burst sub: FunctionPointer<ReactDelegateBurst>.Invoke (non-generic, works).
-                    // Managed sub: invoke via delegate.
-                    if (sub.IsBurst && sub.BurstFnPtr != IntPtr.Zero)
-                    {
-                        var fp = new Unity.Burst.FunctionPointer<ReactDelegateBurst>(sub.BurstFnPtr);
-                        if (fp.IsCreated) fp.Invoke(in entity);
-                    }
-                    else
-                    {
-                        sub.Managed?.Invoke(in entity.Get<T>(), in entity);
-                    }
+                    ref var v = ref entity.Get<T>();
+                    sub.Managed?.Invoke(in v, in entity);
                 }
                 else
                 {
-                    // Component not on entity yet — defer until first observation.
                     sub.TriggerPending = true;
-                    storage.SetPendingTrigger(entity.id);
+                    if (ts.PendingTriggers.IsCreated) ts.PendingTriggers[entity.id] = 1;
                 }
             }
 

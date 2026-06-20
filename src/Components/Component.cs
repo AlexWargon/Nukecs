@@ -33,7 +33,6 @@ namespace Wargon.Nukecs
     public interface IComponent { }
     public interface IArrayComponent { }
     public interface IPoolComponent : IComponent{ }
-    public interface IReactive { }
     public interface IComponentPtrFixer {
         void FixPtrs(ref MemAllocator allocator);
     }
@@ -51,12 +50,6 @@ namespace Wargon.Nukecs
     public abstract class Convertor : ScriptableObject, ICustomConvertor {
         public abstract void Convert(ref World world, ref Entity entity);
     }
-    public struct Changed<T> : IComponent where T : unmanaged, IComponent {}
-    public struct Reactive<T> : IComponent where T : unmanaged, IComponent
-    {
-        public T oldValue;
-    }
-
     public struct Name : IComponent, IDisposable
     {
         public ObjectRef<string> value;

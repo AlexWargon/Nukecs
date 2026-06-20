@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="19" result="Failed(Child)" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0,0987501">
+  <test-suite type="TestSuite" id="1324" name="PorjectTests" fullname="PorjectTests" runstate="Runnable" testcasecount="283" result="Failed" site="Child" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.098750" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1308" name="Nukecs.Tests.dll" fullname="D:/Unity/NukecsSandbox/NukecsSandbox/Library/ScriptAssemblies/Nukecs.Tests.dll" runstate="Runnable" testcasecount="187" result="Failed" site="Child" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.094615" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="6560" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1309" name="Wargon" fullname="Wargon" runstate="Runnable" testcasecount="187" result="Failed" site="Child" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.094239" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1310" name="Nukecs" fullname="Wargon.Nukecs" runstate="Runnable" testcasecount="187" result="Failed" site="Child" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.093906" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1311" name="Tests" fullname="Wargon.Nukecs.Tests" runstate="Runnable" testcasecount="187" result="Failed" site="Child" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.093600" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1188" name="ReactivityTests" fullname="Wargon.Nukecs.Tests.ReactivityTests" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" testcasecount="19" result="Failed" site="Child" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.093059" total="19" passed="11" failed="8" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1197" name="Reactivity_AutoCleanup_DeadEntityNoStaleCallback" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_AutoCleanup_DeadEntityNoStaleCallback" methodname="Reactivity_AutoCleanup_DeadEntityNoStaleCallback" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="764085337" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004612" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1189" name="Reactivity_BasicChange_FiresCallback" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_BasicChange_FiresCallback" methodname="Reactivity_BasicChange_FiresCallback" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="327442354" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004841" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  callback should fire once
+  Expected: 1
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_BasicChange_FiresCallback () [0x000b4] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:118
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1191" name="Reactivity_Bootstrap_NoFalsePositiveOnSubscribe" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_Bootstrap_NoFalsePositiveOnSubscribe" methodname="Reactivity_Bootstrap_NoFalsePositiveOnSubscribe" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="805428093" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004527" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1204" name="Reactivity_ChangedQuery_DifferentChangedTypes_SameFrame" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ChangedQuery_DifferentChangedTypes_SameFrame" methodname="Reactivity_ChangedQuery_DifferentChangedTypes_SameFrame" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1514440682" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004442" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1203" name="Reactivity_ChangedQuery_MultiComponent_ReadsBothComponents" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ChangedQuery_MultiComponent_ReadsBothComponents" methodname="Reactivity_ChangedQuery_MultiComponent_ReadsBothComponents" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1224986809" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004585" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1205" name="Reactivity_ChangedQuery_MultipleEntities_PartialChange" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ChangedQuery_MultipleEntities_PartialChange" methodname="Reactivity_ChangedQuery_MultipleEntities_PartialChange" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="445167573" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004628" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1207" name="Reactivity_ChangedQuery_OnlyChangedType_TriggersCorrectSystem" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ChangedQuery_OnlyChangedType_TriggersCorrectSystem" methodname="Reactivity_ChangedQuery_OnlyChangedType_TriggersCorrectSystem" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1043343498" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004568" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1202" name="Reactivity_ChangedQuery_ProcessesOnlyChanged" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ChangedQuery_ProcessesOnlyChanged" methodname="Reactivity_ChangedQuery_ProcessesOnlyChanged" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="2049373169" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.003903" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1206" name="Reactivity_ChangedQuery_RepeatedChanges_AllDetected" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ChangedQuery_RepeatedChanges_AllDetected" methodname="Reactivity_ChangedQuery_RepeatedChanges_AllDetected" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="320395389" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004047" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1199" name="Reactivity_ExplicitAddReactive_Works" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ExplicitAddReactive_Works" methodname="Reactivity_ExplicitAddReactive_Works" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1426226321" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004528" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  AddReactive should register systems that fire callbacks
+  Expected: 1
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_ExplicitAddReactive_Works () [0x000b5] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:375
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1195" name="Reactivity_Filter_OnlyMatchingChangesFire" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_Filter_OnlyMatchingChangesFire" methodname="Reactivity_Filter_OnlyMatchingChangesFire" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1717813495" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004234" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1193" name="Reactivity_MultipleSubscribers_AllFire" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_MultipleSubscribers_AllFire" methodname="Reactivity_MultipleSubscribers_AllFire" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="42584500" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004109" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  both callbacks should fire
+  Expected: 110
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_MultipleSubscribers_AllFire () [0x000d0] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:217
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1198" name="Reactivity_MultiWorld_Isolated" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_MultiWorld_Isolated" methodname="Reactivity_MultiWorld_Isolated" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="167602526" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004993" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  world A tick should fire its subscription
+  Expected: 1
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_MultiWorld_Isolated () [0x000f8] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:350
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+[☢️NUKECS] Created World 1
+]]></output>
+              </test-case>
+              <test-case id="1190" name="Reactivity_NoChange_NoCallback" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_NoChange_NoCallback" methodname="Reactivity_NoChange_NoCallback" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="190156397" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004768" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1196" name="Reactivity_OneShot_AutoUnsubscribes" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_OneShot_AutoUnsubscribes" methodname="Reactivity_OneShot_AutoUnsubscribes" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="977237647" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.004860" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  one-shot fires first time
+  Expected: 1
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_OneShot_AutoUnsubscribes () [0x000a4] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:297
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1200" name="Reactivity_RepeatedChanges_AllFire" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_RepeatedChanges_AllFire" methodname="Reactivity_RepeatedChanges_AllFire" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1436111744" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.005353" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  five distinct changes should fire five times
+  Expected: 5
+  But was:  4
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_RepeatedChanges_AllFire () [0x000ba] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:401
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1201" name="Reactivity_TriggerImmediately_DeferredAdd_FiresOnNextFrame" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_TriggerImmediately_DeferredAdd_FiresOnNextFrame" methodname="Reactivity_TriggerImmediately_DeferredAdd_FiresOnNextFrame" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1892212337" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.005739" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  deferred TriggerImmediately should fire on next frame after ECB
+  Expected: 1
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_TriggerImmediately_DeferredAdd_FiresOnNextFrame () [0x000b8] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:434
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1192" name="Reactivity_TriggerImmediately_FiresOnSubscribe" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_TriggerImmediately_FiresOnSubscribe" methodname="Reactivity_TriggerImmediately_FiresOnSubscribe" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="370812585" result="Passed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.005394" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1194" name="Reactivity_Unsubscribe_StopsCallbacks" fullname="Wargon.Nukecs.Tests.ReactivityTests.Reactivity_Unsubscribe_StopsCallbacks" methodname="Reactivity_Unsubscribe_StopsCallbacks" classname="Wargon.Nukecs.Tests.ReactivityTests" runstate="Runnable" seed="1679603923" result="Failed" start-time="2026-06-20 07:25:00Z" end-time="2026-06-20 07:25:00Z" duration="0.005583" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[  first change fires
+  Expected: 1
+  But was:  0
+]]></message>
+                  <stack-trace><![CDATA[at Wargon.Nukecs.Tests.ReactivityTests.Reactivity_Unsubscribe_StopsCallbacks () [0x000a5] in D:\Unity\NukecsSandbox\NukecsSandbox\Assets\Nukecs\UnitTests\ReactivityTests.cs:240
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+Saving results to: C:/Users/user/AppData/LocalLow/Wargon/PorjectTests\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

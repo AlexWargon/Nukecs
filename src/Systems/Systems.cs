@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Jobs;
@@ -451,32 +452,6 @@ namespace Wargon.Nukecs
         }
     }
 
-    public static class JobParallelForExtensions
-    {
-        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len, int batchCount,
-            JobHandle dependencies = default)
-            where T : struct, IJobParallelFor
-        {
-            return new JobCallback
-            {
-                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
-            }.Schedule(job.Schedule(len, batchCount, dependencies));
-        }
-    }
-    
-    public static class JobForExtensions
-    {
-        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len,
-            JobHandle dependencies = default)
-            where T : struct, IJobFor
-        {
-            return new JobCallback
-            {
-                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
-            }.Schedule(job.Schedule(len, dependencies));
-        }
-    }
-
     public static class JobExtensions
     {
         public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, JobHandle dependencies = default)
@@ -536,6 +511,11 @@ namespace Wargon.Nukecs
                 systems.onWorldDispose += onDestroy.OnDestroy;
             }
             return systems;
+        }
+
+        public static ITuple Chain(this ITuple tuple)
+        {
+            return tuple;
         }
     }
 }

@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
             public MemoryList<Entity> prefabsToSpawn;
             internal MemoryList<int> reservedEntities;
             internal Archetype rootArchetype;
-            internal MemoryList<EntityLocation> entityLocations;
+            public MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
             internal DynamicBitmask tempMask;
             public MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
