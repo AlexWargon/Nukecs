@@ -142,6 +142,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)] 
             get => ref *_components3;
         }
+
         public void CopyTo<TU1>(TU1* destination, int len = 0)
             where TU1 : unmanaged
         {

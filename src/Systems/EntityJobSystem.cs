@@ -14,16 +14,46 @@ namespace Wargon.Nukecs
         Query GetQuery(ref World world);
         void OnUpdate(ref Entity entity, ref State state);
     }
-    internal unsafe class EntityJobSystemRunner<TSystem> : ISystemRunner, IQueryHolder where TSystem : struct, IEntityJobSystem {
+    internal unsafe class EntityJobSystemRunner<TSystem> : ISystemRunner, IQueryHolder, ISystemDependencyInfoProvider, IThreadModeProvider where TSystem : struct, IEntityJobSystem {
         public TSystem System;
         public QueryUnsafe* Query;
-        public Threads Mode;
+        public Threads Mode { get; set; }
         public ECBJob EcbJob;
         private int version;
         private int id;
         private int queryId = -1;
         private bool idIsZero;
         public string Name => System.GetType().Name;
+        private SystemDependencyInfo _dependencyInfo;
+        private bool _depInfoBuilt;
+        public SystemDependencyInfo DependencyInfo {
+            get {
+                if (!_depInfoBuilt) {
+                    _depInfoBuilt = true;
+                    _dependencyInfo = BuildDependencyInfo();
+                }
+                return _dependencyInfo;
+            }
+        }
+
+        private SystemDependencyInfo BuildDependencyInfo() {
+            var components = new System.Collections.Generic.List<ComponentAccess>();
+            if (Query != null) {
+                var compCount = ComponentAmount.Value.Data;
+                for (int i = 0; i < compCount; i++) {
+                    if (Query->with.Has(i))
+                        components.Add(new ComponentAccess(i, SystemAccessMode.ReadWrite));
+                }
+            }
+            return new SystemDependencyInfo {
+                Components = components.ToArray(),
+                ReadResources = global::System.Array.Empty<int>(),
+                WriteResources = global::System.Array.Empty<int>(),
+                ReadEvents = global::System.Array.Empty<int>(),
+                WriteEvents = global::System.Array.Empty<int>(),
+                UsesECB = true
+            };
+        }
 
         public void SetQueryId() {
             if (Query != null) queryId = Query->Id;
@@ -62,12 +92,19 @@ namespace Wargon.Nukecs
                 return state.Dependencies;
             }
             state.Dependencies = System.Schedule(Query, Mode, updateContext, ref state);
-            EcbJob.ECB = world.GetEcbVieContext(updateContext);
-            EcbJob.world = world;
+            if (state.SkipECBSchedule == 0)
+            {
+                EcbJob.ECB = world.GetEcbVieContext(updateContext);
+                EcbJob.world = world;
+#if NUKECS_DEBUG
+                _marker.End();
+#endif
+                return EcbJob.Schedule(state.Dependencies);
+            }
 #if NUKECS_DEBUG
             _marker.End();
 #endif
-            return EcbJob.Schedule(state.Dependencies);
+            return state.Dependencies;
         }
 
         public void Run(ref State state) {

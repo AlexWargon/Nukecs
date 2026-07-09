@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="12" result="Failed(Child)" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0,0501874">
+  <test-suite type="TestSuite" id="1336" name="PorjectTests" fullname="PorjectTests" runstate="Runnable" testcasecount="295" result="Failed" site="Child" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.050187" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <failure>
+      <message><![CDATA[One or more child tests had errors]]></message>
+    </failure>
+    <test-suite type="Assembly" id="1321" name="Nukecs.Tests.dll" fullname="D:/Unity/NukecsSandbox/NukecsSandbox/Library/ScriptAssemblies/Nukecs.Tests.dll" runstate="Runnable" testcasecount="199" result="Failed" site="Child" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.047103" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="17016" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <failure>
+        <message><![CDATA[One or more child tests had errors]]></message>
+      </failure>
+      <test-suite type="TestSuite" id="1322" name="Wargon" fullname="Wargon" runstate="Runnable" testcasecount="199" result="Failed" site="Child" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.046853" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <failure>
+          <message><![CDATA[One or more child tests had errors]]></message>
+        </failure>
+        <test-suite type="TestSuite" id="1323" name="Nukecs" fullname="Wargon.Nukecs" runstate="Runnable" testcasecount="199" result="Failed" site="Child" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.046621" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <failure>
+            <message><![CDATA[One or more child tests had errors]]></message>
+          </failure>
+          <test-suite type="TestSuite" id="1324" name="Tests" fullname="Wargon.Nukecs.Tests" runstate="Runnable" testcasecount="199" result="Failed" site="Child" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.046373" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <failure>
+              <message><![CDATA[One or more child tests had errors]]></message>
+            </failure>
+            <test-suite type="TestFixture" id="1165" name="DependencyGraphTests" fullname="Wargon.Nukecs.Tests.DependencyGraphTests" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" testcasecount="12" result="Failed" site="Child" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.045998" total="12" passed="11" failed="1" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <failure>
+                <message><![CDATA[One or more child tests had errors]]></message>
+              </failure>
+              <test-case id="1169" name="DependencyGraph_BackwardCompatible_SequentialExecution" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_BackwardCompatible_SequentialExecution" methodname="DependencyGraph_BackwardCompatible_SequentialExecution" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="541431937" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.004143" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1166" name="DependencyGraph_DependentSystems_ExecuteInOrder" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_DependentSystems_ExecuteInOrder" methodname="DependencyGraph_DependentSystems_ExecuteInOrder" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="1614149631" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003612" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1173" name="DependencyGraph_ECBConflict_SeparatesIntoGroups" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_ECBConflict_SeparatesIntoGroups" methodname="DependencyGraph_ECBConflict_SeparatesIntoGroups" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="698006998" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.000068" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1170" name="DependencyGraph_GraphRebuiltOnSystemAdd" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_GraphRebuiltOnSystemAdd" methodname="DependencyGraph_GraphRebuiltOnSystemAdd" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="1032634063" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003323" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1167" name="DependencyGraph_IndependentSystems_CanRunInParallel" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_IndependentSystems_CanRunInParallel" methodname="DependencyGraph_IndependentSystems_CanRunInParallel" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="1710473316" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003547" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1176" name="DependencyGraph_MixedMainAndParallelECB_NoCrash" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_MixedMainAndParallelECB_NoCrash" methodname="DependencyGraph_MixedMainAndParallelECB_NoCrash" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="1319049655" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003357" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1172" name="DependencyGraph_NoConflict_ParallelGroups" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_NoConflict_ParallelGroups" methodname="DependencyGraph_NoConflict_ParallelGroups" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="2015409110" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.000069" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1177" name="DependencyGraph_ParallelECB_StressTest" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_ParallelECB_StressTest" methodname="DependencyGraph_ParallelECB_StressTest" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="353794954" result="Failed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.015292" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <failure>
+                  <message><![CDATA[Unhandled log message: '[Exception] NullReferenceException: Object reference not set to an instance of an object'. Use UnityEngine.TestTools.LogAssert.Expect]]></message>
+                  <stack-trace><![CDATA[Wargon.Nukecs.GraphDependencySystems_AddExtraToTagB_Generated+GraphDependencySystems_AddExtraToTagBJob.OnUpdateBatchedParallel (Wargon.Nukecs.Query`2[Wargon.Nukecs.Entity,Wargon.Nukecs.Tests.GraphTagB]& query, Wargon.Nukecs.State& state, Wargon.Nukecs.Range range) (at NUKECSGEN/Wargon.Nukecs.NUKECSGEN.SrcGen/GraphDependencySystems_AddExtraToTagB.g.cs:224)
+Wargon.Nukecs.IGraphDependencySystems_AddExtraToTagBSystemJobExtensions+QuerySystemJobWrapper`1[TJob].Execute (Wargon.Nukecs.IGraphDependencySystems_AddExtraToTagBSystemJobExtensions+QuerySystemJobWrapper`1[TJob]& fullData, System.IntPtr additionalPtr, System.IntPtr bufferRangePatchData, Unity.Jobs.LowLevel.Unsafe.JobRanges& ranges, System.Int32 jobIndex) (at NUKECSGEN/Wargon.Nukecs.NUKECSGEN.SrcGen/GraphDependencySystems_AddExtraToTagB.g.cs:50)
+
+]]></stack-trace>
+                </failure>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1175" name="DependencyGraph_ParallelECBSystems_CorrectValues" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_ParallelECBSystems_CorrectValues" methodname="DependencyGraph_ParallelECBSystems_CorrectValues" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="929785232" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003684" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1174" name="DependencyGraph_ParallelECBSystems_NoCrash" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_ParallelECBSystems_NoCrash" methodname="DependencyGraph_ParallelECBSystems_NoCrash" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="423202190" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003749" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1168" name="DependencyGraph_SameComponentConflict_Serializes" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_SameComponentConflict_Serializes" methodname="DependencyGraph_SameComponentConflict_Serializes" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="1584356759" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.003383" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[[☢️NUKECS] Created World 0
+]]></output>
+              </test-case>
+              <test-case id="1171" name="DependencyGraph_WriteWriteConflict_CreatesDependency" fullname="Wargon.Nukecs.Tests.DependencyGraphTests.DependencyGraph_WriteWriteConflict_CreatesDependency" methodname="DependencyGraph_WriteWriteConflict_CreatesDependency" classname="Wargon.Nukecs.Tests.DependencyGraphTests" runstate="Runnable" seed="132397038" result="Passed" start-time="2026-06-22 12:48:36Z" end-time="2026-06-22 12:48:36Z" duration="0.000075" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/Wargon/PorjectTests\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

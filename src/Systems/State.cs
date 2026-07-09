@@ -15,6 +15,7 @@ namespace Wargon.Nukecs
         public JobHandle Dependencies;
         public World World;
         public TimeData Time;
+        public byte SkipECBSchedule;
         public SystemParamMetaType MetaType => SystemParamMetaType.State;
         void ISystemParam.Init(ref ptr<World.WorldUnsafe> world)
         {

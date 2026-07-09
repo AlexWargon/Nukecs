@@ -121,6 +121,23 @@ namespace Wargon.Nukecs
             return ref *(T*)(data.Ptr + off + loc.row * componentTypeData.size);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ref T GetComponentByRow<T>(int row) where T : unmanaged, IComponent
+        {
+            ref var componentTypeData = ref ComponentType<T>.Data;
+            var off = offsetMap.GetRef(componentTypeData.index);
+            return ref *(T*)(data.Ptr + off + row * componentTypeData.size);
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public byte* GetComponentDataPtr(int componentTypeIndex, int row)
+        {
+            if (!offsetMap.Mask.HasFast(componentTypeIndex)) return null;
+            var off = offsetMap.GetRef(componentTypeIndex);
+            if (off < 0) return null;
+            return data.Ptr + off + row * ComponentTypeMap.GetComponentType(componentTypeIndex).size;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref Entity GetEntity(int idx)
         {
             return ref world->entities.Ptr[packedEntities.Ptr[idx]];
@@ -154,14 +171,7 @@ namespace Wargon.Nukecs
             ComponentHelpers.Write(ptr, 0, d.size, typeIndex, component);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public byte* GetComponentDataPtr(int componentTypeIndex, int row)
-        {
-            if (!offsetMap.Mask.HasFast(componentTypeIndex)) return null;
-            var off = offsetMap.GetRef(componentTypeIndex);
-            if (off < 0) return null;
-            return data.Ptr + off + row * ComponentTypeMap.GetComponentType(componentTypeIndex).size;
-        }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetComponentLocalIndex(int componentTypeIndex)

@@ -140,7 +140,7 @@ namespace Wargon.Nukecs
             worlds.Data[id] = world;
             world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
             world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
-            Debug.Log($"[☢️NUKECS] Created World {id}");
+            Debug.Log($"☢️[NUKECS] Created World {id}");
             worldCount++;
             return world;
         }
