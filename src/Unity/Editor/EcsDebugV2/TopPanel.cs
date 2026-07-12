@@ -18,9 +18,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static VisualElement Create(EcsDebugV2Window window)
         {
             var header = EcsDebugV2Theme.CreateHeaderRow();
-            header.style.paddingLeft = 12;
-            header.style.paddingRight = 12;
+            header.style.paddingLeft = 14;
+            header.style.paddingRight = 14;
             header.style.justifyContent = Justify.SpaceBetween;
+            // Soft glass underline instead of a solid accent.
+            header.style.borderBottomColor = EcsDebugV2Theme.GlassBorder;
 
             var leftGroup = new VisualElement
             {
@@ -31,18 +33,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
-            var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Lime, 10);
+            var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Amber, 9);
             dot.name = "pulse-dot";
-            dot.style.marginRight = 8;
+            dot.style.marginRight = 10;
             var dotOpacity = 1f;
             dot.RegisterCallback<AttachToPanelEvent>(_ =>
             {
                 dot.schedule.Execute(() =>
                 {
                     if (dot.panel == null) return;
-                    dotOpacity = dotOpacity > 0.5f ? 0.35f : 1f;
+                    // Gentler pulse than the previous hard 1.0 ↔ 0.35 flip.
+                    dotOpacity = dotOpacity > 0.6f ? 0.55f : 1f;
                     dot.style.opacity = dotOpacity;
-                }).Every(800);
+                }).Every(900);
             });
             leftGroup.Add(dot);
 
@@ -54,7 +57,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     color = EcsDebugV2Theme.MutedText,
                     letterSpacing = 2,
                     unityTextAlign = TextAnchor.MiddleLeft,
-                    marginRight = 6
+                    marginRight = 7
                 }
             };
             leftGroup.Add(worldLabel);
@@ -65,7 +68,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Lime,
+                    color = EcsDebugV2Theme.Amber,
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             };
@@ -97,7 +100,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.MutedText,
-                    marginLeft = 12
+                    marginLeft = 14
                 }
             };
             leftGroup.Add(tickLabel);
@@ -111,10 +114,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     alignItems = Align.Center
                 }
             };
-            statsGroup.Add(CreateStatBadge("\u25C9", "ENT", window.entities.Count, EcsDebugV2Theme.Lime));
-            statsGroup.Add(CreateStatBadge("\u25A0", "ARCH", window.archetypes.Count, EcsDebugV2Theme.Orange));
-            statsGroup.Add(CreateStatBadge("\u2315", "Q", window.queries.Count, EcsDebugV2Theme.Yellow));
-            statsGroup.Add(CreateStatBadge("\u2630", "SYS", window.systemCount, EcsDebugV2Theme.TypeBool));
+            // Minimal dot-led stat chips replace the previous glyph-heavy badges.
+            statsGroup.Add(CreateStatChip("ENT", window.entities.Count, EcsDebugV2Theme.Amber));
+            statsGroup.Add(CreateStatChip("ARCH", window.archetypes.Count, EcsDebugV2Theme.Orange));
+            statsGroup.Add(CreateStatChip("Q", window.queries.Count, EcsDebugV2Theme.Yellow));
+            statsGroup.Add(CreateStatChip("SYS", window.systemCount, EcsDebugV2Theme.TypeBool));
             header.Add(statsGroup);
 
             var themeBtn = new Button()
@@ -124,16 +128,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.MutedText,
-                    backgroundColor = EcsDebugV2Theme.Panel,
-                    paddingLeft = 8,
-                    paddingRight = 8,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.6f),
+                    paddingLeft = 9,
+                    paddingRight = 9,
                     paddingTop = 4,
                     paddingBottom = 4,
-                    letterSpacing = 1
+                    letterSpacing = 0.5f,
+                    marginLeft = 8
                 }
             };
             themeBtn.SetupRadius(EcsDebugV2Theme.BorderRadius);
-            themeBtn.SetupBorder(EcsDebugV2Theme.PanelBorder);
+            themeBtn.SetupGlassBorder();
             UpdateThemeLabel(themeBtn);
             themeBtn.clicked += () =>
             {
@@ -166,16 +171,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
                     color = EcsDebugV2Theme.Foreground,
-                    backgroundColor = EcsDebugV2Theme.Panel,
-                    paddingLeft = 10,
-                    paddingRight = 10,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.6f),
+                    paddingLeft = 11,
+                    paddingRight = 11,
                     paddingTop = 4,
                     paddingBottom = 4,
-                    letterSpacing = 1
+                    letterSpacing = 0.5f,
+                    marginLeft = 6
                 }
             };
             pauseBtn.SetupRadius(EcsDebugV2Theme.BorderRadius);
-            pauseBtn.SetupBorder(EcsDebugV2Theme.PanelBorder);
+            pauseBtn.SetupGlassBorder();
             header.Add(pauseBtn);
             return header;
         }
@@ -201,17 +207,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (pauseBtn != null)
                 {
                     pauseBtn.text = window.paused ? "\u25B6 Resume" : "\u23F8 Pause";
-                    pauseBtn.style.color = window.paused ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Orange;
+                    pauseBtn.style.color = window.paused ? EcsDebugV2Theme.Amber : EcsDebugV2Theme.Foreground;
                     pauseBtn.style.backgroundColor = window.paused
-                        ? EcsDebugV2Theme.OrangeA015
-                        : EcsDebugV2Theme.Panel;
+                        ? EcsDebugV2Theme.AmberA012
+                        : EcsDebugV2Theme.PanelElevated.WithAlpha(0.6f);
                 }
 
                 var pulseDot = topPanel.Q("pulse-dot");
                 if (pulseDot != null)
                     pulseDot.style.backgroundColor = window.paused
                         ? EcsDebugV2Theme.Orange
-                        : EcsDebugV2Theme.Lime;
+                        : EcsDebugV2Theme.Amber;
             }
 
             if (window.entities.Count != _lastEntCount)
@@ -242,35 +248,36 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             btn.text = $"Theme: {EcsDebugV2Theme.CurrentThemeName} \u25BE";
         }
 
-        private static VisualElement CreateStatBadge(string icon, string label, int value, Color color)
+        // Minimal pill: small leading dot + uppercase label + value.
+        private static VisualElement CreateStatChip(string label, int value, Color color)
         {
-            var badge = new VisualElement
+            var chip = new VisualElement
             {
                 style =
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    paddingLeft = 8,
-                    paddingRight = 8,
+                    paddingLeft = 9,
+                    paddingRight = 9,
                     paddingTop = 4,
                     paddingBottom = 4,
                     marginRight = 6,
-                    backgroundColor = EcsDebugV2Theme.Panel
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.55f)
                 }
             };
-            badge.SetupRadius(EcsDebugV2Theme.BorderRadius);
-            badge.SetupBorder(EcsDebugV2Theme.PanelBorder);
+            chip.SetupRadius(EcsDebugV2Theme.BorderRadius);
+            chip.SetupGlassBorder();
 
-            var iconLabel = new Label(icon)
+            var dot = new Label("\u2022")
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Micro,
+                    fontSize = EcsDebugV2Theme.Font.Small,
                     color = color,
-                    marginRight = 4
+                    marginRight = 5
                 }
             };
-            badge.Add(iconLabel);
+            chip.Add(dot);
 
             var labelEl = new Label(label)
             {
@@ -279,10 +286,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fontSize = EcsDebugV2Theme.Font.Mini,
                     color = EcsDebugV2Theme.MutedText,
                     letterSpacing = 1,
-                    marginRight = 4
+                    marginRight = 5
                 }
             };
-            badge.Add(labelEl);
+            chip.Add(labelEl);
 
             var valueLabel = new Label(value.ToString())
             {
@@ -290,12 +297,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = color,
+                    color = EcsDebugV2Theme.Foreground,
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             };
-            badge.Add(valueLabel);
-            return badge;
+            chip.Add(valueLabel);
+            return chip;
         }
     }
 }

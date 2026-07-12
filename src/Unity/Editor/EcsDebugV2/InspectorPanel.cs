@@ -26,7 +26,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexDirection = FlexDirection.Column,
                     flexGrow = 1,
                     overflow = Overflow.Hidden,
-                    backgroundColor = EcsDebugV2Theme.BgA04
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.3f)
                 }
             };
             Refresh(panel, window);
@@ -118,8 +118,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.MutedText
+                    fontSize = EcsDebugV2Theme.Font.Body,
+                    color = EcsDebugV2Theme.MutedTextA05
                 }
             };
             empty.Add(label);
@@ -174,9 +174,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     flexGrow = 1,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 8,
+                    paddingLeft = 10,
+                    paddingRight = 10,
+                    paddingTop = 10,
                     overflow = Overflow.Hidden
                 }
             };
@@ -282,18 +282,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     style =
                     {
                         fontSize = EcsDebugV2Theme.Font.Micro,
-                        color = EcsDebugV2Theme.Lime,
-                        backgroundColor = EcsDebugV2Theme.LimeA01,
-                        paddingLeft = 6,
-                        paddingRight = 6,
-                        paddingTop = 2,
-                        paddingBottom = 2,
-                        marginRight = 3,
-                        marginBottom = 3
+                        color = EcsDebugV2Theme.Amber,
+                        backgroundColor = EcsDebugV2Theme.AmberA01,
+                        paddingLeft = 8,
+                        paddingRight = 8,
+                        paddingTop = 3,
+                        paddingBottom = 3,
+                        marginRight = 4,
+                        marginBottom = 4
                     }
                 };
                 tag.SetupRadius(EcsDebugV2Theme.BorderRadius);
-                tag.SetupBorder(EcsDebugV2Theme.LimeA03);
+                tag.SetupBorder(EcsDebugV2Theme.AmberA03);
                 tagsRow.Add(tag);
             }
             pickerContainer.Add(tagsRow);
@@ -309,18 +309,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Foreground,
-                    backgroundColor = EcsDebugV2Theme.Panel,
+                    color = EcsDebugV2Theme.MutedText,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
                     unityFontStyleAndWeight = FontStyle.Bold,
                     paddingLeft = 0,
                     paddingRight = 0,
-                    paddingTop = 4,
-                    paddingBottom = 4,
+                    paddingTop = 7,
+                    paddingBottom = 7,
                     flexGrow = 1,
                     unityTextAlign = TextAnchor.MiddleCenter
                 }
             };
-            addBtn.SetupBorder(Color.clear, 0);
+            addBtn.SetupRadius(EcsDebugV2Theme.BorderRadius);
+            addBtn.SetupGlassBorder();
             if (available.Count == 0) addBtn.SetEnabled(false);
             section.Add(addBtn);
             return section;
@@ -334,7 +335,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Orange,
+                    color = EcsDebugV2Theme.Amber,
                     unityFontStyleAndWeight = FontStyle.Bold,
                     marginRight = 6
                 }
@@ -367,7 +368,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = 8,
                     paddingBottom = 8,
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder
                 }
             };
             compSection.Add(new Label("Component types")
@@ -385,7 +386,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap }
             };
             foreach (var c in archetype.components)
-                compTags.Add(EcsDebugV2Theme.CreateFilterTag(c, true));
+                compTags.Add(EcsDebugV2Theme.CreatePill(c, EcsDebugV2Theme.Foreground));
             compSection.Add(compTags);
             panel.Add(compSection);
 
@@ -408,13 +409,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     flexDirection = FlexDirection.Row,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 4,
-                    paddingBottom = 4,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.3f),
+                    paddingLeft = 10,
+                    paddingRight = 10,
+                    paddingTop = 5,
+                    paddingBottom = 5,
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder,
                     flexShrink = 0
                 }
             };
@@ -438,33 +439,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             flexDirection = FlexDirection.Row,
-                            paddingLeft = 8,
-                            paddingRight = 8,
-                            paddingTop = 4,
-                            paddingBottom = 4,
+                            paddingLeft = 10,
+                            paddingRight = 10,
+                            paddingTop = 5,
+                            paddingBottom = 5,
                             borderBottomWidth = 1,
-                            borderBottomColor = EcsDebugV2Theme.PanelBorderA04,
+                            borderBottomColor = EcsDebugV2Theme.GlassBorder,
                             overflow = Overflow.Hidden
                         }
                     };
                     row.Add(MakeDataCell("", EcsDebugV2Theme.TypeEntity, 70));
                     row.Add(MakeDataCell("", EcsDebugV2Theme.Foreground, 0, true));
-                    row.RegisterCallback<MouseEnterEvent>(evt =>
-                    {
-                        var r = evt.currentTarget as VisualElement;
-                        if (r == null) return;
-                        var id = (int)r.userData;
-                        if (window.selectedEntityId != id)
-                            r.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
-                    });
-                    row.RegisterCallback<MouseLeaveEvent>(evt =>
-                    {
-                        var r = evt.currentTarget as VisualElement;
-                        if (r == null) return;
-                        var id = (int)r.userData;
-                        if (window.selectedEntityId != id)
-                            r.style.backgroundColor = Color.clear;
-                    });
+                    row.ApplyHover(() => window.selectedEntityId == (int)row.userData);
                     return row;
                 },
                 (ve, idx) =>
@@ -475,7 +461,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     ve.name = $"arch-erow-{e.id}";
                     var selected = window.selectedEntityId == e.id;
                     ve.style.backgroundColor = selected
-                        ? EcsDebugV2Theme.LimeA01
+                        ? EcsDebugV2Theme.AmberA012
                         : Color.clear;
                     var ci = 0;
                     foreach (var child in ve.Children())
@@ -536,7 +522,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Lime,
+                    color = EcsDebugV2Theme.Foreground,
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             });
@@ -560,7 +546,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = 8,
                     paddingBottom = 8,
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder
                 }
             };
             filterSection.Add(CreateFilterRow("With", query.with, true));
@@ -619,12 +605,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
                 if (!match) continue;
 
-                var card = EcsDebugV2Theme.CreateCard();
-                card.style.paddingLeft = 8;
-                card.style.paddingRight = 8;
-                card.style.paddingTop = 6;
-                card.style.paddingBottom = 6;
-                card.style.marginBottom = 4;
+                var card = EcsDebugV2Theme.CreateGlassCard();
+                card.style.paddingLeft = 10;
+                card.style.paddingRight = 10;
+                card.style.paddingTop = 8;
+                card.style.paddingBottom = 8;
+                card.style.marginBottom = 6;
 
                 var topRow = new VisualElement
                 {
@@ -632,7 +618,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     {
                         flexDirection = FlexDirection.Row,
                         alignItems = Align.Center,
-                        marginBottom = 4
+                        marginBottom = 5
                     }
                 };
                 topRow.Add(new Label($"#{arch.id}")
@@ -640,7 +626,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     style =
                     {
                         fontSize = EcsDebugV2Theme.Font.Small,
-                        color = EcsDebugV2Theme.Orange
+                        color = EcsDebugV2Theme.Amber,
+                        unityFontStyleAndWeight = FontStyle.Bold
                     }
                 });
                 topRow.Add(new Label($"{arch.entityCount} entities")
@@ -648,7 +635,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     style =
                     {
                         fontSize = EcsDebugV2Theme.Font.Micro,
-                        color = EcsDebugV2Theme.Yellow,
+                        color = EcsDebugV2Theme.MutedText,
                         marginLeft = UnityEngine.UIElements.Length.Auto()
                     }
                 });
@@ -666,22 +653,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.Mini,
-                            color = isWith ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText,
+                            color = isWith ? EcsDebugV2Theme.Amber : EcsDebugV2Theme.MutedText,
                             backgroundColor = isWith
-                                ? EcsDebugV2Theme.LimeA01
-                                : EcsDebugV2Theme.PanelElevated,
-                            paddingLeft = 4,
-                            paddingRight = 4,
-                            paddingTop = 1,
-                            paddingBottom = 1,
-                            marginRight = 3,
-                            marginBottom = 2
+                                ? EcsDebugV2Theme.AmberA01
+                                : EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
+                            paddingLeft = 6,
+                            paddingRight = 6,
+                            paddingTop = 2,
+                            paddingBottom = 2,
+                            marginRight = 4,
+                            marginBottom = 3
                         }
                     };
                     tag.SetupRadius(EcsDebugV2Theme.BorderRadius);
                     tag.SetupBorder(isWith
-                        ? EcsDebugV2Theme.LimeA03
-                        : EcsDebugV2Theme.PanelBorder);
+                        ? EcsDebugV2Theme.AmberA03
+                        : EcsDebugV2Theme.GlassBorder);
                     tagRow.Add(tag);
                 }
                 card.Add(tagRow);
@@ -698,7 +685,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Yellow,
+                    color = EcsDebugV2Theme.Amber,
                     unityFontStyleAndWeight = FontStyle.Bold,
                     marginRight = 6
                 }
@@ -726,17 +713,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (resource.isScalar)
             {
-                var valueCard = EcsDebugV2Theme.CreateCard();
-                valueCard.style.paddingLeft = 10;
-                valueCard.style.paddingRight = 10;
-                valueCard.style.paddingTop = 6;
-                valueCard.style.paddingBottom = 6;
+                var valueCard = EcsDebugV2Theme.CreateGlassCard();
+                valueCard.style.paddingLeft = 12;
+                valueCard.style.paddingRight = 12;
+                valueCard.style.paddingTop = 9;
+                valueCard.style.paddingBottom = 9;
                 valueCard.Add(CreateValueDisplay(resource.scalarValue));
                 content.Add(valueCard);
             }
             else
             {
-                var valueCard = EcsDebugV2Theme.CreateCard();
+                var valueCard = EcsDebugV2Theme.CreateGlassCard();
                 foreach (var kv in resource.value)
                 {
                     var row = new VisualElement
@@ -744,12 +731,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             flexDirection = FlexDirection.Row,
-                            paddingLeft = 10,
-                            paddingRight = 10,
-                            paddingTop = 4,
-                            paddingBottom = 4,
+                            paddingLeft = 12,
+                            paddingRight = 12,
+                            paddingTop = 6,
+                            paddingBottom = 6,
                             borderBottomWidth = 1,
-                            borderBottomColor = EcsDebugV2Theme.PanelBorderA04
+                            borderBottomColor = EcsDebugV2Theme.GlassBorder
                         }
                     };
                     row.Add(new Label(kv.Key)
@@ -789,7 +776,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.Small,
-                            color = value.BoolVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.Red,
+                            color = value.BoolVal ? EcsDebugV2Theme.Amber : EcsDebugV2Theme.Red,
                             unityFontStyleAndWeight = FontStyle.Bold
                         }
                     };
@@ -822,7 +809,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.Small,
-                            color = EcsDebugV2Theme.Lime
+                            color = EcsDebugV2Theme.TypeNumber
                         }
                     };
                 }
@@ -850,7 +837,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.Small,
-                            color = EcsDebugV2Theme.Orange
+                            color = EcsDebugV2Theme.TypeNumber
                         }
                     };
                 }

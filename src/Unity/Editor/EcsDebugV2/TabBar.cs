@@ -17,28 +17,49 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
     {
         private static readonly (TabKey key, string label)[] Tabs =
         {
-            (TabKey.Entities, "ENTITIES"),
-            (TabKey.Archetypes, "ARCHETYPES"),
-            (TabKey.Queries, "QUERIES"),
-            (TabKey.Resources, "RESOURCES")
+            (TabKey.Entities, "Entities"),
+            (TabKey.Archetypes, "Archetypes"),
+            (TabKey.Queries, "Queries"),
+            (TabKey.Resources, "Resources")
         };
 
         public static VisualElement Create(EcsDebugV2Window window)
         {
+            // Segment strip: a recessed track holds pill-shaped tab buttons. The
+            // active segment gets an amber-tint fill; inactive ones stay transparent.
             var nav = new VisualElement
             {
                 style =
                 {
                     flexDirection = FlexDirection.Row,
-                    alignItems = Align.FlexEnd,
-                    paddingLeft = 10,
-                    paddingTop = 6,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    alignItems = Align.Center,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    paddingTop = 8,
+                    paddingBottom = 8,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.45f),
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder,
                     flexShrink = 0
                 }
             };
+
+            var track = new VisualElement
+            {
+                name = "segment-track",
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    backgroundColor = EcsDebugV2Theme.Background.WithAlpha(0.5f),
+                    paddingTop = 3,
+                    paddingBottom = 3,
+                    paddingLeft = 3,
+                    paddingRight = 3
+                }
+            };
+            track.SetupRadius(EcsDebugV2Theme.BorderRadius + 2);
+            track.SetupGlassBorder();
 
             foreach (var tab in Tabs)
             {
@@ -53,26 +74,26 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     style =
                     {
                         fontSize = EcsDebugV2Theme.Font.Small,
-                        letterSpacing = 2,
+                        letterSpacing = 0.4f,
                         unityFontStyleAndWeight = FontStyle.Bold,
-                        paddingLeft = 10,
-                        paddingRight = 10,
-                        paddingTop = 6,
-                        paddingBottom = 6,
-                        borderTopLeftRadius = EcsDebugV2Theme.BorderRadius,
-                        borderTopRightRadius = EcsDebugV2Theme.BorderRadius,
-                        borderBottomLeftRadius = 0,
-                        borderBottomRightRadius = 0,
+                        paddingLeft = 14,
+                        paddingRight = 14,
+                        paddingTop = 5,
+                        paddingBottom = 5,
+                        marginRight = 2,
                         borderTopWidth = 0,
                         borderLeftWidth = 0,
                         borderRightWidth = 0,
-                        borderBottomWidth = 2,
-                        backgroundColor = Color.clear
+                        borderBottomWidth = 0,
+                        backgroundColor = Color.clear,
+                        color = EcsDebugV2Theme.MutedText
                     }
                 };
-                nav.Add(btn);
+                btn.SetupRadius(EcsDebugV2Theme.BorderRadius);
+                track.Add(btn);
             }
 
+            nav.Add(track);
             Refresh(nav, window);
             return nav;
         }
@@ -83,9 +104,10 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 if (nav.Q("tab-" + tab.key) is not Button btn) continue;
                 var active = window.currentTab == tab.key;
-                btn.style.color = active ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
-                btn.style.borderBottomColor = active ? EcsDebugV2Theme.Lime : Color.clear;
-                btn.style.backgroundColor = active ? EcsDebugV2Theme.Panel : Color.clear;
+                btn.style.color = active ? EcsDebugV2Theme.Amber : EcsDebugV2Theme.MutedText;
+                btn.style.backgroundColor = active
+                    ? EcsDebugV2Theme.AmberA012
+                    : Color.clear;
             }
         }
     }

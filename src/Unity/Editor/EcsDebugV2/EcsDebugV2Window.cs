@@ -101,17 +101,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             root.style.flexDirection = FlexDirection.Column;
             root.style.backgroundColor = EcsDebugV2Theme.Background;
 
+            // Translucent surface: panel color over the graphite background reads as a
+            // single layered "glass" sheet with no hard outline.
             var outerCard = new VisualElement
             {
                 style =
                 {
                     flexGrow = 1,
                     overflow = Overflow.Hidden,
-                    backgroundColor = EcsDebugV2Theme.Panel
+                    backgroundColor = EcsDebugV2Theme.Panel.WithAlpha(0.6f)
                 }
             };
-            outerCard.SetupBorder(EcsDebugV2Theme.PanelBorder);
-            outerCard.SetupRadius(EcsDebugV2Theme.CardRadius);
             root.Add(outerCard);
 
             _topPanel = TopPanel.Create(this);
@@ -143,27 +143,29 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             mainArea.Add(_leftPanel);
 
+            // Thin, mostly-transparent divider; reveals an amber tint only on hover/drag.
             _splitter = new VisualElement
             {
                 style =
                 {
-                    width = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelBorder,
+                    width = 3,
+                    backgroundColor = EcsDebugV2Theme.GlassBorder,
                     flexShrink = 0
                 }
             };
             _splitter.RegisterCallback<MouseEnterEvent>(_ =>
-                _splitter.style.backgroundColor = EcsDebugV2Theme.LimeA05);
+                _splitter.style.backgroundColor = EcsDebugV2Theme.AmberA05);
             _splitter.RegisterCallback<MouseLeaveEvent>(_ =>
             {
                 if (!_isDraggingSplitter)
-                    _splitter.style.backgroundColor = EcsDebugV2Theme.PanelBorder;
+                    _splitter.style.backgroundColor = EcsDebugV2Theme.GlassBorder;
             });
             _splitter.RegisterCallback<MouseDownEvent>(evt =>
             {
                 _isDraggingSplitter = true;
                 _dragStartX = evt.mousePosition.x;
                 _dragStartWidth = _leftPanelWidth;
+                _splitter.style.backgroundColor = EcsDebugV2Theme.AmberA03;
                 evt.StopPropagation();
             });
             mainArea.Add(_splitter);
@@ -176,7 +178,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexGrow = 1,
                     flexDirection = FlexDirection.Column,
                     overflow = Overflow.Hidden,
-                    backgroundColor = EcsDebugV2Theme.BgA04
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.3f)
                 }
             };
             mainArea.Add(_inspectorPanel);
@@ -194,7 +196,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (_isDraggingSplitter)
                 {
                     _isDraggingSplitter = false;
-                    _splitter.style.backgroundColor = EcsDebugV2Theme.PanelBorder;
+                    _splitter.style.backgroundColor = EcsDebugV2Theme.GlassBorder;
                 }
             });
 

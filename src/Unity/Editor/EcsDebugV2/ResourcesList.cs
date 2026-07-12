@@ -63,13 +63,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 bool selected = window.selectedResourceName == r.name;
                 if (selected)
                 {
-                    card.SetupBorder(EcsDebugV2Theme.Yellow);
-                    card.style.backgroundColor = EcsDebugV2Theme.YellowA01;
+                    card.SetupBorder(EcsDebugV2Theme.AmberA03);
+                    card.style.backgroundColor = EcsDebugV2Theme.AmberA012;
                 }
                 else
                 {
-                    card.SetupBorder(EcsDebugV2Theme.PanelBorder);
-                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
+                    card.SetupGlassBorder();
+                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.55f);
                 }
 
                 idx++;
@@ -92,25 +92,25 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static VisualElement CreateResourceCard(ResourceInfo resource, EcsDebugV2Window window)
         {
             bool selected = window.selectedResourceName == resource.name;
-            var card = EcsDebugV2Theme.CreateCard();
+            var card = EcsDebugV2Theme.CreateGlassCard();
             card.name = $"resource-card-{resource.name}";
             card.style.flexDirection = FlexDirection.Row;
             card.style.alignItems = Align.Center;
-            card.style.paddingLeft = 8;
-            card.style.paddingRight = 8;
-            card.style.paddingTop = 6;
-            card.style.paddingBottom = 6;
-            card.style.marginBottom = 4;
+            card.style.paddingLeft = 10;
+            card.style.paddingRight = 10;
+            card.style.paddingTop = 8;
+            card.style.paddingBottom = 8;
+            card.style.marginBottom = 5;
             card.style.flexShrink = 0;
 
             if (selected)
             {
-                card.SetupBorder(EcsDebugV2Theme.Yellow);
-                card.style.backgroundColor = EcsDebugV2Theme.YellowA01;
+                card.SetupBorder(EcsDebugV2Theme.AmberA03);
+                card.style.backgroundColor = EcsDebugV2Theme.AmberA012;
             }
 
-            var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Yellow, 6);
-            dot.style.marginRight = 8;
+            var dot = EcsDebugV2Theme.CreateGlowDot(EcsDebugV2Theme.Amber, 7);
+            dot.style.marginRight = 10;
             card.Add(dot);
 
             var nameLabel = new Label(resource.name)
@@ -119,7 +119,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
                     color = EcsDebugV2Theme.Foreground,
-                    unityFontStyleAndWeight = FontStyle.Bold
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    flexShrink = 1
                 }
             };
             card.Add(nameLabel);
@@ -136,18 +137,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             card.Add(typeLabel);
 
             card.RegisterCallback<ClickEvent>(_ => window.SelectResource(resource.name));
-            card.RegisterCallback<MouseEnterEvent>(_ =>
-            {
-                if (window.selectedResourceName != resource.name)
-                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
-            });
-            card.RegisterCallback<MouseLeaveEvent>(_ =>
-            {
-                if (window.selectedResourceName != resource.name)
-                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
-                else
-                    card.style.backgroundColor = EcsDebugV2Theme.YellowA01;
-            });
+            card.ApplyHover(() => window.selectedResourceName == resource.name);
             return card;
         }
     }

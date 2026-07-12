@@ -63,13 +63,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 bool selected = window.selectedQueryId == q.id;
                 if (selected)
                 {
-                    card.SetupBorder(EcsDebugV2Theme.Lime);
-                    card.style.backgroundColor = EcsDebugV2Theme.LimeA01;
+                    card.SetupBorder(EcsDebugV2Theme.AmberA03);
+                    card.style.backgroundColor = EcsDebugV2Theme.AmberA012;
                 }
                 else
                 {
-                    card.SetupBorder(EcsDebugV2Theme.PanelBorder);
-                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
+                    card.SetupGlassBorder();
+                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.55f);
                 }
 
                 var matchedLabel = card.Q<Label>("query-matched");
@@ -112,19 +112,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static VisualElement CreateQueryCard(QueryInfo query, EcsDebugV2Window window)
         {
             bool selected = window.selectedQueryId == query.id;
-            var card = EcsDebugV2Theme.CreateCard();
+            var card = EcsDebugV2Theme.CreateGlassCard();
             card.name = $"query-card-{query.id}";
-            card.style.paddingLeft = 8;
-            card.style.paddingRight = 8;
-            card.style.paddingTop = 6;
-            card.style.paddingBottom = 6;
-            card.style.marginBottom = 4;
+            card.style.paddingLeft = 10;
+            card.style.paddingRight = 10;
+            card.style.paddingTop = 8;
+            card.style.paddingBottom = 8;
+            card.style.marginBottom = 5;
             card.style.flexShrink = 0;
 
             if (selected)
             {
-                card.SetupBorder(EcsDebugV2Theme.Lime);
-                card.style.backgroundColor = EcsDebugV2Theme.LimeA01;
+                card.SetupBorder(EcsDebugV2Theme.AmberA03);
+                card.style.backgroundColor = EcsDebugV2Theme.AmberA012;
             }
 
             var topRow = new VisualElement
@@ -133,7 +133,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    marginBottom = 4
+                    marginBottom = 5
                 }
             };
             var nameLabel = new Label(query.name)
@@ -141,8 +141,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Lime,
-                    unityFontStyleAndWeight = FontStyle.Bold
+                    color = EcsDebugV2Theme.Foreground,
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    flexShrink = 1
                 }
             };
             topRow.Add(nameLabel);
@@ -152,7 +153,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
-                    color = EcsDebugV2Theme.Orange,
+                    color = EcsDebugV2Theme.Amber,
                     marginLeft = Length.Auto()
                 }
             };
@@ -165,7 +166,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     flexWrap = Wrap.Wrap,
-                    marginBottom = 4
+                    marginBottom = 5
                 }
             };
             foreach (var w in query.with)
@@ -180,24 +181,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Micro,
-                    color = EcsDebugV2Theme.Yellow
+                    color = EcsDebugV2Theme.MutedText
                 }
             };
             card.Add(timeLabel);
 
             card.RegisterCallback<ClickEvent>(_ => window.SelectQuery(query.id));
-            card.RegisterCallback<MouseEnterEvent>(_ =>
-            {
-                if (window.selectedQueryId != query.id)
-                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
-            });
-            card.RegisterCallback<MouseLeaveEvent>(_ =>
-            {
-                if (window.selectedQueryId != query.id)
-                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
-                else
-                    card.style.backgroundColor = EcsDebugV2Theme.LimeA01;
-            });
+            card.ApplyHover(() => window.selectedQueryId == query.id);
             return card;
         }
     }

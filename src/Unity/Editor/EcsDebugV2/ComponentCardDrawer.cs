@@ -46,8 +46,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _compName = template.Name;
             var byteSize = template.ByteSize;
 
-            card = EcsDebugV2Theme.CreateCard();
-            card.style.marginBottom = 6;
+            card = EcsDebugV2Theme.CreateGlassCard();
+            card.style.marginBottom = 7;
 
             var compHeader = new VisualElement
             {
@@ -56,13 +56,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     height = EcsDebugV2Theme.ComponentHeaderHeight,
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    paddingLeft = 10,
-                    paddingRight = 4,
+                    paddingLeft = 12,
+                    paddingRight = 6,
                     paddingTop = 4,
                     paddingBottom = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorderA04
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder
                 }
             };
             var compNameLabel = new Label(template.Name)
@@ -423,16 +423,16 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 Color bg;
                 if (r.isHovered)
                 {
-                    bg = EcsDebugV2Theme.PanelElevatedA04;
+                    bg = EcsDebugV2Theme.SurfaceHover;
                 }
                 else if (_window != null && _window.changes.TryGetValue(r.changeKey, out var ts))
                 {
                     var age = now - ts;
-                    bg = age < 1200 ? EcsDebugV2Theme.YellowA015 : EcsDebugV2Theme.PanelElevated;
+                    bg = age < 1200 ? EcsDebugV2Theme.YellowA015 : Color.clear;
                 }
                 else
                 {
-                    bg = EcsDebugV2Theme.PanelElevated;
+                    bg = Color.clear;
                 }
 
                 if (r.lastBgColor != bg)
@@ -482,11 +482,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             if (r.isHovered)
             {
-                if (r.lastBgColor != EcsDebugV2Theme.PanelElevatedA04)
+                if (r.lastBgColor != EcsDebugV2Theme.SurfaceHover)
                 {
-                    r.lastBgColor = EcsDebugV2Theme.PanelElevatedA04;
+                    r.lastBgColor = EcsDebugV2Theme.SurfaceHover;
                     _rows[idx] = r;
-                    r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                    r.row.style.backgroundColor = EcsDebugV2Theme.SurfaceHover;
                 }
                 return;
             }
@@ -509,7 +509,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
             var vecBg = anyHighlighted
                 ? EcsDebugV2Theme.YellowA015
-                : EcsDebugV2Theme.PanelElevated;
+                : Color.clear;
             if (r.lastBgColor != vecBg)
             {
                 r.lastBgColor = vecBg;
@@ -522,15 +522,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         {
             if (r.boolTrack != null)
             {
-                r.boolTrack.style.backgroundColor = isOn ? EcsDebugV2Theme.LimeA03 : EcsDebugV2Theme.PanelBorder;
+                r.boolTrack.style.backgroundColor = isOn ? EcsDebugV2Theme.LimeA03 : EcsDebugV2Theme.GlassBorderStrong;
                 r.boolTrack.style.borderTopColor =
-                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                 r.boolTrack.style.borderBottomColor =
-                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                 r.boolTrack.style.borderLeftColor =
-                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                 r.boolTrack.style.borderRightColor =
-                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                    isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
             }
 
             if (r.boolThumb != null)
@@ -555,11 +555,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    paddingLeft = 10,
-                    paddingRight = 10,
-                    paddingTop = 3,
-                    paddingBottom = 3,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    paddingTop = 4,
+                    paddingBottom = 4,
+                    backgroundColor = Color.clear,
+                    borderBottomWidth = 1,
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder,
                     transitionDuration = new List<TimeValue> { new(0.1f, TimeUnit.Second) },
                     transitionProperty = new List<StylePropertyName> { new("background-color") }
                 }
@@ -609,7 +611,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         {
                             fontSize = EcsDebugV2Theme.Font.FieldName,
                             color = EcsDebugV2Theme.TypeNumber,
-                            backgroundColor = EcsDebugV2Theme.Background,
+                            backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
                             flexGrow = 1,
                             unityFontStyleAndWeight = FontStyle.Bold,
                             unityTextAlign = TextAnchor.MiddleRight
@@ -689,7 +691,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             height = 18,
                             backgroundColor = isOn
                                 ? EcsDebugV2Theme.LimeA03
-                                : EcsDebugV2Theme.PanelBorder,
+                                : EcsDebugV2Theme.GlassBorderStrong,
                             flexShrink = 0,
                             marginRight = 6,
                             overflow = Overflow.Hidden
@@ -697,7 +699,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         name = "bool-track"
                     };
                     track.SetupRadius(9);
-                    track.SetupBorder(isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder);
+                    track.SetupBorder(isOn ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong);
                     track.style.transitionDuration =
                         new List<TimeValue> { new(0.15f, TimeUnit.Second) };
                     track.style.transitionProperty =
@@ -754,15 +756,15 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         thumb.style.backgroundColor =
                             newVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
                         track.style.backgroundColor =
-                            newVal ? EcsDebugV2Theme.LimeA03 : EcsDebugV2Theme.PanelBorder;
+                            newVal ? EcsDebugV2Theme.LimeA03 : EcsDebugV2Theme.GlassBorderStrong;
                         track.style.borderTopColor =
-                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                         track.style.borderBottomColor =
-                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                         track.style.borderLeftColor =
-                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                         track.style.borderRightColor =
-                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.PanelBorder;
+                            newVal ? EcsDebugV2Theme.LimeA05 : EcsDebugV2Theme.GlassBorderStrong;
                         lbl.text = newVal.ToString();
                         lbl.style.color = newVal ? EcsDebugV2Theme.Lime : EcsDebugV2Theme.MutedText;
                     });
@@ -791,7 +793,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         {
                             fontSize = EcsDebugV2Theme.Font.FieldName,
                             color = EcsDebugV2Theme.TypeString,
-                            backgroundColor = EcsDebugV2Theme.Background,
+                            backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
                             flexGrow = 1
                         }
                     };
@@ -801,7 +803,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     tf.Q(TEXT_INPUT).style.paddingLeft = 2;
                     tf.Q(TEXT_INPUT).style.paddingRight = 2;
                     tf.Q(TEXT_INPUT).style.borderBottomWidth = 1;
-                    tf.Q(TEXT_INPUT).style.borderBottomColor = EcsDebugV2Theme.PanelBorderA04;
+                    tf.Q(TEXT_INPUT).style.borderBottomColor = EcsDebugV2Theme.GlassBorder;
 
                     var underline = new VisualElement
                     {
@@ -856,7 +858,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             fontSize = EcsDebugV2Theme.Font.FieldName,
                             color = EcsDebugV2Theme.TypeEntity,
                             unityFontStyleAndWeight = FontStyle.Bold,
-                            backgroundColor = EcsDebugV2Theme.Background
+                            backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f)
                         }
                     };
                     link.RegisterCallback<MouseEnterEvent>(_ => link.style.opacity = 0.7f);
@@ -882,7 +884,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             {
                                 fontSize = EcsDebugV2Theme.Font.FieldName,
                                 color = EcsDebugV2Theme.TypeEntity,
-                                backgroundColor = EcsDebugV2Theme.Background,
+                                backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.6f),
                                 width = 60
                             }
                         };
@@ -915,11 +917,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         {
                             fontSize = EcsDebugV2Theme.Font.FieldName,
                             color = EcsDebugV2Theme.MutedText,
-                            backgroundColor = EcsDebugV2Theme.Background,
-                            paddingLeft = 2,
-                            paddingRight = 2,
-                            paddingTop = 0,
-                            paddingBottom = 0,
+                            backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
+                            paddingLeft = 4,
+                            paddingRight = 4,
+                            paddingTop = 1,
+                            paddingBottom = 1,
                             marginLeft = 4
                         }
                     };
@@ -957,17 +959,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.FieldName,
-                            color = EcsDebugV2Theme.Lime,
-                            backgroundColor = EcsDebugV2Theme.Background,
-                            paddingLeft = 8,
-                            paddingRight = 8,
-                            paddingTop = 2,
-                            paddingBottom = 2,
+                            color = EcsDebugV2Theme.Amber,
+                            backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
+                            paddingLeft = 9,
+                            paddingRight = 9,
+                            paddingTop = 3,
+                            paddingBottom = 3,
                             unityTextAlign = TextAnchor.MiddleLeft,
                             flexGrow = 1
                         }
                     };
-                    btn.SetupBorder(EcsDebugV2Theme.LimeA03, 1);
+                    btn.SetupBorder(EcsDebugV2Theme.AmberA03, 1);
                     btn.SetupRadius(EcsDebugV2Theme.BorderRadius);
 
                     var capturedIdx = rowIdx;
@@ -1082,7 +1084,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             fontSize = EcsDebugV2Theme.Font.FieldName,
-                            color = EcsDebugV2Theme.Orange,
+                            color = EcsDebugV2Theme.TypeNumber,
                             unityFontStyleAndWeight = FontStyle.Bold
                         }
                     };
@@ -1147,9 +1149,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var r = _rows[ri];
                 r.isHovered = true;
-                r.lastBgColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.lastBgColor = EcsDebugV2Theme.SurfaceHover;
                 _rows[ri] = r;
-                r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.row.style.backgroundColor = EcsDebugV2Theme.SurfaceHover;
             });
             row.RegisterCallback<MouseLeaveEvent>(_ =>
             {
@@ -1297,7 +1299,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         unityFontStyleAndWeight = FontStyle.Bold,
                         fontSize = EcsDebugV2Theme.Font.FieldName,
                         color = color,
-                        backgroundColor = EcsDebugV2Theme.Background,
+                        backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
                         flexGrow = 1,
                         flexShrink = 1,
                         minWidth = 0
@@ -1373,9 +1375,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var r = _rows[ri];
                 r.isHovered = true;
-                r.lastBgColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.lastBgColor = EcsDebugV2Theme.SurfaceHover;
                 _rows[ri] = r;
-                r.row.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
+                r.row.style.backgroundColor = EcsDebugV2Theme.SurfaceHover;
             });
             row.RegisterCallback<MouseLeaveEvent>(_ =>
             {

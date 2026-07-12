@@ -32,13 +32,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 6,
-                    paddingBottom = 6,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    paddingLeft = 10,
+                    paddingRight = 10,
+                    paddingTop = 8,
+                    paddingBottom = 8,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.45f),
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder,
                     flexShrink = 0
                 }
             };
@@ -101,13 +101,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     flexDirection = FlexDirection.Row,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
-                    paddingLeft = 8,
-                    paddingRight = 8,
-                    paddingTop = 4,
-                    paddingBottom = 4,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.3f),
+                    paddingLeft = 10,
+                    paddingRight = 10,
+                    paddingTop = 5,
+                    paddingBottom = 5,
                     borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.PanelBorder,
+                    borderBottomColor = EcsDebugV2Theme.GlassBorder,
                     flexShrink = 0
                 }
             };
@@ -125,33 +125,20 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         style =
                         {
                             flexDirection = FlexDirection.Row,
-                            paddingLeft = 8,
-                            paddingRight = 8,
-                            paddingTop = 4,
-                            paddingBottom = 4,
+                            paddingLeft = 10,
+                            paddingRight = 10,
+                            paddingTop = 5,
+                            paddingBottom = 5,
                             borderBottomWidth = 1,
-                            borderBottomColor = EcsDebugV2Theme.PanelBorderA04,
+                            borderBottomColor = EcsDebugV2Theme.GlassBorder,
                             overflow = Overflow.Hidden
                         }
                     };
                     row.Add(MakeDataCell("", EcsDebugV2Theme.TypeEntity, 70));
                     row.Add(MakeDataCell("", EcsDebugV2Theme.Foreground, 0, true));
-                    row.RegisterCallback<MouseEnterEvent>(evt =>
-                    {
-                        var r = evt.currentTarget as VisualElement;
-                        if (r == null) return;
-                        var id = (int)r.userData;
-                            if (window.selectedEntityId != id)
-                            r.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
-                    });
-                    row.RegisterCallback<MouseLeaveEvent>(evt =>
-                    {
-                        var r = evt.currentTarget as VisualElement;
-                        if (r == null) return;
-                        var id = (int)r.userData;
-                        if (window.selectedEntityId != id)
-                            r.style.backgroundColor = Color.clear;
-                    });
+                    // Hover is suppressed (via guard) when this row is the current selection,
+                    // so the amber selection fill never gets overwritten by the hover wash.
+                    row.ApplyHover(() => window.selectedEntityId == (int)row.userData);
                     return row;
                 },
                 (ve, idx) =>
@@ -162,7 +149,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     ve.name = $"erow-{e.id}";
                     var selected = window.selectedEntityId == e.id;
                     ve.style.backgroundColor = selected
-                        ? EcsDebugV2Theme.LimeA01
+                        ? EcsDebugV2Theme.AmberA012
                         : Color.clear;
                     var ci = 0;
                     foreach (var child in ve.Children())

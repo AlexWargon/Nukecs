@@ -19,13 +19,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
                     justifyContent = Justify.SpaceBetween,
-                    paddingLeft = 12,
-                    paddingRight = 12,
-                    paddingTop = 4,
-                    paddingBottom = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated,
+                    paddingLeft = 14,
+                    paddingRight = 14,
+                    paddingTop = 5,
+                    paddingBottom = 5,
+                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.4f),
                     borderTopWidth = 1,
-                    borderTopColor = EcsDebugV2Theme.PanelBorder,
+                    borderTopColor = EcsDebugV2Theme.GlassBorder,
                     flexShrink = 0
                 }
             };
@@ -49,7 +49,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     alignItems = Align.Center
                 }
             };
-            legend.Add(CreateLegendDot(EcsDebugV2Theme.Lime, "running"));
+            legend.Add(CreateLegendDot(EcsDebugV2Theme.Amber, "running"));
             legend.Add(CreateLegendDot(EcsDebugV2Theme.Orange, "mutated"));
             legend.Add(CreateLegendDot(EcsDebugV2Theme.Yellow, "flash"));
             legend.Add(CreateLegendDot(EcsDebugV2Theme.Red, "error"));
@@ -85,18 +85,22 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    marginRight = 12
+                    marginRight = 14
                 }
             };
-            row.Add(new Label("\u25CF")
+            // Smaller, softer dot — a filled rounded square instead of a heavy glyph.
+            var dot = new VisualElement
             {
                 style =
                 {
-                    fontSize = EcsDebugV2Theme.Font.Mini,
-                    color = color,
-                    marginRight = 3
+                    width = 7,
+                    height = 7,
+                    backgroundColor = color.WithAlpha(0.9f),
+                    marginRight = 6
                 }
-            });
+            };
+            dot.SetupRadius(2);
+            row.Add(dot);
             row.Add(new Label(label)
             {
                 style =

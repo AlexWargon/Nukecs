@@ -70,13 +70,13 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 bool selected = window.selectedArchetypeId == arch.id;
                 if (selected)
                 {
-                    card.SetupBorder(EcsDebugV2Theme.Orange);
-                    card.style.backgroundColor = EcsDebugV2Theme.OrangeA01;
+                    card.SetupBorder(EcsDebugV2Theme.AmberA03);
+                    card.style.backgroundColor = EcsDebugV2Theme.AmberA012;
                 }
                 else
                 {
-                    card.SetupBorder(EcsDebugV2Theme.PanelBorder);
-                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
+                    card.SetupGlassBorder();
+                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.55f);
                 }
 
                 var countLabel = card.Q<Label>("arch-count");
@@ -113,19 +113,19 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static VisualElement CreateArchetypeCard(ArchetypeInfo arch, EcsDebugV2Window window)
         {
             bool selected = window.selectedArchetypeId == arch.id;
-            var card = EcsDebugV2Theme.CreateCard();
+            var card = EcsDebugV2Theme.CreateGlassCard();
             card.name = $"arch-card-{arch.id}";
-            card.style.paddingLeft = 8;
-            card.style.paddingRight = 8;
-            card.style.paddingTop = 4;
-            card.style.paddingBottom = 4;
-            card.style.marginBottom = 3;
+            card.style.paddingLeft = 10;
+            card.style.paddingRight = 10;
+            card.style.paddingTop = 7;
+            card.style.paddingBottom = 7;
+            card.style.marginBottom = 5;
             card.style.flexShrink = 0;
 
             if (selected)
             {
-                card.SetupBorder(EcsDebugV2Theme.Orange);
-                card.style.backgroundColor = EcsDebugV2Theme.OrangeA01;
+                card.SetupBorder(EcsDebugV2Theme.AmberA03);
+                card.style.backgroundColor = EcsDebugV2Theme.AmberA012;
             }
 
             var topRow = new VisualElement
@@ -134,7 +134,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     flexDirection = FlexDirection.Row,
                     alignItems = Align.Center,
-                    marginBottom = 3
+                    marginBottom = 5
                 }
             };
             var archLabel = new Label("ARCH")
@@ -144,7 +144,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fontSize = EcsDebugV2Theme.Font.Mini,
                     color = EcsDebugV2Theme.MutedText,
                     letterSpacing = 1,
-                    marginRight = 6
+                    marginRight = 7
                 }
             };
             topRow.Add(archLabel);
@@ -153,7 +153,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 style =
                 {
                     fontSize = EcsDebugV2Theme.Font.Small,
-                    color = EcsDebugV2Theme.Orange,
+                    color = EcsDebugV2Theme.Amber,
                     unityFontStyleAndWeight = FontStyle.Bold
                 }
             };
@@ -180,22 +180,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
             foreach (var comp in arch.components)
-                tagRow.Add(EcsDebugV2Theme.CreateFilterTag(comp, true));
+                tagRow.Add(EcsDebugV2Theme.CreatePill(comp, EcsDebugV2Theme.Foreground));
             card.Add(tagRow);
 
             card.RegisterCallback<ClickEvent>(_ => window.SelectArchetype(arch.id));
-            card.RegisterCallback<MouseEnterEvent>(_ =>
-            {
-                if (window.selectedArchetypeId != arch.id)
-                    card.style.backgroundColor = EcsDebugV2Theme.PanelElevatedA04;
-            });
-            card.RegisterCallback<MouseLeaveEvent>(_ =>
-            {
-                if (window.selectedArchetypeId != arch.id)
-                    card.style.backgroundColor = EcsDebugV2Theme.Panel;
-                else
-                    card.style.backgroundColor = EcsDebugV2Theme.OrangeA01;
-            });
+            card.ApplyHover(() => window.selectedArchetypeId == arch.id);
             return card;
         }
     }
