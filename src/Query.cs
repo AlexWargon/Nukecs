@@ -393,6 +393,7 @@ namespace Wargon.Nukecs
         private readonly int _archesLen;
         [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
         private int _archIndex;
+        private int _row;
         private int _remaining;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -402,21 +403,23 @@ namespace Wargon.Nukecs
             _archesLen = arches.Length;
             _world = world;
             _archIndex = -1;
+            _row = 0;
             _remaining = 0;
             _arch = default;
         }
 
         public ref Entity Current
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => ref _world->entities.Ptr[*_arch->packedEntities.Ptr];
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => ref _world->entities.Ptr[_arch->packedEntities.Ptr[_row]];
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             if (_remaining > 0)
             {
                 _remaining--;
+                _row++;
                 return true;
             }
 
@@ -425,6 +428,7 @@ namespace Wargon.Nukecs
                 _arch = _world->archetypesList.Ptr[_arches[_archIndex]].Ptr;
                 var count = _arch->count;
                 if (count <= 0) continue;
+                _row = 0;
                 _remaining = count - 1;
                 return true;
             }

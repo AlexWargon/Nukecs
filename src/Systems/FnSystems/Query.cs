@@ -62,9 +62,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -311,7 +334,7 @@ namespace Wargon.Nukecs
                     for (var i = 0; i < tuple.Length; i++)
                         if (tuple[i] is IFilter f)
                             f.Setup(_query.Ptr);
-                    break;
+                        break;
             }
             foreach (var ptr in world.Ref.archetypesList)
             {
@@ -331,9 +354,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -589,9 +635,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -851,9 +920,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -1122,9 +1214,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -1269,9 +1384,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -1518,9 +1656,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -1772,9 +1933,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }
@@ -2032,9 +2216,32 @@ namespace Wargon.Nukecs
             id = q.Ref.Id;
         }
 
+        [BurstDiscard]
+        internal void ReinitLostQuery(ref ptr<World.WorldUnsafe> world)
+        {
+            // Managed-only recovery for a query lost after world deserialization.
+            // Init boxes TOption for interface checks (BC1020 under Burst), so this
+            // path must stay out of Burst-compiled jobs; under Burst it is a no-op.
+            Init(ref world);
+        }
+
         public void Update(ref World world, IntPtr data)
         {
-            _query = world.UnsafeWorldRef.queries.ElementAt(id);
+            var worldPtr = world.unsafeWorldPtr;
+            var queriesList = worldPtr.Ref.queries;
+            ptr<QueryUnsafe> resolved = default;
+            if ((uint)id < (uint)queriesList.Length) resolved = queriesList.ElementAt(id);
+            if (resolved.IsNull || resolved.Ref.Id != id)
+            {
+                // Query no longer exists in this world (e.g. the world was deserialized
+                // from a snapshot taken before the query was created) — recreate it
+                // (managed only; no-op under Burst).
+                ReinitLostQuery(ref worldPtr);
+            }
+            else
+            {
+                _query = resolved;
+            }
             if (data == IntPtr.Zero) _range = new Range(0, Count);
             else _range = *(Range*)(void*)data;
         }

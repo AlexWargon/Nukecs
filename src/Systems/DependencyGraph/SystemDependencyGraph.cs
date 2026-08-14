@@ -32,9 +32,6 @@ namespace Wargon.Nukecs
         public SystemNode[] Nodes => _nodes;
         public int[][] ExecutionGroups => _executionGroups;
 
-        private static bool IsMainBlocking(Threads mode) =>
-            mode == Threads.Main || mode == Threads.MainRun;
-
         public void Build(SystemNode[] nodes)
         {
             _nodes = nodes;
@@ -57,9 +54,9 @@ namespace Wargon.Nukecs
             {
                 for (int j = i + 1; j < n; j++)
                 {
-                    if (IsMainBlocking(nodes[i].ThreadMode) || IsMainBlocking(nodes[j].ThreadMode))
-                        continue;
-
+                    // Conflict edges are created for ALL thread modes: default(Threads)
+                    // is Main, so skipping Main systems here silently disabled conflict
+                    // detection for any node constructed without an explicit ThreadMode.
                     if (nodes[i].Info.HasConflict(in nodes[j].Info))
                     {
                         if (nodes[i].Index < nodes[j].Index)

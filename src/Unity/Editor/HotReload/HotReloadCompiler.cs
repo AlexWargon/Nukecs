@@ -592,9 +592,12 @@ namespace Wargon.Nukecs.HotReload
             sb.AppendLine("        public void OnWorldDeserialize(World world) {");
             if (hasQuery)
             {
-                sb.AppendLine("            var allocator = world.AllocatorRef;");
-                sb.AppendLine("            Query.OnDeserialize(ref allocator);");
-                sb.AppendLine("            Query.Ref.FixPointers(ref allocator);");
+                // Re-create the query param instead of re-basing its pointers:
+                // after deserialization the old param lives in memory beyond the
+                // restored allocation cursor and can be overwritten by any new
+                // allocation. GetSystemParam2 re-attaches to the restored query
+                // (hash hit) or allocates a fresh param + query (hash miss).
+                sb.AppendLine($"            Query = world.UnsafeWorld->GetSystemParam2<{queryType}>();");
             }
             foreach (var sp in systemParamFields)
                 sb.AppendLine($"            {sp.name} = world.UnsafeWorld->GetSystemParam2<{sp.type}>();");

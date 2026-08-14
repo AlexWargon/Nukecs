@@ -133,7 +133,13 @@ namespace Wargon.Nukecs
             if (_timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
             {
                 for (var i = 0; i < onFixedUpdate.Count; i++)
-                    _state.Dependencies = onFixedUpdate[i].Schedule(UpdateContext.Update, ref _state);
+                {
+                    var runner = onFixedUpdate[i];
+                    var mode = runner is IThreadModeProvider provider ? provider.Mode : Threads.Main;
+                    if (mode == Threads.Main)
+                        _state.Dependencies.Complete();
+                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                }
                 _timeSinceLastFixedUpdate = 0;
             }
 
@@ -434,6 +440,7 @@ namespace Wargon.Nukecs
 
                 foreach (var idx in group.MainIndices)
                 {
+                    savedDeps.Complete();
                     _state.Dependencies = savedDeps;
                     onUpdate[idx].Schedule(UpdateContext.Update, ref _state);
                     savedDeps = _state.Dependencies;
@@ -674,8 +681,35 @@ namespace Wargon.Nukecs
 
         private void ExecuteSequentialUpdate()
         {
+            // Async runners are scheduled with SkipECBSchedule so state.Dependencies
+            // tracks only their COMPUTE jobs. Synchronous Main systems complete those
+            // jobs (seeing earlier data writes) while structural ECB changes stay
+            // deferred and are played at the Main system's own ECB sync point or at
+            // the end of the update — not before the Main system runs.
+            var savedSkip = _state.SkipECBSchedule;
             for (var i = 0; i < onUpdate.Count; i++)
-                _state.Dependencies = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+            {
+                var runner = onUpdate[i];
+                var mode = runner is IThreadModeProvider provider ? provider.Mode : Threads.Main;
+                if (mode == Threads.Main)
+                {
+                    _state.SkipECBSchedule = savedSkip;
+                    _state.Dependencies.Complete();
+                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                }
+                else
+                {
+                    _state.SkipECBSchedule = 1;
+                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                }
+            }
+            _state.SkipECBSchedule = savedSkip;
+            if (savedSkip == 0)
+            {
+                _state.Dependencies.Complete();
+                if (World.UnsafeWorld->ECB.HasCommands)
+                    World.UnsafeWorld->ECB.Playback(ref World);
+            }
         }
 
         private void ExecuteWithDependencyGraph_Flattened2()
