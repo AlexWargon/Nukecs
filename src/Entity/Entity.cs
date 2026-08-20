@@ -5,7 +5,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
@@ -305,7 +304,7 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ref readonly T Read<T>(this ref Entity entity) where T : unmanaged, IComponent
+        public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Data;
             var worldPtr = entity.worldPointer;
