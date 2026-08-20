@@ -63,9 +63,7 @@ Components are unmanaged structs. Empty structs become **tag components** with z
 public static class MovementSystems
 {
     [System, BurstCompile]
-    public static void Move(
-        ref Query<LocalTransform, Speed> query,
-        ref State state)
+    public static void Move(ref Query<LocalTransform, Speed> query,ref State state)
     {
         var dt = state.Time.DeltaTime;
         foreach (var (t, s) in query.par_iter())
