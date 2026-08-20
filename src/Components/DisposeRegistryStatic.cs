@@ -1,6 +1,4 @@
-﻿using Unity.Collections.LowLevel.Unsafe;
-
-namespace Wargon.Nukecs
+﻿namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.InteropServices;
@@ -27,10 +25,10 @@ namespace Wargon.Nukecs
     {
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(CopyDelegate))]
-        public static void Copy(byte* buffer, int from, int to) {
-            var castedBuffer = (T*)buffer;
-            ref var refFrom = ref castedBuffer[from];
-            castedBuffer[to] = refFrom.Copy(to);
+        public static void Copy(byte* fromBuffer, byte* toBuffer, int fromEntity, int toEntity, int fromIndexInChunk, int toIndexInChunk) {
+            var castedBuffer = (T*)fromBuffer;
+            ref var refFrom = ref castedBuffer[fromIndexInChunk];
+            ((T*)toBuffer)[toIndexInChunk] = refFrom.Copy(toEntity);
         }
 
         public static void Register()
@@ -40,7 +38,7 @@ namespace Wargon.Nukecs
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
-    public unsafe delegate void CopyDelegate(byte* buffer, int from, int to);
+    public unsafe delegate void CopyDelegate(byte* fromBuffer, byte* toBuffer, int fromEntity, int toEntity, int fromIndexInChunk, int toIndexInChunk);
     public unsafe delegate void PoolResizeDelegate(byte* buffer, int index);
     public static unsafe class OnPoolResizeRegistryStatic<T> where T : unmanaged, IOnPoolResize
     {

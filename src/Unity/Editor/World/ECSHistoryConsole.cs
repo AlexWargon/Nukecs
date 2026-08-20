@@ -88,7 +88,6 @@ namespace Wargon.Nukecs.Editor
                 var (color, actionStr) = change.command switch
                 {
                     EntityCommandBuffer.ECBCommand.Type.AddComponent
-                        or EntityCommandBuffer.ECBCommand.Type.AddComponentPtr
                         or EntityCommandBuffer.ECBCommand.Type.AddComponentNoData => (new Color(0.4f, 1f, 0.4f), "Added"),
                     EntityCommandBuffer.ECBCommand.Type.RemoveComponent => (new Color(1f, 0.65f, 0f), "Removed"), // оранжевый
                     EntityCommandBuffer.ECBCommand.Type.Copy => (new Color(0.4f, 0.6f, 1f), "Copied"),           // синий
@@ -98,7 +97,7 @@ namespace Wargon.Nukecs.Editor
 
                 if (actionStr != null)
                 {
-                    var compName = change.componentTypeIndex != 0 ? GetComponentNameByTypeIndex(change.componentTypeIndex) : string.Empty;
+                    var compName = change.tempData != 0 ? GetComponentNameByTypeIndex(change.tempData) : string.Empty;
                     var timeStr = FormatTimestamp(change.timeStamp);
                     var line = $"[{timeStr}] → {actionStr} {compName} on e:{change.entityId}";
 

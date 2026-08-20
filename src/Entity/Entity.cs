@@ -1,59 +1,41 @@
+#if !NUKECS_DEBUG
+using System.Runtime.CompilerServices;
+#endif
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Collections.LowLevel.Unsafe;
 
 namespace Wargon.Nukecs
 {
-    [StructLayout(LayoutKind.Sequential)]
-    [Serializable]
+    [Serializable,StructLayout(LayoutKind.Sequential)]
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
+        internal byte worldIndex;
 
-        [NativeDisableUnsafePtrRestriction][NonSerialized]
-        internal World.WorldUnsafe* worldPointer;
+        public World.WorldUnsafe* worldPointer => World.Get(worldIndex).UnsafeWorld;
 
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
-        
-#if !NUKECS_DEBUG
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
+        internal Entity(int id, byte world)
+        {
+            this.id = id;
+            this.worldIndex = world;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer)
         {
             this.id = id;
-            this.worldPointer = worldPointer;
+            this.worldIndex = worldPointer->Id;
         }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        internal Entity(int id, World.WorldUnsafe* worldPointer, int archetype)
-        {
-            this.id = id;
-            this.worldPointer = worldPointer;
-            this.worldPointer->entitiesArchetypes.ElementAt(this.id) =
-                this.worldPointer->GetArchetype(archetype);
-        }
-
         internal ref ArchetypeUnsafe ArchetypeRef
         {
-#if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-            get
-            {
-#if NUKECS_DEBUG
-                if(worldPointer == null) throw new Exception("World pointer is null");
-#endif
-                var arch = worldPointer->entitiesArchetypes.ElementAt(id).ptr.Ptr;
-#if NUKECS_DEBUG
-                if (arch == null) throw new Exception("Archetype reference is null");
-#endif
-                return ref *arch;
-            }
+            get => ref worldPointer->GetEntityArchetypePtr(id).Ref;
         }
 
         public override string ToString()
@@ -106,14 +88,14 @@ namespace Wargon.Nukecs
 #endif
         public bool IsValid()
         {
-            return worldPointer != null && worldPointer->EntityIsValid(id);
+            if (id == 0) return false;
+            return World.Get(worldIndex).unsafeWorldPtr.Ptr->entities.ElementAt(id).id != 0;
         }
     }
 
     [BurstCompile]
     public static unsafe class EntityExtensions
     {
-
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -122,26 +104,50 @@ namespace Wargon.Nukecs
             return entity.ArchetypeRef.Has<T>();
         }
 
+        public static bool Has(this in Entity entity, int componentIndex)
+        {
+            return entity.ArchetypeRef.Has(componentIndex);
+        }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ref T Get<T>(this ref Entity entity) where T : unmanaged, IComponent
+        [BurstCompile]
+        public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
-            var componentType = ComponentType<T>.Index;
-            if (!entity.ArchetypeRef.Has(componentType))
+            var componentType = ComponentType<T>.Data;
+            var worldPtr = entity.worldPointer;
+            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
+            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            if (arch.offsetMap.Mask.HasFast(componentType.index))
             {
-                ref var pool = ref entity.worldPointer->GetPool<T>();
-                pool.Set(entity.id);
-                entity.worldPointer->ECB.Add(entity.id, componentType);
-                return ref pool.GetRef<T>(entity.id);
+                var off = arch.offsetMap.GetRef(componentType.index);
+                return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
             }
+            throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
+        }
 
+        [BurstCompile]
+        public static ref T Get<T>(this Entity entity) where T : unmanaged, IPoolComponent
+        {
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public static ref T TryGet<T>(this in Entity entity, out bool exist) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            exist = entity.ArchetypeRef.Has(componentType);
+            if (exist)
+            {
+                var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+                var ptr = entity.ArchetypeRef.GetComponentDataPtr(componentType, loc.row);
+                return ref *(T*)ptr;
+            }
+            return ref *(T*)null;
+        }
+
+        public static ref T TryGet<T>(this Entity entity, out bool exist) where T : unmanaged, IPoolComponent
         {
             exist = entity.ArchetypeRef.Has(ComponentType<T>.Index);
             return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
@@ -156,7 +162,17 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Add<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
+        [BurstCompile]
+        public static void Add<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if (entity.ArchetypeRef.Has(componentType)) return;
+            entity.worldPointer->ECB.Add(entity.id, component);
+        }
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static void Add<T>(this Entity entity, in T component) where T : unmanaged, IPoolComponent
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
@@ -167,14 +183,22 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Add<T>(this ref Entity entity) where T : unmanaged, IComponent
+        public static void Add<T>(this in Entity entity) where T : unmanaged, IComponent
+        {
+            var componentType = ComponentType<T>.Index;
+            if (entity.ArchetypeRef.Has(componentType)) return;
+            entity.worldPointer->ECB.Add(entity.id, componentType);
+        }
+#if !NUKECS_DEBUG
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static void Add<T>(this Entity entity) where T : unmanaged, IPoolComponent
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
             entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
-        
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -187,10 +211,19 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Set<T>(this ref Entity entity, in T component) where T : unmanaged, IComponent
+        public static void Set<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Index;
             if (!entity.ArchetypeRef.Has(componentType)) return;
+            ref var arch = ref entity.ArchetypeRef;
+            var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+            var ptr = arch.GetComponentDataPtr(componentType, loc.row);
+            if (ptr != null)
+                *(T*)ptr = component;
+        }
+
+        public static void Set<T>(this Entity entity, in T component) where T : unmanaged, IPoolComponent
+        {
             entity.worldPointer->GetPool<T>().Set(entity.id, in component);
         }
 
@@ -200,9 +233,10 @@ namespace Wargon.Nukecs
         internal static void AddBytes(this in Entity entity, byte[] component, int componentIndex)
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
-            entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add(entity.id, componentIndex);
+            var ctData = ComponentTypeMap.GetComponentType(componentIndex);
+            if (ctData.storageType == StorageType.Pool)
+                entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
+            entity.worldPointer->ECB.Add(entity.id, componentIndex);
         }
 
 #if !NUKECS_DEBUG
@@ -212,24 +246,42 @@ namespace Wargon.Nukecs
             int componentIndex)
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
-            entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
+            var ctData = ComponentTypeMap.GetComponentType(componentIndex);
+            if (ctData.storageType == StorageType.Pool)
+                entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
         }
 
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void AddObject(this in Entity entity, IComponent component)
+        public static void AddObject(this ref Entity entity, IComponent component)
         {
-            var componentIndex = ComponentTypeMap.Index(component.GetType());
-            entity.worldPointer->GetUntypedPool(componentIndex).AddObject(entity.id, component);
+            var ctData = ComponentTypeMap.GetComponentType(component.GetType());
+            
+            if (entity.ArchetypeRef.Has(ctData.index)) return;
             ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add(entity.id, componentIndex);
+            if (ctData.storageType == StorageType.Pool)
+            {
+                entity.worldPointer->GetUntypedPool(ctData.index).AddObject(entity.id, component);
+                ecb.Add(entity.id, ctData.index);
+                return;
+            }
+            ecb.AddObject(entity.id, component, ctData);
         }
-
+        
         public static void SetObject(this in Entity entity, IComponent component)
         {
-            var componentIndex = ComponentTypeMap.Index(component.GetType());
-            entity.worldPointer->GetUntypedPool(componentIndex).SetObject(entity.id, component);
+            var ctData = ComponentTypeMap.GetComponentType(component.GetType());
+            if (ctData.storageType == StorageType.Pool)
+            {
+                entity.worldPointer->GetUntypedPool(ctData.index).SetObject(entity.id, component);
+                return;
+            }
+            if (!entity.ArchetypeRef.Has(ctData.index)) return;
+            var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
+            var ptr = entity.ArchetypeRef.GetComponentDataPtr(ctData.index, loc.row);
+            if (ptr != null)
+                ComponentHelpers.Write(ptr, 0, ctData.size, ctData.index, component);
         }
 
 #if !NUKECS_DEBUG
@@ -249,55 +301,17 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Remove(entity.id, componentType);
         }
 
-
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static (Ref<T1>, Ref<T2>) Get<T1, T2>(this in Entity entity)
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
+        public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent
         {
-            return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer });
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static (Ref<T1>, Ref<T2>, Ref<T3>) Get<T1, T2, T3>(this in Entity entity)
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-            where T3 : unmanaged, IComponent
-        {
-            return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer },
-                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer });
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static (Ref<T1>, Ref<T2>, Ref<T3>, Ref<T4>) Get<T1, T2, T3, T4>(this in Entity entity)
-            where T1 : unmanaged, IComponent
-            where T2 : unmanaged, IComponent
-            where T3 : unmanaged, IComponent
-            where T4 : unmanaged, IComponent
-        {
-            return (
-                new Ref<T1> { index = entity.id, pool = entity.worldPointer->GetPool<T1>().UnsafeBuffer },
-                new Ref<T2> { index = entity.id, pool = entity.worldPointer->GetPool<T2>().UnsafeBuffer },
-                new Ref<T3> { index = entity.id, pool = entity.worldPointer->GetPool<T3>().UnsafeBuffer },
-                new Ref<T4> { index = entity.id, pool = entity.worldPointer->GetPool<T4>().UnsafeBuffer });
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static ref readonly T Read<T>(this ref Entity entity) where T : unmanaged, IComponent
-        {
-            return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+            var componentType = ComponentType<T>.Data;
+            var worldPtr = entity.worldPointer;
+            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
+            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            var off = arch.offsetMap.GetRef(componentType.index);
+            return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
         }
 
 #if !NUKECS_DEBUG
@@ -316,28 +330,28 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ValueTuple<T1, T2> Read<T1, T2>(this in Entity entity)
+        public static ValueTuple<T1, T2> Read<T1, T2>(this ref Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
         {
             return (
-                entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
-                entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id)
+                entity.Get<T1>(),
+                entity.Get<T2>()
             );
         }
 
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static ComponentTupleRO<T1, T2, T3> Read<T1, T2, T3>(this in Entity entity)
+        public static ComponentTupleRO<T1, T2, T3> Read<T1, T2, T3>(this ref Entity entity)
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
             where T3 : unmanaged, IComponent
         {
             return new ComponentTupleRO<T1, T2, T3>(
-                in entity.worldPointer->GetPool<T1>().GetRef<T1>(entity.id),
-                in entity.worldPointer->GetPool<T2>().GetRef<T2>(entity.id),
-                in entity.worldPointer->GetPool<T3>().GetRef<T3>(entity.id));
+                in entity.Get<T1>(),
+                in entity.Get<T2>(),
+                in entity.Get<T3>());
         }
 
 #if !NUKECS_DEBUG
@@ -359,9 +373,19 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static void Destroy(this ref Entity entity)
+        public static void Destroy(this in Entity entity)
         {
-            entity.Add(new DestroyEntity());
+#if NUKECS_DEBUG
+            entity.worldPointer->AddComponentChange(new World.ComponentChange
+            {
+                command = EntityCommandBuffer.ECBCommand.Type.DestroyEntity,
+                entityId = entity.id,
+                timeStamp = entity.worldPointer->timeData.ElapsedTime
+            });
+#endif
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Destroy(entity.id);
+            //entity.Add(new DestroyEntity());
         }
 
 #if !NUKECS_DEBUG
@@ -370,6 +394,14 @@ namespace Wargon.Nukecs
         public static void DestroyNow(this in Entity entity)
         {
             ref var ecb = ref entity.worldPointer->ECB;
+#if NUKECS_DEBUG
+            entity.worldPointer->AddComponentChange(new World.ComponentChange
+            {
+                command = EntityCommandBuffer.ECBCommand.Type.DestroyEntity,
+                entityId = entity.id,
+                timeStamp = entity.worldPointer->timeData.ElapsedTime
+            });
+#endif
             ecb.Destroy(entity.id);
         }
 
@@ -379,22 +411,6 @@ namespace Wargon.Nukecs
         internal static void Free(this in Entity entity)
         {
             entity.ArchetypeRef.OnEntityFree(entity.id);
-        }
-
-#if !NUKECS_DEBUG
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
-        public static bool TryGetRef<T>(this in Entity entity, out Ref<T> component) where T : unmanaged, IComponent
-        {
-            if (entity.ArchetypeRef.Has<T>())
-            {
-                component.index = entity.id;
-                component.pool = entity.worldPointer->GetPool<T>().UnsafeBuffer;
-                return true;
-            }
-
-            component = default;
-            return false;
         }
 
 #if !NUKECS_DEBUG
@@ -423,5 +439,22 @@ namespace Wargon.Nukecs
             entity.worldPointer->ECB.Copy(entity.id, e.id);
             return e;
         }
+
+        internal static string ToDebugString(this in Entity entity)
+        {
+            return $"#:{entity.id:D7}";
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetArchetypeHash(this in Entity entity)
+        {
+            return entity.world.UnsafeWorldRef.entityLocations.Ptr[entity.id].archetypeIndex;
+        }
     }
+
+    public ref struct EntityIndex
+    {
+        public int chunk;
+        public int component;
+    }
+    
 }

@@ -4,66 +4,150 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
+using UnityEngine;
+
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs
 {
+    public enum GroupScheduleMode
+    {
+        LegacyGroupComplete,
+        ChainedGroupComplete,
+        FlattenedSchedule,
+        FlattenedSchedule2
+    }
+
     public unsafe class Systems
     {
-        internal readonly List<ISystemDestroyer> SystemDestroyers;
-        internal JobHandle Dependencies;
-        internal readonly List<ISystemRunner> FixedRunners;
-        internal readonly List<ISystemRunner> Runners;
-        internal readonly List<ISystemRunner> MainThreadFixedRunners;
-        internal readonly List<ISystemRunner> MainThreadRunners;
-        internal SystemsDependencies SystemsDependencies;
-        internal World World;
+        public JobHandle Dependencies;
+        public World World;
         private State _state;
-        private State _stateFixed;
+        internal ref State State => ref _state;
         private const float FIXED_UPDATE_INTERVAL = 0.016f;
         private float _timeSinceLastFixedUpdate;
+        internal ActionRef<World> onWorldDispose;
+        private static Marker _allSystems = new("ALL SYSTEMS");
+        private static Marker _flatGraph2 = new("FLAT GRAPH 2");
+        private SystemDependencyGraph _dependencyGraph;
+        private bool _useDependencyGraph;
+        private bool _graphBuilt;
+        private GroupScheduleMode _groupScheduleMode = GroupScheduleMode.LegacyGroupComplete;
+        private readonly List<SystemDependencyInfo> _dependencyInfos;
+        private Unity.Collections.NativeArray<Unity.Jobs.JobHandle> _handleBuffer;
+
+        public SystemDependencyGraph DependencyGraph => _dependencyGraph;
+        public bool UseDependencyGraphEnabled => _useDependencyGraph;
+        public GroupScheduleMode GetGroupScheduleMode() => _groupScheduleMode;
+        public IReadOnlyList<ISystemRunner> Runners => onUpdate;
+
         public Systems(ref World world)
         {
             Dependencies = default;
-            Runners = new List<ISystemRunner>();
-            FixedRunners = new List<ISystemRunner>();
-            MainThreadRunners = new List<ISystemRunner>();
-            MainThreadFixedRunners = new List<ISystemRunner>();
-            SystemDestroyers = new List<ISystemDestroyer>();
-            SystemsDependencies = SystemsDependencies.Create();
+            onStart = new List<ISystemRunner>();
+            onUpdate = new List<ISystemRunner>();
+            onFixedUpdate = new List<ISystemRunner>();
+            onDestroy = new List<ISystemRunner>();
+            systemDestroyers = new List<ISystemDestroyer>();
+            _dependencyInfos = new List<SystemDependencyInfo>();
             World = world;
             WorldSystems.Add(world.UnsafeWorld->Id, this);
         }
-        
+
+        private readonly List<ISystemDestroyer> systemDestroyers;
+        internal readonly List<ISystemRunner> onStart;
+        internal readonly List<ISystemRunner> onUpdate;
+        internal readonly List<ISystemRunner> onFixedUpdate;
+        internal readonly List<ISystemRunner> onDestroy;
+
+        public void OnStart()
+        {
+            _state.Dependencies = World.DependenciesUpdate;
+            _state.World = World;
+            _state.Time.DeltaTime = 0;
+            _state.Time.Time = 0;
+            _state.Time.ElapsedTime = 0;
+            _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
+            World.UnsafeWorld->timeData = _state.Time;
+            for (var i = 0; i < onStart.Count; i++)
+                _state.Dependencies = onStart[i].Schedule(UpdateContext.Update, ref _state);
+            _state.Dependencies.Complete();
+        }
+
+        public void OnDestroy()
+        {
+            _state.Dependencies = World.DependenciesUpdate;
+            _state.World = World;
+            _state.Time.DeltaTime = 0;
+            _state.Time.Time = 0;
+            _state.Time.ElapsedTime = 0;
+            _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
+            World.UnsafeWorld->timeData = _state.Time;
+            for (var i = 0; i < onDestroy.Count; i++)
+                _state.Dependencies = onDestroy[i].Schedule(UpdateContext.Update, ref _state);
+            _state.Dependencies.Complete();
+        }
+
         public void OnUpdate(float dt, float time)
         {
-            _state.Dependencies.Complete();
+            _allSystems.Start();
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
             _state.Time.DeltaTime = dt;
             _state.Time.Time = time;
             _state.Time.ElapsedTime += dt;
+            _state.Time.TickCount++;
             _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
             World.UnsafeWorld->timeData = _state.Time;
-            
-            for (var i = 0; i < MainThreadRunners.Count; i++)
-                _state.Dependencies = MainThreadRunners[i].Schedule(UpdateContext.Update, ref _state);
-            for (var i = 0; i < Runners.Count; i++)
-                _state.Dependencies = Runners[i].Schedule(UpdateContext.Update, ref _state);
+
+            if (_useDependencyGraph)
+            {
+                if (!_graphBuilt)
+                    BuildDependencyGraph();
+
+                if (onFixedUpdate.Count == 0 && onUpdate.Count == 1)
+                {
+                    _state.Dependencies = onUpdate[0].Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies.Complete();
+                    _allSystems.End();
+                    return;
+                }
+
+                ExecuteWithDependencyGraph();
+            }
+            else
+            {
+                if (onFixedUpdate.Count == 0 && onUpdate.Count == 1)
+                {
+                    _state.Dependencies = onUpdate[0].Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies.Complete();
+                    _allSystems.End();
+                    return;
+                }
+
+                ExecuteSequentialUpdate();
+            }
 
             _timeSinceLastFixedUpdate += dt;
             if (_timeSinceLastFixedUpdate >= FIXED_UPDATE_INTERVAL)
             {
-                for (var i = 0; i < MainThreadFixedRunners.Count; i++)
-                    _state.Dependencies = MainThreadFixedRunners[i].Schedule(UpdateContext.Update, ref _state);
-                for (var i = 0; i < FixedRunners.Count; i++)
-                    _state.Dependencies = FixedRunners[i].Schedule(UpdateContext.Update, ref _state);
+                for (var i = 0; i < onFixedUpdate.Count; i++)
+                {
+                    var runner = onFixedUpdate[i];
+                    var mode = runner is IThreadModeProvider provider ? provider.Mode : Threads.Main;
+                    if (mode == Threads.Main)
+                        _state.Dependencies.Complete();
+                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                }
                 _timeSinceLastFixedUpdate = 0;
             }
+
+            if (!_state.Dependencies.Equals(default))
+                _state.Dependencies.Complete();
+            _allSystems.End();
         }
-        
+
         public static Systems Default(ref World world)
         {
             return new Systems(ref world).AddDefaults();
@@ -71,8 +155,9 @@ namespace Wargon.Nukecs
 
         public Systems AddDefaults()
         {
-            Add<EntityDestroySystem>();
-            Add<OnPrefabSpawnSystem>();
+            this.Add(DefaultSystems.EntityDestroySystem, Threads.MainRun);
+            this.Add(DefaultSystems.OnPrefabSpawn);
+            this.Add(DefaultSystems.ClearEvents, Threads.MainRun);
             Add<ClearEntityCreatedEventSystem>();
             return this;
         }
@@ -89,53 +174,8 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref World).InternalPointer;
-            Runners.Add(runner);
-            return this;
-        }
-
-        public Systems Add<T>() where T : struct, IJobSystem
-        {
-            T system = default;
-            if (system is IOnCreate s)
-            {
-                s.OnCreate(ref World);
-                system = (T)s;
-            }
-
-            var runner = new JobSystemRunner<T>
-            {
-                System = system,
-                EcbJob = default,
-                isComplete = system is IComplete
-            };
-            if (system is IFixed)
-                FixedRunners.Add(runner);
-            else
-                Runners.Add(runner);
-
-            return this;
-        }
-
-        internal Systems AddRef<T>(ref T system) where T : struct, IEntityJobSystem
-        {
-            if (system is IOnCreate s)
-            {
-                s.OnCreate(ref World);
-                system = (T)s;
-            }
-
-            var runner = new EntityJobSystemRunner<T>
-            {
-                System = system,
-                Mode = system.Mode,
-                EcbJob = default
-            };
-            runner.Query = runner.System.GetQuery(ref World).InternalPointer;
-            if (system is IFixed)
-                FixedRunners.Add(runner);
-            else
-                Runners.Add(runner);
+            runner.Query = runner.System.GetQuery(ref World).queryUnsafe;
+            onUpdate.Add(runner);
             return this;
         }
 
@@ -154,11 +194,12 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref World).InternalPointer;
+            runner.Query = runner.System.GetQuery(ref World).queryUnsafe;
             if (system is IFixed)
-                FixedRunners.Add(runner);
+                onFixedUpdate.Add(runner);
             else
-                Runners.Add(runner);
+                onUpdate.Add(runner);
+            InvalidateDependencyGraph();
             return this;
         }
 
@@ -177,35 +218,13 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            SystemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
-            runner.Query = runner.System.GetQuery(ref World).InternalPointer;
+            systemDestroyers.Add(new SystemDestroyer<T>(ref runner.System));
+            runner.Query = runner.System.GetQuery(ref World).queryUnsafe;
             if (system is IFixed)
-                FixedRunners.Add(runner);
+                onFixedUpdate.Add(runner);
             else
-                Runners.Add(runner);
-            return this;
-        }
-
-        public Systems Add<T>(short dymmy = 1) where T : struct, IQueryJobSystem
-        {
-            T system = default;
-            if (system is IOnCreate s)
-            {
-                s.OnCreate(ref World);
-                system = (T)s;
-            }
-
-            var runner = new QueryJobSystemRunner<T>
-            {
-                System = system,
-                Mode = system.Mode,
-                EcbJob = default
-            };
-            runner.Query = runner.System.GetQuery(ref World);
-            if (system is IFixed)
-                FixedRunners.Add(runner);
-            else
-                Runners.Add(runner);
+                onUpdate.Add(runner);
+            InvalidateDependencyGraph();
             return this;
         }
 
@@ -226,18 +245,14 @@ namespace Wargon.Nukecs
 
             if (system is IFixed)
             {
-                MainThreadFixedRunners.Add(runner);
-            }
-            else
-            if (system is IJobRunner)
-            {
-                Runners.Add(runner);
+                onFixedUpdate.Add(runner);
             }
             else
             {
-                MainThreadRunners.Add(runner);
+                onUpdate.Add(runner);
             }
-            
+
+            InvalidateDependencyGraph();
             return this;
         }
 
@@ -257,60 +272,525 @@ namespace Wargon.Nukecs
             };
             if (system is IFixed)
             {
-                MainThreadFixedRunners.Add(runner);
-            }
-            else
-            if (system is IJobRunner)
-            {
-                Runners.Add(runner);
+                onFixedUpdate.Add(runner);
             }
             else
             {
-                MainThreadRunners.Add(runner);
+                onUpdate.Add(runner);
             }
 
             if (system is IOnDestroy onDestroySystem)
             {
-                SystemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
+                systemDestroyers.Add(new SystemClassDestroyer(onDestroySystem));
             }
+
+            InvalidateDependencyGraph();
             return this;
         }
 
         public Systems Add<T>(T group) where T : SystemsGroup
         {
             group.world = World;
-            Runners.AddRange(group.runners);
-            FixedRunners.AddRange(group.fixedRunners);
-            MainThreadRunners.AddRange(group.mainThreadRunners);
-            MainThreadFixedRunners.AddRange(group.mainThreadFixedRunners);
-            SystemDestroyers.AddRange(group.destroyRunners);
+            onStart.AddRange(group.runners);
+            onUpdate.AddRange(group.fixedRunners);
+            onFixedUpdate.AddRange(group.mainThreadRunners);
+            onDestroy.AddRange(group.mainThreadFixedRunners);
+            systemDestroyers.AddRange(group.destroyRunners);
+            InvalidateDependencyGraph();
             return this;
         }
-        
 
 
         internal void Complete()
         {
             _state.Dependencies.Complete();
-            _stateFixed.Dependencies.Complete();
+        }
+
+        public void OnWorldDeserialize(World.WorldUnsafe* world)
+        {
+            World.unsafeWorldPtr = world->selfPtr;
+            RebuildQueryPointers(onStart, world);
+            RebuildQueryPointers(onUpdate, world);
+            RebuildQueryPointers(onFixedUpdate, world);
+            RebuildQueryPointers(onDestroy, world);
+        }
+
+        private void RebuildQueryPointers(List<ISystemRunner> list, World.WorldUnsafe* worldPtr)
+        {
+
+            foreach (var runner in list)
+            {
+                if (runner is IQueryHolder holder)
+                    holder.UpdateQueryPointer(worldPtr);
+                if (runner is ISystemWithDeserialization sysDeser)
+                    sysDeser.OnWorldDeserialize(World);
+            }
+        }
+
+        public interface ISystemWithDeserialization
+        {
+            void OnWorldDeserialize(World world);
         }
 
         internal void OnWorldDispose()
         {
             Complete();
-            foreach (var systemDestroyer in SystemDestroyers) systemDestroyer.Destroy(ref World);
-            SystemsDependencies.Dispose();
+            OnDestroy();
+            onWorldDispose?.Invoke(ref World);
+            foreach (var systemDestroyer in systemDestroyers) systemDestroyer.Destroy(ref World);
+            if (_handleBuffer.IsCreated) _handleBuffer.Dispose();
         }
-        // public void Run(float dt) {
-        //     for (var i = 0; i < runners.Count; i++) {
-        //         runners[i].Run(ref world, dt);
-        //     }
-        // }
+
+        public Systems UseDependencyGraph(bool enable = true,
+            GroupScheduleMode mode = GroupScheduleMode.LegacyGroupComplete)
+        {
+            _useDependencyGraph = enable;
+            _groupScheduleMode = mode;
+            if (enable && !_graphBuilt)
+                BuildDependencyGraph();
+            return this;
+        }
+
+        public void InvalidateDependencyGraph()
+        {
+            _graphBuilt = false;
+            _dependencyGraph = null;
+        }
+
+        internal void RegisterDependencyInfo(SystemDependencyInfo info)
+        {
+            _dependencyInfos.Add(info);
+            InvalidateDependencyGraph();
+        }
+
+        private void BuildDependencyGraph()
+        {
+            if (onUpdate.Count == 0)
+            {
+                _dependencyGraph = new SystemDependencyGraph();
+                _dependencyGraph.Build(System.Array.Empty<SystemNode>());
+                _graphBuilt = true;
+                return;
+            }
+
+            var nodes = new SystemNode[onUpdate.Count];
+            for (int i = 0; i < onUpdate.Count; i++)
+            {
+                var runner = onUpdate[i];
+                var info = SystemDependencyInfo.Empty;
+
+                if (runner is ISystemDependencyInfoProvider provider)
+                    info = provider.DependencyInfo;
+                else if (i < _dependencyInfos.Count)
+                    info = _dependencyInfos[i];
+
+                info.SystemName = runner.Name;
+
+                var threadMode = Threads.Parallel;
+                if (runner is IThreadModeProvider threadProvider)
+                    threadMode = threadProvider.Mode;
+
+                nodes[i] = new SystemNode
+                {
+                    Index = i,
+                    Name = runner.Name,
+                    Runner = runner,
+                    Info = info,
+                    ThreadMode = threadMode
+                };
+            }
+
+            _dependencyGraph = new SystemDependencyGraph();
+            _dependencyGraph.Build(nodes);
+            _graphBuilt = true;
+        }
+
+        private void ExecuteWithDependencyGraph()
+        {
+            if (_groupScheduleMode == GroupScheduleMode.ChainedGroupComplete)
+            {
+                ExecuteWithDependencyGraph_Chained();
+                return;
+            }
+
+            if (_groupScheduleMode == GroupScheduleMode.FlattenedSchedule)
+            {
+                ExecuteWithDependencyGraph_Flattened();
+                return;
+            }
+
+            if (_groupScheduleMode == GroupScheduleMode.FlattenedSchedule2)
+            {
+                ExecuteWithDependencyGraph_Flattened2();
+                return;
+            }
+
+            var groups = _dependencyGraph.GetPrecomputedGroups();
+            if (groups == null || groups.Length == 0)
+            {
+                ExecuteSequentialUpdate();
+                return;
+            }
+
+            var savedDeps = _state.Dependencies;
+
+            for (int g = 0; g < groups.Length; g++)
+            {
+                ref var group = ref groups[g];
+
+                foreach (var idx in group.MainIndices)
+                {
+                    savedDeps.Complete();
+                    _state.Dependencies = savedDeps;
+                    onUpdate[idx].Schedule(UpdateContext.Update, ref _state);
+                    savedDeps = _state.Dependencies;
+                }
+
+                if (group.ParallelIndices.Length == 1)
+                {
+                    _state.Dependencies = savedDeps;
+                    onUpdate[group.ParallelIndices[0]].Schedule(UpdateContext.Update, ref _state);
+                    savedDeps = _state.Dependencies;
+                }
+                else if (group.ParallelIndices.Length > 1)
+                {
+                    var count = group.ParallelIndices.Length;
+                    if (!_handleBuffer.IsCreated || _handleBuffer.Length != count)
+                    {
+                        if (_handleBuffer.IsCreated)
+                            _handleBuffer.Dispose();
+                        _handleBuffer =
+                            new Unity.Collections.NativeArray<Unity.Jobs.JobHandle>(count,
+                                Unity.Collections.Allocator.Persistent);
+                    }
+
+                    _state.SkipECBSchedule = 1;
+                    for (int i = 0; i < count; i++)
+                    {
+                        _state.Dependencies = savedDeps;
+                        _handleBuffer[i] = onUpdate[group.ParallelIndices[i]]
+                            .Schedule(UpdateContext.Update, ref _state);
+                    }
+
+                    var combined = Unity.Jobs.JobHandle.CombineDependencies(_handleBuffer);
+                    combined.Complete();
+                    _state.SkipECBSchedule = 0;
+
+                    if (World.UnsafeWorld->ECB.HasCommands)
+                    {
+                        World.UnsafeWorld->ECB.Playback(ref World);
+                    }
+
+                    savedDeps = default;
+                    _state.Dependencies = default;
+                }
+            }
+        }
+
+        private void ExecuteWithDependencyGraph_Chained()
+        {
+            var groups = _dependencyGraph.GetPrecomputedGroups();
+            if (groups == null || groups.Length == 0)
+            {
+                ExecuteSequentialUpdate();
+                return;
+            }
+
+            var savedDeps = _state.Dependencies;
+
+            for (int g = 0; g < groups.Length; g++)
+            {
+                ref var group = ref groups[g];
+
+                foreach (var idx in group.MainIndices)
+                {
+                    savedDeps.Complete();
+                    _state.Dependencies = savedDeps;
+                    onUpdate[idx].Schedule(UpdateContext.Update, ref _state);
+                    savedDeps = _state.Dependencies;
+                }
+
+                if (group.ParallelIndices.Length == 1)
+                {
+                    _state.Dependencies = savedDeps;
+                    var handle = onUpdate[group.ParallelIndices[0]].Schedule(UpdateContext.Update, ref _state);
+                    if (group.HasECB)
+                    {
+                        savedDeps = new ECBJob
+                        {
+                            ECB = World.UnsafeWorld->ECB,
+                            world = World,
+                            updateContext = UpdateContext.Update
+                        }.Schedule(handle);
+                    }
+                    else
+                    {
+                        savedDeps = handle;
+                    }
+                }
+                else if (group.ParallelIndices.Length > 1)
+                {
+                    var count = group.ParallelIndices.Length;
+                    if (!_handleBuffer.IsCreated || _handleBuffer.Length != count)
+                    {
+                        if (_handleBuffer.IsCreated)
+                            _handleBuffer.Dispose();
+                        _handleBuffer =
+                            new Unity.Collections.NativeArray<Unity.Jobs.JobHandle>(count,
+                                Unity.Collections.Allocator.Persistent);
+                    }
+
+                    _state.SkipECBSchedule = 1;
+                    for (int i = 0; i < count; i++)
+                    {
+                        _state.Dependencies = savedDeps;
+                        _handleBuffer[i] = onUpdate[group.ParallelIndices[i]]
+                            .Schedule(UpdateContext.Update, ref _state);
+                    }
+
+                    var combined = Unity.Jobs.JobHandle.CombineDependencies(_handleBuffer);
+
+                    if (group.HasECB)
+                    {
+                        savedDeps = new ECBJob
+                        {
+                            ECB = World.UnsafeWorld->ECB,
+                            world = World,
+                            updateContext = UpdateContext.Update
+                        }.Schedule(combined);
+                    }
+                    else
+                    {
+                        savedDeps = combined;
+                    }
+                }
+            }
+
+            savedDeps.Complete();
+            _state.SkipECBSchedule = 0;
+
+            if (World.UnsafeWorld->ECB.HasCommands)
+            {
+                World.UnsafeWorld->ECB.Playback(ref World);
+            }
+
+            _state.Dependencies = default;
+        }
+
+        private void ExecuteWithDependencyGraph_Flattened()
+        {
+            var nodes = _dependencyGraph.Nodes;
+            var preds = _dependencyGraph.GetPredecessors();
+            if (nodes == null || nodes.Length == 0 || preds == null)
+            {
+                ExecuteSequentialUpdate();
+                return;
+            }
+
+            var n = nodes.Length;
+            var handles = new JobHandle[n];
+
+            var savedDeps = _state.Dependencies;
+            _state.SkipECBSchedule = 1;
+
+            // ═══ Main/MainRun first: synchronous, registration order, no deps ═══
+            for (int i = 0; i < n; i++)
+            {
+                if (!BlocksMainThread(nodes[i].ThreadMode))
+                    continue;
+
+                _state.Dependencies = savedDeps;
+                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+            }
+
+            // ═══ Parallel/Single: schedule with deps among themselves ═══
+            for (int i = 0; i < n; i++)
+            {
+                if (BlocksMainThread(nodes[i].ThreadMode))
+                    continue;
+
+                var deps = CombinePredHandles(preds[i], handles, savedDeps);
+                _state.Dependencies = deps;
+                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+            }
+
+            // ═══ Single combined Complete ═══
+            int handleCount = 0;
+            for (int i = 0; i < n; i++)
+                if (!handles[i].Equals(default))
+                    handleCount++;
+
+            if (handleCount > 0)
+            {
+                if (!_handleBuffer.IsCreated || _handleBuffer.Length < handleCount)
+                {
+                    if (_handleBuffer.IsCreated)
+                        _handleBuffer.Dispose();
+                    _handleBuffer = new NativeArray<JobHandle>(handleCount, Allocator.Persistent);
+                }
+                int idx = 0;
+                for (int i = 0; i < n; i++)
+                    if (!handles[i].Equals(default))
+                        _handleBuffer[idx++] = handles[i];
+                JobHandle.CombineDependencies(_handleBuffer.GetSubArray(0, handleCount)).Complete();
+            }
+
+            _state.SkipECBSchedule = 0;
+            if (World.UnsafeWorld->ECB.HasCommands)
+                World.UnsafeWorld->ECB.Playback(ref World);
+            _state.Dependencies = default;
+        }
+
+        private static bool BlocksMainThread(Threads mode) =>
+            mode == Threads.Main || mode == Threads.MainRun;
+
+        private JobHandle CombinePredHandles(int[] predIndices, JobHandle[] handles, JobHandle defaultHandle)
+        {
+            if (predIndices == null || predIndices.Length == 0)
+                return defaultHandle;
+
+            int count = 0;
+            for (int p = 0; p < predIndices.Length; p++)
+                if (!handles[predIndices[p]].Equals(default))
+                    count++;
+
+            if (count == 0) return defaultHandle;
+            if (count == 1)
+            {
+                for (int p = 0; p < predIndices.Length; p++)
+                    if (!handles[predIndices[p]].Equals(default))
+                        return handles[predIndices[p]];
+            }
+
+            if (!_handleBuffer.IsCreated || _handleBuffer.Length < count)
+            {
+                if (_handleBuffer.IsCreated)
+                    _handleBuffer.Dispose();
+                _handleBuffer = new NativeArray<JobHandle>(count, Allocator.Persistent);
+            }
+
+            int idx = 0;
+            for (int p = 0; p < predIndices.Length; p++)
+            {
+                if (!handles[predIndices[p]].Equals(default))
+                    _handleBuffer[idx++] = handles[predIndices[p]];
+            }
+
+            return JobHandle.CombineDependencies(_handleBuffer.GetSubArray(0, count));
+        }
+
+        private void ExecuteSequentialUpdate()
+        {
+            // Async runners are scheduled with SkipECBSchedule so state.Dependencies
+            // tracks only their COMPUTE jobs. Synchronous Main systems complete those
+            // jobs (seeing earlier data writes) while structural ECB changes stay
+            // deferred and are played at the Main system's own ECB sync point or at
+            // the end of the update — not before the Main system runs.
+            var savedSkip = _state.SkipECBSchedule;
+            for (var i = 0; i < onUpdate.Count; i++)
+            {
+                var runner = onUpdate[i];
+                var mode = runner is IThreadModeProvider provider ? provider.Mode : Threads.Main;
+                if (mode == Threads.Main)
+                {
+                    _state.SkipECBSchedule = savedSkip;
+                    _state.Dependencies.Complete();
+                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                }
+                else
+                {
+                    _state.SkipECBSchedule = 1;
+                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                }
+            }
+            _state.SkipECBSchedule = savedSkip;
+            if (savedSkip == 0)
+            {
+                _state.Dependencies.Complete();
+                if (World.UnsafeWorld->ECB.HasCommands)
+                    World.UnsafeWorld->ECB.Playback(ref World);
+            }
+        }
+
+        private void ExecuteWithDependencyGraph_Flattened2()
+        {
+            _flatGraph2.Start();
+            var nodes = _dependencyGraph.Nodes;
+            var preds = _dependencyGraph.GetPredecessors();
+            var n = nodes.Length;
+            if (n == 0)
+            {
+                ExecuteSequentialUpdate();
+                _flatGraph2.End();
+                return;
+            }
+
+            var handles = new JobHandle[n];
+            var savedDeps = _state.Dependencies;
+            _state.SkipECBSchedule = 1;
+
+            // ═══ Phase 1: ALL Main/MainRun systems first ═══
+            // Synchronous, registration order. No dep checking — they run before
+            // any parallel system starts, so no conflicts possible.
+            for (int i = 0; i < n; i++)
+            {
+                if (!BlocksMainThread(nodes[i].ThreadMode))
+                    continue;
+
+                _state.Dependencies = savedDeps;
+                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+            }
+
+            // ═══ Phase 2: Schedule ALL Parallel/Single systems ═══
+            // Deps resolved among themselves only. Main predecessors already
+            // completed synchronously — their handles are default (skipped by CombinePredHandles).
+            for (int i = 0; i < n; i++)
+            {
+                if (BlocksMainThread(nodes[i].ThreadMode))
+                    continue;
+
+                var deps = CombinePredHandles(preds[i], handles, savedDeps);
+                _state.Dependencies = deps;
+                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+            }
+
+            // ═══ Phase 3: Single combined Complete ═══
+            int handleCount = 0;
+            for (int i = 0; i < n; i++)
+                if (!handles[i].Equals(default))
+                    handleCount++;
+
+            if (handleCount > 0)
+            {
+                if (!_handleBuffer.IsCreated || _handleBuffer.Length < handleCount)
+                {
+                    if (_handleBuffer.IsCreated)
+                        _handleBuffer.Dispose();
+                    _handleBuffer = new NativeArray<JobHandle>(handleCount, Allocator.Persistent);
+                }
+                int idx = 0;
+                for (int i = 0; i < n; i++)
+                    if (!handles[i].Equals(default))
+                        _handleBuffer[idx++] = handles[i];
+                var h = JobHandle.CombineDependencies(_handleBuffer.GetSubArray(0, handleCount));
+                _flatGraph2.End();
+                h.Complete();
+            }
+            else
+            {
+                _flatGraph2.End();
+            }
+
+            _state.SkipECBSchedule = 0;
+            if (World.UnsafeWorld->ECB.HasCommands)
+                World.UnsafeWorld->ECB.Playback(ref World);
+            _state.Dependencies = default;
+        }
     }
 
-    public static class SystemsExtensions
+    public static partial class SystemsExtensions
     {
-        public static unsafe Systems Add<T>(this Systems systems, SystemMode systemMode)
+        public static unsafe Systems Add<T>(this Systems systems, Threads threads)
             where T : struct, IEntityJobSystem
         {
             T system = default;
@@ -323,13 +803,17 @@ namespace Wargon.Nukecs
             var runner = new EntityJobSystemRunner<T>
             {
                 System = system,
-                Mode = systemMode,
+                Mode = threads,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref systems.World).InternalPointer;
-            systems.Runners.Add(runner);
+            runner.Query = runner.System.GetQuery(ref systems.World).queryUnsafe;
+            systems.onUpdate.Add(runner);
+            systems.InvalidateDependencyGraph();
             return systems;
         }
+    }
+    public interface IQueryHolder {
+        unsafe void UpdateQueryPointer(World.WorldUnsafe* world);
     }
 
     public enum UpdateContext
@@ -338,7 +822,7 @@ namespace Wargon.Nukecs
         FixedUpdate
     }
 
-    internal interface ISystemDestroyer
+    public interface ISystemDestroyer
     {
         void Destroy(ref World world);
     }
@@ -348,6 +832,11 @@ namespace Wargon.Nukecs
         JobHandle Schedule(UpdateContext updateContext, ref State state);
         void Run(ref State state);
         string Name { get; }
+    }
+
+    public interface ISystemDependencyInfoProvider
+    {
+        SystemDependencyInfo DependencyInfo { get; }
     }
 
 
@@ -371,15 +860,32 @@ namespace Wargon.Nukecs
         }
     }
 
-    /// <summary>
-    ///     Single : execute in one of threads, but not in main
-    ///     Parallel : execute parallel
-    ///     Main : execute in main thread, need to axes to unity api
-    /// </summary>
-    public enum SystemMode
+    public static class SystemPath
     {
+        public const int Start       = 0;
+        public const int Update      = 1;
+        public const int FixedUpdate = 2;
+        public const int Destroy     = 3;
+    }
+    public enum Threads
+    {
+        /// <summary>
+        /// Execute system on main thread.
+        /// In feature Main and MainRun will be same.
+        /// </summary>
         Main,
+        /// <summary>
+        /// Execute system on main thread using Unity Job System Run.
+        /// In feature Main and MainRun will be same.
+        /// </summary>
+        MainRun,
+        /// <summary>
+        /// Execute system on all parallel threads.
+        /// </summary>
         Parallel,
+        /// <summary>
+        /// Execute system on one non main thread.
+        /// </summary>
         Single
     }
 
@@ -388,6 +894,9 @@ namespace Wargon.Nukecs
         void OnCreate(ref World world);
     }
 
+    public interface IOnUpdate {
+        void OnUpdate(ref State state);
+    }
     public interface IFixed
     {
     }
@@ -401,153 +910,23 @@ namespace Wargon.Nukecs
     {
         void OnDestroy(ref World world);
     }
-
+    public delegate void ActionRef<T>(ref T value) where T : struct;
     public interface IComplete
     {
     }
-
     public interface ISystem
     {
         void OnUpdate(ref State state);
     }
 
-    public abstract class System<T> : ISystem, IOnCreate where T : unmanaged, IComponent
-    {
-        private Query Query;
-
-        public void OnCreate(ref World world)
-        {
-            Query = world.Query().With<T>();
-        }
-
-        public void OnUpdate(ref State state)
-        {
-            foreach (ref var entity in Query) OnUpdate(ref entity, ref entity.Get<T>(), ref state);
-        }
-
-        public abstract void OnUpdate(ref Entity entity, ref T component, ref State state);
-    }
-
-    // public unsafe class DisposeSystem<T> : ISystem, IOnCreate where T : unmanaged, IComponent, IDisposable
-    // {
-    //     private Query query;
-    //     private GenericPool pool;
-    //     public void OnCreate(ref World world)
-    //     {
-    //         query = world.Query().With<T>().With<Dispose<T>>();
-    //         pool = world.GetPool<T>();
-    //     }
-    //     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    //     public void OnUpdate(ref State state)
-    //     {
-    //         if(query.Count == 0) return;
-    //         foreach (ref var entity in query)
-    //         {
-    //             state.World.UnsafeWorld->Dispose<T>(ref pool, ref entity);
-    //             Debug.Log($"{entity.id} {typeof(T).Name} Disposed");
-    //         }
-    //     }
-    //
-    // }
-
-    [JobProducerType(typeof(EntityIndexJobSystemExtensions<>.EntityJobStruct<>))]
-    public interface IEntityIndexJobSystem
-    {
-        SystemMode Mode { get; }
-        void OnUpdate<T1>(ref T1 c1, ref State state) where T1 : unmanaged, IComponent;
-    }
-
-    public static class EntityIndexJobSystemExtensions<T1> where T1 : unmanaged, IComponent
-    {
-        public static void EarlyJobInit<T>() where T : struct, IEntityIndexJobSystem
-        {
-            EntityJobStruct<T>.Initialize();
-        }
-
-        public static IntPtr GetReflectionData<T>() where T : struct, IEntityIndexJobSystem
-        {
-            EntityJobStruct<T>.Initialize();
-            return EntityJobStruct<T>.JobReflectionData.Data;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        internal struct EntityJobStruct<TJob> where TJob : struct, IEntityIndexJobSystem
-        {
-            public TJob JobData;
-            public Query query;
-            public State State;
-
-            internal static readonly SharedStatic<IntPtr> JobReflectionData =
-                SharedStatic<IntPtr>.GetOrCreate<EntityJobStruct<TJob>>();
-
-            [BurstDiscard]
-            internal static void Initialize()
-            {
-                if (JobReflectionData.Data == IntPtr.Zero)
-                    JobReflectionData.Data = JobsUtility.CreateJobReflectionData(typeof(EntityJobStruct<TJob>),
-                        typeof(TJob), new ExecuteJobFunction(Execute));
-            }
-
-            private delegate void ExecuteJobFunction(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
-                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex);
-
-            public static void Execute(ref EntityJobStruct<TJob> fullData, IntPtr additionalPtr,
-                IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex)
-            {
-                if (fullData.query.Count == 0) return;
-                while (true)
-                {
-                    if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
-                        break;
-                    //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
-                    ref var c1pool = ref fullData.State.World.GetPool<T1>();
-                    for (var i = begin; i < end; i++)
-                        unsafe
-                        {
-                            var e = fullData.query.InternalPointer->GetEntityID(i);
-                            fullData.JobData.OnUpdate(ref c1pool.GetRef<T1>(e), ref fullData.State);
-                        }
-                }
-            }
-        }
-    }
-
-    public static class EXT
-    {
-        public static unsafe JobHandle Schedule<TJob, T>(this TJob jobData, ref Query query, ref State state,
-            SystemMode mode, JobHandle dependsOn = default)
-            where TJob : struct, IEntityIndexJobSystem
-            where T : unmanaged, IComponent
-        {
-            var fullData = new EntityIndexJobSystemExtensions<T>.EntityJobStruct<TJob>
-            {
-                JobData = jobData,
-                query = query,
-                State = state
-            };
-
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
-                EntityIndexJobSystemExtensions<T>.GetReflectionData<TJob>(), dependsOn,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
-            switch (mode)
-            {
-                case SystemMode.Single:
-                    return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query.Count, 1);
-            }
-
-            //var workers = JobsUtility.JobWorkerCount;
-            //var batchCount = query.Count > workers ? query.Count / workers : 1;
-            return dependsOn;
-        }
+    public interface IOnWorldDeserialize {
+        void OnWorldDeserialize(ref World world);
     }
 
     [BurstCompile]
     public struct ClearEntityCreatedEventSystem : IEntityJobSystem
     {
-        public SystemMode Mode => SystemMode.Single;
-
+        public Threads Mode => Threads.Single;
         public Query GetQuery(ref World world)
         {
             return world.Query().With<EntityCreated>();
@@ -559,11 +938,12 @@ namespace Wargon.Nukecs
         }
     }
 
+    
     [BurstCompile]
     internal struct RemoveComponentSystem : IEntityJobSystem
     {
         internal int Type;
-        public SystemMode Mode => SystemMode.Single;
+        public Threads Mode => Threads.Single;
 
         public Query GetQuery(ref World world)
         {
@@ -573,25 +953,7 @@ namespace Wargon.Nukecs
         [BurstCompile]
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            //dbug.log($"remove entity {entity}");
             state.World.ECB.Remove(entity.id, Type);
-        }
-    }
-
-    public interface IComponentSystem<TAspect> where TAspect : unmanaged, IAspect
-    {
-        public void OnUpdate(ref TAspect aspect)
-        {
-        }
-    }
-
-    public struct ActionJob : IJob
-    {
-        public Action Action;
-
-        public void Execute()
-        {
-            Action?.Invoke();
         }
     }
 
@@ -602,32 +964,6 @@ namespace Wargon.Nukecs
         public void Execute()
         {
             callback.Invoke();
-        }
-    }
-
-    public static class JobParallelForExtensions
-    {
-        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len, int batchCount,
-            JobHandle dependencies = default)
-            where T : struct, IJobParallelFor
-        {
-            return new JobCallback
-            {
-                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
-            }.Schedule(job.Schedule(len, batchCount, dependencies));
-        }
-    }
-
-    public static class JobForExtensions
-    {
-        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, int len,
-            JobHandle dependencies = default)
-            where T : struct, IJobFor
-        {
-            return new JobCallback
-            {
-                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
-            }.Schedule(job.Schedule(len, dependencies));
         }
     }
 
@@ -661,95 +997,40 @@ namespace Wargon.Nukecs
         internal static int Index => data.Data;
     }
 
-    public struct SystemsDependencies
+    [AttributeUsage((AttributeTargets.Method))]
+    public class SystemAttribute : Attribute
     {
-        private NativeList<JobHandle> list;
-        private NativeArray<JobHandle> array;
-        //private int lastDefault;
-
-        public static SystemsDependencies Create()
+        public Threads mode;
+        public SystemAttribute()
         {
-            var systemsDependencies = new SystemsDependencies
-            {
-                list = new NativeList<JobHandle>(16, Allocator.Persistent),
-                //lastDefault = 0
-            };
-            systemsDependencies.list.Add(new JobHandle());
-            return systemsDependencies;
+            this.mode = Threads.Parallel;
         }
-
-        public void Complete()
+        public SystemAttribute(Threads mode)
         {
-            if (!array.IsCreated) array = list.AsArray();
-            JobHandle.CompleteAll(array);
-        }
-
-        public void Dispose()
-        {
-            if (list.IsCreated) list.Dispose();
-            if (array.IsCreated) array.Dispose();
-        }
-
-        public int GetIndex<T>()
-        {
-            return SystemInfo<T>.Index;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public JobHandle GetDependencies<T>()
-        {
-            return list[SystemInfo<T>.Index];
-        }
-
-        public void SetDependenciesNew<TTo>(JobHandle handle = default)
-        {
-            SystemInfo<TTo>.data.Data = list.Length;
-            list.Add(handle);
-        }
-
-        public void SetDependencies<TFrom, TTo>()
-        {
-            SystemInfo<TTo>.data.Data = SystemInfo<TFrom>.Index;
-        }
-
-        public void SetDependenciesDefault<TTo>()
-        {
-            SystemInfo<TTo>.data.Data = 0;
+            this.mode = mode;
         }
     }
 
-    public static class SystemsEx
+    public interface ISystemsGroup
     {
-        // public static unsafe Systems Add<TSystem, TDependsOn>(this Systems systems, SystemMode mode = SystemMode.Parallel) where TSystem : struct, IEntityJobSystem where TDependsOn : struct, IEntityJobSystem
-        // {
-        //     systems.systemsDependencies.SetDependencies<TDependsOn, TSystem>();
-        //     TSystem system = default;
-        //     if (system is IOnCreate s) {
-        //         s.OnCreate(ref systems.world);
-        //         system = (TSystem) s;
-        //     }
-        //
-        //     var runner = new EntityJobSystemRunner<TSystem> {
-        //         System = system,
-        //         Mode = system.Mode,
-        //         EcbJob = default,
-        //         jobHandle = systems.systemsDependencies.GetDependenciesPtr<TSystem>()
-        //     };
-        //     
-        //     runner.Query = runner.System.GetQuery(ref systems.world);
-        //     systems.runners.Add(runner);
-        //     
-        //     return systems;
-        // }
-        public static Systems Add(this Systems systems, Delegate @delegate)
-        {
-            var functionPointer = BurstCompiler.CompileFunctionPointer(@delegate);
-            var gcHandle = GCHandle.Alloc(@delegate);
+        void Build(Systems systems, ref World world);
+    }
 
+    public static class SystemsGroupExt
+    {
+        public static Systems AddGroup(this Systems systems, ISystemsGroup group)
+        {
+            group.Build(systems, ref systems.World);
+            if (group is IOnDestroy onDestroy)
+            {
+                systems.onWorldDispose += onDestroy.OnDestroy;
+            }
             return systems;
         }
-    }
 
-    public delegate void Fn<T1, T2, T3>(UnsafeTuple<T1, T2, T3> query)
-        where T1 : unmanaged where T2 : unmanaged where T3 : unmanaged;
+        public static ITuple Chain(this ITuple tuple)
+        {
+            return tuple;
+        }
+    }
 }

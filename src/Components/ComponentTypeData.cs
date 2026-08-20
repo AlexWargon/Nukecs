@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using UnityEngine.Serialization;
 
 namespace Wargon.Nukecs {
     using System;
@@ -10,6 +11,11 @@ namespace Wargon.Nukecs {
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
     using UnityEngine;
+
+    public enum StorageType : byte {
+        Archetype = 0,
+        Pool = 1
+    }
     
     [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct ComponentTypeData
@@ -21,31 +27,21 @@ namespace Wargon.Nukecs {
         public bool isDisposable;
         public bool isCopyable;
         public bool isArray;
-        
-        public unsafe void* defaultValue;
+        public bool IsArrayElement;
+        public StorageType storageType;
+        [NativeDisableUnsafePtrRestriction]
         internal IntPtr disposeFn;
+        [NativeDisableUnsafePtrRestriction]
         internal IntPtr copyFn;
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> elementTypes = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
-
-        public static ref NativeHashMap<int, ComponentTypeData> ElementTypes
-        {
-            get
-            {
-                if (!elementTypes.Data.IsCreated)
-                {
-                    elementTypes.Data = new NativeHashMap<int, ComponentTypeData>(64, Allocator.Persistent);
-                }
-
-                return ref elementTypes.Data;
-            }
-        }
         
         public Type ManagedType => ComponentTypeMap.GetType(index);
+        [MethodImpl(256)]
         public FunctionPointer<DisposeDelegate> DisposeFn()
         {
             if (disposeFn == IntPtr.Zero)
             {
-                throw new NullReferenceException($"disposeFn is null for type {ManagedType.Name}");
+                var fromMap = ComponentTypeMap.GetComponentType(index);
+                disposeFn = fromMap.disposeFn;
             }
             return new FunctionPointer<DisposeDelegate>(disposeFn);
         }
@@ -54,20 +50,13 @@ namespace Wargon.Nukecs {
         {
             if (copyFn == IntPtr.Zero)
             {
-                throw new NullReferenceException($"copyFn is null for type {ManagedType.Name}");
+                var fromMap = ComponentTypeMap.GetComponentType(index);
+                copyFn = fromMap.copyFn;
             }
             return new FunctionPointer<CopyDelegate>(copyFn);
         }
 
-        internal static void Init()
-        {
-            elementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, Allocator.Persistent);
-        }
 
-        internal static void AddElementType(ComponentTypeData componentTypeData, int index)
-        {
-            ElementTypes[index] = componentTypeData;
-        }
         [BurstDiscard]
         public override string ToString() {
             return
@@ -88,47 +77,10 @@ namespace Wargon.Nukecs {
         {
             return ComponentTypeMap.GetComponentType(type);
         }
-
-        public static long GetSizeOfAllComponents(int poolSize = 1)
-        {
-            long size = 0;
-            var sizeOfGenericPool = UnsafeUtility.SizeOf<GenericPool.GenericPoolUnsafe>();
-            foreach (var kvPair in ComponentTypeMap.ComponentTypes.Data)
-            {
-                size += kvPair.Value.size * poolSize + sizeOfGenericPool;
-            }
-            foreach (var elementType in ElementTypes)
-            {
-                size += elementType.Value.size * ComponentArray.DEFAULT_MAX_CAPACITY * poolSize + sizeOfGenericPool*2;
-            }
-            return size;
-        }
-    }
-
-    public struct ComponentType<T> where T : unmanaged {
-        private static readonly SharedStatic<ComponentTypeData> ID = SharedStatic<ComponentTypeData>.GetOrCreate<ComponentType<T>>();
-
-        public static unsafe int Index {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (*(ComponentTypeData*) ID.UnsafeDataPointer).index;
-        }
-
-        internal static unsafe ref ComponentTypeData Data {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
-        }
-        
-        static ComponentType() {
-            Init();
-        }
-        [BurstDiscard]
-        private static void Init() {
-            ID.Data = ComponentTypeMap.GetComponentType<T>();
-        }
     }
 
     internal static class TypeToComponentType {
-        internal static readonly Dictionary<Type, ComponentTypeData> Map = new();
+        internal static Dictionary<Type, ComponentTypeData> Map = new();
     }
 
     [Serializable]
@@ -136,26 +88,30 @@ namespace Wargon.Nukecs {
         private readonly Dictionary<int, Type> _typeByIndex = new();
         private readonly Dictionary<Type, int> _indexByType = new();
         private readonly Dictionary<string, Type> _nameToType = new();
-        public readonly System.Collections.Generic.List<int> TypesIndexes = new();
+        public readonly List<int> TypesIndexes = new();
 
         public void Add(Type type, int index) {
             _typeByIndex[index] = type;
             _indexByType[type] = index;
             if (TypesIndexes.Contains(index) == false)
                 TypesIndexes.Add(index);
-            _nameToType[type.FullName] = type;
+            _nameToType[type.Name] = type;
         }
 
         public Type GetType(int index) => _typeByIndex[index];
-
-        public int Index(Type type)
+        public int Index(Type type) => _indexByType[type];
+        public int Index(string name) => _indexByType[_nameToType[name]];
+        public bool HasIndex(Type type) => _indexByType.ContainsKey(type);
+        public bool TryGetIndex(Type type, out int index)
         {
-            return _indexByType.GetValueOrDefault(type, -1);
+            index = -1;
+            if (_indexByType.TryGetValue(type, out index))
+            {
+                return true;
+            }
+            return false;
         }
 
-        public int Index(string name) {
-            return _indexByType[_nameToType[name]];
-        }
 
         public static void Save(ComponentsMapCache mapCache) {
             var dataStream =

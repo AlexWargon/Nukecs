@@ -43,9 +43,9 @@ namespace Wargon.Nukecs {
         public struct EFBCommand {
             internal Edge edge;
             internal int entity;
-            public override string ToString() {
-                return $"Entity {World.Get(0).GetEntity(entity).ToString()}; move to {edge.ToMovePtr->ToString()}";
-            }
+            // public override string ToString() {
+            //     return $"Entity {World.Get(0).GetEntity(entity).ToString()}; move to {edge.ToMovePtr->ToString()}";
+            // }
         }
         
         public sealed partial class ECBCommandType {

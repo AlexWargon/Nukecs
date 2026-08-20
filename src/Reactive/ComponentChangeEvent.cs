@@ -3,9 +3,9 @@
     public static class ComponentChangeEvent<T>
     {
         private static ReactDelegate<T> _onChange;
-        public static void Invoke(ref T value, ref Entity entity)
+        public static void Invoke(in T value, in Entity entity)
         {
-            _onChange?.Invoke(ref value, ref entity);
+            _onChange?.Invoke(in value, in entity);
         }
         public static void Subscribe(ReactDelegate<T> callback)
         {

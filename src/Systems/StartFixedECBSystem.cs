@@ -2,13 +2,13 @@
 
 namespace Wargon.Nukecs
 {
-    public class StartFixedECBSystem : ISystem, IOnCreate, IFixed
+    public unsafe class StartFixedECBSystem : ISystem, IOnCreate, IFixed
     {
         private EntityCommandBuffer ecb;
         public static StartFixedECBSystem Instance;
         public void OnCreate(ref World world)
         {
-            ecb = new EntityCommandBuffer(512, Allocator.Persistent);
+            ecb = new EntityCommandBuffer(512, Allocator.Persistent, world.UnsafeWorld);
             Instance = this;
         }
 

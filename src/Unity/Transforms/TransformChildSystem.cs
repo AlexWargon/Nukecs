@@ -1,11 +1,12 @@
+using Unity.Burst;
+using Unity.Mathematics;
 namespace Wargon.Nukecs.Transforms
 {
-    using Unity.Burst;
-    using Unity.Mathematics;
+
     [BurstCompile]
     public struct TransformChildSystem : IEntityJobSystem
     {
-        public readonly SystemMode Mode => SystemMode.Parallel;
+        public readonly Threads Mode => Threads.Parallel;
 
         public Query GetQuery(ref World world) => world.Query()
             .With<ChildOf>()
@@ -15,11 +16,10 @@ namespace Wargon.Nukecs.Transforms
 
         public void OnUpdate(ref Entity entity, ref State state)
         {
-            var (cref, tref, ltref) = entity.Get<ChildOf, Transform, LocalTransform>();
-            ref var transform = ref tref.Value;
-            ref var localTransform = ref ltref.Value;
+            ref var transform = ref entity.Get<Transform>();
+            ref var localTransform = ref entity.Get<LocalTransform>();
             ref readonly var parentTransform =
-                ref state.World.GetPool<Transform>().GetRef<Transform>(cref.Value.Value.id);
+                ref entity.Get<ChildOf>().Value.Get<Transform>();
 
             transform.Position = math.mul(parentTransform.Rotation, localTransform.Position * parentTransform.Scale) + parentTransform.Position;
             transform.Rotation = math.mul(parentTransform.Rotation, localTransform.Rotation);

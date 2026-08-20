@@ -2,8 +2,6 @@
 
 namespace Wargon.Nukecs.Tests
 {
-
-
     public class NukecsDebugUpdater : MonoBehaviour
     {
 #if UNITY_EDITOR

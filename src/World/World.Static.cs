@@ -4,34 +4,73 @@ using Unity.Burst;
 using UnityEngine;
 using Wargon.Nukecs.Collections;
 using Wargon.Nukecs.Tests;
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs
 {
+    public struct ALLOCATOR
+    {
+        public static ref MemAllocator DOMAIN
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref World.domainAllocator.Data;
+        }
+
+        public static readonly PER_WORLD_ALLOCATORS PER_WORLD = default;
+        public struct PER_WORLD_ALLOCATORS
+        {
+            public ref MemAllocator this[int index]
+            {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => ref World.worlds.Data.ElementAt(index).AllocatorRef;
+            }
+        }
+    }
     public unsafe partial struct World
     {
-        private static World dummy;
-        private static MemAllocator* allocator;
-        private static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<World>();
+        private struct KeyDomainAllocator {}
+        private struct KeyWorldsList {}
+        private struct DummyWorld { }
+        
+        private static readonly SharedStatic<World> dummyWorld = SharedStatic<World>.GetOrCreate<DummyWorld>();
+        internal static readonly SharedStatic<MemAllocator> domainAllocator = SharedStatic<MemAllocator>.GetOrCreate<KeyDomainAllocator>();
+        internal static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
         private static byte lastFreeSlot;
+        private static int worldCount;
         private static int lastWorldID;
         private static bool staticInited;
+        public const int MAX_WORLD_COUNT = 8;
         internal static void InitStatic()
         {
             if(staticInited) return;
-            allocator = MemAllocator.New(sizeof(MemoryList<World>) + sizeof(World) * 4);
-            worlds.Data = new MemoryList<World>(4, ref *allocator, true);
+            domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * MAX_WORLD_COUNT + Memory.MEGABYTE);
+            worlds.Data = new MemoryList<World>(MAX_WORLD_COUNT, ref domainAllocator.Data, true);
+            worldCount = 0;
+            dummyWorld.Data = default;
+            dummyWorld.Data.unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
+            Component.Initialization();
+
             staticInited = true;
         }
-
+        public static int WorldCapacity => worlds.Data.Capacity;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static ref World Get(int index)
         {
-            if (allocator != null)
-            {
+            if(worlds.Data.IsCreated)
                 return ref worlds.Data.ElementAt(index);
-            }
-            return ref dummy;
+            return ref dummyWorld.Data;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static ref World GetInternal(int index)
+        {
+            return ref worlds.Data.ElementAt(index);
+        }
+        public static bool TryGet(int worldID, out World world)
+        {
+            var w = worlds.Data.ElementAt(worldID);
+            world = w;
+            return w.unsafeWorldPtr.cached != null;
+        }
         public static bool HasActiveWorlds()
         {
             for (var i = 0; i < worlds.Data.Length; i++)
@@ -80,44 +119,69 @@ namespace Wargon.Nukecs
         {
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
-            Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
             worlds.Data[id] = world;
-
+            world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
+            world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
+            worldCount++;
             return world;
         }
-
         public static World Create(WorldConfig config)
         {
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
-            Component.Initialization();
             World world;
             var id = lastFreeSlot++;
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
-            Debug.Log($"Created World {id}");
+            world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
+            world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
+            //Debug.Log($"☢️[NUKECS] Created World {id}");
+            worldCount++;
             return world;
         }
-
+        public static World Load(WorldConfig config, byte[] data)
+        {
+            InitStatic();
+            OnWorldCreatingEvent?.Invoke();
+            World world;
+            var id = lastFreeSlot++;
+            lastWorldID = id;
+            world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
+            worlds.Data[id] = world;
+            world.UnsafeWorldRef.ManagedWorld = domainAllocator.Data.AllocatePtr<World>();
+            world.UnsafeWorldRef.ManagedWorld.Ref = worlds.Data[id];
+            //Debug.Log($"Created World {id}");
+            worldCount++;
+            return world;
+        }
         public static void DisposeStatic()
         {
-            if(!staticInited) return;
-            MemAllocator.Destroy(allocator);
-            ComponentTypeMap.Dispose();
             StaticObjectRefStorage.Clear();
-            //ComponentTypeMap.Save();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
             OnWorldCreatingEvent = null;
             staticInited = false;
+            lastFreeSlot = 0;
+            lastWorldID = 0;
+            worldCount = 0;
             SingletonRegistry.ResetAll();
+            WorldSystems.Dispose();
+            if (domainAllocator.Data.IsActive)
+                domainAllocator.Data.Dispose();
             EntityPrefabMap.Dispose();
-            dbug.log(nameof(DisposeStatic), Color.green);
+            ComponentTypeMap.Dispose();
+            Component._initialized = false;
+        }
+
+        internal static void FixManagedWorld(int id) {
+            ref var world = ref Get(id);
+            world.UnsafeWorld->ManagedWorld.OnDeserialize(ref domainAllocator.Data);
+            world.UnsafeWorld->ManagedWorld.Ref = world;
         }
     }
 }

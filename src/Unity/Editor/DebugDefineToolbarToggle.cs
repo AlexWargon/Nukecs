@@ -81,10 +81,10 @@ namespace Wargon.Nukecs.Editor
                 parts.RemoveAll(s => s == DEBUG_SYMBOL);
             }
 
-            string newDefines = string.Join(";", parts);
+            var newDefines = string.Join(";", parts);
             PlayerSettings.SetScriptingDefineSymbols(namedTarget, newDefines);
 
-            Debug.Log($"DEBUG symbol {(enable ? "enabled" : "disabled")}. New defines: {newDefines}");
+            Debug.Log($"NUKECS DEBUG {(enable ? "enabled" : "disabled")}");
 
             AssetDatabase.Refresh();
         }

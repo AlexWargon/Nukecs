@@ -6,7 +6,7 @@ namespace Wargon.Nukecs.Transforms {
     [BurstCompile]
     public struct UpdateTransformOnAddChildSystem : IEntityJobSystem
     {
-        public SystemMode Mode => SystemMode.Parallel;
+        public Threads Mode => Threads.Parallel;
 
         public Query GetQuery(ref World world)
         {
@@ -15,10 +15,10 @@ namespace Wargon.Nukecs.Transforms {
 
         public void OnUpdate(ref Entity child, ref State state)
         {
-            var (cref, tref) = child.Get<ChildOf, Transform>();
-            ref var childTransform = ref tref.Value;
+            ref var chilfOf = ref child.Get<ChildOf>();
+            ref var childTransform = ref child.Get<Transform>();
             
-            ref readonly var parentTransform = ref cref.Value.Value.Read<Transform>();
+            ref readonly var parentTransform = ref chilfOf.Value.Get<Transform>();
             // Get local transform values relevent to parent
             var localPosition = math.mul(math.inverse(parentTransform.Rotation), childTransform.Position - parentTransform.Position) / parentTransform.Scale;
             var localRotation = math.mul(math.inverse(parentTransform.Rotation), childTransform.Rotation);

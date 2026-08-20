@@ -3,7 +3,7 @@
 namespace Wargon.Nukecs {
     [BurstCompile]
     public struct EntityDestroySystem : IEntityJobSystem {
-        public SystemMode Mode => SystemMode.Single;
+        public Threads Mode => Threads.Single;
         public Query GetQuery(ref World world)
         {
             return world.Query(false).With<DestroyEntity>();

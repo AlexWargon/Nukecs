@@ -7,8 +7,64 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEditor;
 using UnityEngine;
+// ReSharper disable Unity.SharedStaticUnmanagedType
+// ReSharper disable InconsistentNaming
 
 namespace Wargon.Nukecs.Tests {
+
+    /// <summary>
+    /// Singleton/Service struct wrapper.
+    /// Using SharedStatic.
+    /// </summary>
+    /// <typeparam name="T">any struct</typeparam>
+    internal struct StructSingleton<T> where T : struct
+    {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct Reference
+        {
+            internal T Value;
+            private byte isCreated;
+
+            internal bool IsCreated
+            {
+                get=>isCreated != 0;
+                set => isCreated = value ? (byte)1 : (byte)0;
+            }
+        }
+        internal static void Create(T value)
+        {
+            instance.Data = new Reference()
+            {
+                IsCreated = true,
+                Value = value
+            };
+        }
+        internal static void Create()
+        {
+            instance.Data = new Reference()
+            {
+                IsCreated = true,
+                Value = default
+            };
+        }
+        internal static bool IsCreated => instance.Data.IsCreated;
+        private static readonly SharedStatic<Reference> instance =
+            SharedStatic<Reference>.GetOrCreate<StructSingleton<T>>();
+        public static ref T Instance
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if (instance.Data.IsCreated == false)
+                {
+                    throw new Exception("StructSingleton.Instance is not created");
+                    // _instance.Data.Value = new T();
+                    // _instance.Data.IsCreated = true;
+                }
+                return ref instance.Data.Value;
+            }
+        }
+    }
     [BurstCompile] 
     public struct Singleton<T> where T : unmanaged, IInit, IDisposable
     {
@@ -21,7 +77,6 @@ namespace Wargon.Nukecs.Tests {
                 instance.Data.Value.Dispose();
                 instance.Data = default;
             }
-            //dbug.log(typeof(T).Name + " reseted", Color.green);
         }
         
         private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();

@@ -4,37 +4,107 @@ using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
+#pragma warning disable CS0612 // Type or member is obsolete
 
 namespace Wargon.Nukecs
 {
-    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]
+    [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]//[Obsolete]
     public interface IEntityJobSystem {
-        SystemMode Mode { get; }
+        Threads Mode { get; }
         Query GetQuery(ref World world);
         void OnUpdate(ref Entity entity, ref State state);
     }
-    internal unsafe class EntityJobSystemRunner<TSystem> : ISystemRunner where TSystem : struct, IEntityJobSystem {
+    internal unsafe class EntityJobSystemRunner<TSystem> : ISystemRunner, IQueryHolder, ISystemDependencyInfoProvider, IThreadModeProvider where TSystem : struct, IEntityJobSystem {
         public TSystem System;
         public QueryUnsafe* Query;
-        public SystemMode Mode;
+        public Threads Mode { get; set; }
         public ECBJob EcbJob;
+        private int version;
+        private int id;
+        private int queryId = -1;
+        private bool idIsZero;
         public string Name => System.GetType().Name;
+        private SystemDependencyInfo _dependencyInfo;
+        private bool _depInfoBuilt;
+        public SystemDependencyInfo DependencyInfo {
+            get {
+                if (!_depInfoBuilt) {
+                    _depInfoBuilt = true;
+                    _dependencyInfo = BuildDependencyInfo();
+                }
+                return _dependencyInfo;
+            }
+        }
+
+        private SystemDependencyInfo BuildDependencyInfo() {
+            var components = new System.Collections.Generic.List<ComponentAccess>();
+            if (Query != null) {
+                var compCount = ComponentAmount.Value.Data;
+                for (int i = 0; i < compCount; i++) {
+                    if (Query->with.Has(i))
+                        components.Add(new ComponentAccess(i, SystemAccessMode.ReadWrite));
+                }
+            }
+            return new SystemDependencyInfo {
+                Components = components.ToArray(),
+                ReadResources = global::System.Array.Empty<int>(),
+                WriteResources = global::System.Array.Empty<int>(),
+                ReadEvents = global::System.Array.Empty<int>(),
+                WriteEvents = global::System.Array.Empty<int>(),
+                UsesECB = true
+            };
+        }
+
+        public void SetQueryId() {
+            if (Query != null) queryId = Query->Id;
+        }
+        
+        public void UpdateQueryPointer(World.WorldUnsafe* world) {
+            if (queryId >= 0 && queryId < world->queries.Length)
+                Query = world->queries.Ptr[queryId].Ptr;
+            version++;
+        }
+#if NUKECS_DEBUG
+        Marker _marker;
+#endif
         public JobHandle Schedule(UpdateContext updateContext, ref State state)
         {
+#if NUKECS_DEBUG
+            _marker.Autostart(System);
+#endif
+            if (id == 0 && !idIsZero)
+            {
+                id = Query->Id;
+                idIsZero = id == 0;
+            }
             ref var world = ref state.World;
-            if (Mode == SystemMode.Main) {
+            Nukecs.Query.RestoreIfNeed(ref Query, ref version, id, ref world);
+            if (Mode == Threads.Main) {
                 for (var i = 0; i < Query->count; i++) {
                     System.OnUpdate(ref Query->GetEntity(i), ref state);    
                 }
                 EcbJob.ECB = world.GetEcbVieContext(updateContext);
                 EcbJob.world = world;
                 EcbJob.ECB.PlaybackMainThread(ref world);
+#if NUKECS_DEBUG
+                _marker.End();
+#endif
                 return state.Dependencies;
             }
             state.Dependencies = System.Schedule(Query, Mode, updateContext, ref state);
-            EcbJob.ECB = world.GetEcbVieContext(updateContext);
-            EcbJob.world = world;
-            return EcbJob.Schedule(state.Dependencies);
+            if (state.SkipECBSchedule == 0)
+            {
+                EcbJob.ECB = world.GetEcbVieContext(updateContext);
+                EcbJob.world = world;
+#if NUKECS_DEBUG
+                _marker.End();
+#endif
+                return EcbJob.Schedule(state.Dependencies);
+            }
+#if NUKECS_DEBUG
+            _marker.End();
+#endif
+            return state.Dependencies;
         }
 
         public void Run(ref State state) {
@@ -72,7 +142,7 @@ namespace Wargon.Nukecs
                 IntPtr bufferRangePatchData, ref JobRanges ranges, int jobIndex) {
                 if(fullData.query->count == 0) return;
                 switch (fullData.JobData.Mode) {
-                    case SystemMode.Parallel:
+                    case Threads.Parallel:
                         while (true) {
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
@@ -85,12 +155,12 @@ namespace Wargon.Nukecs
                             }
                         }
                         break;
-                    case SystemMode.Single:
+                    case Threads.Single:
                         for (var i = 0; i < fullData.query->count; i++) {
                             ref var e = ref fullData.query->GetEntity(i);
-                            //if (e.IsValid()) {
+                            if (e.IsValid()) {
                             fullData.JobData.OnUpdate(ref e, ref fullData.State);
-                            //}
+                            }
                         }
                         break;
                 }
@@ -108,7 +178,7 @@ namespace Wargon.Nukecs
         }
 
         internal static unsafe JobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
-            SystemMode mode, UpdateContext updateContext, ref State state)
+            Threads mode, UpdateContext updateContext, ref State state)
             where TJob : struct, IEntityJobSystem {
             var fullData = new EntityJobWrapper<TJob> {
                 JobData = jobData,
@@ -119,11 +189,11 @@ namespace Wargon.Nukecs
             
             var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), state.Dependencies,
-                mode == SystemMode.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
+                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
-                case SystemMode.Single:
+                case Threads.Single:
                     return JobsUtility.Schedule(ref scheduleParams);
-                case SystemMode.Parallel:
+                case Threads.Parallel:
                     return JobsUtility.ScheduleParallelFor(ref scheduleParams, query->count, 1);
             }
             //var workers = JobsUtility.JobWorkerCount;

@@ -32,7 +32,8 @@ namespace Wargon.Nukecs
                 Mode = system.Mode,
                 EcbJob = default
             };
-            runner.Query = runner.System.GetQuery(ref world).InternalPointer;
+            runner.Query = runner.System.GetQuery(ref world).queryUnsafe;
+            runner.SetQueryId();
             if (system is IFixed)
             {
                 fixedRunners.Add(runner);

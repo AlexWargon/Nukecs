@@ -3,12 +3,35 @@ namespace Wargon.Nukecs{
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs;
+    // public unsafe struct OnPrefabSpawnSystem : ISystem
+    // {
+    //     public void OnUpdate(ref State state)
+    //     {
+    //         ref var world = ref state.World.UnsafeWorldRef;
+    //         if (world.prefabsToSpawn.Length < 1) return;
+    //         for (var index = 0; index < world.prefabsToSpawn.Length; index++)
+    //         {
+    //             ref var e = ref world.prefabsToSpawn.ElementAt(index);
+    //             e.Remove<IsPrefab>();
+    //             if (e.Has<ComponentArray<Child>>())
+    //             {
+    //                 ref var children = ref e.GetArray<Child>();
+    //                 foreach (ref var child in children)
+    //                 {
+    //                     child.Value.Remove<IsPrefab>();
+    //                 }
+    //             }
+    //         }
+    //         world.prefabsToSpawn.Clear();
+    //     }
+    // }
 
-    public unsafe struct OnPrefabSpawnSystem : ISystem
+    public unsafe class OnPrefabSpawnSystem : ISystem
     {
         public void OnUpdate(ref State state)
         {
-            state.Dependencies = new OnPrefabSpawnJob{world = state.World.UnsafeWorld}.Schedule(state.Dependencies);
+            if(state.World.IsAlive)
+                state.Dependencies = new OnPrefabSpawnJob{world = state.World.UnsafeWorld}.Schedule(state.Dependencies);
         }
         [BurstCompile]
         private struct OnPrefabSpawnJob : IJob {
@@ -16,10 +39,11 @@ namespace Wargon.Nukecs{
             public World.WorldUnsafe* world;
             public void Execute()
             {
-                if(world->prefabsToSpawn.Length < 1) return;
-                for (var index = 0; index < world->prefabsToSpawn.Length; index++)
+                ref var w = ref *world;
+                if(w.prefabsToSpawn.Length < 1) return;
+                for (var index = 0; index < w.prefabsToSpawn.Length; index++)
                 {
-                    ref var e = ref world->prefabsToSpawn.ElementAt(index);
+                    ref var e = ref w.prefabsToSpawn.ElementAt(index);
                     e.Remove<IsPrefab>();
                     if (e.Has<ComponentArray<Child>>())
                     {
@@ -30,22 +54,45 @@ namespace Wargon.Nukecs{
                         }
                     }
                 }
-                world->prefabsToSpawn.Clear();
+                w.prefabsToSpawn.Clear();
             }
         }
     }
-
-    public struct NRandom
+    public static class DefaultSystems
     {
-        private static SharedStatic<Unity.Mathematics.Random> _random;
-
-        static NRandom()
+        [BurstCompile, System]
+        public static void EntityDestroySystem(ref Query<DestroyEntity>.WithEntity query)
         {
-            _random = SharedStatic<Unity.Mathematics.Random>.GetOrCreate<NRandom>();
-            _random.Data.InitState();
+            foreach (var (e, d) in query)
+            {
+                e.DestroyNow();
+            }
         }
-        public static float Value => _random.Data.NextFloat();
-        public static int Range(int min, int max) => _random.Data.NextInt(min, max);
-        public static float Range(float min, float max) => _random.Data.NextFloat(min, max);
+        [BurstCompile, System]
+        public static void OnPrefabSpawn(ref World world)
+        {
+            ref var w = ref world.UnsafeWorldRef;
+            if(w.prefabsToSpawn.Length < 1) return;
+            for (var index = 0; index < w.prefabsToSpawn.Length; index++)
+            {
+                ref var e = ref w.prefabsToSpawn.ElementAt(index);
+                e.Remove<IsPrefab>();
+                if (e.Has<ComponentArray<Child>>())
+                {
+                    ref var children = ref e.GetArray<Child>();
+                    foreach (ref var child in children)
+                    {
+                        child.Value.Remove<IsPrefab>();
+                    }
+                }
+            }
+            w.prefabsToSpawn.Clear();
+        }
+
+        [System, BurstCompile]
+        public static void ClearEvents(ref World world)
+        {
+            world.UnsafeWorldRef.eventsStorage.ClearAll();
+        }
     }
 }

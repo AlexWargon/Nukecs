@@ -1,0 +1,229 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
+
+namespace Wargon.Nukecs {
+    public static unsafe class NUnsafe {
+        public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged
+        {
+            return (T*) UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
+        }
+
+        public static T* MallocTracked<T>(int items, Allocator allocator) where T : unmanaged {
+            return (T*)UnsafeUtility.MallocTracked(sizeof(T) * items, UnsafeUtility.AlignOf<T>(), allocator, 0);
+        }
+
+        public static void FreeTracked(void* ptr, Allocator allocator) {
+            UnsafeUtility.FreeTracked(ptr, allocator);
+        }
+
+        public static void Copy<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
+        {
+            fixed (T* ptr = source)
+            {
+                UnsafeUtility.MemCpy(dst.Ptr, ptr, UnsafeUtility.SizeOf<T>() * source.Length);
+            }
+            dst.m_length = len;
+        }
+    }
+    public static class UnsafeListExtensions {
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe ref T ElementAtNoCheck<T>(this Unity.Collections.LowLevel.Unsafe.UnsafeList<T> list, int index) where T : unmanaged {
+            return ref list.Ptr[index];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe ref T* ElementAtNoCheck<T>(this UnsafePtrList<T> list, int index) where T: unmanaged{
+            return ref list.Ptr[index];
+        }
+    }
+    public static class UnsafeHelp {
+        public static Unity.Collections.LowLevel.Unsafe.UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
+            NativeArrayOptions options) where T : unmanaged {
+            var list = new UnsafeList<T>(size, allocator, options);
+            list.Length = size;
+            return list;
+        }
+
+        public static unsafe Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
+            NativeArrayOptions options) where T : unmanaged {
+            var ptr = Unity.Collections.LowLevel.Unsafe.UnsafeList<T>.Create(size, allocator, options);
+            ptr->m_length = size;
+            return ptr;
+        }
+
+        public static ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> ResizeUnsafeList<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> list, int size,
+            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
+        {
+            list.Resize(size, options);
+            list.Length = size;
+            return ref list;
+        }
+
+        public static unsafe void ResizeUnsafeList<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* list, int size,
+            NativeArrayOptions options = NativeArrayOptions.UninitializedMemory) where T : unmanaged 
+        {
+            list->Resize(size, options);
+            list->m_length = size;
+        }
+
+        public static int AlignOf(ComponentTypeData typeData) {
+            return typeData.size + sizeof(byte) * 2 - typeData.size;
+        }
+        public static int AlignOf(Type type) {
+            return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
+        }
+
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, ref T* buffer, Allocator allocator) where T : unmanaged
+        {
+            var typeSize = sizeof(T);
+            var newBuffer = (T*)UnsafeUtility.MallocTracked(
+                newCapacity * typeSize,
+                UnsafeUtility.AlignOf<T>(),
+                allocator, 0
+            );
+
+            if (newBuffer == null)  
+            {
+                throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+            }
+
+            UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
+            UnsafeUtility.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
+
+            UnsafeUtility.FreeTracked(buffer, allocator);
+
+            buffer = newBuffer;
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void CheckResize<T>(int index, ref int capacity, ref T* buffer, Allocator allocator) where T : unmanaged
+        {
+            if (index >= capacity)
+            {
+                var newCapacity = math.max(capacity * 2, index + 1);
+                var typeSize = sizeof(T);
+                var newBuffer = (T*)UnsafeUtility.MallocTracked(
+                    newCapacity * sizeof(T),
+                    UnsafeUtility.AlignOf<T>(),
+                    allocator, 0
+                );
+
+                if (newBuffer == null)
+                {
+                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+                }
+
+                UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
+                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
+
+                UnsafeUtility.FreeTracked(buffer, allocator);
+
+                buffer = newBuffer;
+                capacity = newCapacity;
+            }
+        }
+        [BurstDiscard]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe void CheckResize<T>(int index, ref int capacity, ref void* buffer, Allocator allocator, int typeSize, int align) where T : unmanaged
+        {
+            if (index >= capacity)
+            {
+                int newCapacity = math.max(capacity * 2, index + 1);
+                void* newBuffer = UnsafeUtility.MallocTracked(
+                    newCapacity * sizeof(T),
+                    align,
+                    allocator, 0
+                );
+
+                if (newBuffer == null)
+                {
+                    throw new OutOfMemoryException("Failed to allocate memory for resizing.");
+                }
+                UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
+                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
+
+                UnsafeUtility.FreeTracked(buffer, allocator);
+
+                buffer = newBuffer;
+                capacity = newCapacity;
+            }
+        }
+    }
+
+    public static class DictionaryExtensions
+    {
+        public static NativeHashMap<TKey, TValue> ToNative<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, Allocator allocator)
+            where TKey : unmanaged, IEquatable<TKey> where TValue : unmanaged
+        {
+            var map = new NativeHashMap<TKey, TValue>(dictionary.Count, allocator);
+            foreach (var (key, value) in dictionary)
+            {
+                map.Add(key, value);
+            }
+            return map;
+        }
+    }
+    [BurstCompile]
+    public struct random
+    {
+        private uint state;
+        public static unsafe random New()
+        {
+            return new random(*UnsafeStatic.malloc_t_cast<uint>(Allocator.Temp));
+        }
+        
+        public random(uint seed)
+        {
+            state = seed != 0 ? seed : 1;
+        }
+        [BurstCompile]
+        public float Range(float min, float max)
+        {
+            return NextFloat(min, max);
+        }
+        [BurstCompile]
+        public int Range(int min, int max)
+        {
+            return NextInt(min, max);
+        }
+        [BurstCompile]
+        public uint NextUInt()
+        {
+            uint x = state;
+            x ^= x << 13;
+            x ^= x >> 17;
+            x ^= x << 5;
+            state = x;
+            return x;
+        }
+
+        [BurstCompile]
+        public float NextFloat()
+        {
+            return (NextUInt() & 0x00FFFFFF) / (float)0x01000000;
+        }
+
+        [BurstCompile]
+        public int NextInt(int min, int max)
+        {
+            return min + (int)(NextUInt() % (uint)(max - min));
+        }
+
+        [BurstCompile]
+        public float NextFloat(float min, float max)
+        {
+            return math.lerp(min, max, NextFloat());
+        }
+    }
+
+    public unsafe struct nString
+    {
+        private char* ptr;
+    }
+}

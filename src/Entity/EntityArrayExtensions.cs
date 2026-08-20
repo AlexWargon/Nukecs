@@ -19,8 +19,8 @@ namespace Wargon.Nukecs
             Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
         {
             if (!entity.ArchetypeRef.Has<ComponentArray<T>>()) throw NoComponentException<T>();
-            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
-            return ref pool.GetRef<ComponentArray<T>>(entity.id);
+            //ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            return ref entity.ArchetypeRef.GetComponent<ComponentArray<T>>(entity.id);
         }
 
         /// <summary>
@@ -47,15 +47,14 @@ namespace Wargon.Nukecs
         public static ref ComponentArray<T> AddArray<T>(this ref Entity entity) where T : unmanaged, IArrayComponent
         {
             var poolIndex = ComponentType<ComponentArray<T>>.Index;
-            entity.ArchetypeRef.OnEntityChangeECB(entity.id, poolIndex);
-            ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();
+            ref var ecb = ref entity.worldPointer->ECB;
+            ecb.Add<ComponentArray<T>>(entity.id);
+            ecb.Playback(ref entity.world);
             var elementIndex = poolIndex + 1;
             ref var elementPool = ref entity.worldPointer->GetElementUntypedPool(elementIndex);
             var array = new ComponentArray<T>(ref elementPool, entity);
-            pool.Set(entity.id, in array);
-            ref var ecb = ref entity.worldPointer->ECB;
-            ecb.Add<ComponentArray<T>>(entity.id);
-            return ref pool.GetRef<ComponentArray<T>>(entity.id);
+            entity.Set(array);
+            return ref entity.Get<ComponentArray<T>>();
         }
 
 #if !NUKECS_DEBUG

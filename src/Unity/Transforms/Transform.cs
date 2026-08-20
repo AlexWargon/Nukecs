@@ -1,9 +1,4 @@
-﻿
-
-using Unity.Collections;
-using UnityEngine.Jobs;
-
-namespace Wargon.Nukecs.Transforms {
+﻿namespace Wargon.Nukecs.Transforms {
     using System;
     using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;

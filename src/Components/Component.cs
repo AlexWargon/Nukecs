@@ -1,4 +1,7 @@
-﻿namespace Wargon.Nukecs
+﻿using System.Diagnostics.CodeAnalysis;
+
+#pragma warning disable CS0168 // Variable is declared but never used
+namespace Wargon.Nukecs
 {
     using System;
     using System.Runtime.CompilerServices;
@@ -11,6 +14,7 @@
     using System.Reflection;
     using Unity.Collections;
     using Collections;
+    using static Wargon.Nukecs.UnsafeStatic;
     
     public sealed class DrawAsAttribute : Attribute
     {
@@ -28,7 +32,10 @@
     }
     public interface IComponent { }
     public interface IArrayComponent { }
-    public interface IReactive { }
+    public interface IPoolComponent : IComponent{ }
+    public interface IComponentPtrFixer {
+        void FixPtrs(ref MemAllocator allocator);
+    }
     public interface ICustomConvertor {
         void Convert(ref World world, ref Entity entity);
     }
@@ -43,12 +50,6 @@
     public abstract class Convertor : ScriptableObject, ICustomConvertor {
         public abstract void Convert(ref World world, ref Entity entity);
     }
-    public struct Changed<T> : IComponent where T : unmanaged, IComponent {}
-    public struct Reactive<T> : IComponent where T : unmanaged, IComponent
-    {
-        public T oldValue;
-    }
-
     public struct Name : IComponent, IDisposable
     {
         public ObjectRef<string> value;
@@ -63,31 +64,7 @@
         }
     }
     
-    public unsafe struct Events<T> where T : unmanaged
-    {
-        private MemoryList<T> _list;
-        private readonly World.WorldUnsafe* _world;
 
-        public Events(int capacity, World.WorldUnsafe* world)
-        {
-            _list = new MemoryList<T>(capacity, ref world->AllocatorRef);
-            _world = world;
-        }
-        
-        public void Add(T item)
-        {
-            _list.Add(item, ref _world->AllocatorRef);
-        }
-
-        public void Clear()
-        {
-            _list.Clear();
-        }
-        public MemoryList<T>.Enumerator GetEnumerator()
-        {
-            return _list.GetEnumerator();
-        }
-    }
     
     public struct DestroyEntity : IComponent { }
     public struct EntityCreated : IComponent { }
@@ -95,9 +72,9 @@
     public struct ChildOf : IComponent {
         public Entity Value;
     }
-#if NUKECS_DEBUG
+//#if NUKECS_DEBUG
     public struct DebugView : IComponent {}
-#endif
+//#endif
     public sealed class UseWith : Attribute
     {
         public Type[] types;
@@ -139,9 +116,6 @@
         public static readonly SharedStatic<int> Value = SharedStatic<int>.GetOrCreate<ComponentAmount>();
     }
     internal struct Component {
-        /// <summary>
-        /// Components count that are using right now
-        /// </summary>
         internal static bool _initialized;
         static Component()
         {
@@ -150,47 +124,19 @@
         
         [BurstDiscard]
         public static void Initialization() {
-
             if(_initialized) return;
-            
-            var count = 0;
-            var componentTypes = new System.Collections.Generic.List<(Type, int)>();
-            var arrayElementTypes = new System.Collections.Generic.List<(Type,int)>();
-            ComponentTypeData.Init();
+            ComponentTypeMap.RegisterIfNeeded<DestroyEntity>();
             Generated.GeneratedComponentList.InitializeComponentList();
-            var components = Generated.GeneratedComponentList.GetAllComponents();
-            //dbug.log(components.ToList().Count.ToString());
-            foreach (var component in components)
-            {
-                if(component == typeof(IComponent)) continue;
-
-                componentTypes.Add((component, count));
-                if (component.IsGenericType && component.GetGenericTypeDefinition() == typeof(ComponentArray<>))
-                {
-                    arrayElementTypes.Add((component.GetGenericArguments()[0], count));
-                    count++;
-                }
-                count++;
-            }
-            
-            ComponentAmount.Value.Data = count;
-            ComponentTypeMap.Init();
-            foreach (var (type, index) in componentTypes)
-            {
-                ComponentTypeMap.InitializeComponentTypeReflection(type, index);
-            }
-            
-            foreach (var (type, index) in arrayElementTypes)
-            {
-                ComponentTypeMap.InitializeArrayElementTypeReflection(type, index);
-            }
-            
-            Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             Generated.GeneratedDisposeRegistryStatic.RegisterTypes();
+            Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
+            Generated.GeneratedDisposeRegistryStatic.Register();
             
-            componentTypes.Clear();
-            arrayElementTypes.Clear();
-            
+            var list = Generated.GeneratedComponentList.GetAllComponents();
+            foreach (var type in list)
+            {
+                if(!type.IsInterface)
+                    ComponentTypeMap.RegisterByReflection(type);
+            }
             _initialized = true;
         }
 
@@ -260,40 +206,61 @@
 
     internal static class ComponentHelpers
     {
-        static ComponentHelpers() {
-            writers = new IUnsafeBufferWriter[ComponentAmount.Value.Data];
-            readers = new IUnsafeBufferReader[ComponentAmount.Value.Data];
-        }
-        private static readonly IUnsafeBufferWriter[] writers;
-        private static readonly IUnsafeBufferReader[] readers;
-        internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
+        private static IUnsafeBufferWriter[] writers = new IUnsafeBufferWriter[64];
+        private static IUnsafeBufferReader[] readers = new IUnsafeBufferReader[64];
+        internal static void EnsureWriter<T>(int typeIndex) where T : unmanaged 
+        {
+            if (typeIndex >= writers.Length) {
+                var newSize = Math.Max(typeIndex + 1, writers.Length * 2);
+                Array.Resize(ref writers, newSize);
+                Array.Resize(ref readers, newSize);
+            }
             writers[typeIndex] = new UnsafeBufferWriter<T>();
             readers[typeIndex] = new UnsafeBufferReader<T>();
         }
+        internal static void CreateWriter<T>(int typeIndex) where T : unmanaged {
+            EnsureWriter<T>(typeIndex);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component){
+        internal static unsafe void Write(void* buffer, int index, int sizeInBytes, int typeIndex, IComponent component)
+        {
             writers[typeIndex].Write(buffer, index, sizeInBytes, component);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe IComponent Read(void* buffer, int index, int sizeInBytes, int type)
         {
             return readers[type].Read(buffer, index, sizeInBytes);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe void* AsPtr(IComponent component, int type)
+        {
+            return readers[type].AsPtr(component);
+        }
     }
 
-    public unsafe interface IUnsafeBufferWriter {
+    public unsafe interface IUnsafeBufferWriter 
+    {
         void Write(void* buffer, int index, int sizeInBytes, IComponent component);
+        void WritToArchetype(void* buffer, int entity, int componentType);
     }
-    public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged {
+    public class UnsafeBufferWriter<T> : IUnsafeBufferWriter  where T: unmanaged 
+    {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) {
+        public unsafe void Write(void* buffer, int index, int sizeInBytes, IComponent component) 
+        {
             ((T*) buffer)[index] = (T)component;
+        }
+
+        public unsafe void WritToArchetype(void* buffer, int entity, int componentType)
+        {
+            
         }
     }
 
     public unsafe interface IUnsafeBufferReader
     {
         IComponent Read(void* buffer, int index, int sizeInBytes);
+        void* AsPtr(IComponent component);
     }
 
     public class UnsafeBufferReader<T> : IUnsafeBufferReader  where T: unmanaged
@@ -302,23 +269,25 @@
         {
             return (IComponent)((T*) buffer)[index];
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void* AsPtr(IComponent component)
+        {
+            var strct = (T)component;
+            return &strct;
+        }
     }
     
     public unsafe interface IComponentDisposer {
         void Dispose(byte* buffer, int index);
     }
 
-    public struct TestDisposable : IDisposable, IComponent
-    {
-        public void Dispose()
-        {
-        }
-    }
-
     public readonly struct UntypedUnmanagedDelegate : IDisposable
     {
         private readonly IntPtr _ptr;
         private readonly GCHandle _gcHandle;
+
+        /// <summary>Raw function pointer. Stable until this struct is disposed.</summary>
+        public IntPtr Ptr => _ptr;
 
         public T As<T>()
         {
@@ -333,13 +302,13 @@
         public static UntypedUnmanagedDelegate Create<T>(T function) where T : Delegate
         {
 #if UNITY_EDITOR
-            var method = function.Method;
-            if (method == null || !method.IsStatic ||
-                method.GetCustomAttributes(typeof(AOT.MonoPInvokeCallbackAttribute), false).Length == 0)
-            {
-                throw new Exception(
-                    "Unmanaged delegate may only be created from static method with MonoPInvokeCallback attribute");
-            }
+            //var method = function.Method;
+            // if (method == null || !method.IsStatic ||
+            //     method.GetCustomAttributes(typeof(AOT.MonoPInvokeCallbackAttribute), false).Length == 0)
+            // {
+            //     throw new Exception(
+            //         "Unmanaged delegate may only be created from static method with MonoPInvokeCallback attribute");
+            // }
 #endif
             return new UntypedUnmanagedDelegate(Marshal.GetFunctionPointerForDelegate(function), GCHandle.Alloc(function));
         }
@@ -419,17 +388,23 @@
     {
         internal int index;
         [NativeDisableUnsafePtrRestriction]
-        private readonly GenericPool.GenericPoolUnsafe* buffer;
+        private readonly ComponentPoolUntyped* poolOwner;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal GetRef(ref GenericPool pool)
         {
             index = 0;
-            buffer = pool.UnsafeBuffer;
+            poolOwner = pool.UnsafeBufferPtr.Ptr;
         }
         public readonly ref TComponent Value
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref buffer->GetRef<TComponent>(index);
+            get
+            {
+                var chunkIndex = index / Chunk.MAX_CHUNK_SIZE;
+                var componentIndex = index % Chunk.MAX_CHUNK_SIZE;
+                ref var page = ref poolOwner->Chunks.ElementAt(chunkIndex);
+                return ref get_ref_element<TComponent>(page.buffer.Ptr, componentIndex);
+            }
         }
         public static implicit operator TComponent(in GetRef<TComponent> getRef)
         {
@@ -479,12 +454,23 @@
     //         Buffer = (T*)pool.UnsafeBuffer->buffer + entity.id;
     //     }
     // }
-    public unsafe struct AspectData<T> where T : unmanaged, IComponent
+    public unsafe struct AspectData<T> where T : unmanaged
     {
-        internal T* Buffer;
+        internal ComponentPoolUntyped* PoolOwner;
         private int _entity;
-        public ref T Value => ref Buffer[_entity];
-        public ref readonly T Read => ref Buffer[_entity];
+        public ref T Value
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                var chunks = PoolOwner->Chunks.Ptr;
+                var chunkIndex = _entity / Chunk.MAX_CHUNK_SIZE;
+                var componentIndex = _entity % Chunk.MAX_CHUNK_SIZE;
+                ref var page = ref chunks[chunkIndex];
+                return ref get_ref_element<T>(page.buffer.Ptr, componentIndex);
+            }
+        }
+        public ref readonly T Read => ref Value;
         public static implicit operator T(in AspectData<T> getRef)
         {
             return getRef.Value;
@@ -493,20 +479,6 @@
         public void Update(ref Entity entity)
         {
             _entity = entity.id;
-        }
-    }
-    public struct ComponentsTuple<T1, T2> : ITuple where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent
-    {
-        private int entity;
-        public GetRef<T1> Value1;
-        public GetRef<T2> Value2;
-        public object this[int index] => null;
-
-        public int Length => 2;
-        public void Deconstruct(out GetRef<T1> v1, out GetRef<T2> v2)
-        {
-            v1 = Value1;
-            v2 = Value2;
         }
     }
 
@@ -571,30 +543,40 @@
         }
     }
     
+    [SuppressMessage("ReSharper", "ArrangeThisQualifier")]
     public unsafe struct ClassPtr<T> : System.IEquatable<ClassPtr<T>> where T : class {
 
         [NativeDisableUnsafePtrRestriction]
         private System.IntPtr ptr;
         [NativeDisableUnsafePtrRestriction]
-        private System.Runtime.InteropServices.GCHandle gcHandle;
+        private System.Runtime.InteropServices.GCHandle _gcHandle;
 
         public bool IsValid => this.ptr.ToPointer() != null;
 
-        public T Value => (T)this.gcHandle.Target;
+        public T Value => (T)this._gcHandle.Target;
 
         public ClassPtr(T data) {
-            this.gcHandle = (data != null ? System.Runtime.InteropServices.GCHandle.Alloc(data) : default);
-            this.ptr = System.Runtime.InteropServices.GCHandle.ToIntPtr(this.gcHandle);
+            this._gcHandle = (data != null ? System.Runtime.InteropServices.GCHandle.Alloc(data) : default);
+            this.ptr = System.Runtime.InteropServices.GCHandle.ToIntPtr(this._gcHandle);
         }
 
         public void Dispose() {
-            if (this.gcHandle.IsAllocated == true) {
-                this.gcHandle.Free();
+            if (this._gcHandle.IsAllocated) {
+                this._gcHandle.Free();
             }
         }
 
         public bool Equals(ClassPtr<T> other) {
             return other.ptr == ptr;
+        }
+    }
+    [AttributeUsage(AttributeTargets.GenericParameter)]
+    public class MetaDataAttribute : Attribute
+    {
+        public string icon;
+        public MetaDataAttribute(string icon)
+        {
+            this.icon = icon;
         }
     }
 }

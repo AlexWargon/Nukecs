@@ -1,9 +1,8 @@
-﻿//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+﻿//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
 //
 //
 //
-//
-//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+//■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
 
 using System;
 using System.Runtime.CompilerServices;
@@ -26,19 +25,20 @@ namespace Wargon.Nukecs
             get => unsafeWorldPtr.Ptr;
         }
 
-        internal ref WorldUnsafe UnsafeWorldRef
+        public ref WorldUnsafe UnsafeWorldRef
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => ref unsafeWorldPtr.Ref;
         }
-        public int Id => UnsafeWorld->Id;
-        public bool IsAlive => UnsafeWorld != null;
+        public byte Id => UnsafeWorld->Id;
+        public bool IsAlive => unsafeWorldPtr.cached != null;
         public WorldConfig Config => UnsafeWorld->config;
         public Allocator Allocator => UnsafeWorld->Allocator;
-        public UnityAllocatorHandler AllocatorHandler => UnsafeWorld->AllocatorHandler;
+        public ref UnityAllocatorHandler AllocatorHandler => ref UnsafeWorld->AllocatorHandler;
+        public ref MemAllocator AllocatorRef => ref UnsafeWorld->AllocatorRef;
         public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
-        internal ref EntityCommandBuffer ECB => ref UnsafeWorld->ECB;
+        internal ref EntityCommandBuffer ECB => ref UnsafeWorld->EntityCommandBuffer;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref EntityCommandBuffer GetEcbVieContext(UpdateContext context)
@@ -55,15 +55,20 @@ namespace Wargon.Nukecs
         public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsFixedUpdateJobDependencies;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ref GenericPool GetPool<T>() where T : unmanaged
+        public ref GenericPool GetPool<T>() where T : unmanaged, IComponent
         {
             return ref UnsafeWorld->GetPool<T>();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Entity Entity()
+        public ref Entity Entity()
         {
-            return UnsafeWorld->CreateEntity();
+            return ref UnsafeWorld->CreateEntity();
+        }
+
+        public Span<Entity> BatchCreateEntity(int count)
+        {
+            return UnsafeWorldRef.BatchCreateEntity(count);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -71,7 +76,13 @@ namespace Wargon.Nukecs
         {
             return UnsafeWorld->SpawnPrefab(in prefab);
         }
-
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Span<Entity> SpawnPrefabs(in Entity prefab, int amount)
+        {
+            return UnsafeWorld->SpawnPrefabs(in prefab, amount);
+        }
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Entity Entity<T1>(in T1 c1) where T1 : unmanaged, IComponent
         {
@@ -85,7 +96,7 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public Entity Entity<T1, T2>(in T1 c1, in T2 c2)
+        public Entity Entity<T1, T2>(in T1 c1 = default(T1), in T2 c2 = default(T2))
             where T1 : unmanaged, IComponent
             where T2 : unmanaged, IComponent
         {
@@ -97,7 +108,12 @@ namespace Wargon.Nukecs
         {
             return ref UnsafeWorld->GetEntity(id);
         }
-
+        /// <summary>
+        /// Returns new instance of query. You need to cache it by your own.
+        /// Calling it in loop or update will be a case of memory leak.
+        /// </summary>
+        /// <param name="withDefaultNoneTypes"></param>
+        /// <returns></returns>
         public Query Query(bool withDefaultNoneTypes = true)
         {
             return new Query(UnsafeWorld->CreateQueryPtr(withDefaultNoneTypes));
@@ -114,6 +130,15 @@ namespace Wargon.Nukecs
         public ref T GetSingleton<T>() where T : unmanaged, IComponent
         {
             return ref UnsafeWorld->GetPool<T>().GetSingleton<T>();
+        }
+
+        public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
+        {
+            UnsafeWorldRef.AddRes(res);
+        }
+        public void AddResManaged<TRes>(TRes res) where TRes : class, IRes
+        {
+            UnsafeWorldRef.AddResManaged(res);
         }
     }
 
@@ -193,59 +218,5 @@ namespace Wargon.Nukecs
             StartEntitiesAmount = 1_000_001,
             StartComponentsAmount = 32
         };
-    }
-
-    public unsafe struct Locking : IDisposable
-    {
-        private NativeReference<int> _locks;
-
-        public static Locking Create(Allocator allocator)
-        {
-            return new Locking
-            {
-                _locks = new NativeReference<int>(0, allocator)
-            };
-        }
-
-        public void Lock()
-        {
-            while (Interlocked.CompareExchange(ref *_locks.GetUnsafePtrWithoutChecks(), 1, 0) != 0) Common.Pause();
-        }
-
-        public void Unlock()
-        {
-            _locks.Value = 0;
-        }
-
-        public void Dispose()
-        {
-            _locks.Dispose();
-        }
-    }
-
-    public unsafe struct WorldLock
-    {
-        public int locks;
-        internal World.WorldUnsafe* world;
-        public bool IsLocked => locks > 0;
-        public bool IsMerging => locks < 0;
-
-        public void Lock()
-        {
-            if (IsMerging) return;
-            locks++;
-        }
-
-        public void Unlock()
-        {
-            if (IsMerging) return;
-            locks--;
-            if (locks == 0)
-            {
-                locks = -1;
-                world->ECB.Playback(world);
-                locks = 0;
-            }
-        }
     }
 }
