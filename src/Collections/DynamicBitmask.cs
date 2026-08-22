@@ -129,6 +129,105 @@ namespace Wargon.Nukecs
             Count = source.Count;
         }
 
+        /// <summary>
+        /// Fills this bitmask with the union of the three category masks (inline | tag | pool)
+        /// and recounts set bits. All masks must share the same array size.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void CopyUnion(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool)
+        {
+            var newCount = 0;
+            for (var i = 0; i < arraySize; i++)
+            {
+                var word = inline.bitmaskArray.Ptr[i] | tag.bitmaskArray.Ptr[i] | pool.bitmaskArray.Ptr[i];
+                bitmaskArray.Ptr[i] = word;
+                newCount += math.countbits(word);
+            }
+            Count = newCount;
+        }
+
+        /// <summary>True when every bit set in <paramref name="other"/> is also set in this mask.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ContainsAll(ref DynamicBitmask other)
+        {
+            var words = bitmaskArray.Ptr;
+            var otherWords = other.bitmaskArray.Ptr;
+            var n = arraySize < other.arraySize ? arraySize : other.arraySize;
+            for (var i = 0; i < n; i++)
+                if ((words[i] & otherWords[i]) != otherWords[i]) return false;
+            // bits in words beyond this mask can never be present here
+            for (var i = n; i < other.arraySize; i++)
+                if (otherWords[i] != 0) return false;
+            return true;
+        }
+
+        /// <summary>True when none of the bits set in <paramref name="other"/> are set in this mask.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool ContainsNone(ref DynamicBitmask other)
+        {
+            var words = bitmaskArray.Ptr;
+            var otherWords = other.bitmaskArray.Ptr;
+            var n = arraySize < other.arraySize ? arraySize : other.arraySize;
+            for (var i = 0; i < n; i++)
+                if ((words[i] & otherWords[i]) != 0) return false;
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool SequenceEqual(ref DynamicBitmask other)
+        {
+            if (arraySize != other.arraySize) return false;
+            var words = bitmaskArray.Ptr;
+            var otherWords = other.bitmaskArray.Ptr;
+            for (var i = 0; i < arraySize; i++)
+                if (words[i] != otherWords[i]) return false;
+            return true;
+        }
+
+        /// <summary>
+        /// FNV-1a hash over the byte representation of (this | tag | pool), byte-identical
+        /// to <see cref="ComputeHash"/> of a union bitmask. this = inline mask.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal int ComputeUnionHash(ref DynamicBitmask tag, ref DynamicBitmask pool)
+        {
+            unchecked
+            {
+                var hash = (int)2166136261;
+                const int p = 16777619;
+                var inlineWords = bitmaskArray.Ptr;
+                var tagWords = tag.bitmaskArray.Ptr;
+                var poolWords = pool.bitmaskArray.Ptr;
+                for (var i = 0; i < arraySize; i++)
+                {
+                    var word = inlineWords[i] | tagWords[i] | poolWords[i];
+                    var wptr = (byte*)&word;
+                    for (var b = 0; b < 8; b++)
+                        hash = (hash ^ wptr[b]) * p;
+                }
+                hash += hash << 13;
+                hash ^= hash >> 7;
+                hash += hash << 3;
+                hash ^= hash >> 17;
+                hash += hash << 5;
+                return hash;
+            }
+        }
+
+        /// <summary>True when this bitmask equals (inline | tag | pool) word-by-word.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool EqualsUnion(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool)
+        {
+            if (arraySize != inline.arraySize) return false;
+            var words = bitmaskArray.Ptr;
+            var inlineWords = inline.bitmaskArray.Ptr;
+            var tagWords = tag.bitmaskArray.Ptr;
+            var poolWords = pool.bitmaskArray.Ptr;
+            for (var i = 0; i < arraySize; i++)
+                if (words[i] != (inlineWords[i] | tagWords[i] | poolWords[i])) return false;
+            return true;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ExtractSetBits(ref MemoryList<int> output, ref MemAllocator allocator)
         {

@@ -45,6 +45,15 @@ namespace Wargon.Nukecs.Collections
             _allocator = allocator;
         }
 
+        /// <summary>Adds a segment built from gathered rows: src[rowIndices[i]] for i in [0, count).</summary>
+        public void AddGathered(T* src, int* rowIndices, int count, Allocator allocator) {
+            var buffer = (T*)UnsafeUtility.MallocTracked(
+                (uint)count * sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
+            for (var i = 0; i < count; i++)
+                buffer[i] = src[rowIndices[i]];
+            Add(buffer, count);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(T* ptr, int length)
         {

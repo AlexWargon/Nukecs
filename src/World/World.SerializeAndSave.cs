@@ -78,6 +78,13 @@ namespace Wargon.Nukecs {
                 rootArchetype.ptr.Ref.OnDeserialize(ref allocator, selfPtr.Ptr);
                 entityLocations.OnDeserialize(ref allocator);
 
+                storagesList.OnDeserialize(ref allocator);
+                foreach (ref var storagePtr in storagesList) {
+                    storagePtr.OnDeserialize(ref allocator);
+                    storagePtr.Ref.OnDeserialize(ref allocator, selfPtr.Ptr);
+                }
+                storagesMap.OnDeserialize(ref allocator);
+
                 pools.OnDeserialize(ref allocator);
                 foreach (ref var genericPool in pools) {
                     if (genericPool.IsCreated)

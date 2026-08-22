@@ -9,23 +9,23 @@ namespace Wargon.Nukecs
 
         public static unsafe int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (*(ComponentTypeData*) ID.UnsafeDataPointer).index;
+            get {
+                EnsureRegistered();
+                return (*(ComponentTypeData*)ID.UnsafeDataPointer).index;
+            }
         }
 
         public static unsafe ref ComponentTypeData Data {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
+            get {
+                EnsureRegistered();
+                return ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
+            }
         }
-        
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         [BurstDiscard]
         private static unsafe void EnsureRegistered() {
-            if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size != 0) return;
-            var data = ComponentTypeMap.RegisterIfNeeded<T>();
-            ID.Data = data;
-        }
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static unsafe void EnsureRegisteredPLAN_B() {
             if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size != 0) return;
             var data = ComponentTypeMap.RegisterIfNeeded<T>();
             ID.Data = data;

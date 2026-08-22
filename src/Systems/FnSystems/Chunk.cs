@@ -12,6 +12,8 @@ namespace Wargon.Nukecs
         private T* _components;
         private int _count;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         public int Count => _count;
         public void SetData(ref ArchetypeUnsafe archetype)
         {
@@ -19,13 +21,25 @@ namespace Wargon.Nukecs
             _components = (T*)(archetype.data.Ptr + archetype.GetComponentOffset(li));
             _count = archetype.count;
             _remaining = _count;
+            _rows = archetype.RowsAreDense ? null : archetype.rows.Ptr;
+            _rowIdx = 0;
+            if (_rows != null) {
+                var r0 = _rows[0];
+                _components += r0;
+            }
         }
         public Chunk<T> Current => this;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components += delta;
+            } else {
+                _components++;
+            }
             return true;
         }
         public ref T Get() => ref *_components;
@@ -48,6 +62,8 @@ namespace Wargon.Nukecs
         private T2* _components2;
         private int _count;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         public int Count => _count;
         public void SetData(ref ArchetypeUnsafe archetype)
         {
@@ -57,12 +73,26 @@ namespace Wargon.Nukecs
             _components2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(li2));
             _count = archetype.count;
             _remaining = _count;
+            _rows = archetype.RowsAreDense ? null : archetype.rows.Ptr;
+            _rowIdx = 0;
+            if (_rows != null) {
+                var r0 = _rows[0];
+                _components1 += r0;
+                _components2 += r0;
+            }
         }
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components1++;
-            _components2++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components1 += delta;
+                _components2 += delta;
+            } else {
+                _components1++;
+                _components2++;
+            }
             return true;
         }
         public ref T1 C1
@@ -105,6 +135,8 @@ namespace Wargon.Nukecs
         private T3* _components3;
         private int _count;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         public int Count => _count;
         public void SetData(ref ArchetypeUnsafe archetype)
         {
@@ -116,15 +148,31 @@ namespace Wargon.Nukecs
             _components3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(li3));
             _count = archetype.count;
             _remaining = _count;
+            _rows = archetype.RowsAreDense ? null : archetype.rows.Ptr;
+            _rowIdx = 0;
+            if (_rows != null) {
+                var r0 = _rows[0];
+                _components1 += r0;
+                _components2 += r0;
+                _components3 += r0;
+            }
         }
         public Chunk<T1, T2, T3> Current => this;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components1++;
-            _components2++;
-            _components3++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components1 += delta;
+                _components2 += delta;
+                _components3 += delta;
+            } else {
+                _components1++;
+                _components2++;
+                _components3++;
+            }
             return true;
         }
         public ref T1 C1
@@ -176,6 +224,8 @@ namespace Wargon.Nukecs
         private T3* _components3;
         private T4* _components4;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         private int _count;
         public int Count => _count;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -197,10 +247,19 @@ namespace Wargon.Nukecs
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components1++;
-            _components2++;
-            _components3++;
-            _components4++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components1 += delta;
+                _components2 += delta;
+                _components3 += delta;
+                _components4 += delta;
+            } else {
+                _components1++;
+                _components2++;
+                _components3++;
+                _components4++;
+            }
             return true;
         }
 
@@ -265,6 +324,8 @@ namespace Wargon.Nukecs
         private T4* _components4;
         private T5* _components5;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         private int _count;
         public int Count => _count;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -288,11 +349,21 @@ namespace Wargon.Nukecs
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components1++;
-            _components2++;
-            _components3++;
-            _components4++;
-            _components5++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components1 += delta;
+                _components2 += delta;
+                _components3 += delta;
+                _components4 += delta;
+                _components5 += delta;
+            } else {
+                _components1++;
+                _components2++;
+                _components3++;
+                _components4++;
+                _components5++;
+            }
             return true;
         }
 
@@ -368,6 +439,8 @@ namespace Wargon.Nukecs
         private T5* _components4;
         private T6* _components5;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         private int _count;
         public int Count => _count;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -393,12 +466,23 @@ namespace Wargon.Nukecs
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components0++;
-            _components1++;
-            _components2++;
-            _components3++;
-            _components4++;
-            _components5++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components0 += delta;
+                _components1 += delta;
+                _components2 += delta;
+                _components3 += delta;
+                _components4 += delta;
+                _components5 += delta;
+            } else {
+                _components0++;
+                _components1++;
+                _components2++;
+                _components3++;
+                _components4++;
+                _components5++;
+            }
             return true;
         }
 
@@ -485,6 +569,8 @@ namespace Wargon.Nukecs
         private T6* _components5;
         private T7* _components6;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         private int _count;
         public int Count => _count;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -512,13 +598,25 @@ namespace Wargon.Nukecs
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components0++;
-            _components1++;
-            _components2++;
-            _components3++;
-            _components4++;
-            _components5++;
-            _components6++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components0 += delta;
+                _components1 += delta;
+                _components2 += delta;
+                _components3 += delta;
+                _components4 += delta;
+                _components5 += delta;
+                _components6 += delta;
+            } else {
+                _components0++;
+                _components1++;
+                _components2++;
+                _components3++;
+                _components4++;
+                _components5++;
+                _components6++;
+            }
             return true;
         }
 
@@ -624,6 +722,8 @@ namespace Wargon.Nukecs
         private T7* _components6;
         private T8* _components7;
         private int _remaining;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _rowIdx;
         private int _count;
         public int Count => _count;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -653,14 +753,27 @@ namespace Wargon.Nukecs
         public bool MoveNext()
         {
             if (--_remaining < 0) return false;
-            _components0++;
-            _components1++;
-            _components2++;
-            _components3++;
-            _components4++;
-            _components5++;
-            _components6++;
-            _components7++;
+            if (_rows != null) {
+                _rowIdx++;
+                var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
+                _components0 += delta;
+                _components1 += delta;
+                _components2 += delta;
+                _components3 += delta;
+                _components4 += delta;
+                _components5 += delta;
+                _components6 += delta;
+                _components7 += delta;
+            } else {
+                _components0++;
+                _components1++;
+                _components2++;
+                _components3++;
+                _components4++;
+                _components5++;
+                _components6++;
+                _components7++;
+            }
             return true;
         }
 

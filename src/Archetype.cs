@@ -52,50 +52,181 @@ namespace Wargon.Nukecs
     public struct EntityLocation {
         public int archetypeIndex;
         public int row;
+        /// <summary>Position of this entity's row index inside the logical archetype's rows list (for O(1) removal).</summary>
+        public int listPos;
     }
 
     [BurstCompile(CompileSynchronously = true)]
     public unsafe struct ArchetypeUnsafe
     {
         private Spinner _spinner;
-        public ptr<byte> data;
-        internal DynamicBitmask mask;
+        // Category-split identity masks. Bit positions are global component type indices.
+        // inlineMask — data components stored in the archetype data buffer;
+        // tagMask — zero-sized filter-only components (no bytes in data);
+        // poolMask — per-entity GenericPool components (no bytes in data).
+        internal DynamicBitmask inlineMask;
+        internal DynamicBitmask tagMask;
+        internal DynamicBitmask poolMask;
         internal MemoryList<int> types;
         internal MemoryList<int> queries;
         internal HashMap<int, ptr<Edge>> transactions;
-        public MemoryArray<int> packedEntities;
-        public MemoryArray<int> componentOffsets;
-        internal BitMap1024<int> offsetMap;
         internal Edge destroyEdge;
-        [NativeDisableUnsafePtrRestriction] 
-        internal World.WorldUnsafe* world;
+        // Shared data owner: all logical archetypes with the same inlineMask point to one StorageArchetype.
+        // rows — storage row indices owned by this logical archetype, iterated densely (rows.length == count).
+        internal ptr<StorageArchetype> storagePtr;
+        public MemoryList<int> rows;
+        [NativeDisableUnsafePtrRestriction]
+        public World.WorldUnsafe* world;
         internal int hashId;
         internal int index;
-        public int count;
-        public int capacity;
-        public int entityStride;
         internal bool IsCreated => world != null;
+
+        // Storage-backed accessors kept for compatibility with existing read sites.
+        public ptr<byte> data {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.data;
+        }
+        public MemoryArray<int> packedEntities {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.packedEntities;
+        }
+        public MemoryArray<int> componentOffsets {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.componentOffsets;
+        }
+        internal BitMap1024<int> offsetMap {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.offsetMap;
+        }
+        public int entityStride {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.entityStride;
+        }
+        public int capacity {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.capacity;
+        }
+        /// <summary>Number of entities in this logical archetype (== rows.length), not the whole storage.</summary>
+        public int count {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => rows.length;
+        }
+        /// <summary>
+        /// True when this is the only logical archetype on its storage — all storage rows belong to it,
+        /// so iterators can walk rows 0..count-1 sequentially (pointer-increment fast path).
+        /// </summary>
+        public bool RowsAreDense {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => storagePtr.Ref.refCount <= 1;
+        }
+        internal ref StorageArchetype Storage {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => ref storagePtr.Ref;
+        }
 
         internal void OnDeserialize(ref MemAllocator allocator, World.WorldUnsafe* worldPtr)
         {
             world = worldPtr;
-            mask.OnDeserialize(ref allocator);
+            inlineMask.OnDeserialize(ref allocator);
+            tagMask.OnDeserialize(ref allocator);
+            poolMask.OnDeserialize(ref allocator);
             queries.OnDeserialize(ref allocator);
             transactions.OnDeserialize(ref allocator);
             destroyEdge.OnDeserialize(ref allocator, worldPtr);
             types.OnDeserialize(ref allocator);
-            
+
             foreach (var kvPair in transactions)
             {
                 ref var val = ref kvPair.Value;
                 val.OnDeserialize(ref allocator);
                 val.Ref.OnDeserialize(ref allocator, worldPtr);
             }
-            packedEntities.OnDeserialize(ref allocator);
-            data.OnDeserialize(ref allocator);
-            componentOffsets.OnDeserialize(ref allocator);
-            offsetMap.OnDeserialize(ref allocator);
+            storagePtr.OnDeserialize(ref allocator);
+            rows.OnDeserialize(ref allocator);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void AddTypeToMasks(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool, int type)
+        {
+            switch (ComponentTypeMap.GetCategory(type))
+            {
+                case ComponentCategory.Tag:
+                    tag.Add(type);
+                    break;
+                case ComponentCategory.Pool:
+                    pool.Add(type);
+                    break;
+                default:
+                    inline.Add(type);
+                    break;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void RemoveTypeFromMasks(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool, int type)
+        {
+            switch (ComponentTypeMap.GetCategory(type))
+            {
+                case ComponentCategory.Tag:
+                    tag.Remove(type);
+                    break;
+                case ComponentCategory.Pool:
+                    pool.Remove(type);
+                    break;
+                default:
+                    inline.Remove(type);
+                    break;
+            }
+        }
+
+        /// <summary>Checks membership in the category mask matching the given type. One branch + one bit test.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Has(int componentTypeIndex)
+        {
+            switch (ComponentTypeMap.GetCategory(componentTypeIndex))
+            {
+                case ComponentCategory.Tag:
+                    return tagMask.Has(componentTypeIndex);
+                case ComponentCategory.Pool:
+                    return poolMask.Has(componentTypeIndex);
+                default:
+                    return inlineMask.Has(componentTypeIndex);
+            }
+        }
+
+        /// <summary>
+        /// Canonical identity hash. Byte-identical to FNV-1a over the union of all three masks,
+        /// so it matches <see cref="DynamicBitmask.ComputeHash"/> of a full component bitmask.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static int ComputeIdentityHash(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool)
+        {
+            return inline.ComputeUnionHash(ref tag, ref pool);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool MasksSequenceEqual(ref ArchetypeUnsafe other)
+        {
+            return inlineMask.SequenceEqual(ref other.inlineMask)
+                   && tagMask.SequenceEqual(ref other.tagMask)
+                   && poolMask.SequenceEqual(ref other.poolMask);
+        }
+
+        /// <summary>True when the given full (all categories) bitmask equals this archetype's union of masks.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool FullMaskEquals(ref DynamicBitmask fullMask)
+        {
+            return fullMask.EqualsUnion(ref inlineMask, ref tagMask, ref poolMask);
+        }
+
+        /// <summary>True when this archetype's type set equals the given type list (order-independent, unique types).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool MatchesTypes(int* typesList, int count)
+        {
+            var total = inlineMask.Count + tagMask.Count + poolMask.Count;
+            if (total != count) return false;
+            for (var i = 0; i < count; i++)
+                if (!Has(typesList[i])) return false;
+            return true;
+        }
+
+        /// <summary>Rebuilds a full (all categories) bitmask from the three category masks. Used by ECB playback.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void CopyMasksTo(ref DynamicBitmask target)
+        {
+            target.CopyUnion(ref inlineMask, ref tagMask, ref poolMask);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void SetArchetype(in Entity entity)
         {
@@ -150,6 +281,7 @@ namespace Wargon.Nukecs
             var localIdx = GetComponentLocalIndex(typeIndex);
             if (!offsetMap.Mask.HasFast(typeIndex)) return null;
             var off = componentOffsets.Ptr[localIdx];
+            if (off < 0) return null; // tag / pool-stored — no inline data
             ref var loc = ref world->entityLocations.Ptr[entity];
             var ptr = data.Ptr + off + loc.row * d.size;
             return ComponentHelpers.Read(ptr, 0, d.size, typeIndex);
@@ -166,6 +298,7 @@ namespace Wargon.Nukecs
             var localIdx = GetComponentLocalIndex(typeIndex);
             if (!offsetMap.Mask.HasFast(typeIndex)) return;
             var off = componentOffsets.Ptr[localIdx];
+            if (off < 0) return; // tag / pool-stored — no inline data
             ref var loc = ref world->entityLocations.Ptr[entity];
             var ptr = data.Ptr + off + loc.row * d.size;
             ComponentHelpers.Write(ptr, 0, d.size, typeIndex, component);
@@ -188,213 +321,104 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int GetComponentSize(int localIndex)
         {
-            return ComponentTypeMap.GetComponentType(types.Ptr[localIndex]).size;
+            return ComponentTypeMap.GetComponentType(storagePtr.Ref.inlineTypes.Ptr[localIndex]).size;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Has(int componentTypeIndex)
-        {
-            return offsetMap.Mask.HasFast(componentTypeIndex);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void InitPackedArrays(int initialCapacity)
-        {
-            count = 0;
-            capacity = initialCapacity;
+        // ------------------------------------------------------------------
+        // Logical-archetype membership over shared storage rows
+        // ------------------------------------------------------------------
 
-            if (types.length > 1)
-            {
-                for (int i = 1; i < types.length; i++)
-                {
+        private static void SortTypes(ref MemoryList<int> types) {
+            if (types.length > 1) {
+                for (int i = 1; i < types.length; i++) {
                     var key = types.Ptr[i];
                     int j = i - 1;
-                    while (j >= 0 && types.Ptr[j] > key)
-                    {
+                    while (j >= 0 && types.Ptr[j] > key) {
                         types.Ptr[j + 1] = types.Ptr[j];
                         j--;
                     }
                     types.Ptr[j + 1] = key;
                 }
             }
-
-            packedEntities = new MemoryArray<int>(capacity, ref world->AllocatorRef, clear: true);
-
-            if (types.length == 0) return;
-
-            entityStride = 0;
-            for (var i = 0; i < types.length; i++)
-            {
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
-                if (ctData.storageType == StorageType.Pool) continue;
-                entityStride += ctData.size;
-            }
-
-            if (entityStride > 0)
-            {
-                data = world->AllocatorRef.AllocatePtr<byte>(entityStride * capacity);
-                mem_clear(data.Ptr, entityStride * capacity);
-            }
-
-            componentOffsets = new MemoryArray<int>(types.length, ref world->AllocatorRef, clear: true);
-            var offset = 0;
-            for (var i = 0; i < types.length; i++)
-            {
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
-                if (ctData.storageType == StorageType.Pool)
-                {
-                    componentOffsets.Ptr[i] = -1;
-                    continue;
-                }
-                componentOffsets.Ptr[i] = offset;
-                offset += ctData.size * capacity;
-            }
-
-            offsetMap = new BitMap1024<int>(types.length, ref world->AllocatorRef);
-            for (var i = 0; i < types.length; i++)
-                offsetMap.Add(types.Ptr[i], componentOffsets.Ptr[i], ref world->AllocatorRef);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void EnsureCapacity(int needed)
-        {
-            if (types.length == 0) return;
-            if (count + needed <= capacity) return;
-            var newCapacity = capacity * 2;
-            if (newCapacity < count + needed) newCapacity = count + needed;
-
-            packedEntities.EnsureCapacity(newCapacity, ref world->AllocatorRef);
-
-            if (entityStride == 0)
-            {
-                capacity = newCapacity;
-                return;
-            }
-
-            var newData = world->AllocatorRef.AllocatePtr<byte>(entityStride * newCapacity);
-            var newOffsets = new MemoryArray<int>(types.length, ref world->AllocatorRef, clear: true);
-
-            var oldOffset = 0;
-            var newOffset = 0;
-            for (var i = 0; i < types.length; i++)
-            {
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
-                if (ctData.storageType == StorageType.Pool)
-                {
-                    newOffsets.Ptr[i] = -1;
-                    continue;
-                }
-                var size = ctData.size;
-                newOffsets.Ptr[i] = newOffset;
-                memcpy(newData.Ptr + newOffset, data.Ptr + oldOffset, count * size);
-                oldOffset += capacity * size;
-                newOffset += newCapacity * size;
-            }
-
-            data = newData;
-            componentOffsets = newOffsets;
-
-            offsetMap = new BitMap1024<int>(types.length, ref world->AllocatorRef);
-            for (var i = 0; i < types.length; i++)
-                offsetMap.Add(types.Ptr[i], newOffsets.Ptr[i], ref world->AllocatorRef);
-
-            capacity = newCapacity;
         }
 
+        /// <summary>Appends a storage row index to this archetype's rows list, returns its position.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int AllocateEntity(int entityID)
-        {
-            EnsureCapacity(1);
-            var row = count;
-            packedEntities.Ptr[row] = entityID;
-
-            for (var i = 0; i < types.length; i++)
-            {
-                var off = componentOffsets.Ptr[i];
-                if (off < 0) continue;
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
-                var dst = data.Ptr + off + row * ctData.size;
-                mem_clear(dst, ctData.size);
-            }
-
-            count++;
-            return row;
+        internal int AddRow(int row) {
+            rows.Add(row, ref world->AllocatorRef);
+            return rows.length - 1;
         }
 
+        /// <summary>Swap-removes the rows-list entry at listPos, fixing listPos of the moved entry's entity.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void RemoveEntity(int row)
-        {
-            count--;
-            if (row == count) return;
-
-            packedEntities.Ptr[row] = packedEntities.Ptr[count];
-
-            for (var i = 0; i < types.length; i++)
-            {
-                var off = componentOffsets.Ptr[i];
-                if (off < 0) continue;
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
-                var size = ctData.size;
-                var src = data.Ptr + off + count * size;
-                var dst = data.Ptr + off + row * size;
-                memcpy(dst, src, size);
+        internal void RemoveRowAt(int listPos) {
+            var lastPos = rows.length - 1;
+            if (listPos != lastPos) {
+                var movedRow = rows.Ptr[lastPos];
+                rows.Ptr[listPos] = movedRow;
+                var movedEntity = storagePtr.Ref.packedEntities.Ptr[movedRow];
+                world->entityLocations.Ptr[movedEntity].listPos = listPos;
             }
-
-            var swappedEntity = packedEntities.Ptr[row];
-            world->entityLocations.Ptr[swappedEntity].row = row;
+            rows.length--;
         }
+
+        /// <summary>Removes the entity's row from this archetype and swap-removes the storage row.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void DestroyEntity(int row)
-        {
-            count--;
-            if (row == count) return;
-
-            packedEntities.Ptr[row] = packedEntities.Ptr[count];
-
-            for (var i = 0; i < types.length; i++)
-            {
-                var off = componentOffsets.Ptr[i];
-                if (off < 0) continue;
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[i]);
-
-                var size = ctData.size;
-                var src = data.Ptr + off + count * size;
-                var dst = data.Ptr + off + row * size;
-                if (ctData.isDisposable)
-                {
-                    ctData.DisposeFn().Invoke(dst, 0);
-                }
-                memcpy(dst, src, size);
-            }
-
-            var swappedEntity = packedEntities.Ptr[row];
-            world->entityLocations.Ptr[swappedEntity].row = row;
+        internal void RemoveEntity(int row) {
+            var entity = storagePtr.Ref.packedEntities.Ptr[row];
+            var listPos = world->entityLocations.Ptr[entity].listPos;
+            storagePtr.Ref.RemoveRowSwap(row); // fixes rows/locations of the swapped entity
+            RemoveRowAt(listPos);
         }
+
+        /// <summary>Removes the entity's row from this archetype, disposing the storage row's components.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void MoveEntityTo(int row, ref ArchetypeUnsafe target)
-        {
-            if (packedEntities.Ptr == null || row < 0 || row >= count) return;
+        internal void DestroyEntity(int row) {
+            var entity = storagePtr.Ref.packedEntities.Ptr[row];
+            var listPos = world->entityLocations.Ptr[entity].listPos;
+            storagePtr.Ref.DestroyRowSwap(row);
+            RemoveRowAt(listPos);
+        }
+
+        /// <summary>
+        /// Moves an entity from this logical archetype to the target. When storages are the same
+        /// (only tags/pools changed) no row data is touched — only rows-list membership.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void MoveEntityTo(int row, ref ArchetypeUnsafe target) {
+            ref var srcStorage = ref storagePtr.Ref;
+            if (srcStorage.packedEntities.Ptr == null || row < 0 || row >= srcStorage.count) return;
             world->version++;
-            var entityID = packedEntities.Ptr[row];
-            var newRow = target.AllocateEntity(entityID);
+            var entityID = srcStorage.packedEntities.Ptr[row];
+            ref var loc = ref world->entityLocations.Ptr[entityID];
 
-            for (var i = 0; i < types.length; i++)
-            {
-                var typeIndex = types.Ptr[i];
-                var srcOff = componentOffsets.Ptr[i];
-                if (srcOff < 0 || data.Ptr == null) continue;
-                var srcSize = ComponentTypeMap.GetComponentType(typeIndex).size;
-                var src = data.Ptr + srcOff + row * srcSize;
+            int newRow;
+            if (storagePtr.Ptr != target.storagePtr.Ptr) {
+                ref var dstStorage = ref target.storagePtr.Ref;
+                newRow = dstStorage.AllocateRow(entityID);
 
-                if (!target.offsetMap.Mask.HasFast(typeIndex)) continue;
-                var dstOff = target.offsetMap.GetRef(typeIndex);
-                if (dstOff < 0 || target.data.Ptr == null) continue;
-                var dst = target.data.Ptr + dstOff + newRow * srcSize;
-                memcpy(dst, src, srcSize);
+                for (var i = 0; i < srcStorage.inlineTypes.length; i++) {
+                    var typeIndex = srcStorage.inlineTypes.Ptr[i];
+                    var srcOff = srcStorage.componentOffsets.Ptr[i];
+                    if (!dstStorage.offsetMap.Mask.HasFast(typeIndex)) continue;
+                    var dstOff = dstStorage.offsetMap.GetRef(typeIndex);
+                    if (dstOff < 0 || dstStorage.data.Ptr == null) continue;
+                    var size = ComponentTypeMap.GetComponentType(typeIndex).size;
+                    var src = srcStorage.data.Ptr + srcOff + row * size;
+                    var dst = dstStorage.data.Ptr + dstOff + newRow * size;
+                    memcpy(dst, src, size);
+                }
+
+                RemoveEntity(row); // swap-removes the old storage row, fixes rows of the swapped entity
+            } else {
+                newRow = row; // same storage — data stays in place
+                RemoveRowAt(loc.listPos);
             }
 
-            ref var loc = ref world->entityLocations.Ptr[entityID];
+            var listPos = target.AddRow(newRow);
             loc.archetypeIndex = target.index;
             loc.row = newRow;
-            RemoveEntity(row);
+            loc.listPos = listPos;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -402,17 +426,14 @@ namespace Wargon.Nukecs
         {
             for (var j = 0; j < types.length; j++)
             {
-                var off = componentOffsets.Ptr[j];
-                if (off < 0) continue;
                 var typeIndex = types.Ptr[j];
-                var ctData = ComponentTypeMap.GetComponentType(typeIndex);
-                var dst = data.Ptr + off + newRow * ctData.size;
+                if (ComponentTypeMap.GetCategory(typeIndex) != ComponentCategory.Inline) continue;
+                var dst = GetComponentDataPtr(typeIndex, newRow);
+                if (dst == null) continue;
                 ref var pool = ref world->GetUntypedPool(typeIndex);
                 var src = pool.UnsafeBuffer->GetPtr(entityID);
                 if (src != null)
-                    memcpy(dst, src, ctData.size);
-                else
-                    mem_clear(dst, ctData.size);
+                    memcpy(dst, src, ComponentTypeMap.GetComponentType(typeIndex).size);
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -428,11 +449,14 @@ namespace Wargon.Nukecs
 
         internal static void Destroy(ArchetypeUnsafe* archetype)
         {
-            archetype->mask.Dispose();
-            archetype->offsetMap.Dispose();
+            archetype->inlineMask.Dispose();
+            archetype->tagMask.Dispose();
+            archetype->poolMask.Dispose();
+            archetype->rows.Dispose();
             archetype->types.Dispose();
             archetype->queries.Dispose();
             archetype->transactions.Dispose();
+            // storage is shared between logical archetypes — not disposed here
             var worldPtr = archetype->world;
             worldPtr->_free(archetype);
             archetype->world = null;
@@ -457,24 +481,23 @@ namespace Wargon.Nukecs
             arch._spinner = new Spinner();
             arch.world = world;
             arch.index = index;
-            arch.count = 0;
-            arch.capacity = 0;
-            arch.packedEntities = default;
-            arch.data = default;
-            arch.componentOffsets = default;
-            arch.offsetMap = default;
-            arch.entityStride = 0;
-            arch.mask = DynamicBitmask.CreateForComponents(world);
-            arch.mask.CopyFrom(ref bitmask);
-            arch.hashId = bitmask.ComputeHash();
+            arch.storagePtr = default;
+            arch.rows = default;
+            arch.inlineMask = DynamicBitmask.CreateForComponents(world);
+            arch.tagMask = DynamicBitmask.CreateForComponents(world);
+            arch.poolMask = DynamicBitmask.CreateForComponents(world);
             arch.types = new MemoryList<int>(bitmask.Count, ref world->AllocatorRef);
             bitmask.ExtractSetBits(ref arch.types, ref world->AllocatorRef);
+            foreach (var type in arch.types)
+                AddTypeToMasks(ref arch.inlineMask, ref arch.tagMask, ref arch.poolMask, type);
+            arch.hashId = ComputeIdentityHash(ref arch.inlineMask, ref arch.tagMask, ref arch.poolMask);
             arch.queries = new MemoryList<int>(8, ref world->AllocatorRef);
             arch.transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             arch.destroyEdge = default;
             arch.PopulateQueries(world);
             arch.destroyEdge = arch.CreateDestroyEdge();
-            arch.InitPackedArrays(64);
+            arch.storagePtr = world->GetOrCreateStorage(ref arch.inlineMask);
+            arch.rows = new MemoryList<int>(8, ref world->AllocatorRef);
             return ptr;
         }
 
@@ -489,25 +512,23 @@ namespace Wargon.Nukecs
         {
             _spinner = new Spinner();
             this.world = world;
-            mask = DynamicBitmask.CreateForComponents(world);
+            inlineMask = DynamicBitmask.CreateForComponents(world);
+            tagMask = DynamicBitmask.CreateForComponents(world);
+            poolMask = DynamicBitmask.CreateForComponents(world);
             hashId = 0;
             this.index = index;
-            count = 0;
-            capacity = 0;
-            packedEntities = default;
-            data = default;
-            componentOffsets = default;
-            offsetMap = default;
-            entityStride = 0;
+            storagePtr = default;
+            rows = default;
             if (typesSpan != null)
             {
                 types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
                 foreach (var type in typesSpan)
                 {
-                    mask.Add(type);
                     types.Add(type, ref world->AllocatorRef);
                 }
-                hashId = mask.ComputeHash();
+                foreach (var type in types) AddTypeToMasks(ref inlineMask, ref tagMask, ref poolMask, type);
+                SortTypes(ref types);
+                hashId = ComputeIdentityHash(ref inlineMask, ref tagMask, ref poolMask);
             }
             else
             {
@@ -516,35 +537,34 @@ namespace Wargon.Nukecs
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
+            transactions = new HashMap<int, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             destroyEdge = default;
             PopulateQueries(world);
             destroyEdge = CreateDestroyEdge();
-            InitPackedArrays(64);
+            storagePtr = world->GetOrCreateStorage(ref inlineMask);
+            rows = new MemoryList<int>(8, ref world->AllocatorRef);
         }
         internal ArchetypeUnsafe(World.WorldUnsafe* world, int index, ref Span<int> typesSpan)
         {
             _spinner = new Spinner();
             this.world = world;
-            mask = DynamicBitmask.CreateForComponents(world);
+            inlineMask = DynamicBitmask.CreateForComponents(world);
+            tagMask = DynamicBitmask.CreateForComponents(world);
+            poolMask = DynamicBitmask.CreateForComponents(world);
             hashId = 0;
             this.index = index;
-            count = 0;
-            capacity = 0;
-            packedEntities = default;
-            data = default;
-            componentOffsets = default;
-            offsetMap = default;
-            entityStride = 0;
+            storagePtr = default;
+            rows = default;
             if (typesSpan.Length > 0)
             {
                 types = new MemoryList<int>(typesSpan.Length, ref world->AllocatorRef);
                 foreach (var type in typesSpan)
                 {
-                    mask.Add(type);
                     types.Add(type, ref world->AllocatorRef);
                 }
-                hashId = mask.ComputeHash();
+                foreach (var type in types) AddTypeToMasks(ref inlineMask, ref tagMask, ref poolMask, type);
+                SortTypes(ref types);
+                hashId = ComputeIdentityHash(ref inlineMask, ref tagMask, ref poolMask);
             }
             else
             {
@@ -553,11 +573,12 @@ namespace Wargon.Nukecs
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
+            transactions = new HashMap<int, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             destroyEdge = default;
             PopulateQueries(world);
             destroyEdge = CreateDestroyEdge();
-            InitPackedArrays(64);
+            storagePtr = world->GetOrCreateStorage(ref inlineMask);
+            rows = new MemoryList<int>(8, ref world->AllocatorRef);
         }
 
         internal ArchetypeUnsafe(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, int index, bool copyList = false)
@@ -565,18 +586,16 @@ namespace Wargon.Nukecs
             _spinner = new Spinner();
             this.world = world;
             this.index = index;
-            count = 0;
-            capacity = 0;
-            packedEntities = default;
-            data = default;
-            componentOffsets = default;
-            offsetMap = default;
-            entityStride = 0;
-            mask = DynamicBitmask.CreateForComponents(world);
+            storagePtr = default;
+            rows = default;
+            inlineMask = DynamicBitmask.CreateForComponents(world);
+            tagMask = DynamicBitmask.CreateForComponents(world);
+            poolMask = DynamicBitmask.CreateForComponents(world);
             if (typesSpan.IsCreated)
             {
                 types = typesSpan;
-                foreach (var type in typesSpan) mask.Add(type);
+                foreach (var type in typesSpan) AddTypeToMasks(ref inlineMask, ref tagMask, ref poolMask, type);
+                SortTypes(ref types);
             }
             else
             {
@@ -584,9 +603,9 @@ namespace Wargon.Nukecs
                 types = new MemoryList<int>(1, ref world->AllocatorRef);
             }
 
-            hashId = mask.ComputeHash();
+            hashId = ComputeIdentityHash(ref inlineMask, ref tagMask, ref poolMask);
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
+            transactions = new HashMap<int, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             destroyEdge = default;
             PopulateQueries(world);
             destroyEdge = CreateDestroyEdge();
@@ -595,16 +614,19 @@ namespace Wargon.Nukecs
                 types = new MemoryList<int>(typesSpan.length, ref world->AllocatorRef);
                 types.CopyFrom(ref typesSpan, ref world->AllocatorRef);
             }
-            InitPackedArrays(64);
+            storagePtr = world->GetOrCreateStorage(ref inlineMask);
+            rows = new MemoryList<int>(8, ref world->AllocatorRef);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ref Entity CreateEntity()
         {
             ref var e = ref world->CreateEntity(index);
-            var row = AllocateEntity(e.id);
+            var row = storagePtr.Ref.AllocateRow(e.id);
+            var listPos = AddRow(row);
             world->entityLocations.ElementAt(e.id) = new EntityLocation {
                 archetypeIndex = index,
-                row = row
+                row = row,
+                listPos = listPos
             };
             for (var i = 0; i < queries.Length; i++) IdToQueryRef(queries.Ptr[i]).Add(e.id);
             return ref e;
@@ -615,27 +637,31 @@ namespace Wargon.Nukecs
         {
             return BatchCreateEntity(world->lastEntityIndex, world->lastEntityIndex + amount);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Span<Entity> BatchCreateEntity(int start, int end)
         {
             var result = world->BatchCreateEntity(start, end, index);
             var cnt = end - start;
-            EnsureCapacity(cnt);
-            var baseRow = count;
+            ref var st = ref storagePtr.Ref;
+            st.EnsureCapacity(cnt);
+            var baseRow = st.count;
             for (int i = 0; i < cnt; i++)
             {
-                packedEntities.Ptr[baseRow + i] = start + i;
-                world->entityLocations.ElementAt(start + i) = new EntityLocation { archetypeIndex = index, row = baseRow + i };
+                var row = baseRow + i;
+                st.packedEntities.Ptr[row] = start + i;
+                var listPos = AddRow(row);
+                world->entityLocations.ElementAt(start + i) = new EntityLocation {
+                    archetypeIndex = index, row = row, listPos = listPos
+                };
             }
-            for (var j = 0; j < types.length; j++)
+            for (var j = 0; j < st.inlineTypes.length; j++)
             {
-                var off = componentOffsets.Ptr[j];
-                if (off < 0) continue;
-                var ctData = ComponentTypeMap.GetComponentType(types.Ptr[j]);
-                mem_clear(data.Ptr + off + baseRow * ctData.size, ctData.size * cnt);
+                var off = st.componentOffsets.Ptr[j];
+                var ctData = ComponentTypeMap.GetComponentType(st.inlineTypes.Ptr[j]);
+                mem_clear(st.data.Ptr + off + baseRow * ctData.size, ctData.size * cnt);
             }
-            count += cnt;
+            st.count += cnt;
             for (var i = 0; i < queries.Length; i++)
                 IdToQueryRef(queries.Ptr[i]).BatchAddRange(start, cnt);
             for (var i = 0; i < types.length; i++)
@@ -656,48 +682,39 @@ namespace Wargon.Nukecs
             var ids = stackalloc int[cnt];
             world->BatchCreateEntity(cnt, ids, index);
 
-            EnsureCapacity(cnt);
-            var baseRow = count;
+            ref var st = ref storagePtr.Ref;
+            st.EnsureCapacity(cnt);
+            var baseRow = st.count;
             var srcRow = world->entityLocations.Ptr[srcEntityId].row;
 
             for (int i = 0; i < cnt; i++)
             {
-                packedEntities.Ptr[baseRow + i] = ids[i];
-                world->entityLocations.Ptr[ids[i]].row = baseRow + i;
+                var row = baseRow + i;
+                st.packedEntities.Ptr[row] = ids[i];
+                var listPos = AddRow(row);
+                ref var loc = ref world->entityLocations.Ptr[ids[i]];
+                loc.row = row;
+                loc.listPos = listPos;
                 outEntities[i] = new Entity(ids[i], world->Id);
             }
 
-            for (var j = 0; j < types.length; j++)
+            for (var j = 0; j < st.inlineTypes.length; j++)
             {
-                var off = componentOffsets.Ptr[j];
-                if (off < 0) continue;
-                var typeIndex = types.Ptr[j];
+                var off = st.componentOffsets.Ptr[j];
+                var typeIndex = st.inlineTypes.Ptr[j];
                 var ctData = ComponentTypeMap.GetComponentType(typeIndex);
-                if (ctData.storageType == StorageType.Pool)
-                {
-                    ref var pool = ref world->GetUntypedPool(typeIndex);
-                    for (int i = 0; i < cnt; i++)
-                    {
-                        pool.Copy(srcEntityId, ids[i]);
-                    }
-                    continue;
-                }
-
-                var srcPtr = data.Ptr + off + srcRow * ctData.size;
-                var baseDst = data.Ptr + off + baseRow * ctData.size;
+                var srcPtr = st.data.Ptr + off + srcRow * ctData.size;
+                var baseDst = st.data.Ptr + off + baseRow * ctData.size;
                 if (ctData.isCopyable)
                 {
                     for (var i = 0; i < cnt; i++)
                     {
-                        if (ctData.isCopyable)
-                        {
-                            ctData.CopyFn().Invoke(srcPtr, 
-                                baseDst + i * ctData.size,
-                                0, 
-                                ids[i], 
-                                0, 
-                                0);
-                        }
+                        ctData.CopyFn().Invoke(srcPtr,
+                            baseDst + i * ctData.size,
+                            0,
+                            ids[i],
+                            0,
+                            0);
                     }
                     continue;
                 }
@@ -706,8 +723,19 @@ namespace Wargon.Nukecs
                     memcpy(baseDst + i * ctData.size, srcPtr, ctData.size);
                 }
             }
+            st.count += cnt;
 
-            count += cnt;
+            for (var i = 0; i < types.length; i++)
+            {
+                var typeIndex = types.Ptr[i];
+                var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+                if (ctData.storageType != StorageType.Pool) continue;
+                ref var pool = ref world->GetUntypedPool(typeIndex);
+                for (int k = 0; k < cnt; k++)
+                {
+                    pool.Copy(srcEntityId, ids[k]);
+                }
+            }
 
             for (var i = 0; i < queries.Length; i++)
                 IdToQueryRef(queries.Ptr[i]).BatchAddRange(0, cnt);
@@ -723,7 +751,7 @@ namespace Wargon.Nukecs
         internal void CheckQuery(in ptr<QueryUnsafe> query)
         {
             if(index == 0) return;
-            
+
             ref var q = ref query.Ref;
             var matches = 0;
             var hasNone = false;
@@ -755,7 +783,7 @@ namespace Wargon.Nukecs
         internal void PopulateQueries(World.WorldUnsafe* worldPtr)
         {
             if(index == 0) return;
-            
+
             for (var i = 0; i < worldPtr->queries.Length; i++)
             {
                 ref var q = ref worldPtr->queries[i];
@@ -818,16 +846,12 @@ namespace Wargon.Nukecs
                     ref var pool = ref world->GetUntypedPool(typeIndex);
                     pool.Copy(from, to);
                 }
-                else
+                else if (ctData.category == ComponentCategory.Inline)
                 {
-                    var off = componentOffsets.Ptr[i];
-                    if (off >= 0)
-                    {
-                        memcpy(
-                            data.Ptr + off + toRow * ctData.size,
-                            data.Ptr + off + fromRow * ctData.size,
-                            ctData.size);
-                    }
+                    var src = GetComponentDataPtr(typeIndex, fromRow);
+                    var dst = GetComponentDataPtr(typeIndex, toRow);
+                    if (src != null && dst != null)
+                        memcpy(dst, src, ctData.size);
                 }
             }
         }
@@ -837,10 +861,12 @@ namespace Wargon.Nukecs
         internal Entity Copy(int entity)
         {
             var newEntity = world->CreateEntity(index);
-            var newRow = AllocateEntity(newEntity.id);
+            var newRow = storagePtr.Ref.AllocateRow(newEntity.id);
+            var listPos = AddRow(newRow);
             world->entityLocations.Ptr[newEntity.id] = new EntityLocation {
                 archetypeIndex = index,
-                row = newRow
+                row = newRow,
+                listPos = listPos
             };
             for (var i = 0; i < queries.Length; i++)
             {
@@ -859,20 +885,16 @@ namespace Wargon.Nukecs
                     ref var pool = ref world->GetUntypedPool(typeIndex);
                     pool.Copy(entity, newEntity.id);
                 }
-                else
+                else if (ctData.category == ComponentCategory.Inline)
                 {
-                    var off = componentOffsets.Ptr[i];
-                    if (off >= 0)
-                    {
-                        memcpy(
-                            data.Ptr + off + newRow * ctData.size,
-                            data.Ptr + off + srcRow * ctData.size,
-                            ctData.size);
-                    }
+                    var src = GetComponentDataPtr(typeIndex, srcRow);
+                    var dst = GetComponentDataPtr(typeIndex, newRow);
+                    if (src != null && dst != null)
+                        memcpy(dst, src, ctData.size);
                 }
             }
 
-            if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
+            if (Has(ComponentType<ComponentArray<Child>>.Index))
             {
                 ref var fromC = ref GetComponent<ComponentArray<Child>>(entity);
                 ref var to = ref GetComponent<ComponentArray<Child>>(newEntity.id);
@@ -894,10 +916,12 @@ namespace Wargon.Nukecs
         internal Entity Copy(in Entity entity)
         {
             var newEntity = world->CreateEntity(index);
-            var newRow = AllocateEntity(newEntity.id);
+            var newRow = storagePtr.Ref.AllocateRow(newEntity.id);
+            var listPos = AddRow(newRow);
             world->entityLocations.Ptr[newEntity.id] = new EntityLocation {
                 archetypeIndex = index,
-                row = newRow
+                row = newRow,
+                listPos = listPos
             };
             for (var i = 0; i < queries.Length; i++)
             {
@@ -916,33 +940,25 @@ namespace Wargon.Nukecs
                     ref var pool = ref world->GetUntypedPool(typeIndex);
                     pool.Copy(entity.id, newEntity.id);
                 }
-                else
+                else if (ctData.category == ComponentCategory.Inline)
                 {
-                    var off = componentOffsets.Ptr[i];
-                    if (off >= 0)
+                    var src = GetComponentDataPtr(typeIndex, srcRow);
+                    var dst = GetComponentDataPtr(typeIndex, newRow);
+                    if (src != null && dst != null)
                     {
                         if (ctData.isCopyable)
                         {
-                            ctData.CopyFn().Invoke(
-                                data.Ptr + off + srcRow * ctData.size, 
-                                data.Ptr + off + newRow * ctData.size, 
-                                entity.id, 
-                                newEntity.id, 
-                                0, 
-                                0);
+                            ctData.CopyFn().Invoke(src, dst, entity.id, newEntity.id, 0, 0);
                         }
                         else
                         {
-                            memcpy(
-                                data.Ptr + off + newRow * ctData.size,
-                                data.Ptr + off + srcRow * ctData.size,
-                                ctData.size);
+                            memcpy(dst, src, ctData.size);
                         }
                     }
                 }
             }
 
-            if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
+            if (Has(ComponentType<ComponentArray<Child>>.Index))
             {
                 ref var fromC = ref GetComponent<ComponentArray<Child>>(entity.id);
                 ref var to = ref GetComponent<ComponentArray<Child>>(newEntity.id);
@@ -964,7 +980,7 @@ namespace Wargon.Nukecs
 #endif
         public void Destroy(int entity)
         {
-            if (mask.Has(ComponentType<ComponentArray<Child>>.Index))
+            if (Has(ComponentType<ComponentArray<Child>>.Index))
             {
                 ref var pool = ref world->GetPool<ComponentArray<Child>>();
                 ref var children = ref pool.GetRef<ComponentArray<Child>>(entity);
@@ -996,12 +1012,11 @@ namespace Wargon.Nukecs
                     ref var pool = ref world->GetUntypedPool(typeIndex);
                     pool.WriteBytes(eData.Entity, eData.Components[i]);
                 }
-                else
+                else if (ctData.category == ComponentCategory.Inline)
                 {
-                    var off = componentOffsets.Ptr[i];
-                    if (off >= 0)
+                    var dst = GetComponentDataPtr(typeIndex, loc.row);
+                    if (dst != null)
                     {
-                        var dst = this.data.Ptr + off + loc.row * ctData.size;
                         fixed (byte* src = eData.Components[i])
                             memcpy(dst, src, ctData.size);
                     }
@@ -1054,7 +1069,8 @@ namespace Wargon.Nukecs
         private void CreateTransaction(int component)
         {
             var remove = component < 0;
-            var newTypes = new MemoryList<int>(remove ? mask.Count - 1 : mask.Count + 1, ref world->AllocatorRef);
+            var totalTypes = inlineMask.Count + tagMask.Count + poolMask.Count;
+            var newTypes = new MemoryList<int>(remove ? totalTypes - 1 : totalTypes + 1, ref world->AllocatorRef);
             var positiveComponent = math.abs(component);
             foreach (var type in types)
                 if ((remove && type == positiveComponent) == false)
@@ -1098,13 +1114,9 @@ namespace Wargon.Nukecs
                 }
                 else
                 {
-                    var localIdx = GetComponentLocalIndex(typeIndex);
-                    var off = componentOffsets.Ptr[localIdx];
-                    if (off >= 0)
-                    {
-                        var src = data.Ptr + off + loc.row * ctData.size;
+                    var src = GetComponentDataPtr(typeIndex, loc.row);
+                    if (src != null)
                         buffer.Add(ComponentHelpers.Read(src, 0, ctData.size, typeIndex));
-                    }
                 }
             }
 
@@ -1169,15 +1181,15 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static bool Has<T>(this ref ArchetypeUnsafe archetype) where T : unmanaged
         {
-            if(!archetype.mask.IsCreated) throw new Exception("Archetype mask is not created");
-            return archetype.mask.Has(ComponentType<T>.Index);
+            if(!archetype.inlineMask.IsCreated) throw new Exception("Archetype mask is not created");
+            return archetype.Has(ComponentType<T>.Index);
         }
 
         [BurstCompile]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Has(this ref ArchetypeUnsafe archetype, int type)
         {
-            return archetype.mask.Has(type);
+            return archetype.Has(type);
         }
     }
     [Serializable]

@@ -197,7 +197,9 @@ namespace Wargon.Nukecs.Editor
             for (int i = 0; i < w->archetypesList.Length; i++)
             {
                 var arch = w->archetypesList.Ptr[i].Ptr;
-                total += arch->mask.GetMemorySizeUsed();
+                total += arch->inlineMask.GetMemorySizeUsed();
+                total += arch->tagMask.GetMemorySizeUsed();
+                total += arch->poolMask.GetMemorySizeUsed();
                 total += arch->types.GetMemorySizeUsed();
                 total += arch->queries.GetMemorySizeUsed();
                 total += arch->transactions.GetMemorySizeUsed();

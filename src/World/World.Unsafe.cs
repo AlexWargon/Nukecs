@@ -32,6 +32,9 @@ namespace Wargon.Nukecs
             internal HashMap<int, Archetype> archetypesMap;
             internal DynamicBitmask tempMask;
             public MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
+            // Storage archetypes: data-buffer owners keyed by inline mask, shared between logical archetypes.
+            public MemoryList<ptr<StorageArchetype>> storagesList;
+            internal HashMap<int, ptr<StorageArchetype>> storagesMap;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
             internal MemoryList<ptr<QueryUnsafe>> queries;
@@ -104,6 +107,8 @@ namespace Wargon.Nukecs
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                storagesList = new MemoryList<ptr<StorageArchetype>>(32, ref AllocatorRef, clear:true);
+                storagesMap = new HashMap<int, ptr<StorageArchetype>>(32, ref AllocatorHandler);
                 queriesHashToIndex = new HashMap<int, int>(64, ref AllocatorHandler);
                 
                 DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef, clear:true);
@@ -536,30 +541,34 @@ namespace Wargon.Nukecs
             internal ref ArchetypeUnsafe GetArchetypeNoneIsPrefab(in Entity prefab)
             {
                 ref var prefabArchetype = ref prefab.ArchetypeRef;
-                tempMask.CopyFrom(ref prefabArchetype.mask);
+                prefabArchetype.CopyMasksTo(ref tempMask);
                 tempMask.Remove(ComponentType<IsPrefab>.Index);
                 ref var targetArch = ref GetOrCreateArchetype(ref tempMask).ptr.Ref;
                 tempMask.Clear();
                 return ref targetArch;
             }
-            internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false) {
+            internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false, int mapKey = -1) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx, copyList);
+                if (mapKey >= 0) ptr.Ptr->hashId = mapKey;
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
+                ptr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-            internal Archetype CreateArchetype(ref Span<int> types) {
+            internal Archetype CreateArchetype(ref Span<int> types, int mapKey = -1) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, idx, ref types);
+                if (mapKey >= 0) ptr.Ptr->hashId = mapKey;
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
+                ptr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
@@ -567,13 +576,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal void CreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
-                var idx = archetypesList.length;
-                var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx);
-                archetype = new Archetype();
-                archetype.ptr = archetypePtr;
-                archetypesList.Add(in archetypePtr, ref AllocatorRef);
-                archetypesMap[archetypePtr.Ptr->hashId] = archetype;
-                //return archetype;
+                archetype = CreateArchetype(ref types);
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -590,6 +593,7 @@ namespace Wargon.Nukecs
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
+                ptr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
@@ -598,22 +602,28 @@ namespace Wargon.Nukecs
 #endif
             internal Archetype GetOrCreateArchetype(ref Span<int> types) {
                 var hash = DynamicBitmask.ComputeHash((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length);
-                if (archetypesMap.TryGetValue(hash, out var archetype)) {
-                    return archetype;
+                // Linear probing with equality re-check: a 32-bit hash collision between
+                // different type sets must not silently alias two archetypes.
+                while (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    if (archetype.Unsafe->MatchesTypes((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length))
+                        return archetype;
+                    hash++;
                 }
-                return CreateArchetype(ref types);
+                return CreateArchetype(ref types, hash);
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal Archetype GetOrCreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var hash = DynamicBitmask.ComputeHash(types.Ptr, types.length);
-                if (archetypesMap.TryGetValue(hash, out var archetype)) {
-                    types.Dispose();
-                    return archetype;
+                while (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    if (archetype.Unsafe->MatchesTypes(types.Ptr, types.length)) {
+                        types.Dispose();
+                        return archetype;
+                    }
+                    hash++;
                 }
-                
-                return CreateArchetype(ref types);
+                return CreateArchetype(ref types, copyList, hash);
             }
             [BurstDiscard]
 #if !NUKECS_DEBUG
@@ -626,18 +636,23 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype GetOrCreateArchetype(ref DynamicBitmask mask) {
                 var hash = mask.ComputeHash();
-                if (archetypesMap.TryGetValue(hash, out var archetype))
-                    return archetype;
-                return CreateArchetype(ref mask);
+                while (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    if (archetype.Unsafe->FullMaskEquals(ref mask))
+                        return archetype;
+                    hash++;
+                }
+                return CreateArchetype(ref mask, hash);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype CreateArchetype(ref DynamicBitmask mask) {
+            internal Archetype CreateArchetype(ref DynamicBitmask mask, int mapKey = -1) {
                 var idx = archetypesList.length;
                 var archetypePtr = ArchetypeUnsafe.CreatePtrFromBitmask(Self, idx, ref mask);
+                if (mapKey >= 0) archetypePtr.Ptr->hashId = mapKey;
                 Archetype archetype;
                 archetype.ptr = archetypePtr;
                 archetypesList.Add(in archetypePtr, ref AllocatorRef);
+                archetypePtr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[archetypePtr.Ptr->hashId] = archetype;
                 return archetype;
             }
@@ -645,6 +660,26 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype GetArchetype(int hash) {
                 return archetypesMap[hash];
+            }
+
+            /// <summary>
+            /// Returns the shared data owner for the given inline mask, creating it on first use.
+            /// Linear probing with mask equality re-check against hash collisions.
+            /// </summary>
+            internal ptr<StorageArchetype> GetOrCreateStorage(ref DynamicBitmask inlineMask) {
+                var hash = inlineMask.ComputeHash();
+                while (storagesMap.TryGetValue(hash, out var existing)) {
+                    if (existing.Ref.inlineMask.SequenceEqual(ref inlineMask)) {
+                        existing.Ref.refCount++;
+                        return existing;
+                    }
+                    hash++;
+                }
+                var idx = storagesList.length;
+                var ptr = StorageArchetype.CreatePtr(Self, idx, ref inlineMask);
+                storagesList.Add(in ptr, ref AllocatorRef);
+                storagesMap[hash] = ptr;
+                return ptr;
             }
 
             internal void Update()

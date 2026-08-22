@@ -152,6 +152,10 @@ namespace Wargon.Nukecs
         {
             if (ComponentTypes.Data.ContainsKey(index)) return ComponentTypes.Data[index];
             var size = UnsafeUtility.SizeOf<T>();
+            var isPool = typeof(IPoolComponent).IsAssignableFrom(typeof(T));
+            // A tag is a field-less component: empty structs report SizeOf == 1 in C#,
+            // but a struct with a real 1-byte field (e.g. `bool IsDead`) is inline data, not a tag.
+            var isTagType = !isPool && size == 1 && typeof(T).GetFields().Length == 0;
             var data = new ComponentTypeData
             {
                 align = UnsafeUtility.AlignOf<T>(),
@@ -163,15 +167,21 @@ namespace Wargon.Nukecs
                     .Any(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICopyable<>)),
                 isArray = typeof(T).IsGenericType && typeof(T).GetGenericTypeDefinition() == typeof(ComponentArray<>),
                 IsArrayElement = typeof(T).GetInterfaces().Any(i => i == typeof(IArrayComponent)),
-                storageType = typeof(IPoolComponent).IsAssignableFrom(typeof(T))
+                storageType = isPool
                     ? StorageType.Pool
-                    : StorageType.Archetype
+                    : StorageType.Archetype,
+                category = isPool
+                    ? ComponentCategory.Pool
+                    : (isTagType ? ComponentCategory.Tag : ComponentCategory.Inline)
             };
             ComponentTypes.Data.TryAdd(index, data);
             TypeToComponentType.Map.TryAdd(typeof(T), data);
             _cache.Add(typeof(T), index);
             return data;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentCategory GetCategory(int index) => ComponentTypes.Data[index].category;
         internal static void AddElementType(ComponentTypeData componentTypeData, int index)
         {
             ElementTypes.Data[index] = componentTypeData;

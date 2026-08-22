@@ -19,6 +19,33 @@ namespace Wargon.Nukecs
     {
         internal ptr<WorldUnsafe> unsafeWorldPtr;
 
+        /// <summary>Debug helper: dumps archetypes, storages and queries as text.</summary>
+        public string DumpArchetypes()
+        {
+            var w = UnsafeWorld;
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"worldQueries={w->queries.length} archetypes={w->archetypesList.length} storages={w->storagesList.length}");
+            for (var i = 0; i < w->archetypesList.length; i++)
+            {
+                ref var arch = ref w->archetypesList.Ptr[i].Ref;
+                var typeNames = new System.Text.StringBuilder();
+                foreach (var t in arch.types)
+                    typeNames.Append(ComponentTypeMap.GetType(t)?.Name).Append('(')
+                        .Append(ComponentTypeMap.GetCategory(t)).Append(") ");
+                sb.AppendLine($"  arch[{i}] types=[{typeNames}] rows={arch.rows.length} qCount={arch.queries.length} " +
+                              $"storageIdx={arch.storagePtr.Ref.index} storageRef={arch.storagePtr.Ref.refCount}");
+            }
+            for (var i = 0; i < w->queries.length; i++)
+            {
+                ref var q = ref w->queries.Ptr[i].Ref;
+                var withNames = new System.Text.StringBuilder();
+                foreach (var t in ComponentTypeMap.TypesIndexes)
+                    if (q.HasWith(t)) withNames.Append(ComponentTypeMap.GetType(t)?.Name).Append(' ');
+                sb.AppendLine($"  query[{i}] with=[{withNames}] matching={q.matchingArchetypes.length} count={q.count}");
+            }
+            return sb.ToString();
+        }
+
         public WorldUnsafe* UnsafeWorld
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -10,7 +10,9 @@ namespace Wargon.Nukecs
         private int componentCount;
         private int current;
         private int* _entities;
-        
+        private int* _rows;
+        private int _rowIdx;
+
         private Entity* _allEntities;
         private Entity _entity;
         private Range _range;
@@ -21,8 +23,16 @@ namespace Wargon.Nukecs
         }
         public void Add()
         {
-            _entities++;
             current++;
+            if (_rows != null)
+            {
+                _rowIdx++;
+                _entities += _rows[_rowIdx] - _rows[_rowIdx - 1];
+            }
+            else
+            {
+                _entities++;
+            }
             _entity = _allEntities[*_entities];
             for (var i = 0; i < componentCount; i++)
             {
@@ -38,6 +48,10 @@ namespace Wargon.Nukecs
             var entitiesCount = _range.end - range.start + 1;
             _entities = localEntities;
             _allEntities = globalEntities;
+            _rows = archetype.RowsAreDense ? null : archetype.rows.Ptr;
+            _rowIdx = range.start;
+            if (_rows != null) _entities += _rows[range.start];
+            else _entities += range.start;
             componentIndexes = archetype.types.Ptr;
             componentCount = archetype.types.length;
             byte* ptr = archetype.data.Ptr;
@@ -58,11 +72,26 @@ namespace Wargon.Nukecs
                 {
                     Array.Resize(ref components, entitiesCount);
                 }
-                var cptr = ptr + archetype.GetComponentOffset(index);
-                var componentsPtr = System.Runtime.CompilerServices.Unsafe.AsPointer(ref components);
                 var data = ComponentTypeMap.GetComponentType(index);
-                System.Runtime.CompilerServices.Unsafe
-                    .CopyBlock(componentsPtr, cptr, (uint)(entitiesCount * data.size));
+                if (data.category != ComponentCategory.Inline)
+                    continue;
+                var componentsPtr = System.Runtime.CompilerServices.Unsafe.AsPointer(ref components);
+                if (_rows == null)
+                {
+                    var cptr = ptr + archetype.GetComponentOffset(archetype.GetComponentLocalIndex(index));
+                    System.Runtime.CompilerServices.Unsafe
+                        .CopyBlock(componentsPtr, cptr, (uint)(entitiesCount * data.size));
+                }
+                else
+                {
+                    for (var r = 0; r < entitiesCount; r++)
+                    {
+                        var src = archetype.GetComponentDataPtr(index, _rows[range.start + r]);
+                        if (src == null) continue;
+                        System.Runtime.CompilerServices.Unsafe
+                            .CopyBlock((byte*)componentsPtr + r * data.size, src, (uint)data.size);
+                    }
+                }
             }
         }
     }

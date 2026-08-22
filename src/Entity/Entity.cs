@@ -118,6 +118,12 @@ namespace Wargon.Nukecs
             var worldPtr = entity.worldPointer;
             ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
             ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            if (componentType.category == ComponentCategory.Tag)
+            {
+                if (arch.Has(componentType.index))
+                    return ref *TagSlotStub<T>.GetPtr(); // tags carry no data
+                throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
+            }
             if (arch.offsetMap.Mask.HasFast(componentType.index))
             {
                 var off = arch.offsetMap.GetRef(componentType.index);
@@ -140,6 +146,8 @@ namespace Wargon.Nukecs
             exist = entity.ArchetypeRef.Has(componentType);
             if (exist)
             {
+                if (ComponentType<T>.Data.category == ComponentCategory.Tag)
+                    return ref *TagSlotStub<T>.GetPtr(); // tags carry no data
                 var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
                 var ptr = entity.ArchetypeRef.GetComponentDataPtr(componentType, loc.row);
                 return ref *(T*)ptr;

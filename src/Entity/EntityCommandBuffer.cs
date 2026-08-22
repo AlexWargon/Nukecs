@@ -281,7 +281,7 @@ namespace Wargon.Nukecs {
                 var originalArchIdx = w->entityLocations.Ptr[entity].archetypeIndex;
                 ref var originalArch = ref w->archetypesList.Ptr[originalArchIdx].Ref;
 
-                tempMask.CopyFrom(ref originalArch.mask);
+                originalArch.CopyMasksTo(ref tempMask);
                 var destroyed = false;
 
                 for (var i = 0; i < count; i++) {
@@ -342,10 +342,12 @@ namespace Wargon.Nukecs {
                     ref var dstArch = ref *targetArch.Unsafe;
 
                     if (originalArchIdx == 0) {
-                        var newRow = dstArch.AllocateEntity(entity);
+                        var newRow = dstArch.storagePtr.Ref.AllocateRow(entity);
+                        var listPos = dstArch.AddRow(newRow);
                         w->entityLocations.Ptr[entity] = new EntityLocation {
                             archetypeIndex = targetArchIdx,
-                            row = newRow
+                            row = newRow,
+                            listPos = listPos
                         };
                         WriteComponentData(dataBuffer, ref dstArch, newRow, cmds, count);
                         for (var qi = 0; qi < dstArch.queries.length; qi++) {
@@ -368,7 +370,7 @@ namespace Wargon.Nukecs {
                     ref var cmd = ref cmds[i];
                     if (cmd.EcbCommandType != ECBCommand.Type.AddComponent) continue;
                     var ctData = ComponentTypeMap.GetComponentType(cmd.ComponentType);
-                    if (ctData.storageType != StorageType.Archetype) continue;
+                    if (ctData.category != ComponentCategory.Inline) continue;
                     var localIdx = dstArch.GetComponentLocalIndex(cmd.ComponentType);
                     if (localIdx < 0) continue;
                     var off = dstArch.componentOffsets.Ptr[localIdx];
