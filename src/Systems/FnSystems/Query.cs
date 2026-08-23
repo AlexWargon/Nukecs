@@ -852,7 +852,12 @@ namespace Wargon.Nukecs
         {
             return new QueryChunkIter<Chunk<T1, T2, T3>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        // ReSharper disable once MethodOverloadWithOptionalParameter
+        public readonly QueryChunkIter<Chunk<T1, T2, T3, TOption>> iter_chunk(bool withOption = true)
+        {
+            return new QueryChunkIter<Chunk<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryParIter<PtrTuple<T1, T2, T3, TOption>> par_iter_unsafe()
         {

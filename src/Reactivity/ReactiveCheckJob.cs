@@ -59,7 +59,7 @@ namespace Wargon.Nukecs.Reactivity
                     byte* oldPtr = valuesBase + oldOffset;
                     if (UnsafeUtility.MemCmp(currentPtr, oldPtr, sz) != 0)
                     {
-                        UnsafeUtility.MemCpy(oldPtr, currentPtr, sz);
+                        UnsafeStatic.memcpy(oldPtr, currentPtr, sz);
                         changed.EnqueuePar(id);
                     }
                 }
