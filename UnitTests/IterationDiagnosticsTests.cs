@@ -124,6 +124,21 @@ namespace Wargon.Nukecs.Tests
             if (acc == float.MinValue) dbug.log("never");
         }
 
+        // direct A/B: old tuple iterator created explicitly (storage ctor), same body as bench
+        [System]
+        public static unsafe void ManagedIter4TupleDirect(ref Query<DbgC1, DbgC2, DbgC3, DbgC4> query, ref State state)
+        {
+            query.TryGetQuery(out var qi);
+            var it = qi.Ptr->TryUseStorageIteration()
+                ? new QueryIter<RefTuple<DbgC1, DbgC2, DbgC3, DbgC4>>(qi.Ptr)
+                : new QueryIter<RefTuple<DbgC1, DbgC2, DbgC3, DbgC4>>(in qi.Ref.matchingArchetypes, qi.Ref.world);
+            foreach (var (c1, c2, c3, c4) in it)
+            {
+                c1.Get.val += c2.Read.val;
+                c3.Get.val += c4.Read.val;
+            }
+        }
+
         [System]
         public static unsafe void RawStorageLoopSystem(ref Query<DbgPos, DbgVel> query, ref State state)
         {
@@ -214,8 +229,11 @@ namespace Wargon.Nukecs.Tests
             systemsCurrentOnly.Add(DbgIterSystems.ManagedIter4CurrentOnly, Threads.Main);
             var systemsDeconstructOnly = new Systems(ref world);
             systemsDeconstructOnly.Add(DbgIterSystems.ManagedIter4DeconstructOnly, Threads.Main);
+            var systemsTupleDirect = new Systems(ref world);
+            systemsTupleDirect.Add(DbgIterSystems.ManagedIter4TupleDirect, Threads.Main);
             Measure(30, () => systemsCurrentOnly.OnUpdate(0.016f, 0f), "iter4 CurrentOnly      ");
             Measure(30, () => systemsDeconstructOnly.OnUpdate(0.016f, 0f), "iter4 DeconstructOnly  ");
+            Measure(30, () => systemsTupleDirect.OnUpdate(0.016f, 0f), "iter4 TUPLE direct     ");
 
             var sum = 0;
             Measure(30, () => { foreach (ref var e in q) sum++; }, "fluent enumerator empty");

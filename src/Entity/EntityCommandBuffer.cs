@@ -8,6 +8,13 @@ namespace Wargon.Nukecs {
     using Unity.Collections.LowLevel.Unsafe;
     using Unity.Jobs.LowLevel.Unsafe;
     using static UnsafeStatic;
+
+    /// <summary>Diagnostics-only switch: skips per-entity query bookkeeping in ECB
+    /// playback (BatchMigrateQueries). Counts become stale — never enable in gameplay.</summary>
+    public static class QueryBookkeepingBypass {
+        public static bool Disabled;
+    }
+
     public unsafe struct EntityCommandBuffer : IDisposable {
         [NativeDisableUnsafePtrRestriction] private ECBInternal* ecb;
 
@@ -359,7 +366,8 @@ namespace Wargon.Nukecs {
                         srcArch.MoveEntityTo(loc.row, ref dstArch);
                         var newRow = w->entityLocations.Ptr[entity].row;
                         WriteComponentData(dataBuffer, ref dstArch, newRow, cmds, count);
-                        ArchetypeUnsafe.BatchMigrateQueries(ref srcArch, ref dstArch, entity);
+                        if (!QueryBookkeepingBypass.Disabled)
+                            ArchetypeUnsafe.BatchMigrateQueries(ref srcArch, ref dstArch, entity);
                     }
                 }
             }

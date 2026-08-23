@@ -73,13 +73,13 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        internal Query With(int componentIndex)
+        public Query With(int componentIndex)
         {
             queryUnsafe->With(componentIndex);
             return this;
         }
 
-        internal Query None(int componentIndex)
+        public Query None(int componentIndex)
         {
             queryUnsafe->None(componentIndex);
             return this;
