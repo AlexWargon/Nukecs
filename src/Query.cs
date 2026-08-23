@@ -551,14 +551,15 @@ namespace Wargon.Nukecs
             // Parallel system runners call Update(range) inside jobs — a rebuild may be
             // triggered from any thread. Serialize rebuild + snapshot reads with the world
             // spinner so iterators never observe a half-built list.
-            w->spinner.Acquire();
+            //w->spinner.Acquire();
             if (storageMasksDirty
                 || storagesBuiltForLen != w->storagesList.length
                 || storagesBuiltAtVersion != w->version)
             {
                 RebuildMatchingStorages();
             }
-            w->spinner.Release();
+            //w->spinner.Release();
+            
             return matchingStorages;
         }
 

@@ -981,6 +981,290 @@ namespace Wargon.Nukecs
         }
     }
     
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Ref4<T1, T2, T3, T4>
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+        where T4 : unmanaged
+    {
+        [NativeDisableUnsafePtrRestriction] public Ref<T1> p0;
+        [NativeDisableUnsafePtrRestriction] public Ref<T2> p1;
+        [NativeDisableUnsafePtrRestriction] public Ref<T3> p2;
+        [NativeDisableUnsafePtrRestriction] public Ref<T4> p3;
+
+        public Ref<T1> _p1 => p0;
+        public Ref<T2> _p2 => p1;
+        public Ref<T3> _p3 => p2;
+        public Ref<T4> _p4 => p3;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Deconstruct(
+            out Ref<T1> c0,
+            out Ref<T2> c1,
+            out Ref<T3> c2,
+            out Ref<T4> c3)
+        {
+            c0 = p0; c1 = p1; c2 = p2; c3 = p3;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Deconstruct(
+            out Ref<T1> c0,
+            out Ref<T2> c1,
+            out Ref<T3> c2)
+        {
+            c0 = p0; c1 = p1; c2 = p2;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe ref struct QueryRefIter4<T1, T2, T3, TOpt>
+        where T1 : unmanaged
+        where T2 : unmanaged, IComponent
+        where T3 : unmanaged, IComponent
+        where TOpt : unmanaged
+    {
+        private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+        private static readonly bool T1IsTag = !T1IsEntity && ComponentType<T1>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T2IsComponent = QueryParamInfo<T2>.IsComponent;
+        private static readonly bool T2IsTag = T2IsComponent && ComponentType<T2>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T3IsComponent = QueryParamInfo<T3>.IsComponent;
+        private static readonly bool T3IsTag = T3IsComponent && ComponentType<T3>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T4IsComponent = QueryParamInfo<TOpt>.IsComponent;
+        private static readonly bool T4IsTag = T4IsComponent && ComponentType<TOpt>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T1IsPool = !T1IsEntity && ComponentType<T1>.Data.category == ComponentCategory.Pool;
+        private static readonly bool T2IsPool = T2IsComponent && ComponentType<T2>.Data.category == ComponentCategory.Pool;
+        private static readonly bool T3IsPool = T3IsComponent && ComponentType<T3>.Data.category == ComponentCategory.Pool;
+        private static readonly bool T4IsPool = T4IsComponent && ComponentType<TOpt>.Data.category == ComponentCategory.Pool;
+        private static readonly bool FastPathLayout = !T1IsEntity && !T1IsTag && !T1IsPool
+            && !T2IsTag && !T2IsPool
+            && !T3IsTag && !T3IsPool
+            && T4IsComponent && !T4IsTag && !T4IsPool;
+
+        [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
+        private readonly int _archesLen;
+        [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
+        private int _archIndex;
+        private int _remaining;
+        private Ref4<T1, T2, T3, TOpt> _tuple;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _listIdx;
+        private int _curRow;
+        private readonly bool _storageMode;
+        private readonly bool _fast;
+        private readonly bool _t4;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
+        [NativeDisableUnsafePtrRestriction] private GenericPool* _pool1;
+        [NativeDisableUnsafePtrRestriction] private GenericPool* _pool2;
+        [NativeDisableUnsafePtrRestriction] private GenericPool* _pool3;
+        [NativeDisableUnsafePtrRestriction] private GenericPool* _pool4;
+        [NativeDisableUnsafePtrRestriction] private int* _packed;
+        [NativeDisableUnsafePtrRestriction] private Entity* _ents;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryRefIter4(in MemoryList<int> arches, World.WorldUnsafe* world)
+        {
+            _arches = arches.Ptr;
+            _archesLen = arches.Length;
+            _world = world;
+            _archIndex = -1;
+            _remaining = 0;
+            _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _curRow = 0;
+            _storageMode = false;
+            _fast = FastPathLayout;
+            _t4 = T4IsComponent;
+            _storages = null;
+            _storagesLen = 0;
+            _pool1 = null;
+            _pool2 = null;
+            _pool3 = null;
+            _pool4 = null;
+            _packed = null;
+            _ents = world->entities.Ptr;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryRefIter4(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.Length;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _remaining = 0;
+            _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _curRow = 0;
+            _fast = false;
+            _t4 = T4IsComponent;
+            _pool1 = null;
+            _pool2 = null;
+            _pool3 = null;
+            _pool4 = null;
+            _packed = null;
+            _ents = _world->entities.Ptr;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryRefIter4<T1, T2, T3, TOpt> GetEnumerator() => this;
+
+        public ref Ref4<T1, T2, T3, TOpt> Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                fixed (Ref4<T1, T2, T3, TOpt>* p = &_tuple)
+                    return ref *p;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void Advance(int row, int delta)
+        {
+            if (delta == 0) return;
+            if (T1IsEntity)
+            {
+                _packed += delta;
+                _tuple.p0.data = (T1*)(_ents + *_packed);
+            }
+            else if (T1IsPool) _tuple.p0.data = (T1*)_pool1->UnsafeGetPtr(_packed[row]);
+            else if (!T1IsTag) _tuple.p0.data += delta;
+            if (T2IsPool) _tuple.p1.data = (T2*)_pool2->UnsafeGetPtr(_packed[row]);
+            else if (!T2IsTag) _tuple.p1.data += delta;
+            if (T3IsPool) _tuple.p2.data = (T3*)_pool3->UnsafeGetPtr(_packed[row]);
+            else if (!T3IsTag) _tuple.p2.data += delta;
+            if (_t4)
+            {
+                if (T4IsPool) _tuple.p3.data = (TOpt*)_pool4->UnsafeGetPtr(_packed[row]);
+                else if (!T4IsTag) _tuple.p3.data += delta;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            if (_remaining > 0)
+            {
+                _remaining--;
+                if (_rows != null)
+                {
+                    var row = _rows[++_listIdx];
+                    var delta = row - _curRow;
+                    _curRow = row;
+                    Advance(row, delta);
+                    return true;
+                }
+                if (_fast)
+                {
+                    _tuple.p0.data++;
+                    _tuple.p1.data++;
+                    _tuple.p2.data++;
+                    _tuple.p3.data++;
+                    return true;
+                }
+                _curRow++;
+                Advance(_curRow, 1);
+                return true;
+            }
+
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    ref var st = ref _world->storagesList.Ptr[_storages[_archIndex]].Ref;
+                    var count = st.count;
+                    if (count <= 0) continue;
+                    var ptr = st.data.Ptr;
+                    if (T1IsEntity)
+                    {
+                        _packed = st.packedEntities.Ptr;
+                        _tuple.p0.data = (T1*)(_ents + *_packed);
+                    }
+                    else
+                        _tuple.p0.data = (T1*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                    _tuple.p1.data = (T2*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                    _tuple.p2.data = (T3*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                    if (_t4)
+                        _tuple.p3.data = (TOpt*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<TOpt>.Index)));
+                    _rows = null;
+                    _curRow = 0;
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
+            }
+
+            while (++_archIndex < _archesLen)
+            {
+                ref var arch = ref _world->archetypesList.Ptr[_arches[_archIndex]].Ref;
+                var count = arch.count;
+                if (count <= 0) continue;
+                var ptr = arch.data.Ptr;
+                _packed = arch.packedEntities.Ptr;
+                if (T1IsEntity)
+                {
+                    _tuple.p0.data = (T1*)(_ents + *_packed);
+                }
+                else if (T1IsTag) _tuple.p0.data = TagSlotStub<T1>.GetPtr();
+                else if (T1IsPool)
+                {
+                    _pool1 = arch.world->GetUntypedPoolPtr(ComponentType<T1>.Index);
+                    _tuple.p0.data = (T1*)_pool1->UnsafeGetPtr(_packed[0]);
+                }
+                else _tuple.p0.data = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                if (T2IsTag) _tuple.p1.data = TagSlotStub<T2>.GetPtr();
+                else if (T2IsPool)
+                {
+                    _pool2 = arch.world->GetUntypedPoolPtr(ComponentType<T2>.Index);
+                    _tuple.p1.data = (T2*)_pool2->UnsafeGetPtr(_packed[0]);
+                }
+                else _tuple.p1.data = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                if (T3IsTag) _tuple.p2.data = TagSlotStub<T3>.GetPtr();
+                else if (T3IsPool)
+                {
+                    _pool3 = arch.world->GetUntypedPoolPtr(ComponentType<T3>.Index);
+                    _tuple.p2.data = (T3*)_pool3->UnsafeGetPtr(_packed[0]);
+                }
+                else _tuple.p2.data = (T3*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                if (_t4)
+                {
+                    if (T4IsTag) _tuple.p3.data = TagSlotStub<TOpt>.GetPtr();
+                    else if (T4IsPool)
+                    {
+                        _pool4 = arch.world->GetUntypedPoolPtr(ComponentType<TOpt>.Index);
+                        _tuple.p3.data = (TOpt*)_pool4->UnsafeGetPtr(_packed[0]);
+                    }
+                    else _tuple.p3.data = (TOpt*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<TOpt>.Index)));
+                }
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                _listIdx = 0;
+                _curRow = 0;
+                if (_rows != null)
+                {
+                    var d = _rows[0];
+                    if (d != 0)
+                    {
+                        _curRow = d;
+                        Advance(d, d);
+                    }
+                }
+                _remaining = count - 1;
+                return true;
+            }
+
+            return false;
+        }
+    }
+
     public static class IterExtensions
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

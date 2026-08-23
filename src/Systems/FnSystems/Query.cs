@@ -870,10 +870,10 @@ namespace Wargon.Nukecs
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, TOption>> iter()
+        public readonly QueryRefIter4<T1, T2, T3, TOption> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, T3, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            if (_query.Ref.TryUseStorageIteration()) return new QueryRefIter4<T1, T2, T3, TOption>(_query.Ptr);
+            return new QueryRefIter4<T1, T2, T3, TOption>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
