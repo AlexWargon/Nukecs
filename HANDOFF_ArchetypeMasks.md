@@ -196,7 +196,11 @@ freed-память иногда содержит старое значение, 
 ## 11. Прочее из этой сессии
 
 - `GetComponentLocalIndex/GetComponentOffset` на StorageArchetype — **public** (генерированный код в user-сборках, питфолл №5).
-- `ObjectTuple` — не трогать (legacy). `Chunk.CopyTo` — по-прежнему невалиден в gather-режиме.
+- `ObjectTuple` — не трогать (legacy). `Chunk.CopyTo` — валиден ТОЛЬКО для арности 3 (исправлен
+  2026-08-23: gather-режим копирует поэлементно по rows через _base-указатели; было memcpy подряд
+  → мусорный рендер в FillRenderDataSystem при >~100 спрайтов, когда rows становились несмежными
+  из-за Culled-миграций). Арности 1–2, 4–8: CopyTo ВСЁ ЕЩЁ сломан в gather-режиме — чинить по
+  образцу 3-арной при первом использовании.
 - Генератор: `fullData.{queryParam}->_query.Ref.RefreshStorageMode()` в Schedule (обёртка → QueryUnsafe).
 - Скриптовые массовые правки tuple'ов ДВАЖДЫ портили файлы — правило: back-walk по атрибутам только `[MethodImpl` (поля с `[NativeDisable...]` перед методом съедались); обязательны ассерты целостности полей и билд-верификация после каждого прогона.
 - **Burst-правило для diagnostics-инструменталки** (выучено дважды за сессию: QueryBookkeepingBypass, затем MigrationStats): любые переключатели/счётчики, достижимые из Burst-джоб (ECB playback! Edge.Execute! Systems) — только `SharedStatic<T>` (флаги, читаемые/пишемые из Burst) или `[BurstDiscard]`-методы (счётчики, исчезающие в Burst) — С ПЕРВОГО ДНЯ. Plain static поле ломает Burst-компиляцию ВСЕХ джоб, до него дотягивающихся (молчаливый managed-fallback → все последующие замеры втихую становятся Mono).

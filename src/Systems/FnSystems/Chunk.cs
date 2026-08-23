@@ -133,6 +133,10 @@ namespace Wargon.Nukecs
         private T1* _components1;
         private T2* _components2;
         private T3* _components3;
+        // column base pointers (not offset by rows[0]) — CopyTo source in gather mode
+        private T1* _base1;
+        private T2* _base2;
+        private T3* _base3;
         private int _count;
         private int _remaining;
         [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private int* _rows;
@@ -142,10 +146,13 @@ namespace Wargon.Nukecs
         {
             var li1 = archetype.GetComponentLocalIndex(ComponentType<T1>.Index);
             _components1 = (T1*)(archetype.data.Ptr + archetype.GetComponentOffset(li1));
+            _base1 = _components1;
             var li2 = archetype.GetComponentLocalIndex(ComponentType<T2>.Index);
             _components2 = (T2*)(archetype.data.Ptr + archetype.GetComponentOffset(li2));
+            _base2 = _components2;
             var li3 = archetype.GetComponentLocalIndex(ComponentType<T3>.Index);
             _components3 = (T3*)(archetype.data.Ptr + archetype.GetComponentOffset(li3));
+            _base3 = _components3;
             _count = archetype.count;
             _remaining = _count;
             _rows = archetype.RowsAreDense ? null : archetype.rows.Ptr;
@@ -195,17 +202,31 @@ namespace Wargon.Nukecs
             where TU1 : unmanaged
         {
             len = len == 0 ? _count : len;
-            if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
+            if (_rows == null)
             {
-                memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
+                // dense: rows are contiguous — straight memcpy
+                if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
+                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
+                if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
+                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
+                if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
+                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU1>());
             }
-            if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
+            else
             {
-                memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
-            }
-            if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
-            {
-                memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU1>());
+                // gather: rows are scattered — byte-copy element-wise by row indices
+                // (TU1 and TN are the same type at runtime, but the compiler can't see it)
+                var size = sizeof(TU1);
+                var dst = (byte*)destination;
+                if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
+                    for (var ci = 0; ci < len; ci++)
+                        memcpy(dst + ci * size, (byte*)(_base1 + _rows[_rowIdx + ci]), size);
+                if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
+                    for (var ci = 0; ci < len; ci++)
+                        memcpy(dst + ci * size, (byte*)(_base2 + _rows[_rowIdx + ci]), size);
+                if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
+                    for (var ci = 0; ci < len; ci++)
+                        memcpy(dst + ci * size, (byte*)(_base3 + _rows[_rowIdx + ci]), size);
             }
         }
     }
