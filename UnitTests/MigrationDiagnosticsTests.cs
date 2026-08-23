@@ -32,13 +32,9 @@ namespace Wargon.Nukecs.Tests
         public void Migration_Current_Vs_Edges_Vs_Bitmap()
         {
             const int n = 10000;
-            // 1) micro-benchmark of the bookkeeping alone (exact copy of BatchMigrateQueries logic)
+            // micro-benchmark of the bookkeeping strategies (exact copy of BatchMigrateQueries logic)
             MicroBookkeeping(n, 50, "q=50  ");
             MicroBookkeeping(n, 150, "q=150 ");
-
-            // 2) real world, structural-only (bookkeeping bypassed — the bitmap floor)
-            RunScenarioNoAccount(n, 50, "q=50  noaccount");
-            RunScenarioNoAccount(n, 150, "q=150 noaccount");
         }
 
         /// <summary>
@@ -113,40 +109,6 @@ namespace Wargon.Nukecs.Tests
             dbug.log($"[DIAG-MIG2] {label} current={tCurrent:F4} ms  edges={tEdges:F4} ms  bitmap={tBitmap:F4} ms  (per {entities} entities, {reps} reps, acc={acc0 & 1})");
         }
 
-        private static void RunScenarioNoAccount(int entityCount, int queryCount, string label)
-        {
-            var world = World.Create(WorldConfig.Default256000);
-            AttachQueries(world, queryCount);
-            var ids = new int[entityCount];
-            for (var i = 0; i < entityCount; i++)
-            {
-                var e = world.Entity(new MgPos { Value = default });
-                ids[i] = e.id;
-            }
-            world.Update();
-
-            var worldId = world.Id;
-            const int reps = 20;
-            MigrateOnce(worldId, ids, entityCount);
-            MigrateOnce(worldId, ids, entityCount);
-
-            var prev = QueryBookkeepingBypass.Disabled;
-            QueryBookkeepingBypass.Disabled = true;
-            try
-            {
-                var sw = Stopwatch.StartNew();
-                for (var r = 0; r < reps; r++)
-                    MigrateOnce(worldId, ids, entityCount);
-                sw.Stop();
-                dbug.log($"[DIAG-MIG2] {label} world-structural-only={sw.Elapsed.TotalMilliseconds / reps:F4} ms per cycle ({reps} reps)");
-            }
-            finally
-            {
-                QueryBookkeepingBypass.Disabled = prev;
-            }
-            world.Dispose();
-        }
-
         private static void MeasureLocal(int reps, System.Action action, out double ms)
         {
             action();
@@ -179,16 +141,11 @@ namespace Wargon.Nukecs.Tests
             MigrateOnce(worldId, ids, entityCount);
 
             var sw = Stopwatch.StartNew();
-            MigrationStats.Fills = 0; MigrationStats.RemoveLenSum = 0; MigrationStats.AddLenSum = 0;
-            MigrationStats.Removes = 0;
-            MigrationStats.Adds = 0;
             for (var r = 0; r < reps; r++)
                 MigrateOnce(worldId, ids, entityCount);
             sw.Stop();
 
-            dbug.log($"[DIAG-MIG] {label} avg={sw.Elapsed.TotalMilliseconds / reps:F4} ms per add-cycle of {entityCount} entities ({reps} reps) " +
-                     $"| fills={MigrationStats.Fills} qRemove={MigrationStats.Removes} qAdd={MigrationStats.Adds} " +
-                     $"| avgRemoveLen={(MigrationStats.RemoveLenSum / (double)System.Math.Max(1, MigrationStats.Removes)):F1}");
+            dbug.log($"[DIAG-MIG] {label} avg={sw.Elapsed.TotalMilliseconds / reps:F4} ms per add-cycle of {entityCount} entities ({reps} reps)");
             world.Dispose();
         }
 

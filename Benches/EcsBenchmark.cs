@@ -267,6 +267,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_2Components_10K()
         {
             _world = World.Create(BenchConfig);
@@ -301,6 +302,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_3Components_10K()
         {
             _world = World.Create(BenchConfig);
@@ -335,6 +337,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_2Components_Archetype_10K()
         {
             _world = World.Create(BenchConfig);
@@ -363,6 +366,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_3Components_Archetype_10K()
         {
             _world = World.Create(BenchConfig);
@@ -394,6 +398,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_Archetype_10K_Main_Iter()
         {
             _world = World.Create(BenchConfig);
@@ -426,6 +431,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_Archetype_10K_Main_Iter_Chunk()
         {
             _world = World.Create(BenchConfig);
@@ -458,6 +464,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_Archetype_10K_Main_IterUnsafe()
         {
             _world = World.Create(BenchConfig);
@@ -490,6 +497,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_Archetype_10K_Main()
         {
             _world = World.Create(BenchConfig);
@@ -523,6 +531,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_Archetype_10K_Single_Burst()
         {
             _world = World.Create(BenchConfig);
@@ -556,6 +565,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_Archetype_10K_Parallel_Burst()
         {
             _world = World.Create(BenchConfig);
@@ -589,6 +599,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_10K_IEntityJobSystem_Main()
         {
             _world = World.Create(BenchConfig);
@@ -622,6 +633,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_10K_IEntityJobSystem_Main_Burst()
         {
             _world = World.Create(BenchConfig);
@@ -655,6 +667,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_10K_IEntityJobSystem_Single()
         {
             _world = World.Create(BenchConfig);
@@ -688,6 +701,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_10K_IEntityJobSystem_Single_Burst()
         {
             _world = World.Create(BenchConfig);
@@ -721,6 +735,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_10K_IEntityJobSystem_Parallel()
         {
             _world = World.Create(BenchConfig);
@@ -754,6 +769,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Iteration_4Components_10K_IEntityJobSystem_Parallel_Burst()
         {
             _world = World.Create(BenchConfig);
@@ -787,6 +803,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void EntityCreation_10K()
         {
             _world = World.Create(BenchConfig);
@@ -813,6 +830,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void EntityCreationBATCH_10K()
         {
             _world = World.Create(BenchConfig);
@@ -831,6 +849,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void EntityCreationBATCH_10K_JobSingleBurst()
         {
             _world = World.Create(BenchConfig);
@@ -850,6 +869,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void EntityCreationBATCH_10K_JobMainBurst()
         {
             _world = World.Create(BenchConfig);
@@ -869,6 +889,7 @@ namespace Wargon.Nukecs.Tests
         
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void ECB_AddComponent_10K()
         {
             _world = World.Create(BenchConfig);
@@ -895,6 +916,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void ECB_RemoveComponent_10K()
         {
             var batches = 60;
@@ -938,6 +960,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void RandomAccess_GetComponent_10K()
         {
             _world = World.Create(BenchConfig);
@@ -973,6 +996,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void Migration_AddRemove_10K()
         {
             _world = World.Create(BenchConfig);
@@ -1010,6 +1034,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public unsafe void DynamicBitMask256()
         {
             _world  = World.Create(BenchConfig);
@@ -1042,6 +1067,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public unsafe void HierarchicalBitMask256_1024()
         {
             var mask = new Bitmask1024();
@@ -1072,6 +1098,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void HierarchicalBitMask256_4096()
         {
             var mask = new Bitmask4096();
@@ -1102,6 +1129,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_HashMap_1023_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1136,6 +1164,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_BitMap1024_64_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1169,6 +1198,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_ZeroMoveBitMap1024_64_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1202,6 +1232,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_MemoryArray1024_64_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1235,6 +1266,7 @@ namespace Wargon.Nukecs.Tests
         }
                 [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_HashMap_64_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1271,6 +1303,7 @@ namespace Wargon.Nukecs.Tests
         
                 [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_BitMap1024_16_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1304,6 +1337,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_ZeroMoveBitMap1024_16_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1337,6 +1371,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_MemoryArray1024_16_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1370,6 +1405,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_HashMap_16_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1409,6 +1445,7 @@ namespace Wargon.Nukecs.Tests
         
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_BitMap1024_1023_GET_Burst()
         {
             _world  = World.Create(BenchConfig);
@@ -1445,6 +1482,7 @@ namespace Wargon.Nukecs.Tests
         
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_BitMap1024_1023_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1478,6 +1516,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_ZeroMoveBitMap1024_1023_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1511,6 +1550,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GET_FAST_MemoryArray1024_1023_GET()
         {
             _world  = World.Create(BenchConfig);
@@ -1544,6 +1584,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public unsafe void DynamicBitMask4096()
         {
             _world  = World.Create(BenchConfig);
@@ -1579,6 +1620,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void HierarchicalBitMask4096()
         {
             var mask = new Bitmask4096();

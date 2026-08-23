@@ -72,7 +72,6 @@ namespace Wargon.Nukecs
         /// <summary>Bumped whenever the set of attached query ids changes
         /// (CheckQuery attach, PopulateQueries, Refresh). Pair-edge caches validate against it.</summary>
         internal int queriesVersion;
-        internal HashMap<int, ptr<Edge>> transactions;
         /// <summary>Per-pair migration edge cache (from→to), keyed by (to.index &lt;&lt; 32) | from.index.
         /// Stores precomputed remove/add query lists so ECB playback avoids the quadratic
         /// Contains scan in BatchMigrateQueries. Lazily invalidated via queriesVersion.</summary>
@@ -129,18 +128,16 @@ namespace Wargon.Nukecs
             tagMask.OnDeserialize(ref allocator);
             poolMask.OnDeserialize(ref allocator);
             queries.OnDeserialize(ref allocator);
-            transactions.OnDeserialize(ref allocator);
             destroyEdge.OnDeserialize(ref allocator, worldPtr);
             types.OnDeserialize(ref allocator);
-
-            foreach (var kvPair in transactions)
-            {
-                ref var val = ref kvPair.Value;
-                val.OnDeserialize(ref allocator);
-                val.Ref.OnDeserialize(ref allocator, worldPtr);
-            }
             storagePtr.OnDeserialize(ref allocator);
             rows.OnDeserialize(ref allocator);
+            pairEdges.OnDeserialize(ref allocator);
+            foreach (var pairEdge in pairEdges)
+            {
+                pairEdge.Value.OnDeserialize(ref allocator);
+                pairEdge.Value.Ref.OnDeserialize(ref allocator, worldPtr);
+            }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void AddTypeToMasks(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool, int type)
@@ -462,7 +459,6 @@ namespace Wargon.Nukecs
             archetype->rows.Dispose();
             archetype->types.Dispose();
             archetype->queries.Dispose();
-            archetype->transactions.Dispose();
             // storage is shared between logical archetypes — not disposed here
             var worldPtr = archetype->world;
             worldPtr->_free(archetype);
@@ -499,7 +495,6 @@ namespace Wargon.Nukecs
                 AddTypeToMasks(ref arch.inlineMask, ref arch.tagMask, ref arch.poolMask, type);
             arch.hashId = ComputeIdentityHash(ref arch.inlineMask, ref arch.tagMask, ref arch.poolMask);
             arch.queries = new MemoryList<int>(8, ref world->AllocatorRef);
-            arch.transactions = new HashMap<int, ptr<Edge>>(8, ref world->AllocatorHandler);
             arch.pairEdges = new HashMap<long, ptr<Edge>>(8, ref world->AllocatorHandler);
             arch.queriesVersion = 0;
             arch.destroyEdge = default;
@@ -546,7 +541,6 @@ namespace Wargon.Nukecs
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            transactions = new HashMap<int, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             queriesVersion = 0;
             destroyEdge = default;
@@ -584,7 +578,6 @@ namespace Wargon.Nukecs
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            transactions = new HashMap<int, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             queriesVersion = 0;
             destroyEdge = default;
@@ -618,7 +611,6 @@ namespace Wargon.Nukecs
 
             hashId = ComputeIdentityHash(ref inlineMask, ref tagMask, ref poolMask);
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            transactions = new HashMap<int, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorHandler);
             queriesVersion = 0;
             destroyEdge = default;
@@ -1058,15 +1050,6 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal int FollowEdge(int component)
-        {
-            if (transactions.TryGetValue(component, out var edge))
-                return edge.Ref.toMove;
-            CreateTransaction(component);
-            return transactions[component].Ref.toMove;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static void BatchMigrateQueries(
             ref ArchetypeUnsafe from, ref ArchetypeUnsafe to, int entity)
         {
@@ -1093,7 +1076,6 @@ namespace Wargon.Nukecs
 
         private static void FillPairEdge(ref Edge edge, ref ArchetypeUnsafe from, ref ArchetypeUnsafe to)
         {
-            MigrationStats.Fills++;
             edge.removeEntity.Clear();
             for (var i = 0; i < from.queries.Length; i++)
             {
@@ -1110,42 +1092,6 @@ namespace Wargon.Nukecs
             }
             edge.fromQueriesVersion = from.queriesVersion;
             edge.toQueriesVersion = to.queriesVersion;
-        }
-
-        private void CreateTransaction(int component)
-        {
-            var remove = component < 0;
-            var totalTypes = inlineMask.Count + tagMask.Count + poolMask.Count;
-            var newTypes = new MemoryList<int>(remove ? totalTypes - 1 : totalTypes + 1, ref world->AllocatorRef);
-            var positiveComponent = math.abs(component);
-            foreach (var type in types)
-                if ((remove && type == positiveComponent) == false)
-                    newTypes.Add(type, ref world->AllocatorRef);
-
-            if (remove == false) newTypes.Add(component, ref world->AllocatorRef);
-
-            var otherArchetypeStruct = world->GetOrCreateArchetype(ref newTypes);
-            var otherArchetype = otherArchetypeStruct.Unsafe;
-            var otherEdge = new Edge(otherArchetypeStruct.ptr.Ref.index, ref world->AllocatorRef);
-
-            for (var idx = 0; idx < queries.Length; idx++)
-            {
-                var t = queries[idx];
-                ref var thisQuery = ref Query(t);
-                if (otherArchetype->queries.Contains(thisQuery.Ref.Id) == false)
-                    otherEdge.removeEntity.Add(thisQuery, ref world->AllocatorRef);
-            }
-
-            for (var idx = 0; idx < otherArchetype->queries.Length; idx++)
-            {
-                ref var otherQuery = ref Query(otherArchetype->queries[idx]);
-                if (queries.Contains(otherQuery.Ref.Id) == false)
-                    otherEdge.addEntity.Add(otherQuery, ref world->AllocatorRef);
-            }
-
-            var ptr = world->_allocate_ptr<Edge>();
-            ptr.Ref = otherEdge;
-            transactions.TryAdd(component, ptr);
         }
 
         internal System.Collections.Generic.List<IComponent> GetAllComponents(int entity, System.Collections.Generic.List<IComponent> buffer)
@@ -1251,25 +1197,15 @@ namespace Wargon.Nukecs
         internal MemoryList<ptr<QueryUnsafe>> addEntity;
         internal MemoryList<ptr<QueryUnsafe>> removeEntity;
 
-        internal int toMove;
         /// <summary>Attached-query set versions this edge's lists were built against
         /// (pair-edge cache invalidation, see BatchMigrateQueries).</summary>
         internal int fromQueriesVersion;
         internal int toQueriesVersion;
 
-        public Edge(int archetype, ref MemAllocator allocator) {
-            toMove = archetype;
-            addEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            removeEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            fromQueriesVersion = 0;
-            toQueriesVersion = 0;
-        }
-
         public Edge(ref MemAllocator allocator)
         {
             addEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
             removeEntity = new MemoryList<ptr<QueryUnsafe>>(8, ref allocator);
-            toMove = 0;
             fromQueriesVersion = 0;
             toQueriesVersion = 0;
         }
@@ -1277,10 +1213,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Execute(int entity)
         {
-            MigrationStats.RemoveLenSum += removeEntity.length;
-            MigrationStats.AddLenSum += addEntity.length;
-            for (var i = 0; i < removeEntity.length; i++) { removeEntity.ElementAt(i).Ref.Remove(entity); MigrationStats.Removes++; }
-            for (var i = 0; i < addEntity.length; i++) { addEntity.ElementAt(i).Ref.Add(entity); MigrationStats.Adds++; }
+            for (var i = 0; i < removeEntity.length; i++) removeEntity.ElementAt(i).Ref.Remove(entity);
+            for (var i = 0; i < addEntity.length; i++) addEntity.ElementAt(i).Ref.Add(entity);
         }
 
         public void OnDeserialize(ref MemAllocator alloc, World.WorldUnsafe* w)
@@ -1295,22 +1229,6 @@ namespace Wargon.Nukecs
             {
                 ptr.OnDeserialize(ref alloc);
             }
-            //
-            // QueryTest<(C1,C2,C3,C4)> d = default;
-            // foreach (var (C1, C2, C3, C4) in d.par_iter())
-            // {
-            //     
-            // }
         }
-    }
-
-    /// <summary>Diagnostics counters for the pair-edge migration path (read by tests).</summary>
-    public static class MigrationStats
-    {
-        public static long Fills;
-        public static long Removes;
-        public static long Adds;
-        public static long RemoveLenSum;
-        public static long AddLenSum;
     }
 }

@@ -22,16 +22,31 @@ namespace Wargon.Nukecs
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => queryUnsafe->count;
+            get
+            {
+                RestoreIfNeed();
+                return queryUnsafe->count;
+            }
         }
 
         public bool IsEmpty
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => queryUnsafe->count == 0;
+            get
+            {
+                RestoreIfNeed();
+                return queryUnsafe->count == 0;
+            }
         }
 
-        internal int CountMulti => queryUnsafe->count / queryUnsafe->world->job_worker_count;
+        internal int CountMulti
+        {
+            get
+            {
+                RestoreIfNeed();
+                return queryUnsafe->count / queryUnsafe->world->job_worker_count;
+            }
+        }
 
         public bool IsValid
         {

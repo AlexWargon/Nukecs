@@ -32,6 +32,48 @@ namespace Wargon.Nukecs.Tests
         }
 
         [Test]
+        public void SerializeDeserialize_MigrationAfterLoad_PairEdgeCacheRebuilt()
+        {
+            // regression: pairEdges must survive serialization with valid inner lists
+            // (ptr<Edge> fixup + Edge lists fixup), and post-load migrations must keep counts sane.
+            // The cache is NON-EMPTY at save time (migration happens before Serialize),
+            // so the restore path is exercised for real.
+            var world = World.Create(WorldConfig.Default256);
+            var withHealth = world.Query().With<HealthTest>();
+            var withVelocity = world.Query().With<VelocityTest>();
+
+            var e1 = world.Entity(new HealthTest { Value = 10 });
+            var e2 = world.Entity(new HealthTest { Value = 20 });
+            world.Update();
+            Assert.AreEqual(2, withHealth.Count);
+
+            // pre-save migration: fills the pair-edge cache for {Health}->{Health,Velocity}
+            e1.Add(new VelocityTest { X = 0.5f, Y = 1f });
+            world.Update();
+            Assert.AreEqual(1, withVelocity.Count);
+            e1.Remove<VelocityTest>();
+            world.Update();
+            Assert.AreEqual(0, withVelocity.Count);
+
+            var data = world.Serialize();
+            world.Deserialize(data);
+
+            // post-load migration over the same (restored) transition
+            foreach (ref var e in withHealth)
+            {
+                e.Add(new VelocityTest { X = 1f, Y = 2f });
+            }
+            world.Update();
+
+            Assert.AreEqual(2, withVelocity.Count, "Query count must be correct after post-load migration");
+            Assert.AreEqual(2, withHealth.Count, "Source query count must survive post-load migration");
+            Assert.AreEqual(1f, e1.Get<VelocityTest>().X, "Restored edge must point to valid lists");
+            Assert.AreEqual(2f, e2.Get<VelocityTest>().Y);
+
+            world.Dispose();
+        }
+
+        [Test]
         public void SerializeDeserialize_EntityCountPreserved()
         {
             var world = World.Create(WorldConfig.Default256);
