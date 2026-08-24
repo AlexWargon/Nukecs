@@ -193,6 +193,18 @@ GetEnumerator — Count/IsEmpty читали freed-память → флейки
 freed-память иногда содержит старое значение, иногда мусор). Теперь RestoreIfNeed вызывается
 в Count/IsEmpty/CountMulti (быстрый путь — int-сравнение version).
 
+### None-filter бенчи (2026-08-24, BenchNukecs `Iteration4_NoneTag/NonePool_{0,10,50}pct`)
+
+| % помеченных | avg ms | итерируется | ns/entity |
+|---|---|---|---|
+| 0% | 1.63 | 100k dense | 16.3 |
+| 10% | 1.70 | 90k gather | 18.9 |
+| 50% | 0.93 | 50k gather | 18.6 |
+
+Выводы: деградация почти бесплатна (+3–4% при 10%); gather = +16% per-entity константой;
+итерация масштабируется с матчащими. **Идеи №3 (сортировка rows) и №4 (компакция) закрыты
+как неактуальные** — потолок ~16% только в gather-ветке.
+
 ## 11. Прочее из этой сессии
 
 - `GetComponentLocalIndex/GetComponentOffset` на StorageArchetype — **public** (генерированный код в user-сборках, питфолл №5).

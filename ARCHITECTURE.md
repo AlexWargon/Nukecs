@@ -50,7 +50,7 @@ Storage-mode queries спасены (сканируют storages лениво).
 | Путь | Когда | Механика |
 |---|---|---|
 | **batch storage-loop** | прямой `foreach (var (a,b) in query)` в [System] | генератор: pointer-walk по storages (`base++` до sentinel `end`, тела через `->`), walkers в отдельных методах. Perf-контракт генератора — AGENTS.md §"Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3) |
-| **storage-mode** | query с inline-only with-фильтрами, итераторы `iter()`/фабрики | dense-проход по `GetMatchingStorages()`; деградация на LA-при конфликте none-тегов (prefab/dead) |
+| **storage-mode** | query с inline-only with-фильтрами, итераторы `iter()`/фабрики | dense-проход по `GetMatchingStorages()`; деградация на LA-при конфликте none-тегов (prefab/dead). None-filter бенчи: деградация при 10% помеченных = +3–4% общего времени; gather = +16% per-entity (16.3→18.7 ns, константа, не зависит от перемешанности); итерация масштабируется с матчащими (50% → 0.93 ms от 1.63) |
 | **enumerator** | `foreach (ref var e in q)` / generic-итераторы | QueryEnumerator2 / QueryIter: dense (`_rows==null`) или gather (`AdvanceTo(rows[i])`) |
 
 **Cost-model managed-итерации (Mono, 100k×4 компонентов)** — выверено замерами:
