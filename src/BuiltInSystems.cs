@@ -61,7 +61,7 @@ namespace Wargon.Nukecs{
     public static class DefaultSystems
     {
         [BurstCompile, System]
-        public static void EntityDestroySystem(ref Query<DestroyEntity>.WithEntity query)
+        public static void EntityDestroySystem(ref Query<Entity, DestroyEntity> query)
         {
             foreach (var (e, d) in query)
             {

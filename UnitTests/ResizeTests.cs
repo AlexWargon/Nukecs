@@ -134,7 +134,7 @@ namespace Wargon.Nukecs.Tests
         }
 
         [BurstCompile, System]
-        public static void DestroyMarked(ref Query<ResizeTestMarkDestroyed>.WithEntity query, ref State state)
+        public static void DestroyMarked(ref Query<Entity, ResizeTestMarkDestroyed> query, ref State state)
         {
             foreach (var (entity, _) in query)
                 entity.Destroy();

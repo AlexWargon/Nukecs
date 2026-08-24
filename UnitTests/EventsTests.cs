@@ -23,7 +23,7 @@ namespace Wargon.Nukecs.Tests
     {
         [System]
         public static void ProduceEvents(
-            ref Query<EventScore>.WithEntity query,
+            ref Query<Entity,EventScore> query,
             ref State state,
             ref Events<TestEvent> events)
         {
@@ -47,7 +47,7 @@ namespace Wargon.Nukecs.Tests
 
         [System]
         public static void ProduceEventsParallel(
-            ref Query<EventScore>.WithEntity query,
+            ref Query<Entity,EventScore> query,
             ref State state,
             ref Events<TestEvent> events)
         {

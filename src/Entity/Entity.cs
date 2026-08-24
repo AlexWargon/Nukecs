@@ -8,7 +8,7 @@ using Unity.Burst;
 
 namespace Wargon.Nukecs
 {
-    [Serializable,StructLayout(LayoutKind.Sequential)]
+    [Serializable,StructLayout(LayoutKind.Sequential)][BurstCompile]
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
@@ -108,16 +108,13 @@ namespace Wargon.Nukecs
         {
             return entity.ArchetypeRef.Has(componentIndex);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         [BurstCompile]
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Data;
-            var worldPtr = entity.worldPointer;
-            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
-            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            ref var loc = ref entity.worldPointer->entityLocations.Ptr[entity.id];
+            ref var arch = ref entity.worldPointer->archetypesList.Ptr[loc.archetypeIndex].Ref;
             if (componentType.category == ComponentCategory.Tag)
             {
                 if (arch.Has(componentType.index))

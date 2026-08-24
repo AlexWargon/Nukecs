@@ -48,7 +48,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
         [System]
-        public static void TickLifetime(ref Query<BulletLifetime>.WithEntity query, ref State state)
+        public static void TickLifetime(ref Query<Entity,BulletLifetime> query, ref State state)
         {
             foreach (var (e, life) in query)
             {
