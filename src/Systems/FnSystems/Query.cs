@@ -130,101 +130,6 @@ namespace Wargon.Nukecs
         {
             return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-            internal int id;
-            
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityRefTuple<T1>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityRefTuple<T1>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityPtrTuple<T1>> iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityPtrTuple<T1>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityPtrTuple<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityPtrTuple<T1>> par_iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityPtrTuple<T1>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityPtrTuple<T1>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityRefTuple<T1>> par_iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityRefTuple<T1>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityRefTuple<T1>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public QueryIterWithEntity<EntityRefTuple<T1>> iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityRefTuple<T1>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityRefTuple<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked { return typeof(T1).GetHashCode(); }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-                _query.Ref.With(ComponentType<T1>.Index);
-                id = _query.Ref.Id;
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
-        }
     }
 
     // ===========================================================================
@@ -411,124 +316,6 @@ namespace Wargon.Nukecs
             query = _query;
             return true;
         }
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityRefTuple<T1, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityRefTuple<T1, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityPtrTuple<T1, TOption>> iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityPtrTuple<T1, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityPtrTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityPtrTuple<T1, TOption>> par_iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityPtrTuple<T1, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityPtrTuple<T1, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityRefTuple<T1, TOption>> par_iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityRefTuple<T1, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityRefTuple<T1, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityRefTuple<T1, TOption>> iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityRefTuple<T1, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityRefTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked { return typeof(T1).GetHashCode() * 397 ^ typeof(TOption).GetHashCode(); }
-            }
-
-            public void SetRange(Range range)
-            {
-                _range = range;
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-                _query.Ref.With(ComponentType<T1>.Index);
-                TOption option = default;
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            [BurstCompile]
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeStatic.as_ptr(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
-        }
     }
 
     // ===========================================================================
@@ -592,140 +379,12 @@ namespace Wargon.Nukecs
         internal int id;
         public Range _range;
 
-
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
-        }
-
-
-
-
-
-
-
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1, T2, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new (_range, _query.Ptr);
-                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityPtrTuple<T1, T2, TOption>> iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityPtrTuple<T1, T2, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityPtrTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityPtrTuple<T1, T2, TOption>> par_iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityPtrTuple<T1, T2, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityPtrTuple<T1, T2, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityRefTuple<T1, T2, TOption>> iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityRefTuple<T1, T2, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityRefTuple<T1, T2, TOption>> par_iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityRefTuple<T1, T2, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityRefTuple<T1, T2, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-                _query.Ref.With(ComponentType<T1>.Index);
-                _query.Ref.With(ComponentType<T2>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-
-            {
-                query = _query;
-
-                return true;
-            }
         }
 
         [BurstDiscard]
@@ -872,8 +531,6 @@ namespace Wargon.Nukecs
             return new QueryParIter<RefTuple<T1, T2, T3, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryIter<RefTuple<T1, T2, T3, TOption>> iter()
         {
@@ -896,143 +553,9 @@ namespace Wargon.Nukecs
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
-
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
-        }
-
-
-
-
-
-
-
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new (_range, _query.Ptr);
-                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>> iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>> par_iter_unsafe()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityPtrTuple<T1, T2, T3, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>> par_iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>>(_range, _query.Ptr);
-                return new QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public readonly QueryIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>> iter()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(T3).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-
-                _query.Ref.With(ComponentType<T1>.Index);
-
-                _query.Ref.With(ComponentType<T2>.Index);
-
-                _query.Ref.With(ComponentType<T3>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
         }
 
         public override int GetHashCode()
@@ -1189,16 +712,12 @@ namespace Wargon.Nukecs
             return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4>> iter_chunk()
         {
             return new QueryChunkIter<Chunk<T1, T2, T3, T4>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
-
-
+        
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
@@ -1206,13 +725,6 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
         }
-
-
-
-
-
-
-
 
         public override int GetHashCode()
         {
@@ -1383,112 +895,6 @@ namespace Wargon.Nukecs
             get => _query.Ref.count;
         }
 
-
-
-
-
-
-
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new (_range, _query.Ptr);
-                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(T3).GetHashCode();
-                    hash = hash * 397 ^ typeof(T4).GetHashCode();
-                    hash = hash * 397 ^ typeof(T5).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-
-                _query.Ref.With(ComponentType<T1>.Index);
-                _query.Ref.With(ComponentType<T2>.Index);
-                _query.Ref.With(ComponentType<T3>.Index);
-                _query.Ref.With(ComponentType<T4>.Index);
-                _query.Ref.With(ComponentType<T5>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
-        }
-
         public override int GetHashCode()
         {
             unchecked
@@ -1639,8 +1045,6 @@ namespace Wargon.Nukecs
             return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> iter()
         {
@@ -1659,121 +1063,12 @@ namespace Wargon.Nukecs
         internal int id;
         public Range _range;
 
-
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
-        }
-
-
-
-
-
-
-
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryParIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new (_range, _query.Ptr);
-                return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(T3).GetHashCode();
-                    hash = hash * 397 ^ typeof(T4).GetHashCode();
-                    hash = hash * 397 ^ typeof(T5).GetHashCode();
-                    hash = hash * 397 ^ typeof(T6).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-
-                _query.Ref.With(ComponentType<T1>.Index);
-                _query.Ref.With(ComponentType<T2>.Index);
-                _query.Ref.With(ComponentType<T3>.Index);
-                _query.Ref.With(ComponentType<T4>.Index);
-                _query.Ref.With(ComponentType<T5>.Index);
-                _query.Ref.With(ComponentType<T6>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
         }
 
         public override int GetHashCode()
@@ -1950,123 +1245,12 @@ namespace Wargon.Nukecs
         internal int id;
         public Range _range;
 
-
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
-        }
-
-
-
-
-
-
-
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(T3).GetHashCode();
-                    hash = hash * 397 ^ typeof(T4).GetHashCode();
-                    hash = hash * 397 ^ typeof(T5).GetHashCode();
-                    hash = hash * 397 ^ typeof(T6).GetHashCode();
-                    hash = hash * 397 ^ typeof(T7).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-
-                _query.Ref.With(ComponentType<T1>.Index);
-                _query.Ref.With(ComponentType<T2>.Index);
-                _query.Ref.With(ComponentType<T3>.Index);
-                _query.Ref.With(ComponentType<T4>.Index);
-                _query.Ref.With(ComponentType<T5>.Index);
-                _query.Ref.With(ComponentType<T6>.Index);
-                _query.Ref.With(ComponentType<T7>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
         }
 
         public override int GetHashCode()
@@ -2226,8 +1410,6 @@ namespace Wargon.Nukecs
             return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> iter()
         {
@@ -2246,125 +1428,12 @@ namespace Wargon.Nukecs
         internal int id;
         public Range _range;
 
-
         public SystemParamMetaType MetaType => SystemParamMetaType.Query;
 
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => _query.Ref.count;
-        }
-
-
-
-
-
-
-
-
-        [Obsolete("Use Query<Entity, ...> instead of Query<...>.WithEntity")]
-        public struct WithEntity : IQuery, ISystemParam
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> GetEnumerator()
-            {
-                if (_query.Ref.TryUseStorageIteration()) return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(_query.Ptr);
-                return new QueryIterWithEntity<EntityRefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
-            }
-
-            public ptr<QueryUnsafe> _query;
-            public Range _range;
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = typeof(T1).GetHashCode();
-                    hash = hash * 397 ^ typeof(T2).GetHashCode();
-                    hash = hash * 397 ^ typeof(T3).GetHashCode();
-                    hash = hash * 397 ^ typeof(T4).GetHashCode();
-                    hash = hash * 397 ^ typeof(T5).GetHashCode();
-                    hash = hash * 397 ^ typeof(T6).GetHashCode();
-                    hash = hash * 397 ^ typeof(T7).GetHashCode();
-                    hash = hash * 397 ^ typeof(T8).GetHashCode();
-                    hash = hash * 397 ^ typeof(TOption).GetHashCode();
-                    return hash;
-                }
-            }
-
-            public SystemParamMetaType MetaType => SystemParamMetaType.Query;
-
-            public int Count
-            {
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                get => _query.Ref.count;
-            }
-
-            public void Init(ref ptr<World.WorldUnsafe> world)
-            {
-                _query = world.Ref.CreateQueryPtr();
-
-                _query.Ref.With(ComponentType<T1>.Index);
-                _query.Ref.With(ComponentType<T2>.Index);
-                _query.Ref.With(ComponentType<T3>.Index);
-                _query.Ref.With(ComponentType<T4>.Index);
-                _query.Ref.With(ComponentType<T5>.Index);
-                _query.Ref.With(ComponentType<T6>.Index);
-                _query.Ref.With(ComponentType<T7>.Index);
-                _query.Ref.With(ComponentType<T8>.Index);
-
-                TOption option = default;
-
-                switch (option)
-                {
-                    case IComponent _:
-                        _query.Ref.With(ComponentType<TOption>.Index);
-                        QueryParamInfo<TOption>.IsComponent = true;
-                        break;
-
-                    case IFilter filter:
-                        filter.Setup(_query.Ptr);
-                        break;
-
-                    case ITuple tuple:
-                        for (var i = 0; i < tuple.Length; i++)
-                            if (tuple[i] is IFilter f)
-                                f.Setup(_query.Ptr);
-                        break;
-                }
-                            
-                foreach (var ptr in world.Ref.archetypesList)
-                {
-                    ptr.Ref.CheckQuery(in _query);
-                }
-            }
-
-            public void FixPointers(ref MemAllocator allocator)
-            {
-                _query.OnDeserialize(ref allocator);
-            }
-
-            public void SetQueryPtr(ptr<QueryUnsafe> q)
-            {
-                _query = q;
-            }
-
-            public void Update(ref World world, IntPtr data)
-            {
-                if (data == IntPtr.Zero) _range = new Range(0, Count);
-                else _range = *(Range*)(void*)data;
-            }
-
-            public IntPtr GetData()
-            {
-                return (IntPtr)UnsafeUtility.AddressOf(ref _range);
-            }
-
-            public bool TryGetQuery(out ptr<QueryUnsafe> query)
-            {
-                query = _query;
-                return true;
-            }
         }
 
         public override int GetHashCode()
