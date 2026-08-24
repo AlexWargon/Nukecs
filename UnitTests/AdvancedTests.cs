@@ -62,7 +62,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
         [System]
-        public static void Movement4_4(ref Query<PositionTest, VelocityTest,DamageTest, HealthTest> query, ref State state)
+        public static void Movement4_4(ref Query<PositionTest, VelocityTest, DamageTest, HealthTest> query, ref State state)
         {
             foreach (var (pos, vel, dmg, hp) in query)
             {

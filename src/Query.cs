@@ -211,7 +211,7 @@ namespace Wargon.Nukecs
         internal byte storageModeState;
         /// <summary>1 when at least one inline-matching storage is disqualified by a non-empty
         /// tag/pool none-bit logical archetype — the query falls back to the archetype path.</summary>
-        internal byte storageDegraded;
+        public byte storageDegraded;
         internal bool storageMasksDirty;
         internal int storagesBuiltForLen;
         internal int storagesBuiltAtVersion;

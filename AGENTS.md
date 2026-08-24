@@ -1052,3 +1052,64 @@ For clickable UI buttons (Canvas-based), the scene needs:
 3. `GraphicRaycaster` on the Canvas
 
 Without these, buttons render but don't respond to clicks.
+
+### Generated Batch Loops - Performance Contract (SrcGen.BatchCodeGen)
+
+Benchmarked 100k entities / 4 float3 components, Threads.Main (Mono, no Burst):
+
+| Shape | Avg |
+|---|---|
+| Hand-written dense pointer walk | ~1.63 ms |
+| Generated batch loop (current) | ~1.63 ms |
+| Old generated loop (indexed + per-row branch + guards) | ~1.80 ms |
+| `foreach` over `query.iter()` (protocol tax ceiling) | ~2.36 ms |
+
+Rules the generator must keep:
+
+1. **Dense path = sequential pointer walk with `->` deref bodies.** Never emit
+   per-row indexed access `_pN[_row]` on the hot path and never emit a
+   `_rowsPtr != null ? rows[_i] : _i` branch inside the entity loop - split
+   dense/sparse into separate loops and hoist the check.
+2. **No dead temporaries across hot loops.** Emitting `_liN =
+   GetComponentLocalIndex(...)` as a statement keeps 4 dead values alive for
+   Mono's JIT: registers spill to stack and the loop loses ~5% (0.08 ms /
+   100k). Inline the call into the offset expression instead.
+3. **Path selection is split between compile time and runtime:**
+   - Pool component in query args -> batch not generated at all (compile-time
+     demotion via IPoolComponent check; falls back to plain foreach).
+   - Tag component in query args -> archetype loop chosen at compile time.
+     Tags are filters only: pin pointer to `TagSlotStub<T>.GetPtr()` once,
+     never advance or index it.
+   - All inline -> storage pointer-walk guarded by runtime degradation check.
+4. **The runtime degradation check is NOT removable at compile time.** Worlds
+   carry implicit default none-types (`World.DefaultNoneTypes` = IsPrefab,
+   DestroyEntity) injected into every query. A storage degrades when any of
+   its logical archetypes holding those bits is non-empty - depends on live
+   world state. Degraded -> fall back to the archetype loop (exact for any
+   filters). Skipping this check silently iterates zero entities.
+5. **Keep walker paths in separate small methods** (`BatchStorageWalk`,
+   `BatchArchetypeWalk`) rather than one giant `OnUpdateBatched`. Forward all
+   non-query params (`Events<>`, `Res<>`, ...) into walkers - user bodies may
+   reference them. Do NOT add `[MethodImpl(AggressiveInlining)]` on walkers:
+   same average (1.63) but unstable tail - occasional +0.07 ms frames when JIT
+   context lands the combined body on a spilled register variant. Split
+   methods give deterministic per-frame timing (StdDev 0.01 vs 0.02+).
+6. **Mono gotcha:** `ref`-returning properties over own struct fields compile
+   in VS-Roslyn but fail CS8170 under Unity's Mono-Roslyn. Value-returning
+   `Current` costs nothing extra here because foreach materializes by-value
+   locals anyway (~0.5 ms / 100k for MoveNext+Current+Deconstruct protocol -
+   the fundamental gap between `foreach (var x in q.iter())` and batched
+   loops under Mono).
+
+### Debugging Source-Gen Perf Regressions
+
+1. Set `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>` +
+   `<CompilerGeneratedFilesOutputPath>...</...>` in the consuming csproj to
+   inspect emitted code. Note: Unity regenerates csproj files and wipes the
+   patch.
+2. MSBuild single-line chains (`cmd & echo %ERRORLEVEL%`) report stale exit
+   codes - capture exit codes per command or read the log for `error CS`.
+3. When a perf diff appears between two builds, hand-write a "twin" test that
+   mirrors the generated structure verbatim (plain `[System]`, no batching).
+   Twin == fast means generator emits something different; twin == slow means
+   the structure itself is the cost.
