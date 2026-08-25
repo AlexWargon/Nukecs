@@ -185,7 +185,7 @@ namespace Wargon.Nukecs
             
             var events = default(TEvents);
             events.Init(ref world);
-            var typedPtr = world.Ref._allocate_ptr<TEvents>();
+            var typedPtr = world.Ref._allocate_ptr<TEvents>(1, AllocatorTags.Events);
             typedPtr.Ref = events;
             ptr = typedPtr.UntypedPointer;
             _events.Add(hash, ptr);

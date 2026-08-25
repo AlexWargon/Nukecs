@@ -77,7 +77,7 @@ namespace Wargon.Nukecs {
 
         public void Add<TParam>(in TParam param) where TParam : unmanaged, ISystemParam 
         {
-            var ptr = _world.Ref._allocate_ptr<TParam>();
+            var ptr = _world.Ref._allocate_ptr<TParam>(1, AllocatorTags.Query);
             SystemParamData<TParam>.Set(new SystemParamData
             {
                 metaType = param.MetaType,

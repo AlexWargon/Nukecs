@@ -46,7 +46,7 @@ namespace Wargon.Nukecs {
         }
 
         internal static ptr<StorageArchetype> CreatePtr(World.WorldUnsafe* world, int index, ref DynamicBitmask inlineMaskSrc) {
-            var ptr = world->_allocate_ptr<StorageArchetype>();
+            var ptr = world->_allocate_ptr<StorageArchetype>(1, AllocatorTags.Storage);
             ref var st = ref ptr.Ref;
             st.world = world;
             st.index = index;

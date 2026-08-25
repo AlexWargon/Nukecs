@@ -69,7 +69,7 @@ namespace Wargon.Nukecs
         internal bool AddRes<T>(in T resource, World.WorldUnsafe* world) where T : unmanaged
         {
             if (HasRes<T>()) return false;
-            var ptr = world->_allocate_ptr<T>();
+            var ptr = world->_allocate_ptr<T>(1, AllocatorTags.WorldMisc);
             res_type<T>.index = _resources.length;
             res_type.set<T>(res_type<T>.index);
             ptr.Ref = resource;
