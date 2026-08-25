@@ -18,6 +18,11 @@ namespace Wargon.Nukecs.Tests
 
     public struct SmTagB : IComponent { }
 
+    public struct SmExtra : IComponent
+    {
+        public int E;
+    }
+
     public struct SmCounter : IRes
     {
         public int Sum;
@@ -65,6 +70,35 @@ namespace Wargon.Nukecs.Tests
             {
                 counter.Ref.Sum += d.Read.Value;
                 counter.Ref.Count++;
+            }
+        }
+
+        // REGRESSION (weapon not following parent): With<TagEvent> in TOption puts a TAG
+        // into with-bits — the query is NOT storage-mode. The generated batch dispatcher
+        // must fall back to the archetype path instead of silently walking an empty
+        // storage list (dead system: the tag was never removed).
+        [System]
+        public static void RemoveTagSystem(
+            ref Query<Entity, SmData, With<SmTagA>> query,
+            ref Res<SmCounter> counter)
+        {
+            foreach (var (e, d) in query)
+            {
+                counter.Ref.Count++;
+                e.Remove<SmTagA>();
+            }
+        }
+
+        // REGRESSION: paired None<TagEvent> consumer — same query shape as
+        // TransformsGroup.TransformChildSystem (3 inline components + None<tag>)
+        [System]
+        public static void SumUntaggedSystem(
+            ref Query<SmData, SmVel, SmExtra, None<SmTagA>> query,
+            ref Res<SmCounter> counter)
+        {
+            foreach (var (d, v, x) in query)
+            {
+                counter.Ref.Sum += d.Read.Value;
             }
         }
     }
@@ -279,6 +313,47 @@ namespace Wargon.Nukecs.Tests
             foreach (ref var e in q)
                 sum += e.Get<SmData>().Value;
             Assert.AreEqual(4, sum, "Remaining rows must iterate with correct data after swap-remove");
+            world.Dispose();
+        }
+
+        [Test]
+        public void WithTagOption_BatchSystem_FallsBackToArchetypePath()
+        {
+            // regression (Storage-Rework): a [System] whose query carries a TAG in
+            // With<> TOption is not storage-mode — with-bits can never be contained in a
+            // storage inlineMask. RebuildMatchingStorages must mark it degraded so the
+            // generated batch dispatcher takes the archetype path; before the fix it
+            // walked an EMPTY storage list and the system silently did nothing.
+            var world = World.Create(WorldConfig.Default256);
+            world.AddRes(new SmCounter());
+            var systems = new Systems(ref world);
+            systems.Add(SmStorageModeSystems.RemoveTagSystem, Threads.Main);
+            systems.Add(SmStorageModeSystems.SumUntaggedSystem, Threads.Main);
+
+            var e1 = world.Entity(new SmData { Value = 10 }, new SmVel { Speed = 1 });
+            var e2 = world.Entity(new SmData { Value = 20 }, new SmVel { Speed = 2 });
+            e1.Add(new SmExtra { E = 1 });
+            e2.Add(new SmExtra { E = 2 });
+            e1.Add<SmTagA>();
+            e2.Add<SmTagA>();
+            world.Update();
+
+            systems.OnUpdate(0.016f, 0f);
+            Assert.AreEqual(2, new Res<SmCounter>().Ref.Count,
+                "With<Tag> option must iterate via the archetype path (dead storage-walk bug)");
+
+            // Threads.Main runners flush the ECB right after each system: the tags are
+            // already removed, and the None<> consumer sees the entities in the SAME frame
+            // (query recovers from degradation once the none-tag LA is empty).
+            Assert.IsFalse(e1.Has<SmTagA>(), "Tag must be removed after the Main-runner ECB flush");
+            Assert.IsFalse(e2.Has<SmTagA>(), "Tag must be removed after the Main-runner ECB flush");
+            Assert.AreEqual(30, new Res<SmCounter>().Ref.Sum,
+                "None<Tag> query must see entities once the tag is removed (TransformChildSystem shape)");
+
+            world.Update(); // no-op for ECB here (already flushed by the runner), keeps frame pacing realistic
+            systems.OnUpdate(0.016f, 0f);
+            Assert.AreEqual(2, new Res<SmCounter>().Ref.Count, "Second frame: no tagged entities must match");
+            Assert.AreEqual(60, new Res<SmCounter>().Ref.Sum, "Second frame accumulates once per entity");
             world.Dispose();
         }
 

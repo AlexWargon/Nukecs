@@ -287,7 +287,7 @@ namespace Wargon.Nukecs
 
         internal static ptr<QueryUnsafe> CreatePtrRef(ptr<World.WorldUnsafe> world, bool withDefaultNoneTypes = true)
         {
-            var ptr = world.Ptr->_allocate_ptr<QueryUnsafe>();
+            var ptr = world.Ptr->_allocate_ptr<QueryUnsafe>(1, AllocatorTags.Query);
             ptr.Ref = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
@@ -477,12 +477,14 @@ namespace Wargon.Nukecs
 
         public bool HasWith(int type)
         {
-            return with.Has(type);
+            // Contains: type indexes past the mask capacity (types registered after the
+            // query was created) legitimately read as "not a with-filter".
+            return with.Contains(type);
         }
 
         public bool HasNone(int type)
         {
-            return none.Has(type);
+            return none.Contains(type);
         }
 
         public QueryUnsafe* None(int type)
@@ -582,22 +584,34 @@ namespace Wargon.Nukecs
             var w = world;
             matchingStorages.Clear();
             var degraded = (byte)0;
-            none.ExtractSetBits(ref storageFilterBits, ref w->AllocatorRef);
-            var noneBits = storageFilterBits;
-            for (var si = 0; si < w->storagesList.length; si++)
+            if (!IsStorageMode())
             {
-                ref var st = ref w->storagesList.Ptr[si].Ref;
-                if (!st.IsCreated) continue;
-                if (!st.inlineMask.ContainsAll(ref with)) continue;
-                if (!st.inlineMask.ContainsNone(ref none)) continue;
-                if (!NoneBitsClearInLogicalArchetypes(w, si, ref noneBits))
+                // with-bits contain tag/pool categories: no storage inlineMask can ever
+                // contain them, so the loop below would leave matchingStorages empty with
+                // degraded == 0 — and the generated batch dispatcher would take the dense
+                // storage walk over an EMPTY list, silently iterating nothing (dead system,
+                // e.g. With<TagEvent> in TOption). Force the archetype path instead.
+                degraded = 1;
+            }
+            else
+            {
+                none.ExtractSetBits(ref storageFilterBits, ref w->AllocatorRef);
+                var noneBits = storageFilterBits;
+                for (var si = 0; si < w->storagesList.length; si++)
                 {
-                    // a non-empty tag/pool none-archetype lives in this storage:
-                    // per-row exclusion is impossible in dense mode → degrade the whole query
-                    degraded = 1;
-                    continue;
+                    ref var st = ref w->storagesList.Ptr[si].Ref;
+                    if (!st.IsCreated) continue;
+                    if (!st.inlineMask.ContainsAll(ref with)) continue;
+                    if (!st.inlineMask.ContainsNone(ref none)) continue;
+                    if (!NoneBitsClearInLogicalArchetypes(w, si, ref noneBits))
+                    {
+                        // a non-empty tag/pool none-archetype lives in this storage:
+                        // per-row exclusion is impossible in dense mode → degrade the whole query
+                        degraded = 1;
+                        continue;
+                    }
+                    matchingStorages.Add(si, ref w->AllocatorRef);
                 }
-                matchingStorages.Add(si, ref w->AllocatorRef);
             }
             storageDegraded = degraded;
             storagesBuiltForLen = w->storagesList.length;
@@ -618,8 +632,10 @@ namespace Wargon.Nukecs
                 {
                     ref var la = ref w->archetypesList.Ptr[st.logicalArchetypes.Ptr[ai]].Ref;
                     if (la.count == 0) continue;
-                    if (category == ComponentCategory.Tag && la.tagMask.Has(bit)) return false;
-                    if (category == ComponentCategory.Pool && la.poolMask.Has(bit)) return false;
+                    // Contains: the LA's masks may be smaller than this query's none-bit
+                    // (type registered after the LA was created) — reads as absent.
+                    if (category == ComponentCategory.Tag && la.tagMask.Contains(bit)) return false;
+                    if (category == ComponentCategory.Pool && la.poolMask.Contains(bit)) return false;
                 }
             }
             return true;
