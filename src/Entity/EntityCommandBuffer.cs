@@ -31,7 +31,7 @@ namespace Wargon.Nukecs {
         internal void FixAfterDeserialize(World.WorldUnsafe* newWorld, ref MemAllocator allocator) {
             if (ecb == null) return;
             ecb->world = newWorld;
-            ecb->tempMask.OnDeserialize(ref allocator);
+            // tempMask is a fixed Bitmask1024 (inline value) — nothing to re-fix
         }
 
         internal static int ThreadIndex => JobsUtility.ThreadIndex;
@@ -45,8 +45,8 @@ namespace Wargon.Nukecs {
             ecb->perThreadCommands = CreateCommandBuffers(startSize, this.allocator);
             ecb->perThreadData = CreateDataBuffers(startSize * 64, this.allocator);
             ecb->world = world;
-            ecb->tempMask = new DynamicBitmask(
-                Unity.Mathematics.math.max(ComponentAmount.Value.Data, 256), world);
+            // tempMask: fixed 1024-bit inline value — no world-allocator allocation,
+            // no growth, no save/load fixups (was a DynamicBitmask in the arena)
             ecb->isCreated = 1;
         }
 
@@ -103,7 +103,9 @@ namespace Wargon.Nukecs {
             internal UnsafePtrList<UnsafeList<byte>>* perThreadData;
             [NativeDisableUnsafePtrRestriction]
             internal World.WorldUnsafe* world;
-            internal DynamicBitmask tempMask;
+            /// <summary>Fixed-size scratch mask for batch type-set rebuild — deliberately NOT
+            /// a DynamicBitmask: no world-allocator allocation/growth and no save/load fixups.</summary>
+            internal Bitmask1024 tempMask;
 
             public bool IsCreated => isCreated == 1;
 

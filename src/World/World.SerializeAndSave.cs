@@ -66,7 +66,7 @@ namespace Wargon.Nukecs {
         public partial struct WorldUnsafe {
             internal void OnDeserialize(ref MemAllocator allocator) {
                 selfPtr.OnDeserialize(ref allocator);
-                tempMask.OnDeserialize(ref allocator);
+                // tempMask is a fixed inline Bitmask1024 — no pointer fixup needed
 #if NUKECS_DEBUG
                 entitiesDens.OnDeserialize(ref allocator);
                 storyLog.OnDeserialize(ref allocator);

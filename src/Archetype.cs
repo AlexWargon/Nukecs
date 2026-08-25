@@ -173,18 +173,19 @@ namespace Wargon.Nukecs
             }
         }
 
-        /// <summary>Checks membership in the category mask matching the given type. One branch + one bit test.</summary>
+        /// <summary>Checks membership in the category mask matching the given type. One branch + one bit test.
+        /// Out-of-capacity indexes (types registered after this archetype was created) read as absent.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Has(int componentTypeIndex)
         {
             switch (ComponentTypeMap.GetCategory(componentTypeIndex))
             {
                 case ComponentCategory.Tag:
-                    return tagMask.Has(componentTypeIndex);
+                    return tagMask.Contains(componentTypeIndex);
                 case ComponentCategory.Pool:
-                    return poolMask.Has(componentTypeIndex);
+                    return poolMask.Contains(componentTypeIndex);
                 default:
-                    return inlineMask.Has(componentTypeIndex);
+                    return inlineMask.Contains(componentTypeIndex);
             }
         }
 
@@ -229,6 +230,19 @@ namespace Wargon.Nukecs
         internal void CopyMasksTo(ref DynamicBitmask target)
         {
             target.CopyUnion(ref inlineMask, ref tagMask, ref poolMask);
+        }
+
+        /// <summary>
+        /// Rebuilds a full type mask from the three category masks into a fixed 1024-bit
+        /// scratch mask (no world-allocator involvement — safe across save/load, no growth).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void CopyMasksTo(ref Bitmask1024 target)
+        {
+            target.Clear();
+            inlineMask.CopySetBitsTo(ref target);
+            tagMask.CopySetBitsTo(ref target);
+            poolMask.CopySetBitsTo(ref target);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -466,20 +480,20 @@ namespace Wargon.Nukecs
         }
         internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int index, ref Span<int> types)
         {
-            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>(1, AllocatorTags.Archetype);
             *ptr.Ptr = new ArchetypeUnsafe(world, index, ref types);
             return ptr;
         }
         internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, int index, int[] typesSpan = null)
         {
-            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>(1, AllocatorTags.Archetype);
             *ptr.Ptr = new ArchetypeUnsafe(world, index, typesSpan);
             return ptr;
         }
 
         internal static ptr<ArchetypeUnsafe> CreatePtrFromBitmask(World.WorldUnsafe* world, int index, ref DynamicBitmask bitmask)
         {
-            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>(1, AllocatorTags.Archetype);
             ref var arch = ref *ptr.Ptr;
             arch._spinner = new Spinner();
             arch.world = world;
@@ -508,7 +522,7 @@ namespace Wargon.Nukecs
         internal static ptr<ArchetypeUnsafe> CreatePtr(World.WorldUnsafe* world, ref MemoryList<int> typesSpan, int index,
             bool copyList = false)
         {
-            var ptr = world->_allocate_ptr<ArchetypeUnsafe>();
+            var ptr = world->_allocate_ptr<ArchetypeUnsafe>(1, AllocatorTags.Archetype);
             *ptr.Ptr = new ArchetypeUnsafe(world, ref typesSpan, index, copyList);
             return ptr;
         }
@@ -1061,7 +1075,7 @@ namespace Wargon.Nukecs
             {
                 var e = new Edge(ref from.world->AllocatorRef);
                 FillPairEdge(ref e, ref from, ref to);
-                edge = from.world->_allocate_ptr<Edge>();
+                edge = from.world->_allocate_ptr<Edge>(1, AllocatorTags.Archetype);
                 edge.Ref = e;
                 from.pairEdges.TryAdd(key, edge);
             }

@@ -30,7 +30,9 @@ namespace Wargon.Nukecs
             internal Archetype rootArchetype;
             public MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
-            internal DynamicBitmask tempMask;
+            /// <summary>Fixed-size scratch mask (prefab spawn path) — inline value, no
+            /// world-allocator allocation and no save/load fixups.</summary>
+            internal Bitmask1024 tempMask;
             public MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
             // Storage archetypes: data-buffer owners keyed by inline mask, shared between logical archetypes.
             public MemoryList<ptr<StorageArchetype>> storagesList;
@@ -125,7 +127,7 @@ namespace Wargon.Nukecs
                 aspects = new Aspects(ref AllocatorRef, id);
                 
                 selfPtr = worldSelf;
-                tempMask = DynamicBitmask.CreateForComponents(Self);
+                // tempMask is a fixed inline Bitmask1024 — no initialization needed
                 _ = ComponentType<DestroyEntity>.Index;
                 _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
@@ -642,6 +644,20 @@ namespace Wargon.Nukecs
                     hash++;
                 }
                 return CreateArchetype(ref mask, hash);
+            }
+
+            /// <summary>
+            /// Fixed 1024-bit scratch-mask entry point (ECB playback, prefab spawn). Routes
+            /// through the types-list path so the map hash stays in the single
+            /// DynamicBitmask.ComputeHash(int*, count) family — Bitmask1024 has its own hash
+            /// family and mixing them would duplicate archetypes for the same type set.
+            /// </summary>
+            internal Archetype GetOrCreateArchetype(ref Bitmask1024 mask) {
+                var count = mask.Count;
+                if (count == 0) return rootArchetype;
+                Span<int> types = stackalloc int[count];
+                mask.FillTypes(types);
+                return GetOrCreateArchetype(ref types);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
