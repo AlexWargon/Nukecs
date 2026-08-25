@@ -12,6 +12,10 @@ namespace Wargon.Nukecs
             {
                 WorldSystems.CompleteAll(Id);
                 WorldSystems.Remove(Id);
+                // Arena Guard: one cold walk — corruption planted during the session is
+                // reported HERE (clear error) instead of crashing the editor later when
+                // the damaged heap block is touched by unrelated code (e.g. TextCore).
+                AllocatorHandler.AllocatorWrapper.Allocator.ValidateAndReport($"world {Id} dispose");
                 ECB.Dispose();
                 selfPtr = default;
             }

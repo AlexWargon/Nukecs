@@ -110,7 +110,23 @@ namespace Wargon.Nukecs
                     UnsafeUtility.MemCpy(regions[i].basePtr, p, regions[i].size);
                     p += regions[i].size;
                 }
+
+                // The restored bytes carry freed-block headers (negative Size) from the
+                // saved session, but the free-list METADATA above was reset — relink the
+                // lists from the headers themselves or later Dealloc/Alloc coalesce
+                // against ghost blocks and corrupt the arena.
+                for (int i = 0; i < regionCount; i++)
+                {
+                    RebuildFreeList(i);
+                }
             }
+            // normalize free blocks to the poisoned state when the flag is on — the save
+            // may come from a session without PoisonFree and would trip Validate
+            if ((AllocatorDebugState.Mode & AllocatorDebugMode.PoisonFree) != 0)
+                PoisonAllFree();
+            // Arena Guard: a corrupt/incompatible save is reported as a clear validation
+            // error here instead of an NRE storm during the pointer-fixup walk
+            ValidateAndReport("load");
         }
 
         public void SaveToFile(string filePath)

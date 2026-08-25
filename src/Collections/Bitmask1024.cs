@@ -222,6 +222,24 @@ namespace Wargon.Nukecs
             }
         }
 
+        /// <summary>Fills a span with set bit positions (ascending). Returns the count written.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int FillTypes(Span<int> output)
+        {
+            var n = 0;
+            for (var w = 0; w < WORD_COUNT; w++)
+            {
+                var word = words[w];
+                while (word != 0)
+                {
+                    var b = BitUtils.TrailingZeroCount(word);
+                    output[n++] = w * BITS_PER_WORD + b;
+                    word &= word - 1;
+                }
+            }
+            return n;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int ComputeHash(int* types, int count)
         {

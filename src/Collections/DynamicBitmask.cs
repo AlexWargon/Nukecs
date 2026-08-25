@@ -39,11 +39,29 @@ namespace Wargon.Nukecs
 
             this.maxBits = maxBits;
             arraySize = (maxBits + BITS_PER_ULONG - 1) / BITS_PER_ULONG; // Calculate the number of ulong elements needed
-            bitmaskArray = world->_allocate_ptr<ulong>(arraySize);
+            bitmaskArray = world->_allocate_ptr<ulong>(arraySize, AllocatorTags.ArchetypeMask);
             Count = 0;
 
             // Clear the allocated memory
             ClearBitmask();
+        }
+
+        /// <summary>
+        /// Scatters all set bits of this mask into a fixed 1024-bit mask (no allocation).
+        /// Bits past 1024 are a hard error — the target project type count exceeds the cap.
+        /// </summary>
+        public void CopySetBitsTo(ref Bitmask1024 target)
+        {
+            for (var i = 0; i < arraySize; i++)
+            {
+                var word = bitmaskArray.Ptr[i];
+                while (word != 0)
+                {
+                    var b = BitUtils.TrailingZeroCount(word);
+                    target.Add(i * BITS_PER_ULONG + b);
+                    word &= word - 1;
+                }
+            }
         }
 
         public void Clear()
@@ -90,6 +108,30 @@ namespace Wargon.Nukecs
             return (bitmaskArray.Ptr[index] & (1UL << bitPosition)) != 0;
         }
 
+        /// <summary>Capacity of this mask in bits.</summary>
+        public int MaxBits
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => maxBits;
+        }
+
+        /// <summary>
+        /// Non-throwing membership check: positions beyond the mask capacity return false.
+        /// Masks are sized to the component-type count at creation time, while the global type
+        /// registry keeps growing (lazy ComponentType&lt;T&gt;.Index registration) — a bit past
+        /// the capacity simply means "this mask can not contain that type".
+        /// Use for reads driven by external indices (debugger iteration, CheckQuery,
+        /// Entity.Get of a type younger than the archetype); <see cref="Has"/> stays strict.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Contains(int position)
+        {
+            if ((uint)position >= (uint)maxBits) return false;
+            var index = position / BITS_PER_ULONG;
+            var bitPosition = position % BITS_PER_ULONG;
+            return (bitmaskArray.Ptr[index] & (1UL << bitPosition)) != 0;
+        }
+
         public bool HasRange(int* buffer, int range)
         {
             var matches = 0;
@@ -124,23 +166,32 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CopyFrom(ref DynamicBitmask source)
         {
-            var bytes = source.arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, bytes);
+            // masks of different eras have different capacities: copy the common words,
+            // zero the tail (this > source) so stale bits never survive a copy
+            var n = arraySize < source.arraySize ? arraySize : source.arraySize;
+            UnsafeUtility.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, sizeof(ulong) * n);
+            for (var i = n; i < arraySize; i++) bitmaskArray.Ptr[i] = 0;
             Count = source.Count;
         }
 
         /// <summary>
         /// Fills this bitmask with the union of the three category masks (inline | tag | pool)
-        /// and recounts set bits. All masks must share the same array size.
+        /// and recounts set bits. Each source is read only within its own capacity: scratch
+        /// masks (ECB/world tempMask) can be larger than archetype masks — words past a
+        /// source's buffer must read as 0, not as out-of-bounds memory.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CopyUnion(ref DynamicBitmask inline, ref DynamicBitmask tag, ref DynamicBitmask pool)
         {
             var newCount = 0;
+            var words = bitmaskArray.Ptr;
             for (var i = 0; i < arraySize; i++)
             {
-                var word = inline.bitmaskArray.Ptr[i] | tag.bitmaskArray.Ptr[i] | pool.bitmaskArray.Ptr[i];
-                bitmaskArray.Ptr[i] = word;
+                var word = 0UL;
+                if (i < inline.arraySize) word |= inline.bitmaskArray.Ptr[i];
+                if (i < tag.arraySize) word |= tag.bitmaskArray.Ptr[i];
+                if (i < pool.arraySize) word |= pool.bitmaskArray.Ptr[i];
+                words[i] = word;
                 newCount += math.countbits(word);
             }
             Count = newCount;
@@ -187,6 +238,7 @@ namespace Wargon.Nukecs
         /// <summary>
         /// FNV-1a hash over the byte representation of (this | tag | pool), byte-identical
         /// to <see cref="ComputeHash"/> of a union bitmask. this = inline mask.
+        /// Sources are read only within their own capacities (see <see cref="CopyUnion"/>).
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int ComputeUnionHash(ref DynamicBitmask tag, ref DynamicBitmask pool)
@@ -200,7 +252,9 @@ namespace Wargon.Nukecs
                 var poolWords = pool.bitmaskArray.Ptr;
                 for (var i = 0; i < arraySize; i++)
                 {
-                    var word = inlineWords[i] | tagWords[i] | poolWords[i];
+                    var word = inlineWords[i];
+                    if (i < tag.arraySize) word |= tagWords[i];
+                    if (i < pool.arraySize) word |= poolWords[i];
                     var wptr = (byte*)&word;
                     for (var b = 0; b < 8; b++)
                         hash = (hash ^ wptr[b]) * p;
