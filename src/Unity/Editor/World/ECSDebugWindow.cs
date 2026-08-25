@@ -657,7 +657,8 @@ namespace Wargon.Nukecs.Editor
 
             foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
             {
-                if (!q.with.IsCreated || !q.with.Has(typeIdx)) continue;
+                // Contains: type registry grows via lazy registration past query mask capacity
+                if (!q.with.IsCreated || !q.with.Contains(typeIdx)) continue;
                 var t = ComponentTypeMap.GetType(typeIdx);
                 var typeName = t != null ? t.Name : $"Type {typeIdx}";
                 AddComponentChip(typeName, Theme.Accent);
@@ -679,7 +680,8 @@ namespace Wargon.Nukecs.Editor
 
             foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
             {
-                if (!q.none.IsCreated || !q.none.Has(typeIdx)) continue;
+                // Contains: type registry grows via lazy registration past query mask capacity
+                if (!q.none.IsCreated || !q.none.Contains(typeIdx)) continue;
                 var t = ComponentTypeMap.GetType(typeIdx);
                 var typeName = t != null ? t.Name : $"Type {typeIdx}";
                 AddComponentChip(typeName, Theme.RemoveBtn);

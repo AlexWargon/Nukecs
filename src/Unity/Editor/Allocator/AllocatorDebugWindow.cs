@@ -48,6 +48,13 @@ namespace Wargon.Nukecs
         private Label _overallBarLabel;
         private VisualElement _regionsContainer;
         private Label _noDataLabel;
+        private VisualElement _guardCard;
+        private Label _guardStatusLabel;
+        private DropdownField _autoValidateField;
+        private VisualElement _tagsCard;
+        private VisualElement _tagsContainer;
+        private long _refreshTick;
+        private long _autoValidateEvery = -1;
 
         [MenuItem("Nuke.cs/Allocator Debug")]
         public static void ShowWindow()
@@ -71,6 +78,8 @@ namespace Wargon.Nukecs
             _root.Add(_contentScroll);
 
             DrawOverview();
+            DrawArenaGuard();
+            DrawTagsCard();
             DrawOverallUsage();
             DrawRegionsSection();
 
@@ -259,6 +268,7 @@ namespace Wargon.Nukecs
 
         private void Refresh()
         {
+            _refreshTick++;
             if (!World.HasActiveWorlds())
             {
                 _noDataLabel.style.display = DisplayStyle.Flex;
@@ -284,9 +294,166 @@ namespace Wargon.Nukecs
 
             ref var allocator = ref *allocatorPtr;
             UpdateOverview(ref allocator);
+            RunAutoValidate(ref allocator);
+            UpdateTags(ref allocator);
             UpdateOverallUsage(ref allocator);
             UpdateRegions(ref allocator);
         }
+
+        // ------------------------------------------------------------------
+        // Arena Guard
+        // ------------------------------------------------------------------
+
+        private void DrawArenaGuard()
+        {
+            _guardCard = CreateCard();
+            _guardCard.Add(CreateSectionTitle("Arena Guard"));
+
+            _guardCard.Add(MakeGuardToggle("Canary (OOB write detection)", AllocatorDebugMode.Canary));
+            var poison = MakeGuardToggle("Poison free (use-after-free detection)", AllocatorDebugMode.PoisonFree);
+            // blocks freed before the switch hold arbitrary bytes — normalize them
+            poison.RegisterValueChangedCallback(_ =>
+            {
+                if ((AllocatorDebugState.Mode & AllocatorDebugMode.PoisonFree) == 0) return;
+                if (!World.HasActiveWorlds()) return;
+                var ap = World.Default.AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
+                if (ap != null) ap->PoisonAllFree();
+            });
+            _guardCard.Add(poison);
+            var tags = MakeGuardToggle("Track tags (per-source live stats)", AllocatorDebugMode.TrackTags);
+            tags.RegisterValueChangedCallback(_ => UpdateTagsCardVisibility());
+            _guardCard.Add(tags);
+
+            var row = new VisualElement();
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.justifyContent = Justify.SpaceBetween;
+            row.style.alignItems = Align.Center;
+            row.style.marginTop = 8;
+
+            var validateBtn = new Button(() =>
+            {
+                if (!World.HasActiveWorlds()) return;
+                var ap = World.Default.AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
+                if (ap == null) return;
+                SetGuardStatus(ap->Validate(out _));
+            }) { text = "Validate now" };
+            validateBtn.style.width = 120;
+            row.Add(validateBtn);
+
+            _autoValidateField = new DropdownField("Auto", new System.Collections.Generic.List<string> { "Off", "1s", "5s" }, 0);
+            _autoValidateField.RegisterValueChangedCallback(_ =>
+            {
+                _autoValidateEvery = _autoValidateField.index switch
+                {
+                    1 => 5,   // 5 refreshes × 200 ms
+                    2 => 25,  // 25 refreshes × 200 ms
+                    _ => -1
+                };
+            });
+            _autoValidateField.style.width = 140;
+            row.Add(_autoValidateField);
+            _guardCard.Add(row);
+
+            _guardStatusLabel = new Label("not validated yet");
+            _guardStatusLabel.style.fontSize = 11;
+            _guardStatusLabel.style.color = new Color(0.6f, 0.6f, 0.6f);
+            _guardStatusLabel.style.marginTop = 6;
+            _guardCard.Add(_guardStatusLabel);
+
+            _contentScroll.Add(_guardCard);
+        }
+
+        private static Toggle MakeGuardToggle(string label, AllocatorDebugMode flag)
+        {
+            var t = new Toggle(label) { value = (AllocatorDebugState.Mode & flag) != 0 };
+            t.style.marginTop = 2;
+            t.style.marginBottom = 2;
+            t.RegisterValueChangedCallback(e =>
+            {
+                if (e.newValue) AllocatorDebugState.Mode |= flag;
+                else AllocatorDebugState.Mode &= ~flag;
+            });
+            return t;
+        }
+
+        private void RunAutoValidate(ref MemAllocator allocator)
+        {
+            if (_autoValidateEvery <= 0 || _refreshTick % _autoValidateEvery != 0) return;
+            SetGuardStatus(allocator.Validate(out _));
+        }
+
+        private void SetGuardStatus(bool ok)
+        {
+            if (_guardStatusLabel == null) return;
+            if (ok)
+            {
+                _guardStatusLabel.text = "arena OK";
+                _guardStatusLabel.style.color = new Color(0.55f, 0.9f, 0.55f);
+            }
+            else
+            {
+                _guardStatusLabel.text = "CORRUPTED — see Console";
+                _guardStatusLabel.style.color = new Color(1f, 0.45f, 0.45f);
+            }
+        }
+
+        private void DrawTagsCard()
+        {
+            _tagsCard = CreateCard();
+            _tagsCard.Add(CreateSectionTitle("Tags (live allocations)"));
+            _tagsContainer = new VisualElement();
+            _tagsCard.Add(_tagsContainer);
+            _contentScroll.Add(_tagsCard);
+            UpdateTagsCardVisibility();
+        }
+
+        private void UpdateTagsCardVisibility()
+        {
+            if (_tagsCard == null) return;
+            _tagsCard.style.display =
+                (AllocatorDebugState.Mode & AllocatorDebugMode.TrackTags) != 0
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+        }
+
+        private unsafe void UpdateTags(ref MemAllocator allocator)
+        {
+            if (_tagsContainer == null
+                || (AllocatorDebugState.Mode & AllocatorDebugMode.TrackTags) == 0) return;
+
+            var stats = new MemAllocator.TagStats();
+            allocator.GetTagStats(ref stats);
+            _tagsContainer.Clear();
+            if (stats.Length == 0)
+            {
+                var empty = new Label("no live blocks");
+                empty.style.color = new Color(0.55f, 0.55f, 0.55f);
+                empty.style.fontSize = 12;
+                _tagsContainer.Add(empty);
+                return;
+            }
+
+            for (var i = 0; i < stats.Length; i++)
+            {
+                var row = new VisualElement();
+                row.style.flexDirection = FlexDirection.Row;
+                row.style.justifyContent = Justify.SpaceBetween;
+                row.style.marginTop = 1;
+                row.style.marginBottom = 1;
+
+                var name = new Label(AllocatorTags.NameOf(stats.Tags[i]));
+                name.style.fontSize = 12;
+                name.style.color = new Color(0.8f, 0.8f, 0.8f);
+                row.Add(name);
+
+                var value = new Label($"{stats.Counts[i]} × {FormatBytes(stats.Bytes[i])}");
+                value.style.fontSize = 12;
+                value.style.color = new Color(0.65f, 0.8f, 0.95f);
+                row.Add(value);
+                _tagsContainer.Add(row);
+            }
+        }
+
 
         private void UpdateStatus(bool active)
         {
