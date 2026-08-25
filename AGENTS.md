@@ -165,9 +165,10 @@ World → Archetype[] → Entity (int ID)
 
 | File | Description |
 |------|-------------|
-| `src/Allocator/Allocator.cs` | `MemAllocator` — arena allocator |
+| `src/Allocator/Allocator.cs` | `MemAllocator` — arena allocator (+ Arena Guard: tags, canary, poison, `Validate`, `GetTagStats`) |
+| `src/Allocator/AllocatorDebug.cs` | Arena Guard: `AllocatorDebugState.Mode` (SharedStatic runtime flags), `AllocatorTags`, violation kinds/reporting |
 | `src/Allocator/ptr.cs` | `ptr<T>` — safe pointer wrapper |
-| `src/Allocator/Serialization.cs` | Allocator serialization support |
+| `src/Allocator/Serialization.cs` | Allocator serialization (+ free-list rebuild after load, post-load validation) |
 | `src/Allocator/Spinner.cs` | Spinlock implementation (copy of Unity internal Spinner) |
 
 ### Misc Root Files
@@ -1113,3 +1114,34 @@ Rules the generator must keep:
    mirrors the generated structure verbatim (plain `[System]`, no batching).
    Twin == fast means generator emits something different; twin == slow means
    the structure itself is the cost.
+
+## 18. Arena Guard — corruption/leak detection (runtime-toggleable)
+
+Arena lives on `Allocator.Persistent` = the SAME Unity DynamicHeapAllocator as editor
+blocks — any ECS OOB write corrupts unrelated editor memory and crashes the editor
+MINUTES LATER (delayed symptom, victim e.g. TextCore). Arena Guard catches it at the
+source. Born from the 2026-08-25 crash-hunt (phantom types via CopyUnion OOB).
+
+- **Flags**: `AllocatorDebugState.Mode` — `SharedStatic<AllocatorDebugMode>`
+  (`Canary | PoisonFree | TrackTags`). SharedStatic is MANDATORY: Burst jobs
+  (ECB playback) read it; a plain static silently breaks Burst of every touching job.
+  Default `None` → cost is one predictable branch in Alloc/Dealloc.
+- **Tags (always on, free)**: allocation tag stored in the unused `NextFree` header
+  field of live blocks (bit 32 = has-guard marker). `_allocate_ptr<T>(items, tag)` /
+  `Allocate(size, tag)`. Key sources tagged (`AllocatorTags.*`); rest = `Untagged`.
+  `GetTagStats` → per-tag live count/bytes → runaway-growth leaks visible in UI.
+- **Canary**: +16 guard bytes at the end of the aligned slot (flag on at alloc time
+  only). Detects writes past allocation (overflows smaller than A16 padding slip).
+- **PoisonFree**: freed user area's first 16 bytes = `0xDD`; `Validate` flags writes
+  into freed blocks (UAF). When toggling ON mid-session call `PoisonAllFree()`
+  (the UI toggle does this; FastDeserialize normalizes too).
+- **`Validate(out Violation)`**: walks block chains — header sanity (A16 size, chain
+  within cursor), canaries, poison. Burst-safe (no managed); report via
+  `[BurstDiscard]` `AllocatorDebugState.Report`.
+- **Auto-runs (always, cold paths)**: `WorldUnsafe.Free()` ("world N dispose") and
+  end of `FastDeserialize` ("load"). Corruption → clear LogError at the boundary
+  instead of a delayed editor crash / NRE storm.
+- **UI**: `Nuke.cs/Allocator Debug` window (AllocatorEditor.asmdef, always compiled):
+  flag toggles, "Validate now", auto-interval, per-tag card.
+- **Tests**: `UnitTests/AllocatorDebugTests.cs` (canary OOB, poison UAF, clean churn,
+  tag stats, PoisonAllFree normalization).

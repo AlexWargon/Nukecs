@@ -222,3 +222,31 @@ freed-память иногда содержит старое значение, 
 Table=StorageArchetype, Archetype=LA (маски), ZST-теги не в таблице, SparseSet≈GenericPool/IPoolComponent,
 archetype.entities()+entity_rows≈rows (у нас сразу row-индексы, Bevy — entity-id + мапа в таблице).
 Разница: нам надо чинить rows чужих LA при swap-remove (FixSwappedEntityLocation), Bevy мапу не чинит.
+
+## 13. Arena Guard (2026-08-25)
+
+Повод: отложенные краши редактора (TextCore/tlsf_free) после сессий с порчей арены —
+арена на `Allocator.Persistent` стоит на той же куче, что блоки редактора; наш OOB
+калечит соседние блоки, краш приходит позже при их освобождении.
+
+Реализовано (план "Arena Guard", все флаги через SharedStatic — Burst-правило §11):
+
+- `src/Allocator/AllocatorDebug.cs`: `AllocatorDebugState.Mode` (Canary|PoisonFree|
+  TrackTags), `AllocatorTags` (+managed имена через [BurstDiscard] NameOf), Violation.
+- `MemAllocator`: тег аллокации в неиспользуемом NextFree занятых блоков (бит 32 =
+  guard-маркер; хранение бесплатно); Canary = +16 байт в конце A16-слота при
+  включённом флаге (layout при OFF идентичен старому); PoisonFree = 0xDD в первых 16
+  байтах освобождённого юзер-поля (и в сплит-остатке Alloc); `Validate` — проход цепочек
+  (sanity заголовков, канарейки, пойзон); `ValidateAndReport` ([BurstDiscard]-репорт);
+  `PoisonAllFree` (нормализация при мид-сессионном включении); `GetTagStats` (fixed 32
+  тегов, live count/bytes).
+- Теги: `_allocate_ptr<T>(items, tag)` optional; протегированы Archetype/Masks/Storage/
+  Query/Events/ResStorage/QueryGeneric/Edge. Остальное — Untagged.
+- Автовалидация (всегда, холодно): `WorldUnsafe.Free()` и конец `FastDeserialize`
+  (+ PoisonAllFree при PoisonFree ON после RebuildFreeList — сейв мог быть без пойзона).
+- UI: окно "Nuke.cs/Allocator Debug" — тогглы, Validate now, авто-интервал (Off/1s/5s),
+  карточка тегов. Тоггл PoisonFree ON вызывает PoisonAllFree.
+- Тесты: `UnitTests/AllocatorDebugTests.cs` (6). Новый файл вручную добавлен в
+  Nukecs.Tests.csproj (Unity перезапишет — норм).
+
+Документация: AGENTS.md §18. Рантайм-цена при None: ~ветка в Alloc/Dealloc + int-стор.
