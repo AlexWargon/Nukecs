@@ -1,5 +1,9 @@
 ﻿// ReSharper disable UnusedMember.Global
 
+using System;
+using Codice.CM.Common;
+using Wargon.Nukecs.Collections;
+
 namespace Wargon.Nukecs
 {
     using System.Runtime.CompilerServices;
@@ -888,5 +892,56 @@ namespace Wargon.Nukecs
     public interface IChunk
     {
         void SetData(ref ArchetypeUnsafe archetype);
+    }
+
+    public unsafe ref struct ChunkIter<T1, T2, T3, T4> 
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+        where T4 : unmanaged
+    {
+        internal Ref4<T1, T2, T3, T4> chunk;
+        [Unity.Collections.LowLevel.Unsafe.NativeDisableUnsafePtrRestriction] private readonly int* _arches;
+        private readonly int _archesLen;
+        private readonly World.WorldUnsafe* _world;
+        private int _archIndex;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ChunkIter(in MemoryList<int> arches, World.WorldUnsafe* world)
+        {
+            _arches = arches.Ptr;
+            _archesLen = arches.Length;
+            _world = world;
+            _archIndex = -1;
+            chunk = default;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly ChunkIter<T1, T2, T3, T4> GetEnumerator() => this;
+
+        public readonly Ref4<T1, T2, T3, T4> Current
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => chunk;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool MoveNext()
+        {
+            while (++_archIndex < _archesLen)
+            {
+                ref var arch = ref _world->archetypesList.Ptr[_arches[_archIndex]].Ref;
+                var count = arch.count;
+                if (count <= 0) continue;
+                chunk = new Ref4<T1, T2, T3, T4>(
+                    (T1*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index))),
+                    (T2*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index))),
+                    (T3*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index))),
+                    (T4*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index))),
+                    arch.count);
+                return true;
+            }
+
+            return false;
+        }
     }
 }

@@ -9,9 +9,7 @@ namespace Wargon.Nukecs.Demos.HotReload
     {
         [System, BurstCompile]
         public static unsafe void RotateCubeSystem(
-            ref Query<
-                Transform, RotationSpeed,
-                With<Cube>> query, 
+            ref Query<Transform, RotationSpeed, With<Cube>> query, 
             ref State state)
         {
             var dt = state.Time.DeltaTime;

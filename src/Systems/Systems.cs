@@ -156,9 +156,9 @@ namespace Wargon.Nukecs
         public Systems AddDefaults()
         {
             this.Add(DefaultSystems.EntityDestroySystem, Threads.MainRun);
-            this.Add(DefaultSystems.OnPrefabSpawn);
+            this.Add(DefaultSystems.OnPrefabSpawn, Threads.MainRun);
             this.Add(DefaultSystems.ClearEvents, Threads.MainRun);
-            Add<ClearEntityCreatedEventSystem>();
+            //Add<ClearEntityCreatedEventSystem>();
             return this;
         }
 

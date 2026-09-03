@@ -37,6 +37,7 @@ namespace Wargon.Nukecs.Demos.CubeSculpture
             });
             world.AddRes(new SculptureData());
             world.AddRes(new CycleData { AssembledDuration = 3f });
+            Systems.UseDependencyGraph(mode: GroupScheduleMode.FlattenedSchedule2);
             Systems.AddGroup(new CubeSculpture());
 
         }

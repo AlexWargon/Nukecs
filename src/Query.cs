@@ -847,6 +847,52 @@ namespace Wargon.Nukecs
         }
     }
     [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Ref4<T1, T2, T3, T4> 
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+        where T4 : unmanaged
+    {
+        [NativeDisableUnsafePtrRestriction] internal T1* _p1;
+        [NativeDisableUnsafePtrRestriction] internal T2* _p2;
+        [NativeDisableUnsafePtrRestriction] internal T3* _p3;
+        [NativeDisableUnsafePtrRestriction] internal T4* _p4;
+        internal int len;
+        public Span<T1> Components0 => new (_p1, len);
+        public Span<T2> Components1 => new (_p2, len);
+        public Span<T3> Components2 => new (_p3, len);
+        public Span<T4> Components3 => new (_p4, len);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Ref4(T1* p1, T2* p2, T3* p3, T4* p4, int len)
+        {
+            _p1 = p1;
+            _p2 = p2;
+            _p3 = p3;
+            _p4 = p4;
+            this.len = len;
+        }
+        public ref T1 C1
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p1;
+        }
+        public ref T2 C2
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p2;
+        }
+        public ref T3 C3
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p3;
+        }
+        public ref T4 C4
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p4;
+        }
+    }   
+    [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Ref<TComponent> where TComponent : unmanaged
     {
         [NativeDisableUnsafePtrRestriction] 
