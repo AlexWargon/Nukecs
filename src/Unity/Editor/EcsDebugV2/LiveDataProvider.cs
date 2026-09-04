@@ -140,6 +140,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _worldInfoTimestamp = 0;
         }
 
+        /// <summary>Index of the world slot this provider currently inspects (editor tools, e.g. scene gizmos).</summary>
+        public int WorldIndex => _worldIndex;
+
         public int GetEntityCount()
         {
             return !IsWorldValid() ? 0 : GetWorld().UnsafeWorld->entitiesAmount;

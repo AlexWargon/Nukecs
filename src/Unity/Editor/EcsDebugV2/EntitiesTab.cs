@@ -186,6 +186,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     }
                 }
             };
+            // Double-click (or Enter) frames the entity in the SceneView, Unity-style.
+            listView.onItemsChosen += objects =>
+            {
+                foreach (var o in objects)
+                {
+                    if (o is EntityInfo info)
+                    {
+                        EntityTransformGizmoDrawer.FrameEntity(window, info.id);
+                        break;
+                    }
+                }
+            };
             listView.makeNoneElement = () => new VisualElement();
             if (window.selectedEntityId.HasValue)
             {
