@@ -269,6 +269,8 @@ namespace Wargon.Nukecs.Tests
 
             var systems = new Systems(ref world);
             systems.Add(TmPoolSystems.SumPoolSystem, Threads.Main);
+            Assert.AreEqual(5, e1.Get<TmPool>().Value, "Pool value before runner");
+            Assert.AreEqual(7, e2.Get<TmPool>().Value, "Pool value before runner");
             systems.OnUpdate(0.016f, 0f);
 
             Assert.AreEqual(12, new Res<TmCounter>().Ref.Sum,

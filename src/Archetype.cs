@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
@@ -649,6 +649,13 @@ namespace Wargon.Nukecs
                 row = row,
                 listPos = listPos
             };
+            // Match BatchCreateEntity: pool components need initialized slots too.
+            for (var i = 0; i < types.length; i++) {
+                var type = ComponentTypeMap.GetComponentType(types.Ptr[i]);
+                if (type.category != ComponentCategory.Pool) continue;
+                var data = world->GetUntypedPoolPtr(type.index)->UnsafeGetPtr(e.id);
+                mem_clear(data, type.size);
+            }
             for (var i = 0; i < queries.Length; i++) IdToQueryRef(queries.Ptr[i]).Add(e.id);
             return ref e;
         }

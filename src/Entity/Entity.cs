@@ -115,6 +115,9 @@ namespace Wargon.Nukecs
             var componentType = ComponentType<T>.Data;
             ref var loc = ref entity.worldPointer->entityLocations.Ptr[entity.id];
             ref var arch = ref entity.worldPointer->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            // Generic callers constrained to IComponent also accept IPoolComponent.
+            if (componentType.category == ComponentCategory.Pool && arch.Has(componentType.index))
+                return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
             if (componentType.category == ComponentCategory.Tag)
             {
                 if (arch.Has(componentType.index))

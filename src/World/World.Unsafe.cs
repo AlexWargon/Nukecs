@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
@@ -221,7 +221,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged{
                 var poolIndex = ComponentType<T>.Index;
-                //if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
+                if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
@@ -232,6 +232,7 @@ namespace Wargon.Nukecs
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref GenericPool GetUntypedPool(int poolIndex) {
+                if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {

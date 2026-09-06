@@ -926,8 +926,7 @@ namespace Wargon.Nukecs
         }
         public static implicit operator Ref<TComponent>(TComponent r)
         {
-            var ptr = (TComponent*)Unsafe.AsPointer(ref r);
-            return new Ref<TComponent>(ptr);
+            return new Ref<TComponent>((TComponent*)Unsafe.AsPointer(ref r));
         }
     }
 
