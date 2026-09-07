@@ -12,6 +12,19 @@ namespace Wargon.Nukecs.Tests
     public static class RuntimeQueryIter4GeneratedHarness
     {
         [System]
+        public static void PagedPointerIteration(
+            ref Query<RuntimeQi4A, RuntimeQi4B, RuntimeQi4C, RuntimeQi4D> query)
+        {
+            var countSnapshot = query.Count;
+            foreach (var (a, b, c, d) in query.iter_paged_runtime())
+            {
+                a.Get.Value += b.Read.Value;
+                c.Get.Value += d.Read.Value;
+            }
+            if (countSnapshot < 0) dbug.log("unreachable");
+        }
+
+        [System]
         public static void MixedPointerIteration(
             ref Query<RuntimeQi4A, RuntimeQi4B, RuntimeQi4C, RuntimeQi4D> query)
         {
@@ -316,6 +329,12 @@ namespace Wargon.Nukecs.Tests
             MeasureGeneratedRunner(2);
         }
 
+        [Test, Performance]
+        public void DenseInline_PagedPointerWithSystemRunner()
+        {
+            MeasureGeneratedRunner(3);
+        }
+
         private static void MeasureGeneratedRunner(int variant)
         {
             const int count = 100000;
@@ -323,7 +342,8 @@ namespace Wargon.Nukecs.Tests
             try
             {
                 var systems = new Systems(ref world);
-                if (variant == 2) systems.Add(RuntimeQueryIter4GeneratedHarness.MixedPointerIteration, Threads.Main);
+                if (variant == 3) systems.Add(RuntimeQueryIter4GeneratedHarness.PagedPointerIteration, Threads.Main);
+                else if (variant == 2) systems.Add(RuntimeQueryIter4GeneratedHarness.MixedPointerIteration, Threads.Main);
                 else if (variant == 1) systems.Add(RuntimeQueryIter4GeneratedHarness.CompactPointerIteration, Threads.Main);
                 else systems.Add(RuntimeQueryIter4GeneratedHarness.RuntimeIteration, Threads.Main);
                 var entities = world.BatchCreateEntity(count);

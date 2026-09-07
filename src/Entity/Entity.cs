@@ -221,11 +221,16 @@ namespace Wargon.Nukecs
 #endif
         public static void Set<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
         {
-            var componentType = ComponentType<T>.Index;
-            if (!entity.ArchetypeRef.Has(componentType)) return;
+            var componentType = ComponentType<T>.Data;
             ref var arch = ref entity.ArchetypeRef;
+            if (!arch.Has(componentType.index)) return;
+            if (componentType.storageType == StorageType.Pool)
+            {
+                entity.worldPointer->GetPool<T>().Set(entity.id, component);
+                return;
+            }
             var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
-            var ptr = arch.GetComponentDataPtr(componentType, loc.row);
+            var ptr = arch.GetComponentDataPtr(componentType.index, loc.row);
             if (ptr != null)
                 *(T*)ptr = component;
         }

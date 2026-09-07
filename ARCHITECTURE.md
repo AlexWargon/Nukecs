@@ -49,8 +49,8 @@ Storage-mode queries спасены (сканируют storages лениво).
 
 | Путь | Когда | Механика |
 |---|---|---|
-| **batch storage-loop** | прямой `foreach (var (a,b) in query)` в [System] | генератор: pointer-walk по storages (`base++` до sentinel `end`, тела через `->`), walkers в отдельных методах. Perf-контракт генератора — AGENTS.md §"Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3) |
-| **storage-mode** | query с inline-only with-фильтрами, итераторы `iter()`/фабрики | dense-проход по `GetMatchingStorages()`; деградация на LA-при конфликте none-тегов (prefab/dead). None-filter бенчи: деградация при 10% помеченных = +3–4% общего времени; gather = +16% per-entity (16.3→18.7 ns, константа, не зависит от перемешанности); итерация масштабируется с матчащими (50% → 0.93 ms от 1.63) |
+| **batch storage-loop** | одиночный `foreach (var (a,b) in query)` в [System] | генератор: pointer-walk по storages (`base++` до sentinel `end`, тела через `->`), walkers в отдельных методах. Perf-контракт генератора — AGENTS.md §"Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3) |
+| **storage-mode** | query с inline-only with-фильтрами, runtime-итераторы `iter()`/фабрики | dense-проход по `GetMatchingStorages()`; деградация на LA-при конфликте none-тегов (prefab/dead). None-filter бенчи: деградация при 10% помеченных = +3–4% общего времени; gather = +16% per-entity (16.3→18.7 ns, константа, не зависит от перемешанности); итерация масштабируется с матчащими (50% → 0.93 ms от 1.63) |
 | **enumerator** | `foreach (ref var e in q)` / generic-итераторы | QueryEnumerator2 / QueryIter: dense (`_rows==null`) или gather (`AdvanceTo(rows[i])`) |
 
 **Cost-model managed-итерации (Mono, 100k×4 компонентов)** — выверено замерами:
@@ -59,7 +59,7 @@ Storage-mode queries спасены (сканируют storages лениво).
 - **Размер tuple решает**: `Current` копирует всю структуру на каждый entity. +30Б ≈ +1 ms.
   НЕ добавляй поля в Ref/PtrTuple (все 35 сжаты к минимуму после инцидента 3.3ms).
 - Форма Add (статик-ветки vs stride vs fast-path) на скорость НЕ влияет. Только размер.
-- `[BurstCompile]` на системе с `iter()` ничего не меняет (fallback исполняется managed).
+- `query.iter()` и `query.par_iter()` используют runtime-итератор и внутри `[System]`: batch rewrite явных вызовов отключён. `iter()` обходит полный query, `par_iter()` — назначенный диапазон job. Native Burst проверен integration tests.
 - View-Current (лёгкий 32Б Current) ПРОБОВАН — медленнее tuple на +0.2 ms в A/B. Не повторять.
 
 ## 4. Инварианты (нарушение = порча данных)

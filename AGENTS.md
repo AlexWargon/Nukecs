@@ -1062,8 +1062,9 @@ Benchmarked 100k entities / 4 float3 components, Threads.Main (Mono, no Burst):
 |---|---|
 | Hand-written dense pointer walk | ~1.63 ms |
 | Generated batch loop (current) | ~1.63 ms |
+| Historical generated batch loop from `query.iter()` syntax (rewrite now disabled) | ~1.63 ms |
 | Old generated loop (indexed + per-row branch + guards) | ~1.80 ms |
-| `foreach` over `query.iter()` (protocol tax ceiling) | ~2.36 ms |
+| Runtime/non-batchable `foreach` over `query.iter()` (protocol tax ceiling) | ~2.36 ms |
 
 Rules the generator must keep:
 
@@ -1099,8 +1100,11 @@ Rules the generator must keep:
    in VS-Roslyn but fail CS8170 under Unity's Mono-Roslyn. Value-returning
    `Current` costs nothing extra here because foreach materializes by-value
    locals anyway (~0.5 ms / 100k for MoveNext+Current+Deconstruct protocol -
-   the fundamental gap between `foreach (var x in q.iter())` and batched
-   loops under Mono).
+   the fundamental gap between runtime iteration and batched loops under Mono).
+7. **Batch analysis currently accepts only plain `query` foreach sources.**
+   Explicit `query.iter()` and `query.par_iter()` keep the runtime iterator,
+   including inside generated system runners. `iter()` scans the complete query;
+   `par_iter()` respects the assigned job range. Entity slots expose `Ref<Entity>`.
 
 ### Debugging Source-Gen Perf Regressions
 

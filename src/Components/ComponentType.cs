@@ -6,6 +6,18 @@ namespace Wargon.Nukecs
 {
     public struct ComponentType<T> where T : unmanaged {
         private static readonly SharedStatic<ComponentTypeData> ID = SharedStatic<ComponentTypeData>.GetOrCreate<ComponentType<T>>();
+        private struct KindContext { }
+        // 0 = not initialized, 1 = IComponent, 2 = other query parameter.
+        // Kept separately to preserve the serialized ComponentTypeData layout.
+        private static readonly SharedStatic<byte> Kind = SharedStatic<byte>.GetOrCreate<KindContext>();
+
+        public static bool IsComponent {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get {
+                EnsureRegistered();
+                return Kind.Data == 1;
+            }
+        }
 
         public static unsafe int Index {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -26,6 +38,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.NoInlining)]
         [BurstDiscard]
         private static unsafe void EnsureRegistered() {
+            if (Kind.Data == 0)
+                Kind.Data = typeof(IComponent).IsAssignableFrom(typeof(T)) ? (byte)1 : (byte)2;
             if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size != 0) return;
             var data = ComponentTypeMap.RegisterIfNeeded<T>();
             ID.Data = data;

@@ -111,19 +111,17 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1>> iter()
+        public readonly QueryRuntimeIter1<QueryRuntimeRefs<T1>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter1<QueryRuntimeRefs<T1>>(_query.Ptr);
         }
 
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public QueryParIter<RefTuple<T1>> par_iter()
+        public readonly QueryRuntimeIter1<QueryRuntimeRefs<T1>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter1<QueryRuntimeRefs<T1>>(_query.Ptr, in _range);
         }
-
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
@@ -200,19 +198,16 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, TOption>> par_iter()
+        public readonly QueryRuntimeIter2<QueryRuntimeRefs<T1, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter2<QueryRuntimeRefs<T1, TOption>>(_query.Ptr);
         }
 
-
-
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, TOption>> iter()
+        public readonly QueryRuntimeIter2<QueryRuntimeRefs<T1, TOption>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter2<QueryRuntimeRefs<T1, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -355,10 +350,16 @@ namespace Wargon.Nukecs
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, TOption>> iter()
+        public readonly QueryRuntimeIter3<QueryRuntimeRefs<T1, T2, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter3<QueryRuntimeRefs<T1, T2, TOption>>(_query.Ptr);
+        }
+
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryRuntimeIter3<QueryRuntimeRefs<T1, T2, TOption>> par_iter()
+        {
+            return new QueryRuntimeIter3<QueryRuntimeRefs<T1, T2, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -368,14 +369,7 @@ namespace Wargon.Nukecs
             return new (_range, in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, TOption>> par_iter()
-        {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
-        }
-
-        public ptr<QueryUnsafe> _query;
+public ptr<QueryUnsafe> _query;
         internal int id;
         public Range _range;
 
@@ -531,17 +525,16 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, TOption>> par_iter()
+        public readonly QueryRuntimeIter4<QueryRuntimeRefs<T1, T2, T3, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, T3, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter4<QueryRuntimeRefs<T1, T2, T3, TOption>>(_query.Ptr);
         }
 
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, TOption>> iter()
+        public readonly QueryRuntimeIter4<QueryRuntimeRefs<T1, T2, T3, TOption>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, T3, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, T3, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter4<QueryRuntimeRefs<T1, T2, T3, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -695,13 +688,16 @@ namespace Wargon.Nukecs
         public readonly QueryIter5<T1, T2, T3, T4, T5> iter_unsafe() => iter_new();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryRefIter5<T1, T2, T3, T4, T5> iter() => iter_new_ref();
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5>> par_iter()
+        public readonly QueryRuntimeIter5<QueryRuntimeRefs<T1, T2, T3, T4, T5>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, T4, T5>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter5<QueryRuntimeRefs<T1, T2, T3, T4, T5>>(_query.Ptr);
+        }
+
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly QueryRuntimeIter5<QueryRuntimeRefs<T1, T2, T3, T4, T5>> par_iter()
+        {
+            return new QueryRuntimeIter5<QueryRuntimeRefs<T1, T2, T3, T4, T5>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -851,18 +847,16 @@ namespace Wargon.Nukecs
         private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> par_iter()
+        public readonly QueryRuntimeIter6<QueryRuntimeRefs<T1, T2, T3, T4, T5, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter6<QueryRuntimeRefs<T1, T2, T3, T4, T5, TOption>>(_query.Ptr);
         }
 
-
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>> iter()
+        public readonly QueryRuntimeIter6<QueryRuntimeRefs<T1, T2, T3, T4, T5, TOption>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter6<QueryRuntimeRefs<T1, T2, T3, T4, T5, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -880,7 +874,11 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> iter_refs() => par_iter();
+        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>> iter_refs()
+        {
+            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(_range, _query.Ptr);
+            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5>> iter_chunk()
@@ -1045,17 +1043,16 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> par_iter()
+        public readonly QueryRuntimeIter7<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter7<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, TOption>>(_query.Ptr);
         }
 
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>> iter()
+        public readonly QueryRuntimeIter7<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, TOption>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter7<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1225,19 +1222,16 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> par_iter()
+        public readonly QueryRuntimeIter8<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter8<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, TOption>>(_query.Ptr);
         }
 
-
-
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>> iter()
+        public readonly QueryRuntimeIter8<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, TOption>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter8<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1410,17 +1404,16 @@ namespace Wargon.Nukecs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> par_iter()
+        public readonly QueryRuntimeIter9<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(_range, _query.Ptr);
-            return new QueryParIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _range, in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter9<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(_query.Ptr);
         }
 
+        /// <summary>Iterates only the range assigned by Query.Update for the current job.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> iter()
+        public readonly QueryRuntimeIter9<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, T8, TOption>> par_iter()
         {
-            if (_query.Ref.TryUseStorageIteration()) return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(_query.Ptr);
-            return new QueryIter<RefTuple<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
+            return new QueryRuntimeIter9<QueryRuntimeRefs<T1, T2, T3, T4, T5, T6, T7, T8, TOption>>(_query.Ptr, in _range);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
