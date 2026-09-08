@@ -43,7 +43,7 @@ public class GameBootstrap : WorldInstaller
 
     protected override void OnWorldCreated(ref World world)
     {
-        Systems.Add(MovementSystems.Move, Threads.Parallel);
+        Systems.Add(MovementSystems.MoveBatched, Threads.Parallel);
     }
 
     private void Update()
@@ -63,9 +63,14 @@ using Wargon.Nukecs;
 public struct Speed : IComponent { public float Value; }
 public struct Health : IComponent { public int Value; }
 public struct PlayerTag : IComponent { }
+public struct InventoryStats : IPoolComponent { public int ItemCount; }
 ```
 
 Components are unmanaged structs. Empty structs become **tag components** with zero memory cost.
+Data components implementing `IComponent` use inline SoA storage by default.
+`IPoolComponent` inherits `IComponent` and stores data in a separate pool; it can
+be queried alongside inline components, but iterating pool components disables
+the generated batch optimization described below.
 
 ### 3. Define Systems
 
@@ -78,6 +83,20 @@ using Wargon.Nukecs.Transforms;
 [BurstCompile]
 public static class MovementSystems
 {
+    // Plain foreach: eligible for generated batch pointer loops.
+    [System, BurstCompile]
+    public static void MoveBatched(
+        ref Query<LocalTransform, Speed> query,
+        ref State state)
+    {
+        foreach (var (t, s) in query)
+        {
+            t.Get.Position += new float3(1, 0, 0)
+                * s.Read.Value * state.Time.DeltaTime;
+        }
+    }
+
+    // Explicit runtime iterator: respects the current job's range.
     [System, BurstCompile]
     public static void Move(
         ref Query<LocalTransform, Speed> query,
@@ -94,11 +113,44 @@ public static class MovementSystems
 }
 ```
 
+`MoveBatched` and `Move` implement the same movement using different iteration
+paths. Register one of them. The current parallel runtime API is `.par_iter()`;
+the temporary `.iter_par()` name has been removed.
+
+#### When the Generator Emits Batched Code
+
+For an ordinary component query, the current generator requires:
+
+- A `[System]` method with a block body whose **only top-level statement** is
+  `foreach (var (...) in query)`, naming the first typed `Query<...>` parameter
+  directly. Execute it through its generated `Systems.Add` runner.
+- Exactly one `foreach` in the method, with no nested/additional foreach loops
+  or local functions. Statements before or after the loop disable batching —
+  even `var dt = state.Time.DeltaTime;`. Local variables inside the loop are allowed.
+- Recognizable iteration variables and component types, with **no iterated
+  `IPoolComponent` types**. Explicit `.iter()` / `.par_iter()` calls always use
+  runtime iterators, including inside generated systems.
+
+For the highest performance on dense inline workloads, use `MoveBatched` with
+`[BurstCompile]` and Burst-compatible code. The generated dense storage loop
+walks component pointers directly, removing per-entity enumerator and tuple
+overhead. Batch generation itself does not require Burst; Burst compiles the
+generated job code when enabled and supported by the selected thread mode.
+
+The fastest storage path also requires inline data, no tag tuple slots, and no
+runtime storage degradation. Tag slots or filters can select the generated
+logical-archetype loop instead, with gather traversal for sparse rows. Even the
+default `IsPrefab` / `DestroyEntity` exclusions can cause this fallback when
+excluded entities share physical storage with matching entities. `Changed<T>`
+uses a separate generated change-detection path. Actual speed and the best
+thread mode depend on the workload; see [Architecture](ARCHITECTURE.md) for the
+storage model and historical measurements.
+
 ### 4. Add Systems to the World
 
 ```csharp
 Systems
-    .Add(MovementSystems.Move, Threads.MainRun)
+    .Add(MovementSystems.MoveBatched, Threads.Parallel)
     ;
 ```
 

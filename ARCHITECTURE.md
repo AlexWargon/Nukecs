@@ -1,138 +1,168 @@
 # Nukecs — Architecture for AI Agents
 
-> Актуализировано по коду 2026-09-08. Этот документ — модель хранения и причины дизайн-решений.
-> Пользовательский API — в [README.md](README.md), карта кода — в [AGENTS.md](AGENTS.md).
-> Контракт новых итераторов — в [RuntimeQuery/README.md](src/Systems/FnSystems/RuntimeQuery/README.md).
-> История оптимизаций с замерами — в HANDOFF_ArchetypeMasks.md.
-> Читай этот файл ПЕРЕД правками ядра (src/). Он написан ценой реальных багов.
+> Updated against the source on 2026-09-08. This document explains the storage model and the reasons behind design decisions.
+> See [README.md](README.md) for the user-facing API and [AGENTS.md](AGENTS.md) for the code reference.
+> The new iterator contract is in [RuntimeQuery/README.md](src/Systems/FnSystems/RuntimeQuery/README.md).
+> Optimization history and measurements are recorded in HANDOFF_ArchetypeMasks.md.
+> Read this file BEFORE modifying the core (src/). These rules come from actual bugs.
 
-## 1. Ментальная модель (5 слоёв)
+## 1. Mental Model (Five Layers)
 
 ```
-World ─── archetypesList[] ─── ArchetypeUnsafe (LA)     ЛОГИКА: маски + queries + rows
+World ─── archetypesList[] ─── ArchetypeUnsafe (LA)     LOGIC: masks + queries + rows
               │                    │ storagePtr
               │                    ▼
-              └── storagesList[] ── StorageArchetype    ДАННЫЕ: SoA-колонки, packedEntities
+              └── storagesList[] ── StorageArchetype    DATA: SoA columns, packedEntities
                                       ▲
-              refCount = число LA над storage           shared по inlineMask
+              refCount = number of LAs sharing storage   shared by inlineMask
 ```
 
-**Ключевая идея (вариант "C", как Bevy Table/Archetype):**
+**Key idea (variant C, similar to Bevy Table/Archetype):**
 
-- **Identity** архетипа = `inlineMask + tagMask + poolMask` (union-hash) → матчинг query.
-- **StorageArchetype** владеет данными, шарится между всеми LA с одинаковым inline-набором.
-  Теги = 0 байт (бит в tagMask); пулы = данные в GenericPool (бит в poolMask).
-- **Смена тега/пула** = миграция rows-списка, данные не копируются (O(1)).
-- **Смена inline-компонента** = move row между storage (memcpy inline-колонок).
+- Archetype **identity** = `inlineMask + tagMask + poolMask` (union hash), used for query matching.
+- **StorageArchetype** owns the data and is shared by all logical archetypes (LAs) with the same inline component set.
+  Tags use zero bytes (a bit in tagMask); pool data lives in GenericPool (a bit in poolMask).
+- **Changing a tag/pool component** migrates rows-list membership without copying inline data (O(1)).
+- **Changing an inline component** moves the row between storages (memcpy of inline columns).
 
-`LA.count == rows.length`; `storage.count` = все строки ВСЕХ LA над ним.
-`RowsAreDense == (refCount <= 1)` — итератор dense/gather решает это.
+`LA.count == rows.length`; `storage.count` includes every row of ALL LAs sharing that storage.
+`RowsAreDense == (refCount <= 1)` determines whether the iterator uses dense or gather traversal.
 
-## 2. Структурное изменение (путь `e.Add<T>()`)
+## 2. Structural Changes (The `e.Add<T>()` Path)
 
 ```
 e.Add → ECB.Add (deferred) → world.Update() → Playback
   → ProcessEntityBatch:
-      target = GetOrCreateArchetype(union-маска)      // hash + probe
-      MoveEntityTo(row, target)                        // данные: same-storage O(1) / cross-storage memcpy
-      BatchMigrateQueries(from, to, entity)            // pair-edge кэш ↓
+      target = GetOrCreateArchetype(union-mask)       // hash + probe
+      MoveEntityTo(row, target)                       // same-storage O(1) / cross-storage memcpy
+      BatchMigrateQueries(from, to, entity)           // pair-edge cache below
 ```
 
-**pairEdges** (`ArchetypeUnsafe.pairEdges: HashMap<long, ptr<Edge>>`, ключ `(to.index<<32)|from.index`):
-списки remove/add queries строятся один раз на пару (`FillPairEdge`), применяются линейно.
-Инвалидация — `queriesVersion` (бамп при attach в CheckQuery/PopulateQueries и в Refresh).
-НЕ перечисляй queries с линейным Contains на entity — это квадрат (был баг: ×3.5 при 150 queries).
+**pairEdges** (`ArchetypeUnsafe.pairEdges: HashMap<long, ptr<Edge>>`, key `(to.index<<32)|from.index`):
+query removal/addition lists are built once per pair (`FillPairEdge`) and applied linearly.
+Invalidation uses `queriesVersion` (incremented on attachment in CheckQuery/PopulateQueries and in Refresh).
+Do NOT enumerate queries with a linear Contains check per entity: this creates quadratic work
+(a previous bug caused a 3.5× slowdown with 150 queries).
 
-**Порядок создания ручных queries решает**: `world.Query().With<T>()` создаёт новый
-query и не аттачит его к уже существующим LA. Создавай ручные queries до спавна
-и сохраняй их: одинаковые цепочки не дедуплицируются. Storage-mode может увидеть
-данные через ленивый scan storages. Typed `Query<T...>.Init`, напротив, вызывает
-`CheckQuery` для существующих архетипов; это другой путь регистрации.
+**Manual query creation order matters**: `world.Query().With<T>()` creates a new
+query without attaching it to existing LAs. Create manual queries before spawning
+and retain them: identical chains are not deduplicated. Storage mode can discover
+data through a lazy storage scan. Typed `Query<T...>.Init`, in contrast, calls
+`CheckQuery` for existing archetypes; it uses a different registration path.
 
-## 3. Итерация (три пути)
+## 3. Iteration (Three Paths)
 
-| Путь | Когда | Механика |
+| Path | When | Mechanics |
 |---|---|---|
-| **batch storage-loop** | одиночный `foreach (var (a,b) in query)` в [System] | генератор: pointer-walk по storages (`base++` до sentinel `end`, тела через `->`), walkers в отдельных методах. Perf-контракт генератора — AGENTS.md §"Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3) |
-| **storage-mode** | query с inline-only with-фильтрами, runtime-итераторы `iter()`/фабрики | dense-проход по `GetMatchingStorages()`; деградация на LA-при конфликте none-тегов (prefab/dead). None-filter бенчи: деградация при 10% помеченных = +3–4% общего времени; gather = +16% per-entity (16.3→18.7 ns, константа, не зависит от перемешанности); итерация масштабируется с матчащими (50% → 0.93 ms от 1.63) |
-| **enumerator** | ручной entity-query / generic-итераторы | Старые QueryEnumerator2 / QueryIter и новые QueryRuntimeIterN: dense либо gather по rows логического архетипа; ranged runtime-обход сохраняет порядок matchingArchetypes |
+| **batch storage-loop** | An eligible single `foreach (var (a,b) in query)` in a [System] method | Generated pointer walk over storages (`base++` up to the `end` sentinel, bodies use `->`), with walkers in separate methods. See AGENTS.md, "Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3). |
+| **storage-mode** | Queries with inline-only with-filters, runtime `iter()`/iterator factories | Dense traversal through `GetMatchingStorages()`; falls back to LAs when none-tag filters conflict (prefab/dead). None-filter benchmarks: degradation with 10% tagged entities adds 3–4% to total time; gather costs 16% more per entity (16.3→18.7 ns, constant and independent of row distribution); iteration scales with matching entities (50% → 0.93 ms from 1.63). |
+| **enumerator** | Manual entity queries / generic iterators | Existing QueryEnumerator2 / QueryIter and new QueryRuntimeIterN: dense traversal or gathering through logical-archetype rows; ranged runtime traversal preserves matchingArchetypes order. |
 
-**Cost-model managed-итерации (Mono, 100k×4 компонентов)** — выверено замерами:
-- enumerator-протокол ~0.24 ms + tuple-механика ~0.5 ms + тела `.Get/.Read` ~1.7 ms ≈ 2.36 ms.
-- batch pointer-walk 1.63 ms = hand-written потолок (indexed+guards давали 1.80).
-- **Размер tuple решает**: `Current` копирует всю структуру на каждый entity. +30Б ≈ +1 ms.
-  НЕ добавляй поля в Ref/PtrTuple (все 35 сжаты к минимуму после инцидента 3.3ms).
-- Форма Add (статик-ветки vs stride vs fast-path) на скорость НЕ влияет. Только размер.
-- `query.iter()` и `query.par_iter()` используют runtime-итератор и внутри `[System]`: batch rewrite явных вызовов отключён. `iter()` обходит полный query, `par_iter()` — назначенный диапазон job. Native Burst проверен integration tests.
-- Runtime API поддерживает 1–8 data-компонентов и до девяти generic-слотов суммарно.
-  Entity + 8 компонентов допустимы, Entity + 8 + filter — нет. В деконструкции
-  первый Entity возвращается по значению, компоненты — `Ref<T>`; `Current.C0`
-  для Entity остаётся `Ref<Entity>`. Используй `var`, не старый concrete tuple type.
-- `Current` — снимок адресов, не копия компонентов. Count фиксируется при входе
-  в блок; структурные изменения могут инвалидировать ссылки. `par_iter()` сам
-  не запускает jobs и не синхронизирует доступ. Не заменяй имена итераторов без
-  учёта диапазона: `.iter()` внутри Parallel повторит полный обход в каждой job.
-- View-Current (лёгкий 32Б Current) ПРОБОВАН — медленнее tuple на +0.2 ms в A/B. Не повторять.
+**Managed iteration cost model (Mono, 100k×4 components)** — established through measurements:
 
-## 4. Инварианты (нарушение = порча данных)
+- Enumerator protocol ~0.24 ms + tuple mechanics ~0.5 ms + `.Get/.Read` bodies ~1.7 ms ≈ 2.36 ms.
+- The batch pointer walk at 1.63 ms matches the hand-written baseline (indexed access plus guards took 1.80 ms).
+- **Tuple size matters**: `Current` copies the whole struct for each entity. An extra 30 bytes cost approximately 1 ms.
+  Do NOT add fields to Ref/PtrTuple (all 35 were reduced to minimal layouts after the 3.3 ms incident).
+- The shape of Add (static branches vs stride vs fast path) did not affect speed in those measurements; size did.
+- `query.iter()` and `query.par_iter()` use runtime iterators even inside `[System]`: batch rewriting of explicit calls is disabled. `iter()` visits the complete query; `par_iter()` visits the assigned job range. Integration tests have verified native Burst.
+- The runtime API supports 1–8 data components within nine generic slots total.
+  Entity + 8 components is supported; Entity + 8 + filter is not. Deconstruction
+  returns the first Entity by value and components as `Ref<T>`; `Current.C0`
+  for Entity remains `Ref<Entity>`. Use `var`, not an old concrete tuple type.
+- `Current` is a snapshot of addresses, not a copy of components. Count is captured
+  on entry to a block; structural changes can invalidate references. `par_iter()`
+  neither schedules jobs nor synchronizes access. Account for the range when
+  changing iterator methods: `.iter()` inside Parallel repeats the full traversal in every job.
+- View-Current (a lightweight 32-byte Current) was TRIED: it was 0.2 ms slower than tuples in A/B tests. Do not repeat that approach without new evidence.
 
-1. `rows` LA ↔ `entityLocations.listPos` ↔ `storage.packedEntities` — согласованы всегда.
-   Swap-remove чинит `FixSwappedEntityLocation` (row + чужие LA rows).
-2. `queriesVersion` бампится при КАЖДОМ изменении набора attached queries — pairEdges валидны.
-3. `world->version`++ при row alloc/remove — инвалидация storage-mode снапшотов.
-4. Десериализация: pairEdges восстанавливается ДВУМЯ фиксапами (`ptr<Edge>` + `Edge.OnDeserialize`
-   для внутренних списков). Managed-Query-обёртки чинит `RestoreIfNeed` (теперь и в Count).
-5. Burst-пути не читают non-readonly static → diagnostics = `SharedStatic<T>` или `[BurstDiscard]`.
-   Plain static в достижимом из Burst коде = silent managed-fallback ВСЕХ затронутых джоб.
-6. Счётчики query (`entityCount`) обновляются ТОЛЬКО через pair-edge списки — больше нигде.
+### Batch Generation and the Fastest Storage Path
 
-## 5. Карта кода (что внутри и что важно)
+For ordinary component queries, the current generator requires a block-bodied
+`[System]` method whose only top-level statement is a single plain
+`foreach (... in query)`. It analyzes the first typed Query parameter; the loop
+must name that parameter directly. Additional or nested foreach loops, local
+functions, and statements before or after the loop disable the rewrite. Even
+`var dt = state.Time.DeltaTime;` before the loop is enough to disable it. Local
+variables inside the loop body are allowed.
 
-| Файл | Суть |
+The generator must recognize the iteration variables and component types, and
+none of the iterated component types may implement `IPoolComponent`. Explicit
+`.iter()` / `.par_iter()` calls always retain runtime iteration. Execute through
+the generated runner registered with `Systems.Add`; a direct call to the user
+method does not invoke its generated batch implementation.
+
+The fastest dense path uses inline data components, no tag tuple slots, and a
+storage snapshot with `storageDegraded == 0`. Tags or filters can require the
+logical-archetype walker, including sparse gather, while retaining generated
+batch code. Default none-filters for `IsPrefab` and `DestroyEntity` can trigger
+this fallback when excluded logical archetypes in a shared storage are nonempty.
+`Changed<T>` uses a separate generated change-detection path.
+
+The dense pointer walk removes per-entity enumerator and tuple overhead. Combine
+it with `[BurstCompile]` and Burst-compatible code for the highest performance
+on eligible dense inline workloads; actual timings and the best thread mode
+still depend on workload size and hardware. See the examples in README.md.
+
+## 4. Invariants (Violations Corrupt Data)
+
+1. LA `rows` ↔ `entityLocations.listPos` ↔ `storage.packedEntities` must always agree.
+   Swap-remove uses `FixSwappedEntityLocation` to repair the row and any affected LA rows.
+2. Increment `queriesVersion` on EVERY change to the attached query set so pairEdges remain valid.
+3. Increment `world->version` on row allocation/removal to invalidate storage-mode snapshots.
+4. Deserialization restores pairEdges with TWO fixups (`ptr<Edge>` and `Edge.OnDeserialize`
+   for the internal lists). `RestoreIfNeed` repairs managed Query wrappers, including Count access.
+5. Burst paths must not read mutable static fields: use `SharedStatic<T>` or `[BurstDiscard]` for diagnostics.
+   A plain static reachable from Burst code can silently force ALL affected jobs into managed fallback.
+6. Update query counters (`entityCount`) ONLY through pair-edge lists, nowhere else.
+
+## 5. Code Map (Contents and Constraints)
+
+| File | Purpose |
 |---|---|
-| `src/Archetype.cs` | ArchetypeUnsafe: маски, rows, pairEdges, BatchMigrateQueries/FillPairEdge, CheckQuery/PopulateQueries. Edge — списки remove/add + версии |
-| `src/StorageArchetype.cs` | Данные: колонки SoA, packedEntities, refCount, logicalArchetypes (backlink LA→storage для storage-mode) |
-| `src/Query.cs` | QueryUnsafe: with/none маски, matchingArchetypes (LA-путь), matchingStorages (storage-путь, лениво под spinner), IsStorageMode/UseStorageIteration/TryUseStorageIteration, count-property |
-| `src/World/World.Unsafe.cs` | Реестры: archetypesList/storagesList/GetOrCreate* (hash+probe), GetOrCreateStorage (refCount++) |
-| `src/Systems/FnSystems/QueryIterators*.cs` | Существующие plain/ref/pointer/chunk пути: dense/gather/storage-ветки |
-| `src/Systems/FnSystems/RuntimeQuery/` | Explicit iter/par_iter: QueryRuntimeIter1..9, QueryRuntimeRefs, pool page cache, QueryRuntimeDeconstruction (Entity по значению); Current без ref-return |
-| `src/Systems/FnSystems/Tuples/*.cs` | 35 tuple-структур, СЖАТЫХ к минимуму полей — не раздувать (§3) |
-| `src/Systems/FnSystems/Chunk.cs` | Chunk-итераторы: CopyTo валиден ТОЛЬКО arity-3 (gather: поэлементно по rows); 1–2, 4–8 — чинить по образцу при первом использовании |
-| `src/Entity/EntityCommandBuffer.cs` | Playback: ProcessEntityBatch — миграции + pair-edge учёт |
-| `src/Reactivity/` | OnChange/OffChange, byte snapshots, Burst check job, main-thread dispatch; Changed<T> — IFilter для generated batch path |
-| `src/Systems/DependencyGraph/` | Метаданные конфликтов, граф и execution groups; включение через Systems.UseDependencyGraph |
-| `src/Allocator/AllocatorDebug.cs` | SharedStatic-флаги Arena Guard, allocation tags, описание нарушений; Validate реализован в Allocator.cs |
-| `SourceGen/NUKECSGEN.dll` | Генератор: batch storage-loop = pointer-walk (см. perf-контракт в AGENTS.md — indexed доступ/`_rowsPtr`-ветка в теле цикла запрещены, walkers отдельными методами БЕЗ AggressiveInlining), RefreshStorageMode в Schedule |
+| `src/Archetype.cs` | ArchetypeUnsafe: masks, rows, pairEdges, BatchMigrateQueries/FillPairEdge, CheckQuery/PopulateQueries. Edge holds removal/addition lists and versions. |
+| `src/StorageArchetype.cs` | Data: SoA columns, packedEntities, refCount, logicalArchetypes (LA/storage backlinks for storage mode). |
+| `src/Query.cs` | QueryUnsafe: with/none masks, matchingArchetypes (LA path), matchingStorages (storage path, built lazily under a spinner), IsStorageMode/UseStorageIteration/TryUseStorageIteration, count property. |
+| `src/World/World.Unsafe.cs` | Registries: archetypesList/storagesList/GetOrCreate* (hash + probe), GetOrCreateStorage (refCount++). |
+| `src/Systems/FnSystems/QueryIterators*.cs` | Existing plain/ref/pointer/chunk paths with dense/gather/storage branches. |
+| `src/Systems/FnSystems/RuntimeQuery/` | Explicit iter/par_iter: QueryRuntimeIter1..9, QueryRuntimeRefs, pool page cache, QueryRuntimeDeconstruction (Entity by value); Current has no ref return. |
+| `src/Systems/FnSystems/Tuples/*.cs` | 35 tuple structs reduced to minimal field layouts — do not enlarge them (§3). |
+| `src/Systems/FnSystems/Chunk.cs` | Chunk iterators: sparse CopyTo is supported ONLY at arity 3 (element-by-element through rows); fix arities 1–2 and 4–8 using that implementation as a reference before using them for sparse rows. |
+| `src/Entity/EntityCommandBuffer.cs` | Playback: ProcessEntityBatch handles migrations and pair-edge accounting. |
+| `src/Reactivity/` | OnChange/OffChange, byte snapshots, Burst check job, main-thread dispatch; Changed<T> is an IFilter for the generated batch path. |
+| `src/Systems/DependencyGraph/` | Conflict metadata, graph and execution groups; enabled through Systems.UseDependencyGraph. |
+| `src/Allocator/AllocatorDebug.cs` | SharedStatic Arena Guard flags, allocation tags and violation descriptions; Validate is implemented in Allocator.cs. |
+| `SourceGen/NUKECSGEN.dll` | Generator: batch storage-loop uses a pointer walk (see the performance contract in AGENTS.md: no indexed access or `_rowsPtr` branch inside the dense hot loop; walkers stay in separate methods WITHOUT AggressiveInlining), RefreshStorageMode in Schedule. |
 
-## 6. Диагностика (инструменты в тестах, НЕ в ядре)
+## 6. Diagnostics (Investigation Tools Belong in Tests, Not the Core)
 
-Постоянная диагностика allocator — отдельный механизм Arena Guard: canary,
-poison free, Validate и статистика тегов. Он переключается в
-`Nuke.cs/Allocator Debug`, не требует `NUKECS_DEBUG`; проверка выполняется также
-при освобождении мира и загрузке allocator. Debug V2 и Scene View gizmos требуют
-`NUKECS_DEBUG`. Gizmos редактируют только world-space Transform, без Undo.
+Permanent allocator diagnostics use the separate Arena Guard mechanism: canaries,
+freed-memory poisoning, Validate and tag statistics. Toggle it in
+`Nuke.cs/Allocator Debug`; it does not require `NUKECS_DEBUG`. Validation also
+runs during world disposal and allocator load. Debug V2 and Scene View gizmos
+require `NUKECS_DEBUG`. Gizmos edit only the world-space Transform, without Undo.
 
-- `UnitTests/IterationDiagnosticsTests.cs` — послойная декомпозиция итерации (`[DIAG]`-лог).
-- `UnitTests/MigrationDiagnosticsTests.cs` — q-чувствительность миграций + A/B стратегий.
-- `world.DumpArchetypes()` — дамп масок/rows/queries/storage при падении теста.
+- `UnitTests/IterationDiagnosticsTests.cs` — breakdown of iteration costs by layer (`[DIAG]` logs).
+- `UnitTests/MigrationDiagnosticsTests.cs` — sensitivity of migration cost to query count, plus A/B comparisons of strategies.
+- `world.DumpArchetypes()` — dumps masks/rows/queries/storage when a test fails.
 - `RuntimeQuery*IntegrationTests`, `RuntimeQueryProductionRegressionTests`,
   `RuntimeQueryEntityDeconstructionTests` — runtime API, arities/ranges,
-  Entity по значению и Burst probes. `AllocatorDebugTests` — Arena Guard.
-- Новая реактивность использует `src/Reactivity/`, без добавления Reactive<T>
-  к entity. `Changed<T>` обрабатывается generated batch path; explicit runtime
-  iter/par_iter не выполняют проверку изменений. Подписки и Changed query имеют
-  отдельные snapshots; не смешивай их с историческими файлами `src/Reactive/`.
-- Принцип: разовая диагностика не живёт в горячем пути фреймворка (удалены MigrationStats,
-  QueryBookkeepingBypass после исследования).
+  Entity-by-value access and Burst probes. `AllocatorDebugTests` covers Arena Guard.
+- New reactivity lives in `src/Reactivity/`, without adding Reactive<T> to an
+  entity. The generated batch path handles `Changed<T>`; explicit runtime
+  iter/par_iter do not perform change detection. Subscriptions and Changed
+  queries have separate snapshots; do not confuse them with historical `src/Reactive/` files.
+- Principle: one-off diagnostics must not remain in the framework's hot path
+  (MigrationStats and QueryBookkeepingBypass were removed after investigation).
 
-## 7. Правила работы с кодовой базой
+## 7. Working with the Codebase
 
-- Массовые правки скриптами: только построчные трансформы + ассерты целостности + билд после
-  КАЖДОГО прогона. Back-walk по атрибутам — только `[MethodImpl` (поля с `[NativeDisable...]`
-  перед методом съедались дважды).
-- Сборка для проверки: `dotnet build Nukecs.csproj / Nukecs.Tests.csproj` в корне проекта.
-- Correctness-тесты запускаются Unity Edit Mode Test Runner, не `dotnet test`.
-  Сборка C# не подтверждает native Burst или IL2CPP; исторические бенчи выше
-  относятся к своим прогонам и не являются замерами текущей версии.
-- Бенчи помечены `[Category("Benchmark")]` — Run All в Unity без них через фильтр категорий.
-- Замеры между сессиями несопоставимы (±10–20% шум) — A/B только внутри одного прогона.
+- For bulk source edits with scripts, use line-by-line transformations, integrity
+  assertions and a build after EVERY pass. Walk backward over attributes only
+  for `[MethodImpl` (fields with `[NativeDisable...]` before a method were accidentally removed twice).
+- Build verification: run `dotnet build Nukecs.csproj` and `dotnet build Nukecs.Tests.csproj` from the Unity project root.
+- Run correctness tests through the Unity Edit Mode Test Runner, not `dotnet test`.
+  A C# build does not verify native Burst or IL2CPP. The historical benchmarks
+  above describe their original runs, not measurements of the current version.
+- Benchmarks use `[Category("Benchmark")]`; exclude them from Unity Run All through the category filter.
+- Measurements from separate sessions are not directly comparable (±10–20% noise); run A/B comparisons within the same session.
