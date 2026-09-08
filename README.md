@@ -16,6 +16,109 @@ Burst-compiled ECS framework with source-generated systems, custom allocator, an
 
 ---
 
+## Minimal Quick Start
+
+Save this as `QuickStart.cs`, attach `QuickStart` to an empty GameObject, and
+enter Play Mode. One entity accelerates, moves, and bounces between the bounds
+stored in a resource. All three data components implement `IComponent`.
+
+```csharp
+using Unity.Burst;
+using UnityEngine;
+using Wargon.Nukecs;
+
+namespace NukecsQuickStart
+{
+    public struct Position : IComponent { public float X; }
+    public struct Velocity : IComponent { public float X; }
+    public struct Acceleration : IComponent { public float X; }
+
+    public struct SimulationConfig : IRes
+    {
+        public float MinX;
+        public float MaxX;
+        public void OnCreate(ref World world) { }
+        public void OnUpdate(ref World world) { }
+    }
+
+    public class QuickStart : WorldInstaller
+    {
+        protected override void OnWorldCreated(ref World world)
+        {
+            world.AddRes(new SimulationConfig { MinX = -5f, MaxX = 5f });
+            Systems.AddSystems(SystemPath.Update,
+                SimulationSystems.Accelerate,
+                SimulationSystems.Move,
+                SimulationSystems.Bounce);
+        }
+
+        protected override void CreateEntities(ref World world)
+        {
+            var entity = world.Entity();
+            entity.Add(new Position { X = 0f });
+            entity.Add(new Velocity { X = 1f });
+            entity.Add(new Acceleration { X = 0.1f });
+        }
+
+        private void Update()
+        {
+            Systems.OnUpdate(Time.deltaTime, Time.time);
+        }
+    }
+
+    [BurstCompile]
+    public static class SimulationSystems
+    {
+        [System, BurstCompile]
+        public static void Accelerate(ref Query<Velocity, Acceleration> query,
+            ref State state)
+        {
+            foreach (var (velocity, acceleration) in query)
+            {
+                velocity.Get.X += acceleration.Read.X * state.Time.DeltaTime;
+            }
+        }
+
+        [System, BurstCompile]
+        public static void Move(ref Query<Position, Velocity> query, ref State state)
+        {
+            foreach (var (position, velocity) in query)
+            {
+                position.Get.X += velocity.Read.X * state.Time.DeltaTime;
+            }
+        }
+
+        [System, BurstCompile]
+        public static void Bounce(ref Query<Position, Velocity> query,
+            ref Res<SimulationConfig> config)
+        {
+            foreach (var (position, velocity) in query)
+            {
+                if (position.Read.X > config.Ref.MaxX)
+                {
+                    position.Get.X = config.Ref.MaxX;
+                    velocity.Get.X = -velocity.Read.X;
+                }
+                else if (position.Read.X < config.Ref.MinX)
+                {
+                    position.Get.X = config.Ref.MinX;
+                    velocity.Get.X = -velocity.Read.X;
+                }
+            }
+        }
+    }
+}
+```
+
+`WorldInstaller` creates and disposes the world and applies the queued component
+adds after `CreateEntities`. `AddSystems` registers the three systems in order,
+using `Threads.Parallel` by default; the default scheduler chains their jobs.
+`Res<SimulationConfig>.Ref` provides access to the registered resource.
+
+Each system contains only one plain `foreach (... in query)` and uses inline
+components, making it eligible for generated batch pointer loops. The example
+updates ECS data; it does not create a visible GameObject for the entity.
+
 ## Documentation
 
 This guide describes the checked-in API as of 2026-09-08.
@@ -363,6 +466,11 @@ public enum Threads
 
 ### Adding Systems
 
+Register `[System]` methods by method group. The generated `Add` extension
+accepts the system, an optional `Threads` mode (default `Threads.Parallel`), and
+an optional `path` (default `SystemPath.Update`). Registration returns the same
+`Systems` instance, so calls can be chained:
+
 ```csharp
 Systems
     .Add(MySystems.Spawn, Threads.MainRun)
@@ -371,6 +479,98 @@ Systems
     .Add(MySystems.Physics)              // default: Threads.Parallel
     ;
 ```
+
+#### Registering a Lifecycle Phase
+
+Use `path:` to select the lifecycle phase while keeping the default thread mode,
+or supply both the mode and the phase:
+
+```csharp
+// MySystems.Initialize is a static method marked with [System].
+systems.Add(MySystems.Initialize, path: SystemPath.Start);
+
+// Alternative for a startup method that uses managed Unity APIs:
+systems.Add(MySystems.Initialize, Threads.Main, SystemPath.Start);
+
+// Other phases, with explicit thread modes:
+systems
+    .Add(MySystems.Physics, Threads.Parallel, SystemPath.FixedUpdate)
+    .Add(MySystems.Cleanup, Threads.Main, SystemPath.Destroy);
+```
+
+Choose one of the two `Initialize` registrations above. `SystemPath` contains
+integer constants; it is separate from the `Threads` enum. The shorthand
+`.Add(MySystems.Initialize, SystemPath.Start)` does **not** select the Start phase with the
+current generated signature: `Start` is the constant zero, which C# accepts as
+`Threads.Main` in the second argument, leaving `path` at Update. Use the named
+`path:` argument when omitting the thread mode.
+
+| Path | Execution |
+|------|-----------|
+| `SystemPath.Start` | Runs when `systems.OnStart()` is called. Call it once after registration and initial world setup. |
+| `SystemPath.Update` | Runs through `systems.OnUpdate(deltaTime, time)`; the default registration phase. |
+| `SystemPath.FixedUpdate` | Runs through the fixed-step branch inside `systems.OnUpdate(...)`. |
+| `SystemPath.Destroy` | Runs through `systems.OnDestroy()`, also invoked during world disposal. |
+
+Adding a Start system only registers it; it does not execute immediately.
+`OnUpdate` does not automatically call `OnStart`, and `OnStart` has no once-only
+guard. Call it after building the systems and creating initial entities:
+
+```csharp
+systems.OnStart(); // after all registrations and initial entity setup
+// In the game loop:
+systems.OnUpdate(deltaTime, time);
+// On shutdown; world disposal also invokes the registered destroy systems:
+world.Dispose();
+```
+
+#### Registering Multiple Systems with AddSystems
+
+`AddSystems` combines several registrations for the same phase. Each argument
+can be a method group (default `Threads.Parallel`) or a `(method, Threads)` tuple
+that selects its execution mode. Use `using static Wargon.Nukecs.SystemPath;`
+to write `Update`, `Start`, `FixedUpdate` or `Destroy` without the prefix.
+
+For example, group application systems with different thread modes:
+
+```csharp
+using Wargon.Nukecs;
+using static Wargon.Nukecs.SystemPath;
+
+public class GameplayGroup : ISystemsGroup
+{
+    public void Build(Systems systems, ref World world)
+    {
+        systems.AddSystems(Update,
+            (MySystems.Spawn, Threads.MainRun),
+            MySystems.Move,
+            MySystems.UpdateLifetime,
+            (MySystems.Render, Threads.Main));
+    }
+}
+```
+
+Here `MySystems` is an application-defined class of static `[System]` methods.
+The first argument sets the phase for every system in the call. `Move` and
+`UpdateLifetime` use `Threads.Parallel`. Registrations are added in argument order,
+just like a chain of `Add` calls; execution still follows the selected scheduler
+and dependency rules. Install this group with
+`systems.AddGroup(new GameplayGroup())`.
+
+Omit the phase to register all methods for Update, or select another phase:
+
+```csharp
+systems.AddSystems(
+    (MySystems.Spawn, Threads.MainRun),
+    MySystems.Physics,
+    (MySystems.Render, Threads.Main));
+
+systems.AddSystems(SystemPath.Start, (MySystems.Initialize, Threads.Main));
+```
+
+These overloads are generated from the call sites. Pass recognizable `[System]`
+method groups, tuple literals for mode overrides, and a compile-time
+`SystemPath` constant when specifying the phase.
 
 ### Query Iteration
 
