@@ -51,13 +51,13 @@ namespace Wargon.Nukecs
         private static readonly bool Pool4 = QueryRuntimeSlot<T5>.IsPool;
         private static readonly bool HasPools = Pool0 | Pool1 | Pool2 | Pool3 | Pool4;
         private static readonly bool HasSpecial = QueryRuntimeSlot<T1>.IsSpecial | QueryRuntimeSlot<T2>.IsEntity | QueryRuntimeSlot<T3>.IsEntity | QueryRuntimeSlot<T4>.IsEntity | QueryRuntimeSlot<T5>.IsEntity;
-        private static readonly bool UsesGather = HasPools | HasSpecial;
+        internal static readonly bool UsesGather = HasPools | HasSpecial;
         // Inline: one base plus relative offsets. Mixed/pool: absolute addresses.
-        private T1* p0;
-        private T2* p1;
-        private T3* p2;
-        private T4* p3;
-        private T5* p4;
+        internal T1* p0;
+        internal T2* p1;
+        internal T3* p2;
+        internal T4* p3;
+        internal T5* p4;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool UsesPools() => UsesGather;
         public int Init(ref QueryRuntimeRows5 columns, World.WorldUnsafe* world)
@@ -144,7 +144,7 @@ namespace Wargon.Nukecs
         public readonly Ref<T4> C3 { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => new Ref<T4>(UsesGather ? p3 : (T4*)((byte*)p0 + (long)p3)); }
         public readonly Ref<T5> C4 { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => new Ref<T5>(UsesGather ? p4 : (T5*)((byte*)p0 + (long)p4)); }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void Deconstruct(out Ref<T1> c0, out Ref<T2> c1, out Ref<T3> c2, out Ref<T4> c3, out Ref<T5> c4)
+        internal readonly void DeconstructRefs(out Ref<T1> c0, out Ref<T2> c1, out Ref<T3> c2, out Ref<T4> c3, out Ref<T5> c4)
         {
             c0.data = p0;
             if (UsesGather) { c1.data = p1; c2.data = p2; c3.data = p3; c4.data = p4; }
@@ -157,7 +157,7 @@ namespace Wargon.Nukecs
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void Deconstruct(out Ref<T1> c0, out Ref<T2> c1, out Ref<T3> c2, out Ref<T4> c3)
+        internal readonly void DeconstructRefs(out Ref<T1> c0, out Ref<T2> c1, out Ref<T3> c2, out Ref<T4> c3)
         {
             c0.data = p0;
             if (UsesGather) { c1.data = p1; c2.data = p2; c3.data = p3; }
@@ -198,6 +198,7 @@ namespace Wargon.Nukecs
             skip = Math.Max(0, start);
             remaining = stop > skip ? stop - skip : 0;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryRuntimeIter5<TTuple> GetEnumerator() => this;
         public readonly TTuple Current { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => current; }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

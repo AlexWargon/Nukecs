@@ -320,11 +320,9 @@ namespace Wargon.Nukecs
         public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Data;
-            var worldPtr = entity.worldPointer;
-            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
-            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
-            var off = arch.offsetMap.GetRef(componentType.index);
-            return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
+            ref var loc = ref entity.worldPointer->entityLocations.Ptr[entity.id];
+            ref var arch = ref entity.worldPointer->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            return ref *(T*)(arch.data.Ptr + arch.offsetMap.GetRef(componentType.index) + loc.row * componentType.size);
         }
 
 #if !NUKECS_DEBUG

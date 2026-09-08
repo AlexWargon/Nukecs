@@ -33,9 +33,14 @@ has been removed.
 - Tags and filter slots have no archetype payload. Compatibility tuple slots
   resolve to stubs. A trailing option may be omitted when deconstructing, as
   with the old `.iter()` tuples. Prefer `With<Tag>` / `None<Tag>` filters.
-- `Query<Entity, ...>.iter()` exposes its entity slot as `Ref<Entity>`; use
-  `entity.Read` / `entity.Get`. This matches the explicit ref-iteration API;
-  the unchanged plain-foreach generated API can expose Entity by value.
+- Deconstructing `Query<Entity, ...>.iter()` or `.par_iter()` returns the first
+  slot as an `Entity` value; use `entity.id`, `entity.Get<T>()`, etc. Component
+  slots remain `Ref<T>`. This supports Entity plus 1–8 components, including
+  shortened deconstruction that omits a trailing filter. Tuple properties such
+  as `C0` still expose the underlying ref slot.
+- Deconstruction is selected through extension overloads in `Wargon.Nukecs`.
+  A generic first data parameter must have `where T : unmanaged, IComponent`;
+  an entity query names `Entity` explicitly as its first parameter.
 - `Current` is a value snapshot of addresses. Structural changes can still
   invalidate component buffers; this is not a stable entity handle.
 - A block's row count is captured when entering it. Appending rows does not
@@ -62,8 +67,9 @@ Burst-discarded method, while iterator specialization keeps its readonly flags.
 The native Burst probe first verifies an independent baseline function pointer
 actually executes Burst. It is skipped if the Editor only supplies managed
 fallback. A managed pass is not evidence of native Burst or IL2CPP compatibility.
-Five additional probes check native Burst compilation for mixed, inline, pool,
-Entity/tag, and eight-component-plus-filter queries through the Editor's
-disassembly service. The latest verified run (`runtime-burst-final-1`) passed
-all 60 tests, including native execution. No controlled performance comparison
-was made for the Burst fix.
+Six additional probes check native Burst compilation for mixed, inline, pool,
+Entity/tag (full and ranged), and eight-component-plus-filter queries through
+the Editor's disassembly service. `RuntimeQueryEntityDeconstructionTests` covers
+Entity plus 1–8 components and filters. The latest verified correctness run
+(`entity-deconstruct-final-1`) passed all 78 tests, including native execution
+with Entity copied by value. No performance comparison was made for this change.

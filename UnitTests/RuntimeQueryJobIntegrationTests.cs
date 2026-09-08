@@ -52,8 +52,26 @@ namespace Wargon.Nukecs.Tests
         [BurstCompile(CompileSynchronously = true)]
         private static void EntityTagProbe(ref Query<Entity, IntegrationP1, IntegrationExcluded> query, int* result)
         {
-            foreach (var tuple in query.iter())
-                *result += tuple.C0.Read.id + tuple.C1.Read.Value;
+            foreach (var (entity, pool, tag) in query.iter())
+                *result += entity.id + pool.Read.Value;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        private static void EntityRangeProbe(ref Query<Entity, IntegrationP1, IntegrationExcluded> query, int* result)
+        {
+            foreach (var (entity, pool, tag) in query.par_iter())
+                *result += entity.id + pool.Read.Value;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        private static void EntityCopyProbe(QueryUnsafe* query, int* result)
+        {
+            var isBurst = true;
+            MarkManaged(ref isBurst);
+            var sum = 0;
+            foreach (var (entity, a, b) in new QueryRuntimeIter3<QueryRuntimeRefs<Entity, IntegrationA1, IntegrationP2>>(query))
+                sum += entity.id + a.Read.Value + b.Read.Value;
+            *result = isBurst ? sum : -1;
         }
 
         [BurstCompile(CompileSynchronously = true)]
@@ -68,6 +86,7 @@ namespace Wargon.Nukecs.Tests
         [TestCase(nameof(InlineProbe))]
         [TestCase(nameof(PoolProbe))]
         [TestCase(nameof(EntityTagProbe))]
+        [TestCase(nameof(EntityRangeProbe))]
         [TestCase(nameof(EightComponentProbe))]
         public void BurstCompiler_ProducesNativeAssembly_ForRuntimeIterator(string probeName)
         {
@@ -108,6 +127,10 @@ namespace Wargon.Nukecs.Tests
                 var result = 0;
                 BurstCompiler.CompileFunctionPointer<BurstProbe>(Probe).Invoke(query._query.Ptr, &result);
                 Assert.AreEqual(10, result, "The probe must execute native Burst, not managed fallback.");
+                var entityQuery = new Query<Entity, IntegrationA1, IntegrationP2>();
+                entityQuery.Init(ref pointer);
+                BurstCompiler.CompileFunctionPointer<BurstProbe>(EntityCopyProbe).Invoke(entityQuery._query.Ptr, &result);
+                Assert.AreEqual(e.id + 10, result, "Entity must be copied by value in native Burst deconstruction.");
             }
             finally { world.Dispose(); }
         }

@@ -702,7 +702,7 @@ namespace Wargon.Nukecs.Tests
                 var count = 0;
                 foreach (var (entity, pool, tag) in query.iter())
                 {
-                    Assert.AreEqual(entity.Read.id, pool.Read.Value);
+                    Assert.AreEqual(entity.id, pool.Read.Value);
                     Assert.AreEqual((IntPtr)TagSlotStub<IntegrationExcluded>.GetPtr(), (IntPtr)tag.data);
                     count++;
                 }

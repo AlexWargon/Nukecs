@@ -114,7 +114,7 @@ namespace Wargon.Nukecs
         public readonly Ref<T1> C0 { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => new Ref<T1>(p0); }
         public readonly Ref<T2> C1 { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => new Ref<T2>(UsesGather ? p1 : (T2*)((byte*)p0 + (long)p1)); }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void Deconstruct(out Ref<T1> c0, out Ref<T2> c1)
+        internal readonly void DeconstructRefs(out Ref<T1> c0, out Ref<T2> c1)
         {
             c0.data = p0;
             if (UsesGather) { c1.data = p1; }
@@ -124,7 +124,7 @@ namespace Wargon.Nukecs
             }
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void Deconstruct(out Ref<T1> c0)
+        internal readonly void DeconstructRefs(out Ref<T1> c0)
         {
             c0.data = p0;
         }

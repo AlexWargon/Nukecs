@@ -94,7 +94,7 @@ namespace Wargon.Nukecs
         public readonly Ref<T1> _p1 => C0;
         public readonly Ref<T1> C0 { [MethodImpl(MethodImplOptions.AggressiveInlining)] get => new Ref<T1>(p0); }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly void Deconstruct(out Ref<T1> c0)
+        internal readonly void DeconstructRefs(out Ref<T1> c0)
         {
             c0.data = p0;
         }
