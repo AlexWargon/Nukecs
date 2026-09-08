@@ -1,6 +1,8 @@
 # Nukecs — Architecture for AI Agents
 
-> Этот документ — ментальная модель и причины дизайн-решений. Справочник API — в AGENTS.md.
+> Актуализировано по коду 2026-09-08. Этот документ — модель хранения и причины дизайн-решений.
+> Пользовательский API — в [README.md](README.md), карта кода — в [AGENTS.md](AGENTS.md).
+> Контракт новых итераторов — в [RuntimeQuery/README.md](src/Systems/FnSystems/RuntimeQuery/README.md).
 > История оптимизаций с замерами — в HANDOFF_ArchetypeMasks.md.
 > Читай этот файл ПЕРЕД правками ядра (src/). Он написан ценой реальных багов.
 
@@ -41,9 +43,11 @@ e.Add → ECB.Add (deferred) → world.Update() → Playback
 Инвалидация — `queriesVersion` (бамп при attach в CheckQuery/PopulateQueries и в Refresh).
 НЕ перечисляй queries с линейным Contains на entity — это квадрат (был баг: ×3.5 при 150 queries).
 
-**Порядок создания решает**: query, созданный ПОСЛЕ архетипов, к ним НЕ аттачится
-(Count растёт, но LA-итерация их не увидит). Правильный порядок — queries до спавна.
-Storage-mode queries спасены (сканируют storages лениво).
+**Порядок создания ручных queries решает**: `world.Query().With<T>()` создаёт новый
+query и не аттачит его к уже существующим LA. Создавай ручные queries до спавна
+и сохраняй их: одинаковые цепочки не дедуплицируются. Storage-mode может увидеть
+данные через ленивый scan storages. Typed `Query<T...>.Init`, напротив, вызывает
+`CheckQuery` для существующих архетипов; это другой путь регистрации.
 
 ## 3. Итерация (три пути)
 
@@ -51,7 +55,7 @@ Storage-mode queries спасены (сканируют storages лениво).
 |---|---|---|
 | **batch storage-loop** | одиночный `foreach (var (a,b) in query)` в [System] | генератор: pointer-walk по storages (`base++` до sentinel `end`, тела через `->`), walkers в отдельных методах. Perf-контракт генератора — AGENTS.md §"Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3) |
 | **storage-mode** | query с inline-only with-фильтрами, runtime-итераторы `iter()`/фабрики | dense-проход по `GetMatchingStorages()`; деградация на LA-при конфликте none-тегов (prefab/dead). None-filter бенчи: деградация при 10% помеченных = +3–4% общего времени; gather = +16% per-entity (16.3→18.7 ns, константа, не зависит от перемешанности); итерация масштабируется с матчащими (50% → 0.93 ms от 1.63) |
-| **enumerator** | `foreach (ref var e in q)` / generic-итераторы | QueryEnumerator2 / QueryIter: dense (`_rows==null`) или gather (`AdvanceTo(rows[i])`) |
+| **enumerator** | ручной entity-query / generic-итераторы | Старые QueryEnumerator2 / QueryIter и новые QueryRuntimeIterN: dense либо gather по rows логического архетипа; ranged runtime-обход сохраняет порядок matchingArchetypes |
 
 **Cost-model managed-итерации (Mono, 100k×4 компонентов)** — выверено замерами:
 - enumerator-протокол ~0.24 ms + tuple-механика ~0.5 ms + тела `.Get/.Read` ~1.7 ms ≈ 2.36 ms.
@@ -60,6 +64,14 @@ Storage-mode queries спасены (сканируют storages лениво).
   НЕ добавляй поля в Ref/PtrTuple (все 35 сжаты к минимуму после инцидента 3.3ms).
 - Форма Add (статик-ветки vs stride vs fast-path) на скорость НЕ влияет. Только размер.
 - `query.iter()` и `query.par_iter()` используют runtime-итератор и внутри `[System]`: batch rewrite явных вызовов отключён. `iter()` обходит полный query, `par_iter()` — назначенный диапазон job. Native Burst проверен integration tests.
+- Runtime API поддерживает 1–8 data-компонентов и до девяти generic-слотов суммарно.
+  Entity + 8 компонентов допустимы, Entity + 8 + filter — нет. В деконструкции
+  первый Entity возвращается по значению, компоненты — `Ref<T>`; `Current.C0`
+  для Entity остаётся `Ref<Entity>`. Используй `var`, не старый concrete tuple type.
+- `Current` — снимок адресов, не копия компонентов. Count фиксируется при входе
+  в блок; структурные изменения могут инвалидировать ссылки. `par_iter()` сам
+  не запускает jobs и не синхронизирует доступ. Не заменяй имена итераторов без
+  учёта диапазона: `.iter()` внутри Parallel повторит полный обход в каждой job.
 - View-Current (лёгкий 32Б Current) ПРОБОВАН — медленнее tuple на +0.2 ms в A/B. Не повторять.
 
 ## 4. Инварианты (нарушение = порча данных)
@@ -82,17 +94,34 @@ Storage-mode queries спасены (сканируют storages лениво).
 | `src/StorageArchetype.cs` | Данные: колонки SoA, packedEntities, refCount, logicalArchetypes (backlink LA→storage для storage-mode) |
 | `src/Query.cs` | QueryUnsafe: with/none маски, matchingArchetypes (LA-путь), matchingStorages (storage-путь, лениво под spinner), IsStorageMode/UseStorageIteration/TryUseStorageIteration, count-property |
 | `src/World/World.Unsafe.cs` | Реестры: archetypesList/storagesList/GetOrCreate* (hash+probe), GetOrCreateStorage (refCount++) |
-| `src/Systems/FnSystems/QueryIterators*.cs` | Все итераторы: dense/gather/storage-ветки. Current — readonly, БЕЗ ref-return (Unity Roslyn CS8170) |
+| `src/Systems/FnSystems/QueryIterators*.cs` | Существующие plain/ref/pointer/chunk пути: dense/gather/storage-ветки |
+| `src/Systems/FnSystems/RuntimeQuery/` | Explicit iter/par_iter: QueryRuntimeIter1..9, QueryRuntimeRefs, pool page cache, QueryRuntimeDeconstruction (Entity по значению); Current без ref-return |
 | `src/Systems/FnSystems/Tuples/*.cs` | 35 tuple-структур, СЖАТЫХ к минимуму полей — не раздувать (§3) |
 | `src/Systems/FnSystems/Chunk.cs` | Chunk-итераторы: CopyTo валиден ТОЛЬКО arity-3 (gather: поэлементно по rows); 1–2, 4–8 — чинить по образцу при первом использовании |
 | `src/Entity/EntityCommandBuffer.cs` | Playback: ProcessEntityBatch — миграции + pair-edge учёт |
+| `src/Reactivity/` | OnChange/OffChange, byte snapshots, Burst check job, main-thread dispatch; Changed<T> — IFilter для generated batch path |
+| `src/Systems/DependencyGraph/` | Метаданные конфликтов, граф и execution groups; включение через Systems.UseDependencyGraph |
+| `src/Allocator/AllocatorDebug.cs` | SharedStatic-флаги Arena Guard, allocation tags, описание нарушений; Validate реализован в Allocator.cs |
 | `SourceGen/NUKECSGEN.dll` | Генератор: batch storage-loop = pointer-walk (см. perf-контракт в AGENTS.md — indexed доступ/`_rowsPtr`-ветка в теле цикла запрещены, walkers отдельными методами БЕЗ AggressiveInlining), RefreshStorageMode в Schedule |
 
 ## 6. Диагностика (инструменты в тестах, НЕ в ядре)
 
+Постоянная диагностика allocator — отдельный механизм Arena Guard: canary,
+poison free, Validate и статистика тегов. Он переключается в
+`Nuke.cs/Allocator Debug`, не требует `NUKECS_DEBUG`; проверка выполняется также
+при освобождении мира и загрузке allocator. Debug V2 и Scene View gizmos требуют
+`NUKECS_DEBUG`. Gizmos редактируют только world-space Transform, без Undo.
+
 - `UnitTests/IterationDiagnosticsTests.cs` — послойная декомпозиция итерации (`[DIAG]`-лог).
 - `UnitTests/MigrationDiagnosticsTests.cs` — q-чувствительность миграций + A/B стратегий.
 - `world.DumpArchetypes()` — дамп масок/rows/queries/storage при падении теста.
+- `RuntimeQuery*IntegrationTests`, `RuntimeQueryProductionRegressionTests`,
+  `RuntimeQueryEntityDeconstructionTests` — runtime API, arities/ranges,
+  Entity по значению и Burst probes. `AllocatorDebugTests` — Arena Guard.
+- Новая реактивность использует `src/Reactivity/`, без добавления Reactive<T>
+  к entity. `Changed<T>` обрабатывается generated batch path; explicit runtime
+  iter/par_iter не выполняют проверку изменений. Подписки и Changed query имеют
+  отдельные snapshots; не смешивай их с историческими файлами `src/Reactive/`.
 - Принцип: разовая диагностика не живёт в горячем пути фреймворка (удалены MigrationStats,
   QueryBookkeepingBypass после исследования).
 
@@ -102,5 +131,8 @@ Storage-mode queries спасены (сканируют storages лениво).
   КАЖДОГО прогона. Back-walk по атрибутам — только `[MethodImpl` (поля с `[NativeDisable...]`
   перед методом съедались дважды).
 - Сборка для проверки: `dotnet build Nukecs.csproj / Nukecs.Tests.csproj` в корне проекта.
+- Correctness-тесты запускаются Unity Edit Mode Test Runner, не `dotnet test`.
+  Сборка C# не подтверждает native Burst или IL2CPP; исторические бенчи выше
+  относятся к своим прогонам и не являются замерами текущей версии.
 - Бенчи помечены `[Category("Benchmark")]` — Run All в Unity без них через фильтр категорий.
 - Замеры между сессиями несопоставимы (±10–20% шум) — A/B только внутри одного прогона.

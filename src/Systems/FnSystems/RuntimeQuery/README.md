@@ -1,5 +1,9 @@
 # Runtime query iteration
 
+Current API, checked against source on 2026-09-08. See the
+[framework guide](../../../../README.md) for world/system setup and
+[architecture](../../../../ARCHITECTURE.md) for shared storage invariants.
+
 `Query<T...>.iter()` enumerates the complete matching query on the calling thread.
 `Query<T...>.par_iter()` enumerates only `_range`, assigned by `Query.Update` for
 the current job. It does not schedule jobs itself. Initialize/update the query
@@ -22,11 +26,45 @@ its previous binding and remains eligible for batch rewriting. `par_iter()` now
 uses the runtime implementation for all arities; the temporary `iter_par()` name
 has been removed.
 
+## Entity access and manual initialization
+
+```csharp
+using Wargon.Nukecs;
+
+// In a system with Query<Entity, Position, Velocity, None<StaticTag>>:
+foreach (var (entity, position, velocity) in query.par_iter())
+{
+    position.Get.Value += velocity.Read.Value;
+    if (entity.id == targetId)
+        entity.Add<SelectedTag>(); // deferred; do not play back inside the loop
+}
+```
+
+Here Position/Velocity are data components; StaticTag/SelectedTag are tags.
+The trailing filter is omitted from deconstruction. `entity` is an Entity value,
+so old code using `entity.Get.id` should use `entity.id`. Component access still
+uses `.Get` / `.Read`. With one component, read the tuple property directly:
+
+```csharp
+foreach (var item in query.iter()) // Query<Position>
+    item.C0.Get.Value.x += 1;
+```
+
+Generated runners initialize and update typed queries. Application code should
+normally use typed queries as system parameters, or retain a fluent
+`world.Query()` for manual entity iteration. Low-level callers must call
+`Init(ref ptr<World.WorldUnsafe>)` once; it registers the query and checks existing
+archetypes. `Update(ref world, System.IntPtr.Zero)` assigns the full `[0, Count)`
+range, while a nonzero pointer supplies a `Range`. Never pass a default,
+uninitialized typed query into either iterator. See the setup helper in
+[RuntimeQueryIntegrationTests](../../../../UnitTests/RuntimeQueryIntegrationTests.cs).
+
 ## Storage and API contract
 
 - Supports 1–8 data components, arbitrary inline/pool combinations, and the
   optional trailing filter. The ninth family accommodates eight components plus
-  an option (or an Entity slot).
+  an option, or Entity plus eight components. Nine generic slots is the total
+  limit: Entity plus eight components plus a filter is not supported.
 - Data-only inline tuples use a base address and relative offsets. Pool tuples
   use absolute addresses and cache page buffers. Page-table pointers are not
   cached, so a pool table can grow without invalidating cached page buffers.
@@ -45,6 +83,11 @@ has been removed.
   invalidate component buffers; this is not a stable entity handle.
 - A block's row count is captured when entering it. Appending rows does not
   extend that active block's iteration.
+- Queue Add/Remove/Destroy through ECB and finish users of the current buffers
+  before playback. A count snapshot does not make structural mutation safe.
+- `With<T>` / `None<T>` alter component masks. The separate
+  `Wargon.Nukecs.Reactivity.Changed<T>` filter relies on source-generated change
+  detection; explicit runtime iteration does not apply its changed-only list.
 - Ranged iteration follows matching-archetype order, including sparse logical
   rows. Full inline iteration may use physical storage traversal. Do not assume
   their iteration orders are identical across shared storages.
@@ -53,6 +96,9 @@ has been removed.
   is retained; the old mutable tuple layout is not retained.
 
 ## Verification
+
+These are descriptions of existing coverage and recorded runs, not a test run
+performed by this documentation update.
 
 `RuntimeQueryIntegrationTests` covers arities, storage combinations, filters,
 empty/clipped ranges, and Entity/tag slots. `RuntimeQueryProductionRegressionTests`

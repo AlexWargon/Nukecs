@@ -7,11 +7,23 @@ Burst-compiled ECS framework with source-generated systems, custom allocator, an
 
 - **Burst-compiled** systems by default
 - **Source-generated** system runners from `[System]` static methods
-- **Custom arena allocator** — no GC pressure
+- **Shared SoA storage** — tag/pool changes preserve inline component data
+- **Runtime query iterators** — 1–8 components, inline/pool combinations, Entity access
+- **Custom arena allocator** with optional Arena Guard diagnostics
+- **Reactive subscriptions** and optional system dependency graph
 - **World serialization** — save/load entire world state
 - **Hot reload** — edit systems during Play Mode
 
 ---
+
+## Documentation
+
+This guide describes the checked-in API as of 2026-09-08.
+
+- [Runtime query contract](src/Systems/FnSystems/RuntimeQuery/README.md): ranges, tuples, Entity deconstruction, migration notes.
+- [Architecture](ARCHITECTURE.md): logical archetypes, shared storage, iteration paths and invariants.
+- [Agent reference](AGENTS.md): code map and implementation conventions.
+- [Archetype history](HANDOFF_ArchetypeMasks.md) and [runtime iterator history](RUNTIME_QUERY_ITER4_HANDOFF.md): historical experiments and test runs; older sections may describe superseded APIs.
 
 ## Quick Start
 
@@ -23,6 +35,7 @@ Inherit from `WorldInstaller`, add systems in `OnWorldCreated`, and drive the up
 using Wargon.Nukecs;
 using Wargon.Nukecs.Transforms;
 using Unity.Mathematics;
+using UnityEngine;
 
 public class GameBootstrap : WorldInstaller
 {
@@ -30,9 +43,7 @@ public class GameBootstrap : WorldInstaller
 
     protected override void OnWorldCreated(ref World world)
     {
-        Systems
-            .AddGroup(new GameSystems())
-            ;
+        Systems.Add(MovementSystems.Move, Threads.Parallel);
     }
 
     private void Update()
@@ -59,6 +70,11 @@ Components are unmanaged structs. Empty structs become **tag components** with z
 ### 3. Define Systems
 
 ```csharp
+using Unity.Burst;
+using Unity.Mathematics;
+using Wargon.Nukecs;
+using Wargon.Nukecs.Transforms;
+
 [BurstCompile]
 public static class MovementSystems
 {
@@ -109,7 +125,11 @@ protected override void CreateEntities(ref World world)
 public struct Velocity : IComponent { public float3 Value; }
 ```
 
-Stored inline in archetype data arrays. This is the default and most efficient storage.
+Stored in SoA columns owned by `StorageArchetype` (`StorageType.Archetype`).
+Logical archetypes with the same inline components share this storage, even when
+their tags or pool components differ. Adding/removing a tag or pool component
+changes logical membership without copying the inline columns. Adding/removing
+an inline component moves the entity to another storage.
 
 ### IPoolComponent — Separate Pool Storage
 
@@ -214,10 +234,12 @@ ref var speed = ref entity.TryGet<Speed>(out bool exists); // safe access
 
 ```csharp
 entity.Destroy();      // deferred — processed on next world.Update()
-entity.DestroyNow();   // immediate
+entity.DestroyNow();   // currently also queues ECB destruction
 ```
 
-`entity.Destroy()` is equivalent to `entity.Add(new DestroyEntity())`. The built-in `EntityDestroySystem` handles actual cleanup.
+`entity.Destroy()` queues an ECB destroy command directly. `DestroyNow()`
+currently uses the same deferred path despite its name. The `DestroyEntity` tag
+is a separate route handled by the built-in destruction system.
 
 ### Copying
 
@@ -300,7 +322,11 @@ Systems
 
 ### Query Iteration
 
-#### `par_iter()` — Parallel-safe ref iteration (recommended)
+#### `par_iter()` — The current job's range
+
+Use this inside a parallel system. It visits only the range assigned by the
+runner through `Query.Update`. It does not schedule work or synchronize access;
+an uninitialized range is empty.
 
 ```csharp
 foreach (var (t, v) in query.par_iter())
@@ -311,7 +337,7 @@ foreach (var (t, v) in query.par_iter())
 }
 ```
 
-#### `iter_unsafe()` — Raw pointer iteration (highest performance)
+#### `iter_unsafe()` — Raw pointer iteration
 
 ```csharp
 foreach (var (t, v) in query.iter_unsafe())
@@ -335,9 +361,15 @@ foreach (var (t, v) in query.par_iter_unsafe())
 foreach (var (t, v) in query.iter())
 {
     ref var transform = ref t.Get;
-    transform.Position += v.Value * dt;
+    transform.Position += v.Read.Value * dt;
 }
 ```
+
+`iter()` visits the **complete query**, regardless of the current job range.
+Do not use it for ordinary per-entity work inside `Threads.Parallel`: each job
+would repeat the full traversal. Both explicit methods use the runtime iterator,
+including inside generated runners. Plain `foreach (... in query)` remains
+eligible for the generator's batch pointer-loop optimization.
 
 #### `iter_chunk()` — Chunk-based iteration
 
@@ -348,14 +380,20 @@ foreach (var chunk in query.iter_chunk())
 }
 ```
 
-### WithEntity — Access Entity in Iteration
+Chunks are a separate API from the runtime ref iterators. With shared storage,
+logical rows may be sparse. `Chunk<T1,T2,T3>.CopyTo` handles gather rows; do not
+assume the other arities' `CopyTo` methods support sparse rows (see
+[architecture limitations](ARCHITECTURE.md)).
 
-Append `.WithEntity` to get the `Entity` in the deconstruction:
+### Entity — Access Entity in Iteration
+
+Put `Entity` first in the query signature. Explicit `.iter()` / `.par_iter()`
+deconstruction returns an `Entity` **value**, followed by `Ref<T>` components:
 
 ```csharp
 [System, BurstCompile]
 public static void Process(
-    ref Query<LocalTransform, Speed>.WithEntity query,
+    ref Query<Entity, LocalTransform, Speed> query,
     ref State state)
 {
     foreach (var (e, t, s) in query.par_iter())
@@ -368,6 +406,10 @@ public static void Process(
 }
 ```
 
+Use `e.id`, `e.Get<T>()`, `e.Add<T>()` or `e.Destroy()` directly. Do not unwrap
+the deconstructed entity through `.Get` / `.Read`. A tuple's `C0` property still
+exposes `Ref<Entity>`; the value conversion applies to deconstruction.
+
 ### Query Filter Modifiers
 
 Use `None<T>` and `With<T>` as the last type parameter to filter without reading:
@@ -376,11 +418,18 @@ Use `None<T>` and `With<T>` as the last type parameter to filter without reading
 // None<T> — exclude entities that have component T
 ref Query<LocalTransform, Velocity, None<StaticTag>> query
 
-// With<T> — include only entities that have component T (readable via .Get)
+// With<T> — require T without returning its component data
 ref Query<LocalTransform, With<CubeStateTag>> query
 ```
 
-`None<T1, T2>` and `With<T1, T2>` support multiple components.
+`None<T1, T2>` and `With<T1, T2>` support multiple components. Filter/tag tuple slots contain no
+entity payload; omit the trailing filter when deconstructing:
+
+```csharp
+// query: Query<Entity, LocalTransform, Speed, None<StaticTag>>
+foreach (var (entity, transform, speed) in query.par_iter())
+    transform.Get.Position.x += speed.Read.Value * dt;
+```
 
 ### ISystemsGroup — Organize Systems
 
@@ -413,12 +462,30 @@ Systems.AddGroup(new GameSystems());
 
 ### BurstCompile
 
-Always add `[BurstCompile]` to both the containing class (for `ISystemsGroup`) or the static method for maximum performance:
+Mark Burst-compatible system methods with `[BurstCompile]`. Systems using
+managed Unity APIs should run with `Threads.Main` and stay outside Burst code:
 
 ```csharp
 [System, BurstCompile]
 public static void MySystem(ref Query<Transform> query) { }
 ```
+
+### Optional Dependency Graph
+
+```csharp
+Systems.UseDependencyGraph(); // default: GroupScheduleMode.LegacyGroupComplete
+// Return to the sequential scheduling path:
+Systems.UseDependencyGraph(false);
+```
+
+The graph is opt-in and covers update systems. It groups systems using reported
+component, resource, event and ECB access metadata; independent jobs can overlap.
+Custom runners can supply `ISystemDependencyInfoProvider` and `IThreadModeProvider`.
+Dependencies depend on that metadata, so accesses hidden behind helper methods
+or external state need review when enabling graph scheduling.
+
+`GroupScheduleMode` also exposes `ChainedGroupComplete`, `FlattenedSchedule` and
+`FlattenedSchedule2`. Inspect the graph in **Nuke.cs → Dependency Graph**.
 
 ---
 
@@ -433,6 +500,14 @@ var query = world.Query()
     .None<StaticTag>();
 ```
 
+Create and retain manual queries during setup, before spawning entities.
+Each `world.Query()` registers a new query; identical fluent chains are not
+deduplicated. The manual fluent path does not attach itself to existing logical
+archetypes automatically. Typed `Query<T...>.Init` does check existing archetypes.
+
+Queries exclude `IsPrefab` and `DestroyEntity` by default. For a manual query
+that includes them, begin with `world.Query(withDefaultNoneTypes: false)`.
+
 ### Generic Typed Queries (in systems)
 
 Queries in `[System]` methods are auto-created by the source generator:
@@ -444,9 +519,27 @@ Query<T1, T2, TOption>
 Query<T1, T2, T3, TOption>
 Query<T1, T2, T3, T4, TOption>
 Query<T1, T2, T3, T4, T5, TOption>
+Query<T1, T2, T3, T4, T5, T6, TOption>
+Query<T1, T2, T3, T4, T5, T6, T7, TOption>
+Query<T1, T2, T3, T4, T5, T6, T7, T8, TOption>
 ```
 
-Where `TOption` can be a regular component, `None<T>`, or `With<T>`.
+The trailing slot can be a regular component or a filter such as `None<T>`,
+`With<T>`. Runtime iteration supports up to eight data components
+within nine total generic slots: eight components plus a filter, or Entity plus
+eight components. Entity plus eight components plus a filter exceeds that limit.
+
+Use `var` for iterators and tuples: explicit methods now return
+`QueryRuntimeIterN<QueryRuntimeRefs<...>>`, not the old mutable `RefTuple` layout.
+Generic helpers that deconstruct a data-first tuple need
+`where T : unmanaged, IComponent` on the first type parameter and
+`using Wargon.Nukecs` for the deconstruction extensions.
+
+Component references and pointers are valid only while their buffers remain
+valid. Do not play back structural changes or resize storage during traversal.
+Each block captures its row count on entry; appending rows does not extend that
+active block. Full and ranged traversal can visit shared storage in different
+orders. See the [runtime contract](src/Systems/FnSystems/RuntimeQuery/README.md).
 
 ### Access Patterns
 
@@ -459,7 +552,7 @@ ref readonly T val = ref componentRef.Read;  // readonly access
 
 ```csharp
 int count = query.Count;
-bool empty = query.IsEmpty;
+bool empty = query.Count == 0; // works across typed query arities
 ```
 
 ---
@@ -480,7 +573,10 @@ ECB playback happens on `world.Update()`:
 world.Update();   // Plays back all queued ECB commands
 ```
 
-> **Important:** Changes are not visible until the next `Update()`. If you need immediate access, use `entity.Set<T>()` to modify existing components.
+Changes become visible after ECB playback, which may happen between systems in
+the same frame. Use `entity.Set<T>()` or `Get<T>()` to modify existing component
+values immediately. Queue structural changes during iteration and let the
+scheduler play them back after the jobs that use the current storage finish.
 
 The ECB is **thread-safe** — it uses per-thread command buffers internally.
 
@@ -503,8 +599,8 @@ public struct TimeData
     public float DeltaTime;
     public float DeltaTimeFixed;
     public float Time;
-    public float ElapsedTime;
-    public int TickCount;
+    public double ElapsedTime;
+    public uint TickCount;
 }
 ```
 
@@ -577,7 +673,7 @@ public static void Render(ref ResManaged<MeshData> meshData)
 }
 ```
 
-### SaveRes — Per-World Allocator-Stored Resource
+### SaveRes — Resource Value Parameter
 
 ```csharp
 [System]
@@ -587,7 +683,12 @@ public static void MySystem(ref SaveRes<MyData> data)
 }
 ```
 
-`SaveRes<T>` is stored in the world's custom allocator and survives serialization.
+`SaveRes<T>` currently contains a `T Ref` field and has empty `Init` / `Update`
+methods. It does not itself register persistent world storage or call resource
+lifecycle methods. Do not assume it provides automatic save/load support.
+
+`Res<T>.Ref` uses static `StructSingleton<T>` storage, so it is not isolated per
+world. Choose resource ownership explicitly when working with multiple worlds.
 
 ### Local — Per-System Local State
 
@@ -613,16 +714,17 @@ public struct DamageEvent : IComponent { public int Amount; public Entity Target
 
 ```csharp
 [System]
-public static void ApplyDamage(ref Events<DamageEvent> events)
+public static void EmitDamage(ref Query<Entity, Health> query, ref Events<DamageEvent> events)
 {
-    events.Add(new DamageEvent { Amount = 10, Target = target });
+    foreach (var (entity, health) in query.par_iter())
+        events.AddPar(new DamageEvent { Amount = 10, Target = entity });
 }
 ```
 
 ### Receiving Events
 
 ```csharp
-[System]
+[System(Threads.Main)]
 public static void ProcessDamage(ref Events<DamageEvent> events)
 {
     foreach (var evt in events)
@@ -632,6 +734,51 @@ public static void ProcessDamage(ref Events<DamageEvent> events)
     events.Clear();
 }
 ```
+
+`Add()` is for a single writer; `AddPar(in TEvent)` uses a spinlock and grows
+the buffer while holding it. `ReadPar()` provides a pointer/length reader after
+producers complete. Do not grow or clear the buffer while readers use it.
+Events persist until explicitly cleared; clear once after all consumers finish.
+
+---
+
+## Reactivity
+
+Use `Wargon.Nukecs.Reactivity` for per-entity subscriptions. A regular unmanaged
+`IComponent` is sufficient; no `IReactive` marker or `Reactive<T>` companion is
+needed for this API.
+
+```csharp
+using Wargon.Nukecs.Reactivity;
+
+// After creating Systems for the world and creating the entity:
+long token = entity.OnChange<Health>(
+    (in Health value, in Entity owner) => UnityEngine.Debug.Log(value.Value));
+
+entity.Get<Health>().Value -= 10;
+// Callback runs when the reactive check/dispatch systems process the change.
+
+// When the subscriber is no longer needed:
+entity.OffChange<Health>(token);
+```
+
+The first subscription registers the check/dispatch systems for existing
+`Systems` instances in that world. `systems.AddReactive<Health>()` can register
+them explicitly. Detection compares component bytes in a Burst job; dispatch
+invokes managed callbacks on the main thread. Notifications are processed at
+the reactive systems' update position, not synchronously on every write.
+
+`OnChange` also accepts a `ReactFilter<T>` predicate and `ReactOptions`:
+`Once` removes the subscription after dispatch; `TriggerImmediately` invokes it
+with the current component on subscription, or defers the initial notification
+if the component has not yet been added through ECB.
+
+`Wargon.Nukecs.Reactivity.Changed<T>` is a query filter with its own change
+tracking. Use it in generated systems with plain `foreach (... in query)` as
+covered by `ReactivityTests`. Explicit runtime `.iter()` / `.par_iter()` do not
+apply this change-detection filter; they traverse its required component set.
+Files under `src/Reactive/` describe the older implementation; use the public
+API under `src/Reactivity/` for new subscriptions and change filters.
 
 ---
 
@@ -701,8 +848,11 @@ world.LoadFromFile("path/to/save.dat");
 
 ```csharp
 await world.SaveToFileAsync("path/to/save.dat");
-await world.LoadFromFileAsync("path/to/save.dat");
+world.LoadFromFileAsync("path/to/save.dat");
 ```
+
+`LoadFromFileAsync` currently returns `async void`, so it cannot be awaited.
+Use `LoadFromFile` when the caller must know loading has finished before continuing.
 
 ### Static Load
 
@@ -710,7 +860,11 @@ await world.LoadFromFileAsync("path/to/save.dat");
 World.Load("path/to/save.dat", ref world);
 ```
 
-Serialization captures the entire world state: all entities, components, queries, and archetypes. Function pointers are re-registered on deserialization automatically.
+Serialization captures allocator-backed world state, including entities,
+components, queries, logical archetypes and shared storages. Deserialization
+restores allocator pointers, migration caches and query bindings, and
+re-registers component function pointers. Managed callbacks, external Unity
+objects and static resources are not an automatic portable save format.
 
 ---
 
@@ -784,7 +938,10 @@ public struct WorldConfig
 
 ### Multiple Worlds
 
-Up to **8 worlds** can exist simultaneously. Each `WorldInstaller` manages its own world.
+The static registry supports up to **8 worlds**. Create them explicitly when
+running multiple worlds: `WorldInstaller.Awake()` calls `World.DisposeStatic()`
+before creating its world, so multiple installers do not provide independent
+world ownership automatically.
 
 ```csharp
 var world1 = World.Create(WorldConfig.Default256);
@@ -795,6 +952,36 @@ var world2 = World.Create(WorldConfig.Default1024);
 
 ## Editor Tools
 
-- **ECS Debug Window** — inspect entities, archetypes, and components at runtime
-- **Allocator Debugger** — monitor custom allocator memory usage
-- **Memory Profiler** — track memory allocation patterns
+- **Nuke.cs → ECS Debug V2** (`NUKECS_DEBUG`) — inspect entities, logical archetypes, queries and resources; edit component fields and themes.
+- **Scene View entity gizmos** (`NUKECS_DEBUG`) — select an entity in Debug V2, then use Move/Rotate/Scale/Transform tools on its world-space `Wargon.Nukecs.Transforms.Transform`. Changes write directly to the component; Undo is not supported.
+- **Nuke.cs → Dependency Graph** — inspect system dependencies and execution groups.
+- **Nuke.cs → Allocator Debug** — memory usage, allocation tags and Arena Guard controls; available without `NUKECS_DEBUG`.
+
+### Arena Guard
+
+`AllocatorDebugState.Mode` defaults to `AllocatorDebugMode.None`. The allocator
+window can enable canaries, freed-memory poisoning and tag tracking, run
+**Validate now**, and schedule periodic validation.
+
+- `Canary`: guarded allocations reserve 16 trailing bytes; only allocations
+  made while enabled receive guards. Writes within alignment padding may escape detection.
+- `PoisonFree`: freed memory begins with `0xDD`; validation detects later writes
+  to that region. When enabling through code, call `PoisonAllFree()` on the
+  allocator to normalize existing free blocks (the UI does this automatically).
+- Allocation tags and `GetTagStats` show live counts/bytes by source. `Validate`
+  checks headers, block chains and enabled guards. Disposal and allocator load
+  also validate the arena.
+
+## Verification
+
+Run correctness tests with the Unity Editor's **Edit Mode** Test Runner, not
+`dotnet test`. Relevant suites include `RuntimeQueryIntegrationTests`,
+`RuntimeQueryProductionRegressionTests`, `RuntimeQueryJobIntegrationTests`,
+`RuntimeQueryEntityDeconstructionTests`, `StorageModeQueryTests`,
+`TagPoolMaskTests`, `AllocatorDebugTests`, `ReactivityTests` and
+`DependencyGraphTests`. Run benchmarks separately from correctness tests.
+
+Native Burst execution/compilation probes live in the runtime query suites.
+A managed pass alone does not verify native Burst or IL2CPP. Historical run
+results are recorded in the runtime contract and handoff; they are not a new
+verification of every backend or graph scheduling mode.
