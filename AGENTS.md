@@ -116,7 +116,7 @@ World → Archetype[] → Entity (int ID)
 | `src/Systems/FnSystems/QueryIteratorsParallel.cs` | Parallel query iterator implementations |
 | `src/Systems/FnSystems/Chunk.cs` | `Chunk<T1..T8>` archetype chunk iterators + `IChunk` interface |
 | `src/Systems/FnSystems/Events.cs` | `Events<TEvent>` system param, `EventsParallelReader<TEvent>`, `EventsStorage` |
-| `src/Systems/FnSystems/Res.cs` | `Res<TRes>` (resource param), `SaveRes<TRes>`, `TimeRes` |
+| `src/Systems/FnSystems/Res.cs` | `Res<TRes>` (resource param), `TimeRes` |
 | `src/Systems/FnSystems/ResManaged.cs` | `ResManaged<TRes>` for class-type resources |
 | `src/Systems/FnSystems/ResStorage.cs` | `ResStorage` unmanaged resource storage |
 | `src/Systems/FnSystems/Single.cs` | `Single<T1>` (singleton entity accessor), `MutRes<TRes>`, `Local<TData>`, `IRes`, `IResourceGetSet` |
@@ -243,6 +243,29 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 - Iterators capture block count before visiting rows; never re-read it as the loop bound while appending entities. Structural mutations can still invalidate pointers.
 - Entity access uses `Query<Entity, ...>`; the old nested `.WithEntity` signature is no longer in Query.cs. Explicit runtime deconstruction yields Entity by value.
 
+Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/ReleaseStabilizationTests.cs`):
+- Typed `Query<..., DestroyEntity>` never matched — `DestroyEntity` sat in BOTH with and default-none masks. Fix: explicit `With` overrides a default none of the same type (`QueryUnsafe.With`).
+- Fluent queries created/mutated after entities existed stayed attached to nothing (silent zero results). Fix: lazy archetype rescan (`archetypeMasksDirty` + `EnsureArchetypesMatched`), dup-attach guard in `CheckQuery`.
+- Zero-with queries (`world.Query()`) matched nothing. Fix: they match every archetype minus none bits.
+- `ArchetypeUnsafe.Destroy` materialized junk pools for tag types and never cleared pool slots. Fix: it mirrors the ECB destroy branch for pool storage. The storage row is still reclaimed by the ECB path only — inline row removal was attempted and REVERTED: it exposed a pre-existing accounting inconsistency in the reserved-id → ECB-migration chain (rows list outgrowing the storage, arena corruption in prefab chains; bisected and verified). See POST_1_0.md #12.
+- Disposable components leaked when their column was dropped by a Remove migration. Fix: `MoveEntityTo` disposes dropped disposable columns (surviving columns are NOT disposed — the destination row still references them). `ECB RemoveAndDispose` therefore works.
+- Removing a pool component left the pool slot behind. Fix: ECB playback clears pool slots for pool-storage removals.
+- `Chunk<T>`/`Chunk<T1,T2>` CopyTo memcpy'd on shared (sparse) storage; arities 4–8 never bound `_rows` (iteration AND CopyTo read foreign rows); arity-8 CopyTo had a duplicated T6 branch and no T8 branch. All fixed; `iter_chunk2` (raw block) is `[Obsolete]`.
+- Static `World.Load`/`LoadAsync` NRE'd in `FixManagedWorld` (slot not published before the read-back).
+- Corrupt saves corrupted the heap: `FastDeserialize` trusted `savedRegionCount`. Fix: save header (magic + int version + regionCount) validated before any allocation; `NukEcs.version` is `const int`.
+- `Compress/CompressAsync` wrote the wrong byte length; `SaveToFile` didn't truncate; loads ignored short reads; `serializedAllocator` static buffer raced between worlds. All fixed.
+- `World.Create` could overwrite a live world (naive `lastFreeSlot++`); the 9th world wrote past the worlds array. Fix: aliveness-checked slot acquisition + clean error at `MAX_WORLD_COUNT`.
+- `res_type<T>.index` was derived from the per-world list length → cross-world type-confused resource reads. Fix: globally stable slot ids + per-world padding.
+- `Entity ==/Equals` ignored the world while `GetHashCode` included it. Fix: equality includes `worldIndex`.
+- Dead `src/Reactive/` duplicate (of `src/Reactivity/`) deleted; `SaveRes` deleted; `CopyViaECB` added with `CopyVieECB` kept as `[Obsolete]` shim.
+
+## 5.1 Multi-world contract (1.0)
+
+- Up to `World.MAX_WORLD_COUNT` (8) simultaneous live worlds; exceeding it throws.
+- Entity-level state (entities, archetypes, queries, events, ECB, reactive registries) is fully per world.
+- `ComponentType` registry and resource slot ids are domain-global; resource VALUES resolve to domain-global `StructSingleton` (see §10) — resources are NOT value-isolated per world in 1.0.
+- `Save/Load` round-trips one world's arena; save files are not portable across different component registration orders (type indices are first-touch assigned) and carry a magic + int format version header.
+
 ## 6. Testing
 
 - Unity Edit mode tests in `UnitTests/`
@@ -324,16 +347,16 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 - `Res<TRes>` where `TRes : struct, IRes` — wraps `StructSingleton<TRes>` (static, not per-world); `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
 - `ResManaged<TRes>` — for class-type resources; uses `ManagedResRef<T>` (GCHandle-like wrapper)
 - `IResourceGetSet` — boxing/unboxing interface for reflection-based access (used by debug tools)
-- `ResStorage` — unmanaged storage registry for resources
-- `SaveRes<TRes>` — value parameter with a public `TRes Ref` field and empty Init/Update; it does not itself register persistent world storage.
+- `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). The `Res<T>` wrapper still resolves to the domain-global `StructSingleton` — resource VALUES are not isolated per world (POST_1_0.md #3).
+- `SaveRes<TRes>` was removed before 1.0 — it registered and persisted nothing.
 
 ## 11. Chunk Iteration
 
 - `Chunk<T1..T8>` — direct archetype chunk iterators implementing `IChunk`
 - `SetData(ref ArchetypeUnsafe)` — resolves component pointers via `GetComponentLocalIndex` + `GetComponentOffset`
 - Iterator pattern: `_remaining` countdown; each `MoveNext()` decrements and advances all component pointers
-- Access via component ref properties (arity-2 uses C1/C2; larger chunks use C0-based names) or `Get()` for a single-type chunk.
-- `CopyTo<TU>(TU* dest, int len)` — component-selective copy. Arity-3 supports sparse gather; other arities retain memcpy paths and must not be assumed correct for sparse logical rows.
+- Access via component ref properties. NAMING TRAP: arities 2-4 use 1-based names (C1..C4), arities 5+ use 0-based names (C0..C7) — arity-4 `C4` is T4 but arity-5 `C4` is T5. Unify in 2.0 (see POST_1_0.md). Arity-1 exposes `Get()` only.
+- `CopyTo<TU>(TU* dest, int len)` — component-selective copy of `len` rows from the CURRENT chunk position. All arities gather per-row on sparse (shared) storage and memcpy when dense. The len window is rows[_rowIdx .. _rowIdx+len) — copy before advancing the iterator.
 
 ## 12. Reactivity
 
@@ -701,7 +724,7 @@ entity.Add<TagComponent>();                         // Add tag (deferred)
 entity.Remove<Health>();                            // Remove (deferred via ECB)
 ref var pos = ref entity.TryGet<Position>(out bool exist); // TryGet
 entity.Destroy();                                   // Deferred destroy
-entity.DestroyNow();                                // Currently also deferred via ECB
+entity.DestroyNow();                                // enqueues destroy + flushes the ECB immediately (use Destroy() when iterating)
 ```
 
 ### Query API
@@ -953,7 +976,8 @@ public static void CollisionSystem(
 | `Res<T>.Ref` | Immediate (static) | Yes |
 | `entity.Add<T>()` | **Deferred** (ECB) | After playback, possibly in the same frame |
 | `entity.Remove<T>()` | **Deferred** (ECB) | After playback, possibly in the same frame |
-| `entity.Destroy()` / `DestroyNow()` | **Deferred** (ECB) | After playback, possibly in the same frame |
+| `entity.Destroy()` | **Deferred** (ECB) | After playback, possibly in the same frame |
+| `entity.DestroyNow()` | **Immediate (ECB flush)** | Same call (flushes the whole pending ECB — do not use mid-iteration) |
 
 **Pattern for same-frame death events**: When an entity dies, use sentinel values instead of relying on deferred `DeadTag`:
 
@@ -1027,10 +1051,17 @@ void Start()
 ```
 
 Identical fluent chains are not deduplicated: CreateQueryPtr appends to the
-world's query list. Manual fluent queries do not attach to existing logical
-archetypes automatically; create them before spawning. Typed Query<T...>.Init
-checks existing archetypes explicitly. Both paths apply default none filters
-for IsPrefab/DestroyEntity unless the manual query opts out.
+world's query list (queries live until world disposal — do not build fluent
+queries per frame). Since the 1.0 stabilization pass queries attach LAZILY:
+every query starts "archetype-dirty" and the first `Count` / `iter*` /
+`iter_chunk` / `GetEnumerator` re-runs `CheckQuery` over existing archetypes
+(dup-attach guarded), so a query created or mutated (With/None) after spawning
+still matches existing entities. Zero-with queries (`world.Query()`,
+`Query<Entity>`) match EVERY archetype (minus none bits). Explicit `With<T>`
+overrides a default none of the same type (so `Query<Entity, DestroyEntity>`
+works — typed Init cannot opt out of default nones). Job paths
+(`par_iter`, `TryUseStorageIteration`) never rescan — the generated runners
+refresh via `RefreshStorageMode` on the main thread before dispatch.
 
 ### ECS → MonoBehaviour Communication
 

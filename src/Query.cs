@@ -213,6 +213,10 @@ namespace Wargon.Nukecs
         /// tag/pool none-bit logical archetype — the query falls back to the archetype path.</summary>
         public byte storageDegraded;
         internal bool storageMasksDirty;
+        /// <summary>1 when with/none masks changed (or the query was created) after the last
+        /// archetype scan — the lazy rescan re-runs CheckQuery over existing archetypes on next
+        /// use, so a query built after entities/archetypes exist still matches them.</summary>
+        internal byte archetypeMasksDirty;
         internal int storagesBuiltForLen;
         internal int storagesBuiltAtVersion;
         /// <summary>Indices into world->storagesList whose every row matches this query.</summary>
@@ -269,6 +273,8 @@ namespace Wargon.Nukecs
             world = worldPtr.Ptr;
             storageModeState = 0;
             storageMasksDirty = true;
+            // rescan archetype backlinks after load — dup-attach guard in CheckQuery makes it safe
+            archetypeMasksDirty = 1;
             storagesBuiltForLen = -1;
             storagesBuiltAtVersion = -1;
         }
@@ -304,6 +310,9 @@ namespace Wargon.Nukecs
             this.storageModeState = 0;
             this.storageDegraded = 0;
             this.storageMasksDirty = true;
+            // start dirty: a query created after entities/archetypes exist lazily attaches
+            // to them on first use (EnsureArchetypesMatched)
+            this.archetypeMasksDirty = 1;
             this.storagesBuiltForLen = -1;
             this.storagesBuiltAtVersion = -1;
             this.matchingStorages = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
@@ -470,8 +479,13 @@ namespace Wargon.Nukecs
         public QueryUnsafe* With(int type)
         {
             with.Add(type);
+            // an explicit With overrides the default none (IsPrefab, DestroyEntity): a type in
+            // both masks makes CheckQuery reject every matching archetype — the query would
+            // silently never match anything (typed Init has no withDefaultNoneTypes=false opt-out)
+            if (none.Contains(type)) none.Remove(type);
             storageModeState = 0;
             storageMasksDirty = true;
+            archetypeMasksDirty = 1;
             return self.Ptr;
         }
 
@@ -492,6 +506,7 @@ namespace Wargon.Nukecs
             none.Add(type);
             storageModeState = 0;
             storageMasksDirty = true;
+            archetypeMasksDirty = 1;
             return self.Ptr;
         }
 
@@ -516,9 +531,32 @@ namespace Wargon.Nukecs
         /// </summary>
         public bool UseStorageIteration()
         {
+            if (world == null)
+            {
+                // query outlived its world (e.g. a system's cached query ticked after
+                // DisposeStatic/world teardown) — never rescan or deref here
+                return false;
+            }
+            if (archetypeMasksDirty != 0) EnsureArchetypesMatched();
             if (!IsStorageMode()) return false;
             GetMatchingStorages();
             return storageDegraded == 0;
+        }
+
+        /// <summary>
+        /// Lazily re-runs CheckQuery over all existing archetypes after mask mutation or late
+        /// query creation — cheap no-op unless dirty. Main thread only (mutates archetype
+        /// query backlinks); job paths use TryUseStorageIteration which never rescans.
+        /// </summary>
+        public void EnsureArchetypesMatched()
+        {
+            if (archetypeMasksDirty == 0) return;
+            archetypeMasksDirty = 0;
+            for (var i = 0; i < world->archetypesList.length; i++)
+            {
+                ref var arch = ref world->archetypesList.Ptr[i].Ref;
+                arch.CheckQuery(in self);
+            }
         }
 
         /// <summary>
@@ -541,6 +579,8 @@ namespace Wargon.Nukecs
         /// <summary>Main-thread refresh of the storage-mode snapshot before system dispatch.</summary>
         public void RefreshStorageMode()
         {
+            if (world == null) return;
+            if (archetypeMasksDirty != 0) EnsureArchetypesMatched();
             if (storageModeState == 2) GetMatchingStorages();
         }
 

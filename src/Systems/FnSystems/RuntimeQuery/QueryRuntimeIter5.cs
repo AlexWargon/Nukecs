@@ -191,6 +191,8 @@ namespace Wargon.Nukecs
             current = default; columns = default; world = query->world;
             mask = current.Init(ref columns, world);
             // Ranged jobs retain matching-archetype order, including shared physical storages.
+            // full-query iteration (iter()) is main-thread only: lazily attach late-created queries
+            if (allowStorage) query->EnsureArchetypesMatched();
             storageMode = allowStorage && mask == 0 && query->TryUseStorageIteration();
             var list = storageMode ? query->GetMatchingStorages() : query->matchingArchetypes;
             matches = list.Ptr; matchCount = list.Length;

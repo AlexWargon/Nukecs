@@ -47,9 +47,12 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        // Equality must match GetHashCode (which mixes in the world pointer): entities from
+        // different worlds with the same id are different entities, and equal objects must
+        // hash equally or dictionary lookups silently break.
         public bool Equals(Entity other)
         {
-            return id == other.id;
+            return id == other.id && worldIndex == other.worldIndex;
         }
 
 #if !NUKECS_DEBUG
@@ -73,7 +76,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator ==(in Entity one, in Entity two)
         {
-            return one.id == two.id;
+            return one.id == two.id && one.worldIndex == two.worldIndex;
         }
 
 #if !NUKECS_DEBUG
@@ -81,7 +84,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator !=(in Entity one, in Entity two)
         {
-            return one.id != two.id;
+            return one.id != two.id || one.worldIndex != two.worldIndex;
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -402,9 +405,15 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        /// <summary>
+        /// Currently identical to <see cref="Destroy"/> (defers into the ECB; applied on the
+        /// next playback). A truly immediate destroy requires either a per-entity ECB flush
+        /// or a reworked inline-destroy path — both were investigated during the 1.0 pass and
+        /// postponed (full-ECB flush is O(pending commands of ALL entities); inline destroy
+        /// corrupts the arena through the reserved-id migration chain, see POST_1_0.md #12).
+        /// </summary>
         public static void DestroyNow(this in Entity entity)
         {
-            ref var ecb = ref entity.worldPointer->ECB;
 #if NUKECS_DEBUG
             entity.worldPointer->AddComponentChange(new World.ComponentChange
             {
@@ -413,7 +422,7 @@ namespace Wargon.Nukecs
                 timeStamp = entity.worldPointer->timeData.ElapsedTime
             });
 #endif
-            ecb.Destroy(entity.id);
+            entity.worldPointer->ECB.Destroy(entity.id);
         }
 
 #if !NUKECS_DEBUG
@@ -444,6 +453,17 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        /// <summary>Creates an empty entity and queues an ECB copy of every component from
+        /// <paramref name="entity"/> into it (data lands on ECB playback).</summary>
+        public static Entity CopyViaECB(this in Entity entity)
+        {
+            var e = entity.worldPointer->CreateEntity();
+            entity.worldPointer->ECB.Copy(entity.id, e.id);
+            return e;
+        }
+
+        /// <summary>[Obsolete typo shim for CopyViaECB — kept so existing call sites compile.]</summary>
+        [Obsolete("Typo — use CopyViaECB")]
         public static Entity CopyVieECB(this in Entity entity)
         {
             var e = entity.worldPointer->CreateEntity();
@@ -455,6 +475,9 @@ namespace Wargon.Nukecs
         {
             return $"#:{entity.id:D7}";
         }
+
+        /// <summary>Index of the entity's current logical archetype in world.archetypesList
+        /// (historical name says Hash but it is an archetype index, not a hash).</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetArchetypeHash(this in Entity entity)
         {

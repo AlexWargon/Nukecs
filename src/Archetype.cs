@@ -427,6 +427,22 @@ namespace Wargon.Nukecs
                     memcpy(dst, src, size);
                 }
 
+                // dispose disposable components of columns DROPPED by this migration — the
+                // surviving columns were copied above and their resources stay referenced by
+                // the destination row; disposing them here would be a use-after-free.
+                // (RemoveRowSwap itself stays byte-only for this reason.)
+                for (var i = 0; i < srcStorage.inlineTypes.length; i++)
+                {
+                    var typeIndex = srcStorage.inlineTypes.Ptr[i];
+                    if (dstStorage.offsetMap.Mask.HasFast(typeIndex)) continue;
+                    var ctData = ComponentTypeMap.GetComponentType(typeIndex);
+                    if (!ctData.isDisposable) continue;
+                    if (srcStorage.data.Ptr == null) continue;
+                    var off = srcStorage.componentOffsets.Ptr[i];
+                    var dropped = srcStorage.data.Ptr + off + row * ctData.size;
+                    ctData.DisposeFn().Invoke(dropped, 0);
+                }
+
                 RemoveEntity(row); // swap-removes the old storage row, fixes rows of the swapped entity
             } else {
                 newRow = row; // same storage — data stays in place
@@ -794,6 +810,21 @@ namespace Wargon.Nukecs
             }
 
             if (hasNone) return;
+            // dup-attach guard: lazy rescans (late query creation / late With/None) re-run this
+            // over all existing archetypes — already-attached archetypes must be skipped
+            for (var i = 0; i < queries.length; i++)
+            {
+                if (queries.Ptr[i] == q.Id) return;
+            }
+            if (q.with.Count == 0)
+            {
+                // zero-with query (world.Query(), Query<Entity>): matches every archetype
+                q.AddArchetype(index);
+                queries.Add(q.Id, ref world->AllocatorRef);
+                queriesVersion++;
+                q.BatchAdd(packedEntities.Ptr, count);
+                return;
+            }
             foreach (var type in types)
             {
                 if (q.HasWith(type))
@@ -829,6 +860,14 @@ namespace Wargon.Nukecs
                 }
 
                 if (hasNone) continue;
+                if (q.Ptr->with.Count == 0)
+                {
+                    // zero-with query (world.Query(), Query<Entity>): matches every archetype
+                    q.Ref.AddArchetype(index);
+                    queries.Add(q.Ptr->Id, ref worldPtr->AllocatorRef);
+                    queriesVersion++;
+                    continue;
+                }
                 foreach (var type in types)
                 {
                     if (q.Ptr->HasWith(type))
@@ -1022,15 +1061,23 @@ namespace Wargon.Nukecs
             }
             for (var idx = 0; idx < types.length; idx++)
             {
-                ref var pool = ref world->GetUntypedPool(types[idx]);
+                // only Pool storage has a pool slot — GetUntypedPool for tag types would
+                // materialize junk pools (mirror of the ECB destroy branch)
+                if (ComponentTypeMap.GetComponentType(types.Ptr[idx]).storageType != StorageType.Pool) continue;
+                ref var pool = ref world->GetUntypedPool(types.Ptr[idx]);
                 pool.Remove(entity);
             }
 
+            // NOTE (1.0 stabilization): the storage row is intentionally NOT removed here —
+            // the ECB playback is the single authoritative destroy path. Attempting inline
+            // row removal (DestroyEntity(loc.row)) exposed a pre-existing accounting
+            // inconsistency in the reserved-id → ECB-migration chain (ghost rows, rows list
+            // outgrowing the storage, arena corruption in prefab chains). Full analysis in
+            // POST_1_0.md. The pool-slot loop above mirrors the ECB destroy branch.
+            // DestroyEntity(world->entityLocations.Ptr[entity].row);
             destroyEdge.Execute(entity);
             world->OnDestroyEntity(entity);
         }
-
-
         internal void SetEntityData(EntityData eData)
         {
             var loc = world->entityLocations.Ptr[eData.Entity];

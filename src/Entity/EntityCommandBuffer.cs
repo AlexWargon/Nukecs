@@ -338,6 +338,19 @@ namespace Wargon.Nukecs {
                     return;
                 }
 
+                // Pool-storage removals must also clear the pool slot: a mask-only migration
+                // (same storage, pool bit flipped) leaves the stale slot behind otherwise
+                for (var i = 0; i < count; i++)
+                {
+                    ref var cmd = ref cmds[i];
+                    if (cmd.EcbCommandType != ECBCommand.Type.RemoveComponent
+                        && cmd.EcbCommandType != ECBCommand.Type.RemoveAndDispose) continue;
+                    var cmdType = ComponentTypeMap.GetComponentType(cmd.ComponentType);
+                    if (cmdType.storageType != StorageType.Pool) continue;
+                    if (!originalArch.Has(cmd.ComponentType)) continue;
+                    w->GetUntypedPool(cmd.ComponentType).Remove(entity);
+                }
+
                 var targetArch = w->GetOrCreateArchetype(ref tempMask);
                 var targetArchIdx = targetArch.Unsafe->index;
 

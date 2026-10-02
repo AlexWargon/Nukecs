@@ -19,11 +19,36 @@ namespace Wargon.Nukecs
 
     public partial struct MemAllocator
     {
-        private static byte[] serializedAllocator = Array.Empty<byte>();
+        // Save header: [int magic][int formatVersion][int regionCount]. Validated BEFORE any
+        // region memory is freed/reallocated so a corrupt or foreign save fails with a clear
+        // exception instead of writing OOB into the fixed regions array.
+        internal const int SAVE_MAGIC = 0x4E434B53; // 'NCKS'
+        internal const int SAVE_FORMAT_VERSION = NukEcs.version;
+
+        private static unsafe int ValidateSaveHeader(byte* p, int dataLength)
+        {
+            var headerSize = sizeof(int) * 3;
+            if (dataLength < headerSize)
+                throw new ArgumentException(
+                    $"[Nukecs] Save is truncated: {dataLength} bytes is smaller than the {headerSize}-byte header");
+            var magic = *(int*)p;
+            if (magic != SAVE_MAGIC)
+                throw new ArgumentException(
+                    $"[Nukecs] Not a Nukecs save (bad magic 0x{magic:X8})");
+            var formatVersion = *(int*)(p + sizeof(int));
+            if (formatVersion != SAVE_FORMAT_VERSION)
+                throw new ArgumentException(
+                    $"[Nukecs] Save format version mismatch: file has {formatVersion}, runtime expects {SAVE_FORMAT_VERSION}");
+            var regionCount = *(int*)(p + sizeof(int) * 2);
+            if (regionCount < 0 || regionCount > MAX_REGIONS)
+                throw new ArgumentException(
+                    $"[Nukecs] Save is corrupt: region count {regionCount} is outside [0, {MAX_REGIONS}]");
+            return regionCount;
+        }
 
         public unsafe byte[] FastSerialize()
         {
-            long headerSize = sizeof(int);
+            long headerSize = sizeof(int) * 3;
             long regionHeadersSize = regionCount * sizeof(long) * 2;
             long totalDataSize = 0;
             for (int i = 0; i < regionCount; i++) totalDataSize += regions[i].size;
@@ -33,6 +58,8 @@ namespace Wargon.Nukecs
             fixed (byte* pData = data)
             {
                 byte* p = pData;
+                *(int*)p = SAVE_MAGIC; p += sizeof(int);
+                *(int*)p = SAVE_FORMAT_VERSION; p += sizeof(int);
                 *(int*)p = regionCount; p += sizeof(int);
                 for (int i = 0; i < regionCount; i++)
                 {
@@ -50,7 +77,7 @@ namespace Wargon.Nukecs
 
         public unsafe void FastSerialize(ref byte[] data)
         {
-            long headerSize = sizeof(int);
+            long headerSize = sizeof(int) * 3;
             long regionHeadersSize = regionCount * sizeof(long) * 2;
             long totalDataSize = 0;
             for (int i = 0; i < regionCount; i++) totalDataSize += regions[i].size;
@@ -61,6 +88,8 @@ namespace Wargon.Nukecs
             fixed (byte* pData = data)
             {
                 byte* p = pData;
+                *(int*)p = SAVE_MAGIC; p += sizeof(int);
+                *(int*)p = SAVE_FORMAT_VERSION; p += sizeof(int);
                 *(int*)p = regionCount; p += sizeof(int);
                 for (int i = 0; i < regionCount; i++)
                 {
@@ -79,8 +108,11 @@ namespace Wargon.Nukecs
         {
             fixed (byte* pData = data)
             {
-                byte* p = pData;
-                int savedRegionCount = *(int*)p; p += sizeof(int);
+                // header validated and regionCount bounds-checked BEFORE any memory is
+                // touched; p is already positioned past the header — do NOT re-read the
+                // count here (that would consume the first region's size field)
+                var savedRegionCount = ValidateSaveHeader(pData, data.Length);
+                byte* p = pData + sizeof(int) * 3;
 
                 for (int i = 0; i < regionCount; i++)
                 {
@@ -132,9 +164,12 @@ namespace Wargon.Nukecs
         public void SaveToFile(string filePath)
         {
             lock_.Acquire();
-            FastSerialize(ref serializedAllocator);
-            using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
-            var data = Compress(serializedAllocator);
+            // local buffer, not the shared static — concurrent saves from different worlds
+            // must not race on one byte[]
+            var buffer = Array.Empty<byte>();
+            FastSerialize(ref buffer);
+            using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+            var data = Compress(buffer);
             fs.Write(data, 0, data.Length);
             lock_.Release();
         }
@@ -142,9 +177,10 @@ namespace Wargon.Nukecs
         public async Task SaveToFileAsync(string filePath)
         {
             lock_.Acquire();
-            FastSerialize(ref serializedAllocator);
-            await using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
-            var data = await CompressAsync(serializedAllocator);
+            var buffer = Array.Empty<byte>();
+            FastSerialize(ref buffer);
+            await using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+            var data = await CompressAsync(buffer);
             fs.Write(data, 0, data.Length);
             lock_.Release();
         }
@@ -155,10 +191,14 @@ namespace Wargon.Nukecs
             if (!File.Exists(filePath))
                 Debug.LogError($"File not found: {filePath}");
             await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            if (serializedAllocator.Length != (int)fs.Length)
-                Array.Resize(ref serializedAllocator, (int)fs.Length);
-            await fs.ReadAsync(serializedAllocator, 0, serializedAllocator.Length);
-            var decompressedData = await DecompressAsync(serializedAllocator);
+            var buffer = new byte[fs.Length];
+            var read = await fs.ReadAsync(buffer, 0, buffer.Length);
+            if (read != buffer.Length)
+            {
+                lock_.Release();
+                throw new IOException($"[Nukecs] Load failed: read {read} of {buffer.Length} bytes from {filePath}");
+            }
+            var decompressedData = await DecompressAsync(buffer);
             FastDeserialize(decompressedData);
             lock_.Release();
         }
@@ -167,7 +207,8 @@ namespace Wargon.Nukecs
         {
             using var memoryStream = new MemoryStream();
             var gzip = new GZipStream(memoryStream, CompressionLevel.Optimal);
-            await gzip.WriteAsync(data, 0, serializedAllocator.Length);
+            // write data.Length, not some cached buffer's length (they are not the same array)
+            await gzip.WriteAsync(data, 0, data.Length);
             gzip.Close();
             await gzip.DisposeAsync();
             return memoryStream.ToArray();
@@ -186,7 +227,7 @@ namespace Wargon.Nukecs
         {
             using var memoryStream = new MemoryStream();
             using var gzip = new GZipStream(memoryStream, CompressionLevel.Optimal);
-            gzip.Write(data, 0, serializedAllocator.Length);
+            gzip.Write(data, 0, data.Length);
             gzip.Close();
             return memoryStream.ToArray();
         }
@@ -206,10 +247,14 @@ namespace Wargon.Nukecs
             if (!File.Exists(filePath))
                 Debug.LogError($"File not found: {filePath}");
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            if (serializedAllocator.Length != (int)fs.Length)
-                Array.Resize(ref serializedAllocator, (int)fs.Length);
-            fs.Read(serializedAllocator, 0, serializedAllocator.Length);
-            FastDeserialize(Decompress(serializedAllocator));
+            var buffer = new byte[fs.Length];
+            var read = fs.Read(buffer, 0, buffer.Length);
+            if (read != buffer.Length)
+            {
+                lock_.Release();
+                throw new IOException($"[Nukecs] Load failed: read {read} of {buffer.Length} bytes from {filePath}");
+            }
+            FastDeserialize(Decompress(buffer));
             lock_.Release();
         }
     }

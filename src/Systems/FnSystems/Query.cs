@@ -126,6 +126,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
     }
@@ -187,6 +188,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
@@ -338,6 +340,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
@@ -503,6 +506,7 @@ public ptr<QueryUnsafe> _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2, T3>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -513,6 +517,7 @@ public ptr<QueryUnsafe> _query;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         // ReSharper disable once MethodOverloadWithOptionalParameter
+        [Obsolete("iter_chunk2 reads wrong rows on shared (tag/pool) storage — use iter_chunk()")]
         public readonly ChunkIter<T1, T2, T3, TOption> iter_chunk2()
         {
             return new ChunkIter<T1, T2, T3, TOption>(in _query.Ref.matchingArchetypes, _query.Ref.world);
@@ -717,6 +722,7 @@ public ptr<QueryUnsafe> _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2, T3, T4>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
         
@@ -883,6 +889,7 @@ public ptr<QueryUnsafe> _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
@@ -1025,6 +1032,7 @@ public ptr<QueryUnsafe> _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
@@ -1204,6 +1212,7 @@ public ptr<QueryUnsafe> _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 
@@ -1386,6 +1395,7 @@ public ptr<QueryUnsafe> _query;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7, T8>> iter_chunk()
         {
+            if (_query.Ref.archetypeMasksDirty != 0) _query.Ref.EnsureArchetypesMatched();
             return new QueryChunkIter<Chunk<T1, T2, T3, T4, T5, T6, T7, T8>>(in _query.Ref.matchingArchetypes, _query.Ref.world);
         }
 

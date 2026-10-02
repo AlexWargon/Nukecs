@@ -173,6 +173,9 @@ namespace Wargon.Nukecs {
 
 
                 world.unsafeWorldPtr = w;
+                // FixManagedWorld reads the slot back via Get(id) — publish the loaded world
+                // into the slot first (the instance path in CompleteDeserialization does the same)
+                Get(id) = world;
                 FixManagedWorld(id);
                 world.ReinitAllSystems();
             } catch (Exception e) {
@@ -213,6 +216,9 @@ namespace Wargon.Nukecs {
                 }
 
                 world.unsafeWorldPtr = w;
+                // FixManagedWorld reads the slot back via Get(id) — publish the loaded world
+                // into the slot first (the instance path in CompleteDeserialization does the same)
+                Get(id) = world;
                 FixManagedWorld(id);
                 world.ReinitAllSystems();
             } catch (Exception e) {

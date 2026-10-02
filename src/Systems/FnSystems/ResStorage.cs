@@ -28,12 +28,11 @@ namespace Wargon.Nukecs
             foreach (var type in res_type.RegisteredTypes)
             {
                 var data = res_type.data(type);
-                if (data.index < _resources.length)
-                {
-                    var resPtr = _resources.Ptr[data.index];
-                    var boxed = data.getBoxed(resPtr.cached);
-                    cache[count++] = boxed;
-                }
+                if (data.index < 0 || data.index >= _resources.length) continue;
+                var resPtr = _resources.Ptr[data.index];
+                if (resPtr.IsNull) continue; // this world never added that resource
+                var boxed = data.getBoxed(resPtr.cached);
+                cache[count++] = boxed;
             }
 
             return (count, cache);
@@ -42,12 +41,16 @@ namespace Wargon.Nukecs
         internal ptr<T> GetRes<T>() where T : unmanaged
         {
             var index = res_type<T>.index;
+            if (index < 0 || index >= _resources.length)
+                throw new InvalidOperationException($"[Nukecs] World does not have resource {typeof(T).Name}");
             return _resources.Ptr[index].AsTyped<T>();
         }
 
         public IRes GetRes(Type type)
         {
             var data = res_type.data(type);
+            if (data.index < 0 || data.index >= _resources.length)
+                throw new InvalidOperationException($"[Nukecs] World does not have resource {type.Name}");
             var res = _resources.Ptr[data.index];
             return data.getBoxed(res.cached);
         }
@@ -62,18 +65,25 @@ namespace Wargon.Nukecs
         internal bool HasRes<T>() where T : unmanaged
         {
             var index = res_type<T>.index;
-            if (index >= _resources.length) return false;
-            return !_resources[res_type<T>.index].IsNull;
+            // index < 0 = type never registered in this domain; >= length or null = this world
+            // never added it (slot ids are global, per-world lists are padded)
+            if (index < 0 || index >= _resources.length) return false;
+            return !_resources[index].IsNull;
         }
 
         internal bool AddRes<T>(in T resource, World.WorldUnsafe* world) where T : unmanaged
         {
             if (HasRes<T>()) return false;
             var ptr = world->_allocate_ptr<T>(1, AllocatorTags.WorldMisc);
-            res_type<T>.index = _resources.length;
-            res_type.set<T>(res_type<T>.index);
+            // slot id is GLOBAL (first registration wins). Deriving it from this world's list
+            // length made world B's first resource alias world A's slot 0 — cross-world
+            // type-confused reads.
+            var slot = res_type.AcquireSlot<T>();
+            // pad this world's list so the global slot exists here too (null ptr = absent)
+            while (_resources.length <= slot)
+                _resources.Add(default, ref world->AllocatorRef);
             ptr.Ref = resource;
-            _resources.Add(ptr.UntypedPointer, ref world->AllocatorRef);
+            _resources.Ptr[slot] = ptr.UntypedPointer;
             return true;
         }
     }
@@ -117,6 +127,9 @@ namespace Wargon.Nukecs
     {
         private static readonly Dictionary<Type, ReflectionData> indexes = new();
         internal static IEnumerable<Type> RegisteredTypes => indexes.Keys;
+        // grows monotonically per domain — resource slot ids are globally stable so that
+        // several worlds can index their own per-world resource lists with the same ids
+        internal static int nextGlobalSlot;
 
         internal static ReflectionData data(Type type)
         {
@@ -126,6 +139,15 @@ namespace Wargon.Nukecs
         internal static int index(Type type)
         {
             return indexes[type].index;
+        }
+
+        /// <summary>Returns the globally stable slot id for T, registering it on first use.</summary>
+        internal static int AcquireSlot<T>() where T : struct
+        {
+            if (res_type<T>.index >= 0) return res_type<T>.index;
+            res_type<T>.index = nextGlobalSlot++;
+            set<T>(res_type<T>.index); // also registers the boxing delegates
+            return res_type<T>.index;
         }
 
         internal static unsafe void set<T>(int index) where T : struct

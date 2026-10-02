@@ -44,7 +44,10 @@ namespace Wargon.Nukecs
         {
             if(staticInited) return;
             domainAllocator.Data = new MemAllocator(sizeof(MemoryList<World>) + sizeof(World) * MAX_WORLD_COUNT + Memory.MEGABYTE);
-            worlds.Data = new MemoryList<World>(MAX_WORLD_COUNT, ref domainAllocator.Data, true);
+            // positional `true` here is lenAsCapacity (NOT clear) — the slots must be zeroed
+            // or slot-aliveness checks (IsAlive) read uninitialized arena garbage
+            worlds.Data = new MemoryList<World>(MAX_WORLD_COUNT, ref domainAllocator.Data, true, clear: true);
+            for (var i = 0; i < MAX_WORLD_COUNT; i++) worlds.Data[i] = default;
             worldCount = 0;
             dummyWorld.Data = default;
             dummyWorld.Data.unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
@@ -115,12 +118,33 @@ namespace Wargon.Nukecs
             OnDisposeStaticEvent += action;
         }
 
+        /// <summary>
+        /// Finds a genuinely free world slot (round-robin from lastFreeSlot). lastFreeSlot
+        /// alone is not enough: after disposing world A while world B is alive, the next two
+        /// Create calls would hand out A's slot and then overwrite live B. Throws a clean
+        /// error once all <see cref="MAX_WORLD_COUNT"/> slots are occupied by live worlds.
+        /// </summary>
+        private static byte AcquireWorldSlot()
+        {
+            for (var i = 0; i < MAX_WORLD_COUNT; i++)
+            {
+                var id = (byte)((lastFreeSlot + i) % MAX_WORLD_COUNT);
+                if (!worlds.Data[id].IsAlive)
+                {
+                    lastFreeSlot = (byte)((id + 1) % MAX_WORLD_COUNT);
+                    return id;
+                }
+            }
+            throw new InvalidOperationException(
+                $"[Nukecs] Cannot create world: the limit of {MAX_WORLD_COUNT} simultaneous worlds is reached. Dispose a world first.");
+        }
+
         public static World Create()
         {
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
             World world;
-            var id = lastFreeSlot++;
+            var id = AcquireWorldSlot();
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, WorldConfig.Default16384);
             worlds.Data[id] = world;
@@ -134,7 +158,7 @@ namespace Wargon.Nukecs
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
             World world;
-            var id = lastFreeSlot++;
+            var id = AcquireWorldSlot();
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;
@@ -149,7 +173,7 @@ namespace Wargon.Nukecs
             InitStatic();
             OnWorldCreatingEvent?.Invoke();
             World world;
-            var id = lastFreeSlot++;
+            var id = AcquireWorldSlot();
             lastWorldID = id;
             world.unsafeWorldPtr = WorldUnsafe.CreatePtr(id, config);
             worlds.Data[id] = world;

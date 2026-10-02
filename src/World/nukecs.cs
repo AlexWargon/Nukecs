@@ -4,7 +4,9 @@ namespace Wargon.Nukecs
 {
     public struct NukEcs
     {
-        public const float version = 1.0f;
+        // framework / save-format version — int, never float (a float version cannot be
+        // compared exactly and must not leak into serialization decisions)
+        public const int version = 1;
         public const string name = "Nuke.cs";
         public const string author = "Wargon";
     }
