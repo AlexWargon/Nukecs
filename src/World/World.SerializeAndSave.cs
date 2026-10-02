@@ -142,7 +142,11 @@ namespace Wargon.Nukecs {
             await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.SaveToFileAsync(path);
         }
 
-        public static async Task LoadAsync(string filePath, World world) {
+        /// <summary>
+        /// Loads the arena and returns the refreshed world. Assign the result:
+        /// world = await World.LoadAsync(path, world); the arena may relocate.
+        /// </summary>
+        public static async Task<World> LoadAsync(string filePath, World world) {
             var id = world.Id;
             try {
                 if (!File.Exists(filePath)) throw new Exception($"File not found: {filePath}");
@@ -178,6 +182,7 @@ namespace Wargon.Nukecs {
                 Get(id) = world;
                 FixManagedWorld(id);
                 world.ReinitAllSystems();
+                return world;
             } catch (Exception e) {
                 dbug.error(e.Message);
                 throw;

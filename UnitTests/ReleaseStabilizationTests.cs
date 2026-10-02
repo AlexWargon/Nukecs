@@ -258,7 +258,6 @@ namespace Wargon.Nukecs.Tests
         // B3 — chunk iteration + CopyTo on shared (sparse) storage
         // ==================================================================
         [Test]
-        [Ignore("sparse chunk counters are order-unstable in the current build (sum drifts between runs) — the B3 code fix is verified by the dense variants and by StorageModeQueryTests; sparse variants return after a debugger pass (POST_1_0.md #11b)")]
         public void Chunk2_SparseRows_IterationAndCopyTo_MatchQueryRows()
         {
             _world.AddRes(new StabCounter());
@@ -299,7 +298,6 @@ namespace Wargon.Nukecs.Tests
         }
 
         [Test]
-        [Ignore("sparse chunk counters are order-unstable in the current build (sum drifts between runs) — the B3 code fix is verified by the dense variants and by StorageModeQueryTests; sparse variants return after a debugger pass (POST_1_0.md #11b)")]
         public void Chunk5_SparseRows_IterationAndCopyTo_MatchQueryRows()
         {
             _world.AddRes(new StabCounter());
@@ -320,7 +318,6 @@ namespace Wargon.Nukecs.Tests
         }
 
         [Test]
-        [Ignore("sparse chunk counters are order-unstable in the current build (sum drifts between runs) — the B3 code fix is verified by the dense variants and by StorageModeQueryTests; sparse variants return after a debugger pass (POST_1_0.md #11b)")]
         public void Chunk8_SparseRows_T8ColumnIsCopied()
         {
             _world.AddRes(new StabCounter());

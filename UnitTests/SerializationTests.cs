@@ -642,7 +642,7 @@ namespace Wargon.Nukecs.Tests
                 world.Update();
 
                 await world.SaveToFileAsync(path);
-                await World.LoadAsync(path, world);
+                world = await World.LoadAsync(path, world);
 
                 Assert.AreEqual(1, world.EntitiesAmount);
                 Assert.IsTrue(entity.Has<HealthTest>());
@@ -676,7 +676,7 @@ namespace Wargon.Nukecs.Tests
                 world.Update();
 
                 await world.SaveToFileAsync(path);
-                await World.LoadAsync(path, world);
+                world = await World.LoadAsync(path, world);
 
                 Assert.AreEqual(N, world.EntitiesAmount);
                 for (int i = 0; i < N; i++)
@@ -707,7 +707,7 @@ namespace Wargon.Nukecs.Tests
                 world.Update();
 
                 await world.SaveToFileAsync(path);
-                await World.LoadAsync(path, world);
+                world = await World.LoadAsync(path, world);
 
                 Assert.AreEqual(2, query.Count);
 
@@ -728,7 +728,7 @@ namespace Wargon.Nukecs.Tests
                 var world = World.Create(WorldConfig.Default256);
 
                 await world.SaveToFileAsync(path);
-                await World.LoadAsync(path, world);
+                world = await World.LoadAsync(path, world);
 
                 Assert.IsTrue(world.IsAlive);
                 Assert.AreEqual(0, world.EntitiesAmount);
@@ -1026,7 +1026,7 @@ namespace Wargon.Nukecs.Tests
                 var firstX = entity.Get<PositionTest>().X;
                 var firstY = entity.Get<PositionTest>().Y;
 
-                await World.LoadAsync(path, world);
+                world = await World.LoadAsync(path, world);
 
                 systems.OnUpdate(1f, 1f);
                 var secondX = entity.Get<PositionTest>().X;

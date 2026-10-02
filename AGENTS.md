@@ -1,5 +1,7 @@
 # Nukecs ECS Framework — Agent Reference
 
+When writing gameplay code with this framework, follow [NUKECS_AGENTS_GUIDE_EN.md](NUKECS_AGENTS_GUIDE_EN.md) (English) or [NUKECS_AGENTS_GUIDE_RU.md](NUKECS_AGENTS_GUIDE_RU.md) (Russian): method-system registration, Init/Update/OnDestroy lifecycle, Burst/Parallel, event patterns and component memory rules.
+
 Current API reference updated from source on 2026-09-08. Start with
 [README.md](README.md) for usage, [ARCHITECTURE.md](ARCHITECTURE.md) for storage
 invariants, and the [runtime iterator contract](src/Systems/FnSystems/RuntimeQuery/README.md)
@@ -257,6 +259,8 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 - `World.Create` could overwrite a live world (naive `lastFreeSlot++`); the 9th world wrote past the worlds array. Fix: aliveness-checked slot acquisition + clean error at `MAX_WORLD_COUNT`.
 - `res_type<T>.index` was derived from the per-world list length → cross-world type-confused resource reads. Fix: globally stable slot ids + per-world padding.
 - `Entity ==/Equals` ignored the world while `GetHashCode` included it. Fix: equality includes `worldIndex`.
+- Async `World.LoadAsync` returns `Task<World>`: assign `world = await World.LoadAsync(path, world)` because loading can relocate the arena. A forced-relocation regression pins the former stale-pointer/ECB-disposal failure.
+- Sparse chunk `CopyTo` computes offsets from the current row; `MoveNext` stops before reading rows[count]. All three previously ignored chunk regressions are enabled (arities 1-8 covered by ChunkSparseRegressionTests).
 - Dead `src/Reactive/` duplicate (of `src/Reactivity/`) deleted; `SaveRes` deleted; `CopyViaECB` added with `CopyVieECB` kept as `[Obsolete]` shim.
 
 ## 5.1 Multi-world contract (1.0)
@@ -318,6 +322,21 @@ dense storage and logical-archetype paths. Tags use stubs; pools prevent the
 ordinary batch rewrite. Explicit `query.iter()` and `query.par_iter()` always
 retain runtime traversal. See the performance contract in §17 before editing
 walkers; the old `_p0[_i]` loop shape is not the current implementation.
+
+The selected foreach can have surrounding code and be enclosed in unsafe
+blocks or if branches. Both full and Parallel range methods replace only that
+loop, preserving its envelope and forwarding ordinary captured locals by ref.
+Parallel envelopes execute per work range, including an empty query's scheduled
+range. Shared side effects require thread-safe operations. Multiple primary-query
+loops, nested loops in the selected body, local functions and loop-local
+return/break/goto/yield fall back conservatively. Captured ref locals, constants,
+anonymous types, and names starting with `_` or named `state`/`range` are unsupported.
+
+Generated runners implement `ISystemCompilationInfoProvider`: `CompilationInfo`
+exposes `Kind`, `FallbackReason`, and `HasSurroundingCode`. `[RequireBatch]` turns
+fallback into compiler error `NUKECS002`. Metadata identifies generated
+PointerBatch/ChangedBatch code; it does not prove native Burst or dense traversal.
+Regression coverage: `BatchRewriteRegressionTests` and `SourceGen/Tests~/`.
 
 ## 8. System Parameters (ISystemParam)
 

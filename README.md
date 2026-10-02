@@ -16,6 +16,8 @@ Burst-compiled ECS framework with source-generated systems, custom allocator, an
 
 ---
 
+[Gameplay agent guide: the EcsTest.cs coding style](NUKECS_AGENTS_GUIDE_EN.md) ([Russian version](NUKECS_AGENTS_GUIDE_RU.md)) — lifecycle, system registration, Burst/Parallel execution, events, and component memory usage.
+
 ## Minimal Quick Start
 
 Save this as `QuickStart.cs`, attach `QuickStart` to an empty GameObject, and
@@ -224,15 +226,40 @@ the temporary `.iter_par()` name has been removed.
 
 For an ordinary component query, the current generator requires:
 
-- A `[System]` method with a block body whose **only top-level statement** is
-  `foreach (var (...) in query)`, naming the first typed `Query<...>` parameter
-  directly. Execute it through its generated `Systems.Add` runner.
-- Exactly one `foreach` in the method, with no nested/additional foreach loops
-  or local functions. Statements before or after the loop disable batching —
-  even `var dt = state.Time.DeltaTime;`. Local variables inside the loop are allowed.
+- A `[System]` method with one plain `foreach (var (...) in query)` naming the
+  first typed `Query<...>` parameter directly. For a single data component,
+  use `foreach (ref var value in query)`. Execute through the generated runner.
+- The generator replaces the selected loop and preserves surrounding statements,
+  including locals, early returns before the loop, cleanup after it, and enclosing
+  `unsafe` blocks or `if` branches. Captured ordinary locals are forwarded by ref.
+  Local functions, nested loops in the selected loop, multiple loops over the
+  primary query, and `return`/`break`/`goto`/`yield` inside it cause fallback.
+  Ref locals, constants captured from outside the loop, anonymous types, and
+  captured names beginning with `_` or named `state`/`range` are unsupported.
 - Recognizable iteration variables and component types, with **no iterated
   `IPoolComponent` types**. Explicit `.iter()` / `.par_iter()` calls always use
   runtime iterators, including inside generated systems.
+
+Both `OnUpdateBatched` and `OnUpdateBatchedParallel` preserve the surrounding
+code. With `Threads.Parallel`, it executes once per assigned work range, including
+an empty query's scheduled range; shared writes must be thread-safe. Use a
+separate main-thread system for work that must happen exactly once per update.
+
+Add `[RequireBatch]` to make unsupported traversal an error (`NUKECS002`) rather
+than a silent fallback. Inspect a generated runner's compile-time status:
+
+```csharp
+foreach (var runner in updateSystems.Runners)
+    if (runner is ISystemCompilationInfoProvider provider)
+        UnityEngine.Debug.Log($"{runner.Name}: {provider.CompilationInfo.Kind}, " +
+            $"fallback: {provider.CompilationInfo.FallbackReason}");
+```
+
+`PointerBatch` confirms generated pointer walkers; `ChangedBatch` identifies the
+special change-detection path. `RuntimeIteration` includes a fallback reason,
+and `NoQuery` means there is no primary query. `HasSurroundingCode` records whether
+the selected loop has a surrounding envelope. This metadata describes generated
+code, not whether Burst executed natively or which dense/sparse branch ran.
 
 For the highest performance on dense inline workloads, use `MoveBatched` with
 `[BurstCompile]` and Burst-compatible code. The generated dense storage loop
@@ -1100,11 +1127,12 @@ world.LoadFromFile("path/to/save.dat");
 
 ```csharp
 await world.SaveToFileAsync("path/to/save.dat");
-world.LoadFromFileAsync("path/to/save.dat");
+world = await World.LoadAsync("path/to/save.dat", world);
 ```
 
-`LoadFromFileAsync` currently returns `async void`, so it cannot be awaited.
-Use `LoadFromFile` when the caller must know loading has finished before continuing.
+`World.LoadAsync` returns `Task<World>`. Assign the result: deserialization may
+move the arena, so the old struct copy can hold a stale pointer. The legacy
+`LoadFromFileAsync` returns `async void`; use the static awaitable API above.
 
 ### Static Load
 

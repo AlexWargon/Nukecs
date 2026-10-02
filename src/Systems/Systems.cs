@@ -1000,15 +1000,6 @@ namespace Wargon.Nukecs
     [AttributeUsage((AttributeTargets.Method))]
     public class SystemAttribute : Attribute
     {
-        public Threads mode;
-        public SystemAttribute()
-        {
-            this.mode = Threads.Parallel;
-        }
-        public SystemAttribute(Threads mode)
-        {
-            this.mode = mode;
-        }
     }
 
     public interface ISystemsGroup

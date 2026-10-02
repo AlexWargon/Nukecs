@@ -36,7 +36,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -62,12 +63,11 @@ namespace Wargon.Nukecs
             var size = sizeof(TU);
             var dst = (byte*)destination;
             var cur = (byte*)_components;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             for (var ci = 0; ci < len; ci++)
             {
                 var r = _rows[_rowIdx + ci];
-                memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                prev = r;
+                memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
             }
         }
     }
@@ -101,7 +101,8 @@ namespace Wargon.Nukecs
         }
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -141,26 +142,23 @@ namespace Wargon.Nukecs
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])
             var size = sizeof(TU);
             var dst = (byte*)destination;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             if (ComponentType<TU>.Index == ComponentType<T1>.Index)
             {
                 var cur = (byte*)_components1;
                 for (var ci = 0; ci < len; ci++)
                 {
                     var r = _rows[_rowIdx + ci];
-                    memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                    prev = r;
+                    memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
                 }
             }
             if (ComponentType<TU>.Index == ComponentType<T2>.Index)
             {
-                prev = _rows[_rowIdx];
                 var cur = (byte*)_components2;
                 for (var ci = 0; ci < len; ci++)
                 {
                     var r = _rows[_rowIdx + ci];
-                    memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                    prev = r;
+                    memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
                 }
             }
         }
@@ -212,7 +210,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -320,7 +319,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -397,12 +397,11 @@ namespace Wargon.Nukecs
             var size = sizeof(TU);
             var dst = (byte*)destination;
             var cur = (byte*)src;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             for (var ci = 0; ci < len; ci++)
             {
                 var r = _rows[_rowIdx + ci];
-                memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                prev = r;
+                memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
             }
         }
     }
@@ -455,7 +454,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -545,12 +545,11 @@ namespace Wargon.Nukecs
             var size = sizeof(TU);
             var dst = (byte*)destination;
             var cur = (byte*)src;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             for (var ci = 0; ci < len; ci++)
             {
                 var r = _rows[_rowIdx + ci];
-                memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                prev = r;
+                memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
             }
         }
     }
@@ -608,7 +607,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -711,12 +711,11 @@ namespace Wargon.Nukecs
             var size = sizeof(TU);
             var dst = (byte*)destination;
             var cur = (byte*)src;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             for (var ci = 0; ci < len; ci++)
             {
                 var r = _rows[_rowIdx + ci];
-                memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                prev = r;
+                memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
             }
         }
     }
@@ -779,7 +778,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -895,12 +895,11 @@ namespace Wargon.Nukecs
             var size = sizeof(TU);
             var dst = (byte*)destination;
             var cur = (byte*)src;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             for (var ci = 0; ci < len; ci++)
             {
                 var r = _rows[_rowIdx + ci];
-                memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                prev = r;
+                memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
             }
         }
     }
@@ -968,7 +967,8 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-            if (--_remaining < 0) return false;
+            if (_remaining <= 1) return false;
+            _remaining--;
             if (_rows != null) {
                 _rowIdx++;
                 var delta = _rows[_rowIdx] - _rows[_rowIdx - 1];
@@ -1097,12 +1097,11 @@ namespace Wargon.Nukecs
             var size = sizeof(TU);
             var dst = (byte*)destination;
             var cur = (byte*)src;
-            var prev = _rows[_rowIdx];
+            var currentRow = _rows[_rowIdx];
             for (var ci = 0; ci < len; ci++)
             {
                 var r = _rows[_rowIdx + ci];
-                memcpy(dst + ci * size, cur + (r - prev) * size, size);
-                prev = r;
+                memcpy(dst + ci * size, cur + (r - currentRow) * size, size);
             }
         }
     }

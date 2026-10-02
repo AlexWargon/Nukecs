@@ -127,7 +127,7 @@ still depend on workload size and hardware. See the examples in README.md.
 | `src/Systems/FnSystems/QueryIterators*.cs` | Existing plain/ref/pointer/chunk paths with dense/gather/storage branches. |
 | `src/Systems/FnSystems/RuntimeQuery/` | Explicit iter/par_iter: QueryRuntimeIter1..9, QueryRuntimeRefs, pool page cache, QueryRuntimeDeconstruction (Entity by value); Current has no ref return. |
 | `src/Systems/FnSystems/Tuples/*.cs` | 35 tuple structs reduced to minimal field layouts — do not enlarge them (§3). |
-| `src/Systems/FnSystems/Chunk.cs` | Chunk iterators: sparse CopyTo is supported ONLY at arity 3 (element-by-element through rows); fix arities 1–2 and 4–8 using that implementation as a reference before using them for sparse rows. |
+| `src/Systems/FnSystems/Chunk.cs` | Chunk iterators: arities 1-8 gather shared-storage rows in CopyTo, relative to the current position; MoveNext stops at the final valid row. |
 | `src/Entity/EntityCommandBuffer.cs` | Playback: ProcessEntityBatch handles migrations and pair-edge accounting. |
 | `src/Reactivity/` | OnChange/OffChange, byte snapshots, Burst check job, main-thread dispatch; Changed<T> is an IFilter for the generated batch path. |
 | `src/Systems/DependencyGraph/` | Conflict metadata, graph and execution groups; enabled through Systems.UseDependencyGraph. |

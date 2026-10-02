@@ -46,7 +46,7 @@ namespace Wargon.Nukecs {
             ;
             dbug.log("Loading world...");
 
-            await World.LoadAsync(FullPath, _runtimeWorld);
+            _runtimeWorld = await World.LoadAsync(FullPath, _runtimeWorld);
             _systems = new Systems(ref _runtimeWorld);
             _systems.AddDefaults();
             AddSystems(_systems);
