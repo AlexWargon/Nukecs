@@ -309,6 +309,9 @@ namespace Wargon.Nukecs
         public void OnWorldDeserialize(World.WorldUnsafe* world)
         {
             World.unsafeWorldPtr = world->selfPtr;
+            // Loading may happen inside a running main-thread system. Its runner
+            // and the remaining systems must see the relocated arena immediately.
+            _state.World = World;
             RebuildQueryPointers(onStart, world);
             RebuildQueryPointers(onUpdate, world);
             RebuildQueryPointers(onFixedUpdate, world);

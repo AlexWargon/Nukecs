@@ -15,12 +15,12 @@ namespace Wargon.Nukecs.Reactivity
     /// </summary>
     public unsafe struct ReactiveCheckSystem : ISystem, IOnCreate
     {
-        private World.WorldUnsafe* worldPtr;
+        private int worldId;
         private ReactiveWorldState worldState;
 
         public void OnCreate(ref World world)
         {
-            worldPtr = world.UnsafeWorld;
+            worldId = world.Id;
             worldState = ReactiveWorldRegistry.GetOrCreate(world);
         }
 
@@ -29,6 +29,7 @@ namespace Wargon.Nukecs.Reactivity
             var count = worldState.TypeStates.Length;
             if (count == 0) return;
 
+            var worldPtr = World.Get(worldId).UnsafeWorld;
             var statesPtr = (ReactiveTypeState*)worldState.TypeStates.GetUnsafePtr();
             state.Dependencies = new ReactiveCheckJob
             {
@@ -36,7 +37,7 @@ namespace Wargon.Nukecs.Reactivity
                 States = statesPtr,
             }.Schedule(count, 1, state.Dependencies);
             // Store handle so dispatch can wait on THIS job only (not all dependencies).
-            ReactiveJobSync.SetCheckHandle(worldPtr->Id, state.Dependencies);
+            ReactiveJobSync.SetCheckHandle(worldId, state.Dependencies);
         }
     }
 }

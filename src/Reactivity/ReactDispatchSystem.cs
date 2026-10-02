@@ -9,12 +9,13 @@ namespace Wargon.Nukecs.Reactivity
     public struct ReactDispatchSystem<T> : ISystem, IOnCreate
         where T : unmanaged, IComponent
     {
-        private World world;
+        private int worldId;
+        private ref World world => ref World.Get(worldId);
         private ReactiveStorage<T> storage;
 
         public void OnCreate(ref World world)
         {
-            this.world = world;
+            worldId = world.Id;
             storage = ReactiveStorageRegistry<T>.GetOrCreate(world);
         }
 

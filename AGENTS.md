@@ -260,6 +260,7 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 - `res_type<T>.index` was derived from the per-world list length → cross-world type-confused resource reads. Fix: globally stable slot ids + per-world padding.
 - `Entity ==/Equals` ignored the world while `GetHashCode` included it. Fix: equality includes `worldIndex`.
 - Async `World.LoadAsync` returns `Task<World>`: assign `world = await World.LoadAsync(path, world)` because loading can relocate the arena. A forced-relocation regression pins the former stale-pointer/ECB-disposal failure.
+- Reactive check/dispatch systems retain a world ID and resolve `World.Get(id)` instead of caching an arena pointer or World copy across loads. Deserialization also refreshes the active `Systems.State.World` (load can occur inside a main-thread update), and struct runner deserialization callbacks are unboxed back into the stored system. `ReactiveLoadRegressionTests` covers relocated loads inside updates with all four graph modes and without a graph.
 - Sparse chunk `CopyTo` computes offsets from the current row; `MoveNext` stops before reading rows[count]. All three previously ignored chunk regressions are enabled (arities 1-8 covered by ChunkSparseRegressionTests).
 - Dead `src/Reactive/` duplicate (of `src/Reactivity/`) deleted; `SaveRes` deleted; `CopyViaECB` added with `CopyVieECB` kept as `[Obsolete]` shim.
 
