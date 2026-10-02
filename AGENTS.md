@@ -337,6 +337,10 @@ Generated runners implement `ISystemCompilationInfoProvider`: `CompilationInfo`
 exposes `Kind`, `FallbackReason`, and `HasSurroundingCode`. `[RequireBatch]` turns
 fallback into compiler error `NUKECS002`. Metadata identifies generated
 PointerBatch/ChangedBatch code; it does not prove native Burst or dense traversal.
+`FallbackDetail` explains the first blocker and suggests a correction;
+`FallbackFile`/`FallbackLine`/`FallbackColumn` locate it (one-based coordinates).
+The RequireBatch diagnostic points at that node and carries the same detail.
+Ordinary fallback exposes this metadata without automatic warning/log spam.
 Regression coverage: `BatchRewriteRegressionTests` and `SourceGen/Tests~/`.
 
 ## 8. System Parameters (ISystemParam)

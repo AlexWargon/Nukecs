@@ -260,6 +260,13 @@ implement `ISystemCompilationInfoProvider`; inspect `CompilationInfo.Kind`
 and `HasSurroundingCode`. This reports generation, not native Burst execution
 or the actual dense/sparse branch. See README for an inspection example.
 
+`FallbackDetail` explains the first blocker, naming the component/local or
+unsupported syntax and suggesting a correction. `FallbackFile`, `FallbackLine`,
+and `FallbackColumn` locate it (one-based coordinates). `[RequireBatch]` reports
+that detail at the offending node; without it, inspect the runner metadata.
+Fixing the first blocker can reveal another. Successful batching has empty
+detail/path and zero coordinates.
+
 When an explicit runtime iterator is needed in a Parallel/Single system with
 an assigned range, use `query.par_iter()`. `query.iter()` traverses the entire
 query, so each Parallel worker may process all entities again. `par_iter()`

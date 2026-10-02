@@ -19,14 +19,24 @@ var cases = new (string Name, string Query, string Body, string Reason)[] {
     ("LocalFunction", "Query<ProbeValue>", "float Scale(float x) => x * 2; foreach (ref var value in query) value.Value = Scale(value.Value);", "LocalFunction"),
     ("RefCapture", "Query<ProbeValue>", "ref var dt = ref state.Time.DeltaTime; foreach (ref var value in query) value.Value += dt;", "UnsupportedCapture"),
     ("Nested", "Query<ProbeValue>", "foreach (ref var value in query) { foreach (ref var other in query) value.Value += other.Value; }", "MultipleQueryLoops"),
+    ("ConstCapture", "Query<ProbeValue>", "const float dt = 1; foreach (ref var value in query) value.Value += dt;", "UnsupportedCapture"),
+    ("ReservedCapture", "Query<ProbeValue>", "var _dt = 1f; foreach (ref var value in query) value.Value += _dt;", "UnsupportedCapture"),
+    ("EnclosingWhile", "Query<ProbeValue>", "while (state.Time.DeltaTime > 0) { foreach (ref var value in query) value.Value++; }", "UnsupportedControlFlow"),
+    ("ValueCopy", "Query<ProbeValue>", "foreach (var value in query) { var copy = value; copy.Value++; }", "UnsupportedPattern"),
+    ("MissingLoop", "Query<ProbeValue>", "state.Time.DeltaTime = 0;", "NoQueryLoop"),
+    ("MissingQuery", "", "state.Time.DeltaTime = 0;", "NoQuery"),
+    ("ExpressionBody", "Query<ProbeValue>", "=> state.Time.DeltaTime = 0;", "NoBody"),
 };
 foreach (var test in cases)
 {
+  foreach (var requireBatch in new[] { true, false })
+  {
     var source = "using Wargon.Nukecs; using Unity.Burst; namespace Probe { " +
         "public struct ProbeValue : IComponent { public float Value; } public struct ProbePool : IPoolComponent { public float Value; } " +
-        "public static class ProbeSystems { [System, BurstCompile, RequireBatch] public static void " + test.Name +
-        "(ref " + test.Query + " query, ref State state) { " + test.Body + " } } }";
-    var compilation = CSharpCompilation.Create("Nukecs.Tests", new[] { CSharpSyntaxTree.ParseText(source, parse) }, references,
+        "public static class ProbeSystems { [System, BurstCompile" + (requireBatch ? ", RequireBatch" : "") + "] public static void " + test.Name +
+        "(" + (test.Query.Length == 0 ? "" : "ref " + test.Query + " query, ") + "ref State state) " +
+        (test.Body.StartsWith("=>") ? test.Body : "{ " + test.Body + " }") + " } }";
+    var compilation = CSharpCompilation.Create("Nukecs.Tests", new[] { CSharpSyntaxTree.ParseText(source, parse, path: "BatchProbe.cs") }, references,
         new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
     GeneratorDriver driver = CSharpGeneratorDriver.Create(new[] { new SrcGen().AsSourceGenerator() }, parseOptions: parse);
     driver.RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
@@ -39,8 +49,34 @@ foreach (var test in cases)
         if (!generated.Contains("SystemCompilationKind.PointerBatch") || !generated.Contains("BatchDispatchParallel("))
             throw new Exception(test.Name + ": missing contextual batch metadata/parallel dispatch");
     }
-    else if (required.Length != 1 || required[0].Severity != DiagnosticSeverity.Error || !required[0].GetMessage().Contains(test.Reason))
-        throw new Exception(test.Name + ": expected NUKECS002 / " + test.Reason + ", got " + string.Join("\n", diagnostics.Select(d => d.ToString())));
-    Console.WriteLine("PASS " + test.Name);
+    else
+    {
+        if (requireBatch)
+        {
+            if (required.Length != 1 || required[0].Severity != DiagnosticSeverity.Error || !required[0].GetMessage().Contains(test.Reason))
+                throw new Exception(test.Name + ": expected NUKECS002 / " + test.Reason + ", got " + string.Join("\n", diagnostics.Select(d => d.ToString())));
+            var diagnostic = required[0];
+            if (diagnostic.GetMessage().Length < 140 || diagnostic.Location.GetLineSpan().Path != "BatchProbe.cs")
+                throw new Exception(test.Name + ": missing detail or source location");
+            var fragment = source.Substring(diagnostic.Location.SourceSpan.Start, diagnostic.Location.SourceSpan.Length);
+            var expected = test.Name switch {
+                "Pool" => "query", "Explicit" => "query.iter()", "Return" => "return;",
+                "LocalFunction" => "float Scale", "RefCapture" => "dt = ref",
+                "ConstCapture" => "dt = 1", "ReservedCapture" => "_dt = 1f",
+                "EnclosingWhile" => "while", "ValueCopy" => "foreach", _ => null
+            };
+            if (expected != null && !fragment.Contains(expected))
+                throw new Exception(test.Name + ": diagnostic points to wrong source: " + fragment);
+        }
+        else if (required.Length != 0) throw new Exception(test.Name + ": RequireBatch error without attribute");
+        var unexpected = output.GetDiagnostics().Concat(diagnostics)
+            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Id != "NUKECS002").ToArray();
+        if (unexpected.Length > 0) throw new Exception(test.Name + ": " + string.Join("\n", unexpected.Select(d => d.ToString())));
+        var generated = string.Join("\n", output.SyntaxTrees.Skip(1).Select(t => t.ToString()));
+        if (!generated.Contains("BatchFallbackReason." + test.Reason) || !generated.Contains("BatchProbe.cs"))
+            throw new Exception(test.Name + ": fallback runner lost reason/location");
+    }
+    Console.WriteLine("PASS " + test.Name + (requireBatch ? " [RequireBatch]" : " automatic"));
+  }
 }
-Console.WriteLine($"{cases.Length}/{cases.Length} generator regressions passed.");
+Console.WriteLine($"{cases.Length * 2}/{cases.Length * 2} generator regressions passed.");

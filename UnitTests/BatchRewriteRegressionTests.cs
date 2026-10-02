@@ -204,7 +204,14 @@ namespace Wargon.Nukecs.Tests
                     var info = ((ISystemCompilationInfoProvider)systems.Runners[i]).CompilationInfo;
                     Assert.AreEqual(reasons[i], info.FallbackReason);
                     Assert.AreEqual(i == 3 ? SystemCompilationKind.NoQuery : SystemCompilationKind.RuntimeIteration, info.Kind);
+                    Assert.IsNotEmpty(info.FallbackDetail);
+                    StringAssert.EndsWith("BatchRewriteRegressionTests.cs", info.FallbackFile);
+                    Assert.Greater(info.FallbackLine, 0);
+                    Assert.Greater(info.FallbackColumn, 0);
                 }
+                StringAssert.Contains("iter()", ((ISystemCompilationInfoProvider)systems.Runners[0]).CompilationInfo.FallbackDetail);
+                StringAssert.Contains("BatchPoolValue", ((ISystemCompilationInfoProvider)systems.Runners[1]).CompilationInfo.FallbackDetail);
+                StringAssert.Contains("return", ((ISystemCompilationInfoProvider)systems.Runners[2]).CompilationInfo.FallbackDetail);
             }
             finally { world.Dispose(); }
         }

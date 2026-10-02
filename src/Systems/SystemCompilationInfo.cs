@@ -31,13 +31,27 @@ namespace Wargon.Nukecs
         public readonly SystemCompilationKind Kind;
         public readonly BatchFallbackReason FallbackReason;
         public readonly bool HasSurroundingCode;
+        public readonly string FallbackDetail;
+        public readonly string FallbackFile;
+        public readonly int FallbackLine;
+        public readonly int FallbackColumn;
 
         public SystemCompilationInfo(SystemCompilationKind kind, BatchFallbackReason fallbackReason,
             bool hasSurroundingCode)
+            : this(kind, fallbackReason, hasSurroundingCode, null, null, 0, 0)
+        { }
+
+        public SystemCompilationInfo(SystemCompilationKind kind, BatchFallbackReason fallbackReason,
+            bool hasSurroundingCode, string fallbackDetail, string fallbackFile,
+            int fallbackLine, int fallbackColumn)
         {
             Kind = kind;
             FallbackReason = fallbackReason;
             HasSurroundingCode = hasSurroundingCode;
+            FallbackDetail = fallbackDetail;
+            FallbackFile = fallbackFile;
+            FallbackLine = fallbackLine;
+            FallbackColumn = fallbackColumn;
         }
     }
 

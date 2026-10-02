@@ -252,7 +252,10 @@ than a silent fallback. Inspect a generated runner's compile-time status:
 foreach (var runner in updateSystems.Runners)
     if (runner is ISystemCompilationInfoProvider provider)
         UnityEngine.Debug.Log($"{runner.Name}: {provider.CompilationInfo.Kind}, " +
-            $"fallback: {provider.CompilationInfo.FallbackReason}");
+            $"fallback: {provider.CompilationInfo.FallbackReason}\n" +
+            $"{provider.CompilationInfo.FallbackDetail}\n" +
+            $"{provider.CompilationInfo.FallbackFile}:" +
+            $"{provider.CompilationInfo.FallbackLine}:{provider.CompilationInfo.FallbackColumn}");
 ```
 
 `PointerBatch` confirms generated pointer walkers; `ChangedBatch` identifies the
@@ -260,6 +263,14 @@ special change-detection path. `RuntimeIteration` includes a fallback reason,
 and `NoQuery` means there is no primary query. `HasSurroundingCode` records whether
 the selected loop has a surrounding envelope. This metadata describes generated
 code, not whether Burst executed natively or which dense/sparse branch ran.
+
+`FallbackDetail` identifies the blocking component, captured local, or syntax
+and suggests a correction. `FallbackFile`, `FallbackLine`, and `FallbackColumn`
+identify its source location (line and column are one-based). `NUKECS002` reports
+the same detail at the offending source node. The first blocker is reported;
+fixing it may reveal another. Successful batch generation has empty detail/path
+and zero location. Inspect these fields even without `[RequireBatch]`; fallback
+does not produce automatic runtime logs or new compiler warnings.
 
 For the highest performance on dense inline workloads, use `MoveBatched` with
 `[BurstCompile]` and Burst-compatible code. The generated dense storage loop
