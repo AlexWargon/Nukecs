@@ -29,6 +29,19 @@ namespace Wargon.Nukecs.Tests
         public void OnWorldDeserialize(ref World world) { Loads++; }
     }
 
+    public class LoadedPlayerLinkSystem : ISystem, IOnWorldDeserialize
+    {
+        public Entity Player;
+        public int Loads;
+        public void OnUpdate(ref State state) { }
+        public void OnWorldDeserialize(ref World world)
+        {
+            var players = world.Query().With<LoadHealth>();
+            Player = players.IsEmpty ? Entity.Null : players.First();
+            Loads++;
+        }
+    }
+
     [TestFixture]
     public unsafe class ReactiveLoadRegressionTests
     {
@@ -36,6 +49,40 @@ namespace Wargon.Nukecs.Tests
         public void SetUp() => World.DisposeStatic();
         [TearDown]
         public void TearDown() => World.DisposeStatic();
+
+        [TestCase(-1)]
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void RestartThenLoadInsideUpdate_RebindsExternalEntityLink(int mode)
+        {
+            var path = Path.Combine(Path.GetTempPath(), "nukecs-player-link-" + Guid.NewGuid() + ".dat");
+            try {
+                var source = World.Create(WorldConfig.Default1024);
+                source.Entity(new LoadHealth { Value = 42 });
+                source.Update();
+                source.SaveToFile(path);
+                World.DisposeStatic();
+
+                var target = World.Create(WorldConfig.Default16);
+                var newSessionPlayer = target.Entity(new LoadHealth { Value = 100 });
+                target.Update();
+                var systems = new Systems(ref target).Add<LoadDuringUpdateSystem>().Add<LoadedPlayerLinkSystem>();
+                if (mode >= 0) systems.UseDependencyGraph(mode: (GroupScheduleMode)mode);
+                var loader = ((SystemMainThreadRunnerClass<LoadDuringUpdateSystem>)systems.Runners[0]).System;
+                var link = ((SystemMainThreadRunnerClass<LoadedPlayerLinkSystem>)systems.Runners[1]).System;
+                loader.Path = path;
+                link.Player = newSessionPlayer;
+                systems.OnUpdate(0.016f, 0.016f);
+
+                Assert.IsFalse(newSessionPlayer.IsValid());
+                Assert.IsTrue(link.Player.IsValid());
+                Assert.AreEqual(42, link.Player.Get<LoadHealth>().Value);
+                Assert.AreEqual(1, link.Loads);
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
 
         [TestCase(-1)]
         [TestCase((int)GroupScheduleMode.LegacyGroupComplete)]
@@ -69,12 +116,13 @@ namespace Wargon.Nukecs.Tests
                 loader.Path = path;
                 var calls = 0;
                 var observed = 0;
-                entity.OnChange<LoadHealth>((in LoadHealth health, in Entity changedEntity) =>
+                ReactDelegate<LoadHealth> callback = (in LoadHealth health, in Entity changedEntity) =>
                 {
                     calls++;
                     observed = health.Value;
                     Assert.AreEqual(worldId, changedEntity.world.Id);
-                });
+                };
+                entity.OnChange<LoadHealth>(callback);
 
                 systems.OnUpdate(0.001f, 0.001f);
                 ref var loaded = ref World.Get(worldId);
@@ -82,6 +130,9 @@ namespace Wargon.Nukecs.Tests
                     "Different arena sizes must exercise pointer relocation.");
                 Assert.AreEqual(1, ((SystemMainThreadRunnerStruct<DeserializeCallbackProbe>)systems.Runners[1]).System.Loads,
                     "Mutations made through the boxed struct callback must be retained.");
+                Assert.IsFalse(entity.IsValid(), "Loading a different saved world must expire the former target handle.");
+                Assert.AreEqual(0, calls, "Subscriptions must not follow an unrelated saved entity with the same ID.");
+                loaded.GetEntity(savedEntityId).OnChange<LoadHealth>(callback, ReactOptions.TriggerImmediately);
                 Assert.AreEqual(1, calls);
                 Assert.AreEqual(42, observed);
                 loaded.GetEntity(savedEntityId).Get<LoadHealth>().Value = 55;

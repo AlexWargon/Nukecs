@@ -19,6 +19,24 @@ namespace Wargon.Nukecs
         public void OnDeserialize(ref MemAllocator allocator)
         {
             _resources.OnDeserialize(ref allocator);
+            foreach (ref var resource in _resources)
+                if (!resource.IsNull) resource.OnDeserialize(ref allocator);
+        }
+
+        internal ptr<TParam> GetLocal<TParam>(int slot, World.WorldUnsafe* world)
+            where TParam : unmanaged, ISystemParam
+        {
+            if (slot < 0 || default(TParam).MetaType != SystemParamMetaType.Local)
+                throw new ArgumentException("A local slot requires a Local system parameter.");
+            while (_resources.length <= slot)
+                _resources.Add(default, ref world->AllocatorRef);
+            if (!_resources.Ptr[slot].IsNull)
+                return _resources.Ptr[slot].AsTyped<TParam>();
+            var value = world->AllocatorRef.AllocatePtr<TParam>();
+            value.Ref = default;
+            _resources.Ptr[slot] = value.UntypedPointer;
+            value.Ref.Init(ref world->selfPtr);
+            return value;
         }
         internal (int len, IRes[]) GetAll(IRes[] cache)
         {
@@ -129,7 +147,6 @@ namespace Wargon.Nukecs
         internal static IEnumerable<Type> RegisteredTypes => indexes.Keys;
         // grows monotonically per domain — resource slot ids are globally stable so that
         // several worlds can index their own per-world resource lists with the same ids
-        internal static int nextGlobalSlot;
 
         internal static ReflectionData data(Type type)
         {
@@ -145,7 +162,7 @@ namespace Wargon.Nukecs
         internal static int AcquireSlot<T>() where T : struct
         {
             if (res_type<T>.index >= 0) return res_type<T>.index;
-            res_type<T>.index = nextGlobalSlot++;
+            res_type<T>.index = ResourceSlotIds.Acquire();
             set<T>(res_type<T>.index); // also registers the boxing delegates
             return res_type<T>.index;
         }

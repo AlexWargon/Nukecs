@@ -28,6 +28,20 @@ World ─── archetypesList[] ─── ArchetypeUnsafe (LA)     LOGIC: masks
 `LA.count == rows.length`; `storage.count` includes every row of ALL LAs sharing that storage.
 `RowsAreDense == (refCount <= 1)` determines whether the iterator uses dense or gather traversal.
 
+Entity occupies exactly 8 bytes: `int id`, `ushort Generation`, `ushort WorldToken`.
+Generation is nonzero and increments when an ID is reused. At `ushort.MaxValue`
+the ID is retired instead of wrapping. WorldToken packs the 3-bit slot index and
+a 13-bit incarnation. Per-slot incarnation counters are retained in SharedStatic
+across DisposeStatic and fail on exhaustion rather than reviving old handles.
+Save/load preserves identity and advances the world-token high-water mark.
+Save format 2 reflects the changed identity/world metadata; old-format arenas are rejected.
+
+ECB commands capture the generation of their entity and, for Copy, the destination.
+Normal playback drops expired commands before batching and disposes their pending
+payloads. `DestroyNow` does not traverse ECB buffers. Installed components are
+disposed immediately; pending payloads are owned by ECB until playback/clear/disposal.
+Pool additions defer their data as well as mask membership to avoid stale pool slots.
+
 ## 2. Structural Changes (The `e.Add<T>()` Path)
 
 ```

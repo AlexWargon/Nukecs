@@ -739,7 +739,7 @@ namespace Wargon.Nukecs
                 ref var loc = ref world->entityLocations.Ptr[ids[i]];
                 loc.row = row;
                 loc.listPos = listPos;
-                outEntities[i] = new Entity(ids[i], world->Id);
+                outEntities[i] = world->entities.Ptr[ids[i]];
             }
 
             for (var j = 0; j < st.inlineTypes.length; j++)
@@ -890,7 +890,19 @@ namespace Wargon.Nukecs
             var edge = new Edge(ref world->AllocatorRef);
             for (var i = 0; i < queries.Length; i++)
                 edge.removeEntity.Add(in Query(queries.ElementAt(i)), ref world->AllocatorRef);
+            edge.fromQueriesVersion = queriesVersion;
             return edge;
+        }
+
+        internal void ExecuteDestroyEdge(int entity)
+        {
+            if (destroyEdge.fromQueriesVersion != queriesVersion) {
+                destroyEdge.removeEntity.Clear();
+                for (var i = 0; i < queries.length; i++)
+                    destroyEdge.removeEntity.Add(in Query(queries.Ptr[i]), ref world->AllocatorRef);
+                destroyEdge.fromQueriesVersion = queriesVersion;
+            }
+            destroyEdge.Execute(entity);
         }
 
 #if !NUKECS_DEBUG
@@ -1075,7 +1087,7 @@ namespace Wargon.Nukecs
             // outgrowing the storage, arena corruption in prefab chains). Full analysis in
             // POST_1_0.md. The pool-slot loop above mirrors the ECB destroy branch.
             // DestroyEntity(world->entityLocations.Ptr[entity].row);
-            destroyEdge.Execute(entity);
+            ExecuteDestroyEdge(entity);
             world->OnDestroyEntity(entity);
         }
         internal void SetEntityData(EntityData eData)

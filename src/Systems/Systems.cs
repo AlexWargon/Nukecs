@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
+using Wargon.Nukecs.Collections;
 using Unity.Jobs;
 using UnityEngine;
 
@@ -35,6 +36,8 @@ namespace Wargon.Nukecs
         private bool _graphBuilt;
         private GroupScheduleMode _groupScheduleMode = GroupScheduleMode.LegacyGroupComplete;
         private readonly List<SystemDependencyInfo> _dependencyInfos;
+        private HashMap<ulong, int> _localRegistrations;
+        private readonly int _localScope;
         private Unity.Collections.NativeArray<Unity.Jobs.JobHandle> _handleBuffer;
 
         public SystemDependencyGraph DependencyGraph => _dependencyGraph;
@@ -52,7 +55,14 @@ namespace Wargon.Nukecs
             systemDestroyers = new List<ISystemDestroyer>();
             _dependencyInfos = new List<SystemDependencyInfo>();
             World = world;
+            _localScope = WorldSystems.GetAll(world.Id).Count;
             WorldSystems.Add(world.UnsafeWorld->Id, this);
+        }
+
+        public ptr<TParam> CreateLocalSystemParam<TParam>(ulong owner, out int slot)
+            where TParam : unmanaged, ISystemParam
+        {
+            return World.UnsafeWorld->CreateLocalSystemParam<TParam>(owner, _localScope, ref _localRegistrations, out slot);
         }
 
         private readonly List<ISystemDestroyer> systemDestroyers;
@@ -155,27 +165,9 @@ namespace Wargon.Nukecs
 
         public Systems AddDefaults()
         {
-            this.Add(DefaultSystems.EntityDestroySystem, Threads.MainRun);
             this.Add(DefaultSystems.OnPrefabSpawn, Threads.MainRun);
             this.Add(DefaultSystems.ClearEvents, Threads.MainRun);
             //Add<ClearEntityCreatedEventSystem>();
-            return this;
-        }
-
-        public Systems RemoveComponent<T>() where T : unmanaged, IComponent
-        {
-            var system = new RemoveComponentSystem
-            {
-                Type = ComponentType<T>.Index
-            };
-            var runner = new EntityJobSystemRunner<RemoveComponentSystem>
-            {
-                System = system,
-                Mode = system.Mode,
-                EcbJob = default
-            };
-            runner.Query = runner.System.GetQuery(ref World).queryUnsafe;
-            onUpdate.Add(runner);
             return this;
         }
 
@@ -291,10 +283,10 @@ namespace Wargon.Nukecs
         public Systems Add<T>(T group) where T : SystemsGroup
         {
             group.world = World;
-            onStart.AddRange(group.runners);
-            onUpdate.AddRange(group.fixedRunners);
-            onFixedUpdate.AddRange(group.mainThreadRunners);
-            onDestroy.AddRange(group.mainThreadFixedRunners);
+            onUpdate.AddRange(group.runners);
+            onUpdate.AddRange(group.mainThreadRunners);
+            onFixedUpdate.AddRange(group.fixedRunners);
+            onFixedUpdate.AddRange(group.mainThreadFixedRunners);
             systemDestroyers.AddRange(group.destroyRunners);
             InvalidateDependencyGraph();
             return this;
@@ -342,6 +334,7 @@ namespace Wargon.Nukecs
             onWorldDispose?.Invoke(ref World);
             foreach (var systemDestroyer in systemDestroyers) systemDestroyer.Destroy(ref World);
             if (_handleBuffer.IsCreated) _handleBuffer.Dispose();
+            if (_localRegistrations.IsCreated) _localRegistrations.Dispose();
         }
 
         public Systems UseDependencyGraph(bool enable = true,
@@ -924,40 +917,6 @@ namespace Wargon.Nukecs
 
     public interface IOnWorldDeserialize {
         void OnWorldDeserialize(ref World world);
-    }
-
-    [BurstCompile]
-    public struct ClearEntityCreatedEventSystem : IEntityJobSystem
-    {
-        public Threads Mode => Threads.Single;
-        public Query GetQuery(ref World world)
-        {
-            return world.Query().With<EntityCreated>();
-        }
-
-        public void OnUpdate(ref Entity entity, ref State state)
-        {
-            entity.Remove<EntityCreated>();
-        }
-    }
-
-    
-    [BurstCompile]
-    internal struct RemoveComponentSystem : IEntityJobSystem
-    {
-        internal int Type;
-        public Threads Mode => Threads.Single;
-
-        public Query GetQuery(ref World world)
-        {
-            return world.Query().With(Type);
-        }
-
-        [BurstCompile]
-        public void OnUpdate(ref Entity entity, ref State state)
-        {
-            state.World.ECB.Remove(entity.id, Type);
-        }
     }
 
     public struct JobCallback : IJob

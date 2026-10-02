@@ -61,14 +61,6 @@ namespace Wargon.Nukecs{
     public static class DefaultSystems
     {
         [BurstCompile, System]
-        public static void EntityDestroySystem(ref Query<Entity, DestroyEntity> query)
-        {
-            foreach (var (e, d) in query)
-            {
-                e.DestroyNow();
-            }
-        }
-        [BurstCompile, System]
         public static void OnPrefabSpawn(ref World world)
         {
             ref var w = ref world.UnsafeWorldRef;

@@ -187,7 +187,7 @@ writes only its own entities/rows and reads safe shared data.
   `[BurstCompile]`; keep calculations in Burst systems.
 - `Threads.MainRun` is analogous to Unity `job.Run()`: synchronous job execution
   on the calling thread (normally the main thread in this lifecycle), without
-  enqueueing work for workers. Such a job can execute with Burst when its code
+  enqueueing work for workers or passing job dependencies. Complete outstanding jobs before accessing their data. Such a job can execute with Burst when its code
   is compatible and Burst is enabled. Use it for sequential Burst logic that
   must complete immediately; use `Threads.Main` without Burst for managed
   UnityEngine/UI code.

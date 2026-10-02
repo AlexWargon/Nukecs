@@ -18,7 +18,6 @@ namespace Wargon.Nukecs {
         Events = 0,
         Query = 1,
         World = 2,
-        Single = 3,
         Service = 4,
         State = 5,
         Resource = 6,

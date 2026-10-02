@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
@@ -72,6 +72,7 @@ namespace Wargon.Nukecs {
                 storyLog.OnDeserialize(ref allocator);
 #endif
                 entities.OnDeserialize(ref allocator);
+                World.ObserveEntityWorldToken(entityWorldToken);
                 prefabsToSpawn.OnDeserialize(ref allocator);
                 reservedEntities.OnDeserialize(ref allocator);
                 rootArchetype.ptr.OnDeserialize(ref allocator);
@@ -84,6 +85,8 @@ namespace Wargon.Nukecs {
                     storagePtr.Ref.OnDeserialize(ref allocator, selfPtr.Ptr);
                 }
                 storagesMap.OnDeserialize(ref allocator);
+                foreach (var entry in storagesMap)
+                    entry.Value.OnDeserialize(ref allocator);
 
                 pools.OnDeserialize(ref allocator);
                 foreach (ref var genericPool in pools) {

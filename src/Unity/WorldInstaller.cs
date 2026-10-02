@@ -16,7 +16,7 @@ namespace Wargon.Nukecs
         protected Systems Systems;
         protected virtual WorldConfig GetConfig() => WorldConfig.Default256;
 
-        private unsafe void Awake()
+        protected virtual unsafe void Awake()
         {
             World.DisposeStatic();
             world = World.Create(GetConfig());
@@ -31,6 +31,8 @@ namespace Wargon.Nukecs
             }
             //ConvertEntities();
             CreateEntities(ref world);
+            world.Update();
+            Systems.OnStart();
             world.Update();
             WorldId = world.UnsafeWorld->Id;
             

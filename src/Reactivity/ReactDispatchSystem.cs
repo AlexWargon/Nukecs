@@ -44,11 +44,15 @@ namespace Wargon.Nukecs.Reactivity
             CleanupDeadSubscriptions();
         }
 
-        private static void DispatchList(List<Subscription<T>> list, in Entity entity)
+        private void DispatchList(List<Subscription<T>> list, in Entity entity)
         {
             for (int j = list.Count - 1; j >= 0; j--)
             {
                 var sub = list[j];
+                if (sub.Handle != entity) {
+                    storage.Remove(sub.Token);
+                    continue;
+                }
                 ref var current = ref entity.Get<T>();
                 if (sub.ManagedFilter != null && !sub.ManagedFilter(in current))
                     continue;
@@ -75,7 +79,12 @@ namespace Wargon.Nukecs.Reactivity
             {
                 var entityId = alive[i];
                 var entity = world.GetEntity(entityId);
-                if (entity.IsValid() && entity.Has<T>()) continue;
+                if (entity.IsValid() && entity.Has<T>()
+                    && storage.ManagedPerEntity.TryGetValue(entityId, out var list)) {
+                    for (var j = list.Count - 1; j >= 0; j--)
+                        if (list[j].Handle != entity) storage.Remove(list[j].Token);
+                    if (list.Count > 0) continue;
+                }
                 storage.RemoveAllForEntity(entityId);
             }
         }

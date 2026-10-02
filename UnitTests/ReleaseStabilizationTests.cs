@@ -22,6 +22,11 @@ namespace Wargon.Nukecs.Tests
     public struct Stab8 : IComponent { public int V; }
     public struct StabTag : IComponent { }
     public struct StabPool : IPoolComponent { public int V; }
+    public struct StabDisposablePool : IPoolComponent, IDisposable
+    {
+        public int V;
+        public void Dispose() => StabDisposableTracker.Alive--;
+    }
 
     public struct StabDisposable : IComponent, IDisposable
     {
@@ -53,6 +58,23 @@ namespace Wargon.Nukecs.Tests
 
     public static class StabChunkSystems
     {
+        [System, Unity.Burst.BurstCompile, RequireBatch]
+        public static void ExpireEntities(ref Query<Entity, Stab1, Stab2> query)
+        {
+            foreach (var (entity, value, lifetime) in query) {
+                lifetime.Get.V--;
+                if (lifetime.Read.V <= 0) entity.Destroy();
+            }
+        }
+
+        [System, Unity.Burst.BurstCompile, RequireBatch]
+        public static void CullEntities(ref Query<Entity, Stab1, None<StabTag>> query)
+        {
+            foreach (var (entity, value) in query) {
+                if ((value.Read.V & 1) == 0) entity.Add<StabTag>();
+            }
+        }
+
         // FIX B3: chunk iteration and CopyTo must gather scattered rows on shared storage
         // (a tag variant of the archetype makes rows sparse). CopyTo runs at chunk start
         // (_rowIdx == 0); iteration walks all rows.
@@ -127,7 +149,7 @@ namespace Wargon.Nukecs.Tests
     }
 
     [TestFixture]
-    public class ReleaseStabilizationTests
+    public unsafe class ReleaseStabilizationTests
     {
         private World _world;
 
@@ -163,6 +185,336 @@ namespace Wargon.Nukecs.Tests
         }
 
         private static int OddsSum(int count) { var s = 0; for (var i = 1; i < count; i += 2) s += i; return s; }
+
+        [TestCase(-1)]
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        public void Generations_ParallelLifetimeAndCulling_KeepRowsAliveUntilPlayback(int graphMode)
+        {
+            var systems = new Systems(ref _world)
+                .Add(StabChunkSystems.ExpireEntities, Threads.Parallel)
+                .Add(StabChunkSystems.CullEntities, Threads.Parallel);
+            if (graphMode >= 0) systems.UseDependencyGraph(mode: (GroupScheduleMode)graphMode);
+            const int count = 257;
+            for (var cycle = 0; cycle < 4; cycle++) {
+                var entities = new Entity[count];
+                for (var i = 0; i < count; i++) {
+                    entities[i] = _world.Entity(new Stab1 { V = i }, new Stab2 { V = i % 3 + 1 });
+                    if ((i & 1) == 1) entities[i].Add<StabTag>();
+                }
+                _world.Update();
+                for (var tick = 1; tick <= 3; tick++) {
+                    systems.OnUpdate(0.016f, tick * 0.016f);
+                    var alive = 0;
+                    for (var i = 0; i < count; i++) {
+                        var expected = i % 3 + 1 > tick;
+                        Assert.AreEqual(expected, entities[i].IsValid());
+                        if (expected) {
+                            alive++;
+                            Assert.AreEqual(i, entities[i].Get<Stab1>().V);
+                        }
+                    }
+                    Assert.AreEqual(alive, _world.EntitiesAmount);
+                }
+            }
+        }
+
+        [Test]
+        public void Generations_EntityFitsInOneLongAndRoundTrips()
+        {
+            Assert.AreEqual(sizeof(long), sizeof(Entity));
+            var entity = _world.Entity();
+            var bits = *(long*)&entity;
+            var copy = *(Entity*)&bits;
+            Assert.AreEqual(entity, copy);
+            Assert.IsTrue(copy.IsValid());
+        }
+
+        [Test]
+        public void Generations_ExhaustedSlotIsRetiredWithoutWrapping()
+        {
+            var entity = _world.Entity(new Stab1 { V = 1 });
+            _world.Update();
+            _world.UnsafeWorld->entities.Ptr[entity.id].Generation = ushort.MaxValue;
+            var lastGeneration = _world.GetEntity(entity.id);
+            lastGeneration.DestroyNow();
+            var replacement = _world.Entity();
+            Assert.AreNotEqual(lastGeneration.id, replacement.id);
+            Assert.IsFalse(lastGeneration.IsValid());
+            Assert.AreEqual(1, replacement.Generation);
+        }
+
+        [Test]
+        public void Generations_InstalledPoolPayloadDisposesAtImmediateDeletion()
+        {
+            StabDisposableTracker.Alive = 1;
+            var entity = _world.Entity(new StabDisposablePool { V = 7 });
+            _world.Update();
+            Assert.AreEqual(7, entity.Get<StabDisposablePool>().V);
+            Assert.AreEqual(1, StabDisposableTracker.Alive);
+            entity.DestroyNow();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+            _world.Update();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+        }
+
+        [Test]
+        public void Generations_ReuseInvalidatesOldHandleAndKeepsHashStable()
+        {
+            var old = _world.Entity(new Stab1 { V = 1 });
+            _world.Update();
+            var hash = old.GetHashCode();
+            var identity = new Dictionary<Entity, int> { [old] = 7 };
+            old.DestroyNow();
+            var current = _world.Entity(new Stab1 { V = 2 });
+            _world.Update();
+            Assert.AreEqual(old.id, current.id);
+            Assert.AreNotEqual(old.Generation, current.Generation);
+            Assert.AreNotEqual(old, current);
+            Assert.IsFalse(old.IsValid());
+            Assert.IsTrue(current.IsValid());
+            Assert.AreEqual(hash, old.GetHashCode());
+            Assert.AreEqual(7, identity[old]);
+            Assert.IsFalse(old.Has<Stab1>());
+            Assert.Throws<InvalidOperationException>(() => old.Get<Stab1>());
+            Assert.Throws<InvalidOperationException>(() => old.Set(new Stab1 { V = 99 }));
+            old.Destroy();
+            old.DestroyNow();
+            _world.Update();
+            Assert.IsTrue(current.IsValid());
+            Assert.AreEqual(2, current.Get<Stab1>().V);
+        }
+
+        [Test]
+        public void Generations_DisposedWorldSlotDoesNotReviveOldHandle()
+        {
+            var old = _world.Entity();
+            var hash = old.GetHashCode();
+            var index = _world.Id;
+            _world.Dispose();
+            Assert.IsFalse(old.IsValid());
+            Assert.AreEqual(hash, old.GetHashCode());
+            _world = World.Create(WorldConfig.Default256);
+            var current = _world.Entity();
+            Assert.AreEqual(index, _world.Id);
+            Assert.AreEqual(old.id, current.id);
+            Assert.IsFalse(old.IsValid());
+            Assert.AreNotEqual(old, current);
+        }
+
+        [Test]
+        public void Generations_PlaybackSkipsOldCommandsWithoutScanningOnDestroy()
+        {
+            var old = _world.Entity(new Stab1 { V = 1 });
+            _world.Update();
+            old.Add(new Stab2 { V = 99 });
+            old.Remove<Stab1>();
+            old.Destroy();
+            var queued = _world.UnsafeWorld->ECB.Count;
+            old.DestroyNow();
+            Assert.AreEqual(queued, _world.UnsafeWorld->ECB.Count, "DestroyNow must leave ECB buffers untouched");
+            var current = _world.Entity(new Stab1 { V = 2 });
+            _world.Update();
+            Assert.IsTrue(current.IsValid());
+            Assert.AreEqual(2, current.Get<Stab1>().V);
+            Assert.IsFalse(current.Has<Stab2>());
+            Assert.AreEqual(0, _world.UnsafeWorld->ECB.Count);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Generations_CopyChecksBothSourceAndTarget(bool destroySource)
+        {
+            var source = _world.Entity(new Stab1 { V = 1 }, new Stab2 { V = 2 });
+            var target = _world.Entity(new Stab1 { V = 10 }, new Stab2 { V = 20 });
+            _world.Update();
+            _world.UnsafeWorld->ECB.Copy(source.id, target.id);
+            var old = destroySource ? source : target;
+            old.DestroyNow();
+            var replacement = _world.Entity(new Stab1 { V = 30 }, new Stab2 { V = 40 });
+            _world.Update();
+            Assert.AreEqual(old.id, replacement.id);
+            Assert.AreEqual(30, replacement.Get<Stab1>().V);
+            Assert.AreEqual(40, replacement.Get<Stab2>().V);
+            if (destroySource) Assert.AreEqual(10, target.Get<Stab1>().V);
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void Generations_ExpiredPayloadDisposesOnce_WithoutTouchingReplacement(bool clear)
+        {
+            StabDisposableTracker.Alive = 2;
+            var old = _world.Entity(new StabDisposable { V = 1 });
+            old.Add(new StabDisposablePool { V = 2 });
+            old.DestroyNow();
+            Assert.AreEqual(2, StabDisposableTracker.Alive);
+            var current = _world.Entity(new StabPool { V = 42 });
+            if (clear) {
+                _world.UnsafeWorld->ECB.Clear();
+                current.Add(new StabPool { V = 42 });
+            }
+            _world.Update();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+            Assert.AreEqual(42, current.Get<StabPool>().V);
+            Assert.IsFalse(current.Has<StabDisposablePool>());
+            _world.Update();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+        }
+
+        [Test]
+        public void Generations_SerializationPreservesIdentityAndHash()
+        {
+            var old = _world.Entity(new Stab1 { V = 1 });
+            _world.Update();
+            old.DestroyNow();
+            var live = _world.Entity(new Stab1 { V = 2 });
+            _world.Update();
+            var generation = live.Generation;
+            var hash = live.GetHashCode();
+            var data = _world.Serialize();
+            _world.Deserialize(data);
+            Assert.IsFalse(old.IsValid());
+            Assert.IsTrue(live.IsValid());
+            Assert.AreEqual(generation, _world.GetEntity(live.id).Generation);
+            Assert.AreEqual(hash, live.GetHashCode());
+            live.DestroyNow();
+            var next = _world.Entity();
+            Assert.Greater(next.Generation, generation);
+        }
+
+        [Test]
+        public void Generations_ReactiveSubscriptionDoesNotFollowRecycledId()
+        {
+            var systems = new Systems(ref _world).AddDefaults();
+            var old = _world.Entity(new Stab1 { V = 1 });
+            _world.Update();
+            var callbacks = 0;
+            Wargon.Nukecs.Reactivity.EntityReactiveExtensions.OnChange<Stab1>(old,
+                (in Stab1 value, in Entity entity) => callbacks++);
+            old.DestroyNow();
+            var current = _world.Entity(new Stab1 { V = 2 });
+            _world.Update();
+            systems.OnUpdate(0.016f, 0f);
+            current.Set(new Stab1 { V = 3 });
+            systems.OnUpdate(0.016f, 0.016f);
+            Assert.AreEqual(0, callbacks);
+        }
+
+        [Test]
+        public void DeferredDestroy_WorksWithoutDefaults_AndRemovesEveryQueuedEntity()
+        {
+            var entities = new Entity[9];
+            for (var i = 0; i < entities.Length; i++) {
+                entities[i] = _world.Entity(new Stab1 { V = i });
+                if ((i & 1) == 0) entities[i].Add<StabTag>();
+            }
+            var survivor = _world.Entity(new Stab1 { V = 99 });
+            _world.Update();
+            foreach (var entity in entities) entity.Destroy();
+            foreach (var entity in entities) Assert.IsTrue(entity.IsValid());
+            _world.Update();
+            foreach (var entity in entities) Assert.IsFalse(entity.IsValid());
+            Assert.IsTrue(survivor.IsValid());
+            Assert.AreEqual(99, survivor.Get<Stab1>().V);
+            Assert.AreEqual(1, _world.Query().With<Stab1>().Count);
+        }
+
+        [Test]
+        public unsafe void DestroyNow_SharedStorage_RepairsSiblingRowsAndQueries()
+        {
+            var first = _world.Entity(new Stab1 { V = 10 });
+            var middle = _world.Entity(new Stab1 { V = 20 });
+            var last = _world.Entity(new Stab1 { V = 30 });
+            last.Add<StabTag>();
+            _world.Update();
+            var all = _world.Query().With<Stab1>();
+            var tagged = _world.Query().With<Stab1>().With<StabTag>();
+            Assert.AreEqual(3, all.Count);
+            Assert.AreEqual(1, tagged.Count);
+
+            middle.DestroyNow();
+            Assert.IsFalse(middle.IsValid());
+            Assert.AreEqual(2, all.Count);
+            Assert.AreEqual(1, tagged.Count);
+            Assert.AreEqual(10, first.Get<Stab1>().V);
+            Assert.AreEqual(30, last.Get<Stab1>().V);
+            var loc = _world.UnsafeWorld->entityLocations.Ptr[last.id];
+            Assert.AreEqual(loc.row, last.ArchetypeRef.rows.Ptr[loc.listPos]);
+            Assert.AreEqual(last.id, last.ArchetypeRef.packedEntities.Ptr[loc.row]);
+            last.DestroyNow();
+            Assert.AreEqual(1, all.Count);
+            Assert.AreEqual(0, tagged.Count);
+        }
+
+        [Test]
+        public unsafe void DestroyNow_DisposesInlineAndClearsPool_OnlyOnce()
+        {
+            StabDisposableTracker.Alive = 1;
+            var entity = _world.Entity(new StabDisposable { V = 1 });
+            entity.Add(new StabPool { V = 42 });
+            _world.Update();
+            var pool = _world.UnsafeWorldRef.GetPool<StabPool>();
+            entity.DestroyNow();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+            Assert.AreEqual(0, *(int*)pool.UnsafeGetPtr(entity.id));
+            entity.DestroyNow();
+            _world.Update();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+        }
+
+        [Test]
+        public void DestroyNow_CancelsPendingCommands_WithoutFlushingOtherEntities()
+        {
+            var entity = _world.Entity(new Stab1 { V = 1 });
+            _world.Update();
+            entity.Add(new Stab2 { V = 2 });
+            entity.Destroy();
+            var other = _world.Entity(new Stab1 { V = 9 });
+            entity.DestroyNow();
+            Assert.IsFalse(other.Has<Stab1>(), "Other entities' commands must remain deferred");
+            var reused = _world.Entity(new Stab1 { V = 7 });
+            Assert.AreEqual(entity.id, reused.id);
+            _world.Update();
+            Assert.IsTrue(reused.IsValid());
+            Assert.AreEqual(7, reused.Get<Stab1>().V);
+            Assert.IsFalse(reused.Has<Stab2>());
+            Assert.AreEqual(9, other.Get<Stab1>().V);
+            Assert.AreEqual(2, _world.Query().With<Stab1>().Count);
+        }
+
+        [Test]
+        public unsafe void DestroyNow_BeforeFirstPlayback_ReleasesPendingComponents()
+        {
+            StabDisposableTracker.Alive = 1;
+            var entity = _world.Entity(new StabDisposable { V = 1 });
+            entity.Add(new StabPool { V = 8 });
+            entity.DestroyNow();
+            Assert.IsFalse(entity.IsValid());
+            Assert.AreEqual(1, StabDisposableTracker.Alive, "Pending payload cleanup belongs to ECB playback");
+            Assert.AreEqual(0, *(int*)_world.UnsafeWorldRef.GetPool<StabPool>().UnsafeGetPtr(entity.id));
+            var reused = _world.Entity(new Stab1 { V = 5 });
+            _world.Update();
+            Assert.AreEqual(0, StabDisposableTracker.Alive);
+            Assert.AreEqual(5, reused.Get<Stab1>().V);
+            Assert.IsFalse(reused.Has<StabDisposable>());
+            Assert.AreEqual(1, _world.Query().With<Stab1>().Count);
+        }
+
+        [Test]
+        public void DestroyNow_EmptyEntityAndNull_AreSafe()
+        {
+            var entity = _world.Entity();
+            entity.DestroyNow();
+            entity.DestroyNow();
+            Entity.Null.DestroyNow();
+            _world.Update();
+            Assert.IsFalse(entity.IsValid());
+            var reused = _world.Entity(new Stab1 { V = 3 });
+            _world.Update();
+            Assert.AreEqual(3, reused.Get<Stab1>().V);
+        }
 
         // ==================================================================
         // A1 — a typed Query<..., DestroyEntity> never matched: DestroyEntity
@@ -245,7 +597,7 @@ namespace Wargon.Nukecs.Tests
             Assert.AreEqual(7, *(int*)pool.UnsafeGetPtr(e.id), "setup: payload present");
 
             var arch = e.ArchetypeRef;
-            arch.Destroy(e.id); // inline path used by EntityDestroyMTSystem
+            arch.Destroy(e.id); // historical low-level inline path
 
             Assert.AreEqual(0, *(int*)pool.UnsafeGetPtr(e.id),
                 "FIX B1: inline destroy must clear pool slots (it also no longer materializes junk pools for tags)");

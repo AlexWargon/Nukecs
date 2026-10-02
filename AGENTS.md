@@ -33,13 +33,13 @@ World → Archetype[] → Entity (int ID)
 
 - **World** — central container: entity storage, archetype management, pools, queries (`src/World/World.cs` safe wrapper, `src/World/World.Unsafe.cs` core). Static management via `World.Static.cs` (`SharedStatic` world list, `ALLOCATOR` struct). Disposal in `World.Free.cs`.
 - **Archetype** — logical identity (`inlineMask + tagMask + poolMask`) and storage-row membership (`src/Archetype.cs`). `StorageArchetype` owns shared SoA data (`src/StorageArchetype.cs`); tag/pool changes do not copy inline columns.
-- **Entity** — lightweight ID (`int`); location stored in `World.entityLocations` (archetypeIndex + row)
+- **Entity** — generational handle (8 bytes: `int id`, `ushort Generation`, `ushort WorldToken`); location stored in `World.entityLocations` (archetypeIndex + row)
 - **Query** — matches logical masks, with optional dense storage traversal. Explicit `iter()` / `par_iter()` use `QueryRuntimeIter1..9` for 1–8 data components; plain foreach retains the generated batch path when eligible (`src/Systems/FnSystems/RuntimeQuery/`).
 - **Systems** — functions with `[System]` attribute; source-gen creates runners; 3 thread modes: Main, Single, Parallel (`src/Systems/Systems.cs`). Lifecycle lists: `onStart`, `onUpdate`, `onFixedUpdate`, `onDestroy`. `ISystemRunner` interface for struct/class systems.
 - **EntityCommandBuffer (ECB)** — deferred add/remove/destroy; flushed on `world.Update()` (`src/Entity/EntityCommandBuffer.cs`)
 - **Component Storage** — two modes: inline (packed in archetype data array) and Pool (separate `GenericPool<T>` with SparseSet) (`src/Components/GenericPool.cs`)
 - **Allocator** — custom `MemAllocator` with `ptr<T>` wrapper, `MemoryArray<T>`, `MemoryList<T>` (`src/Allocator/`)
-- **ISystemParam** — unified interface for system parameters: Query, Res, State, Events, Single, Local, Chunk. Source generator recognizes these and wires them up.
+- **ISystemParam** — unified interface for system parameters: Query, Res, State, Events, Local, Chunk. Source generator recognizes these and wires them up.
 - **Events** — `Events<TEvent>` thread-safe event buffer; `AddPar` for parallel writes (spinlock); `EventsParallelReader<TEvent>` for parallel reads; `EventsStorage` central registry (`src/Systems/FnSystems/Events.cs`)
 - **Resources** — `Res<T>` / `ResManaged<T>` singleton resource accessors; `IRes` interface with `OnCreate`/`OnUpdate`; `ResStorage` unmanaged storage (`src/Systems/FnSystems/Res.cs`, `ResManaged.cs`, `ResStorage.cs`)
 - **Chunk Iteration** — `Chunk<T1..T8>` archetype chunk iterators; `IChunk` interface; direct pointer iteration over archetype component arrays (`src/Systems/FnSystems/Chunk.cs`)
@@ -99,7 +99,6 @@ World → Archetype[] → Entity (int ID)
 | `src/Systems/Marker.cs` | `Marker` struct wrapping Unity `ProfilerMarker` |
 | `src/Systems/TimeData.cs` | `TimeData` struct (DeltaTime, Time, etc.) |
 | `src/Systems/EntityJobSystem.cs` | `IEntityJobSystem` interface + `EntityJobSystemRunner<T>` runner |
-| `src/Systems/EntityDestroySystem.cs` | Built-in entity destruction system |
 | `src/Systems/ECBJob.cs` | ECB processing job |
 | `src/Systems/StartFixedECBSystem.cs` | Start/fixed-update ECB processing |
 | `src/Systems/JobSystem.cs` | Job system base |
@@ -121,7 +120,7 @@ World → Archetype[] → Entity (int ID)
 | `src/Systems/FnSystems/Res.cs` | `Res<TRes>` (resource param), `TimeRes` |
 | `src/Systems/FnSystems/ResManaged.cs` | `ResManaged<TRes>` for class-type resources |
 | `src/Systems/FnSystems/ResStorage.cs` | `ResStorage` unmanaged resource storage |
-| `src/Systems/FnSystems/Single.cs` | `Single<T1>` (singleton entity accessor), `MutRes<TRes>`, `Local<TData>`, `IRes`, `IResourceGetSet` |
+| `src/Systems/FnSystems/Local.cs` | `Local<TData>`, `IRes`, `IResourceGetSet`, `Data<T>` |
 | `src/Systems/FnSystems/ManagedResRef.cs` | `ManagedResRef<T>` (GCHandle-like managed reference wrapper) |
 
 ### Systems / FnSystems / Tuples
@@ -258,11 +257,12 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 - `Compress/CompressAsync` wrote the wrong byte length; `SaveToFile` didn't truncate; loads ignored short reads; `serializedAllocator` static buffer raced between worlds. All fixed.
 - `World.Create` could overwrite a live world (naive `lastFreeSlot++`); the 9th world wrote past the worlds array. Fix: aliveness-checked slot acquisition + clean error at `MAX_WORLD_COUNT`.
 - `res_type<T>.index` was derived from the per-world list length → cross-world type-confused resource reads. Fix: globally stable slot ids + per-world padding.
-- `Entity ==/Equals` ignored the world while `GetHashCode` included it. Fix: equality includes `worldIndex`.
+- `Entity ==/Equals` ignored the world while `GetHashCode` included it. Fix: equality and hashing include `WorldToken` (slot + incarnation) and `Generation`; hashes remain stable after removal and relocation.
 - Async `World.LoadAsync` returns `Task<World>`: assign `world = await World.LoadAsync(path, world)` because loading can relocate the arena. A forced-relocation regression pins the former stale-pointer/ECB-disposal failure.
 - Reactive check/dispatch systems retain a world ID and resolve `World.Get(id)` instead of caching an arena pointer or World copy across loads. Deserialization also refreshes the active `Systems.State.World` (load can occur inside a main-thread update), and struct runner deserialization callbacks are unboxed back into the stored system. `ReactiveLoadRegressionTests` covers relocated loads inside updates with all four graph modes and without a graph.
 - Sparse chunk `CopyTo` computes offsets from the current row; `MoveNext` stops before reading rows[count]. All three previously ignored chunk regressions are enabled (arities 1-8 covered by ChunkSparseRegressionTests).
-- Dead `src/Reactive/` duplicate (of `src/Reactivity/`) deleted; `SaveRes` deleted; `CopyViaECB` added with `CopyVieECB` kept as `[Obsolete]` shim.
+- Dead `src/Reactive/` duplicate deleted; `CopyViaECB` is the deferred copy API.
+- Follow-up: `Entity.DestroyNow` implements immediate destruction directly in Entity.cs and handles reserved IDs without storage rows. It never scans ECB: commands capture generations and normal playback drops expired commands, releasing pending disposable payloads. Destroy edges refresh against `queriesVersion` for late queries. The destruction systems were removed: `Destroy()` is processed by ECB playback and `DestroyNow()` removes immediately. Neither needs `AddDefaults()`. The legacy `DestroyEntity` tag remains an exclusion filter, without automatic deletion. This does not change the historical low-level `ArchetypeUnsafe.Destroy` limitation above.
 
 ## 5.1 Multi-world contract (1.0)
 
@@ -354,7 +354,6 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 | `Res<TRes>` | `Resource` | Read/write access to unmanaged singleton resource |
 | `ResManaged<TRes>` | `Resource` | Read/write access to managed (class) singleton resource |
 | `Events<TEvent>` | `Events` | Thread-safe event buffer; `AddPar` for parallel writes |
-| `Single<T1>` | `Single` | Access singleton entity with component T1 |
 | `Local<TData>` | `Local` | Per-system local data |
 | `Chunk<T1..T8>` | — | Direct archetype chunk pointer iteration |
 
@@ -368,11 +367,16 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 
 ## 10. Resource System
 
+- `Local<T> where T : unmanaged, IRes` stores one arena-backed value per system
+  registration and parameter, isolated across worlds and Systems containers.
+  Generated runners call OnCreate once and OnUpdate once before each invocation,
+  then restore the value after Save/Load. Parallel ranges share the local; writes
+  require synchronization. Use `local.Ref`, and keep registration order when loading.
+
 - `Res<TRes>` where `TRes : struct, IRes` — wraps `StructSingleton<TRes>` (static, not per-world); `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
 - `ResManaged<TRes>` — for class-type resources; uses `ManagedResRef<T>` (GCHandle-like wrapper)
 - `IResourceGetSet` — boxing/unboxing interface for reflection-based access (used by debug tools)
 - `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). The `Res<T>` wrapper still resolves to the domain-global `StructSingleton` — resource VALUES are not isolated per world (POST_1_0.md #3).
-- `SaveRes<TRes>` was removed before 1.0 — it registered and persisted nothing.
 
 ## 11. Chunk Iteration
 
@@ -467,7 +471,7 @@ public struct GameObjectView : IComponent, IDisposable
     }
 }
 
-// Built-in tag components: DestroyEntity, EntityCreated, IsPrefab, ChildOf, Name
+// Built-in tag components: DestroyEntity, IsPrefab, ChildOf, Name
 // Interfaces: IComponent, IArrayComponent, IPoolComponent
 ```
 
@@ -748,7 +752,7 @@ entity.Add<TagComponent>();                         // Add tag (deferred)
 entity.Remove<Health>();                            // Remove (deferred via ECB)
 ref var pos = ref entity.TryGet<Position>(out bool exist); // TryGet
 entity.Destroy();                                   // Deferred destroy
-entity.DestroyNow();                                // enqueues destroy + flushes the ECB immediately (use Destroy() when iterating)
+entity.DestroyNow();                                // immediately removes this entity only; use Destroy() when iterating
 ```
 
 ### Query API
@@ -815,7 +819,7 @@ public struct DamageEvent
 }
 
 // Produce events (single-thread)
-[System(Threads.Main)]
+[System]
 public static void ProduceDamage(
     ref Query<Entity, Health> query,
     ref Events<DamageEvent> events)
@@ -839,7 +843,7 @@ public static void ProduceDamageParallel(
 }
 
 // Consume events
-[System(Threads.Main)]
+[System]
 public static void ApplyDamage(
     ref State state,
     ref Events<DamageEvent> events)
@@ -969,7 +973,7 @@ query.Count;            // 1
 
 ### Thread Modes — What Works Where
 
-Entity API (`Get`, `Set`, `Add`, `Remove`, `Has`, `Destroy`, `DestroyNow`) **works in ALL thread modes** including `Threads.Parallel` and Burst-compiled systems. Only **Unity managed API** (`GameObject`, `Camera`, `Debug.Log`, `UnityEngine.Object.Destroy`, `UnityEngine.Transform`) requires `Threads.Main`.
+Entity API (`Get`, `Set`, `Add`, `Remove`, `Has`, `Destroy`) **works in ALL thread modes** including `Threads.Parallel` and Burst-compiled systems. Only **Unity managed API** (`GameObject`, `Camera`, `Debug.Log`, `UnityEngine.Object.Destroy`, `UnityEngine.Transform`) requires `Threads.Main`.
 
 | Mode | Entity API | Unity API | Burst |
 |------|-----------|-----------|-------|
@@ -977,6 +981,8 @@ Entity API (`Get`, `Set`, `Add`, `Remove`, `Has`, `Destroy`, `DestroyNow`) **wor
 | `Threads.MainRun` | Yes | **No** | Yes |
 | `Threads.Parallel` | Yes | **No** | Yes |
 | `Threads.Single` | Yes | **No** | Yes |
+
+`DestroyNow()` requires exclusive world access: complete outstanding jobs and call it outside query iteration. `MainRun` is synchronous `job.Run()`, without a dependency argument; it does not itself wait for earlier scheduled jobs.
 
 ### Multiple Queries Per System
 
@@ -1001,7 +1007,7 @@ public static void CollisionSystem(
 | `entity.Add<T>()` | **Deferred** (ECB) | After playback, possibly in the same frame |
 | `entity.Remove<T>()` | **Deferred** (ECB) | After playback, possibly in the same frame |
 | `entity.Destroy()` | **Deferred** (ECB) | After playback, possibly in the same frame |
-| `entity.DestroyNow()` | **Immediate (ECB flush)** | Same call (flushes the whole pending ECB — do not use mid-iteration) |
+| `entity.DestroyNow()` | **Immediate** | Disposes components, removes storage/query membership, invalidates this generation; pending payloads are cleaned up on ECB playback/clear; no scan or playback for other entities |
 
 **Pattern for same-frame death events**: When an entity dies, use sentinel values instead of relying on deferred `DeadTag`:
 
@@ -1019,9 +1025,12 @@ if (hp.Current <= 0)
 }
 ```
 
-### Events — Must Clear Manually
+### Events — Clear After Consumers
 
-`Events<T>` are **immediate buffers** that persist across frames until explicitly cleared. The consuming system MUST call `.Clear()`. Otherwise events accumulate and are re-processed every frame.
+`Events<T>` are immediate buffers. `AddDefaults()` registers `ClearEvents`, which
+clears all buffers at its position in the Update list; `WorldInstaller` adds those
+defaults automatically. Without defaults, clear explicitly after all consumers
+and producer jobs finish. Do not clear early when later systems need the events.
 
 ```csharp
 [System]
@@ -1030,7 +1039,7 @@ public static void XPSystem(
     ...)
 {
     foreach (ref var ev in deathEvents) { /* process */ }
-    deathEvents.Clear(); // REQUIRED — or events accumulate forever
+    deathEvents.Clear(); // explicit cleanup when no default/later clearing is registered
 }
 ```
 

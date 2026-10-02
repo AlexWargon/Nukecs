@@ -67,7 +67,6 @@ namespace Wargon.Nukecs
 
     
     public struct DestroyEntity : IComponent { }
-    public struct EntityCreated : IComponent { }
     public struct IsPrefab : IComponent { }
     public struct ChildOf : IComponent {
         public Entity Value;

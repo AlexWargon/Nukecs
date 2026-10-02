@@ -113,7 +113,8 @@ namespace NukecsQuickStart
 ```
 
 `WorldInstaller` creates and disposes the world and applies the queued component
-adds after `CreateEntities`. `AddSystems` registers the three systems in order,
+adds after `CreateEntities`, calls `OnStart()` once, and applies startup changes.
+`AddSystems` registers the three systems in order,
 using `Threads.Parallel` by default; the default scheduler chains their jobs.
 `Res<SimulationConfig>.Ref` provides access to the registered resource.
 
@@ -123,7 +124,7 @@ updates ECS data; it does not create a visible GameObject for the entity.
 
 ## Documentation
 
-This guide describes the checked-in API as of 2026-09-08.
+This guide describes the checked-in API as of 2026-10-03.
 
 - [Runtime query contract](src/Systems/FnSystems/RuntimeQuery/README.md): ranges, tuples, Entity deconstruction, migration notes.
 - [Architecture](ARCHITECTURE.md): logical archetypes, shared storage, iteration paths and invariants.
@@ -158,7 +159,7 @@ public class GameBootstrap : WorldInstaller
 }
 ```
 
-`WorldInstaller` handles world creation, default systems, and disposal automatically. Override `CreateEntities(ref World)` to spawn initial entities.
+`WorldInstaller` handles world creation, default systems, startup, and disposal automatically. Override `CreateEntities(ref World)` to spawn initial entities.
 
 ### 2. Define Components
 
@@ -381,8 +382,7 @@ Empty structs consume no memory in archetype storage — used only for query fil
 
 | Component | Description |
 |-----------|-------------|
-| `DestroyEntity` | Marks entity for deferred destruction |
-| `EntityCreated` | Added to newly created entities (cleared each frame) |
+| `DestroyEntity` | Legacy exclusion tag; does not delete an entity |
 | `ChildOf` | Parent reference — `ChildOf { Value = parentEntity }` |
 | `Child` | Array component for child references |
 | `IsPrefab` | Marks prefab entities |
@@ -425,20 +425,43 @@ ref var speed = ref entity.TryGet<Speed>(out bool exists); // safe access
 
 ### Destruction
 
+An entity handle occupies 8 bytes: `int id`, `ushort Generation`, `ushort WorldToken`.
+WorldToken includes the world slot and its incarnation. Reusing an ID creates
+a different generation: a saved copy of the old handle stays invalid. Equality and
+hashing include the generation and remain stable after destruction or save/load.
+Generation does not wrap: an ID reaching 65535 is retired on deletion.
+`IsValid()` also checks that the world is alive. Keep handles by value; a `ref Entity`
+into the world's entity array refers to a mutable slot and can change when reused.
+
+`Has` returns false and `TryGet` returns a null reference for an expired handle;
+`Destroy` / `DestroyNow` do nothing. Component access and mutation through an expired
+handle throw rather than accessing the replacement entity. APIs taking a bare integer
+ID, such as `world.GetEntity(id)`, resolve the current entity in that slot.
+Reactive subscriptions belong to the full handle identity. Loading an unrelated
+saved entity with the same ID requires an explicit new subscription.
+
 ```csharp
 entity.Destroy();      // deferred — processed on next world.Update()
-entity.DestroyNow();   // currently also queues ECB destruction
+entity.DestroyNow();   // immediate removal of this entity only
 ```
 
 `entity.Destroy()` queues an ECB destroy command directly. `DestroyNow()`
-currently uses the same deferred path despite its name. The `DestroyEntity` tag
-is a separate route handled by the built-in destruction system.
+immediately disposes installed components and removes the storage row and query
+membership. It does not scan ECB buffers. Commands capture the generation and
+expired commands are skipped during normal playback; their uninstalled disposable
+payloads are freed during playback, `Clear()` or buffer disposal. Pool additions
+defer both their payload and mask until playback. Complete outstanding jobs first and call it outside query
+iteration. Destruction needs no registered system or `AddDefaults()`: ECB playback
+handles `Destroy()`. Adding the legacy `DestroyEntity` tag does not delete entities.
+
+Entity layout changed with generations. Save format is version 2; version 1 saves
+are rejected rather than loaded into the new memory layout.
 
 ### Copying
 
 ```csharp
 var copy = entity.Copy();         // immediate deep copy
-var copy = entity.CopyVieECB();   // deferred copy via ECB
+var deferredCopy = entity.CopyViaECB(); // deferred copy via ECB
 ```
 
 ### Prefabs
@@ -452,14 +475,20 @@ var instance = world.SpawnPrefab(prefab);
 var instances = world.SpawnPrefabs(prefab, 100);
 ```
 
+Unity-side `EntityPrefabMap` caches must resolve a current handle after loading.
+`GetOrCreatePrefab(source, ref world)` reuses a uniquely named `IsPrefab` entity
+from the loaded world; otherwise it converts the source. Keep prefab names unique.
+Cached Entity values in MonoBehaviours are not rewritten by arena deserialization.
+
 ### Hierarchy
 
 ```csharp
-parent.AddChild(child);
-parent.SetParent(childParent);
+child.SetParent(parent);
+world.Update();
+ref var firstChild = ref parent.GetChild(0);
+var root = entity.GetRootParent(); // Entity.Null when entity has no parent
 parent.RemoveChild(child);
-ref var child = ref parent.GetChild(0);
-ref var root = ref entity.GetRootParent();
+world.Update();
 ```
 
 ---
@@ -471,10 +500,13 @@ Nukecs uses a **source-generated** approach. Mark static methods with `[System]`
 ### System Attribute
 
 ```csharp
-[System]                                    // default: Threads.Parallel
-[System(Threads.Main)]                      // explicit thread mode
-[System(Threads.MainRun)]
+[System] // marks the method for source generation
 ```
+
+Thread mode is selected when registering the method:
+`systems.Add(MySystems.Update, Threads.MainRun)`. The attribute takes no thread-mode
+argument. `MainRun` uses synchronous `job.Run()` on the calling thread, without a
+dependency argument; synchronize outstanding jobs before accessing data they use.
 
 ### Auto-Injected Parameters
 
@@ -488,7 +520,6 @@ The source generator detects parameter types and injects them automatically:
 | `ref ResManaged<T>` | Managed singleton resource |
 | `ref Events<TEvent>` | Event stream (send/receive) |
 | `ref Local<TData>` | Per-system local state |
-| `ref Single<T>` | Singleton entity accessor |
 
 ### Thread Modes
 
@@ -553,6 +584,9 @@ current generated signature: `Start` is the constant zero, which C# accepts as
 Adding a Start system only registers it; it does not execute immediately.
 `OnUpdate` does not automatically call `OnStart`, and `OnStart` has no once-only
 guard. Call it after building the systems and creating initial entities:
+
+`WorldInstaller` already calls it once after `CreateEntities` and initial ECB
+playback; do not call it again from the installer hooks.
 
 ```csharp
 systems.OnStart(); // after all registrations and initial entity setup
@@ -963,34 +997,43 @@ public static void Render(ref ResManaged<MeshData> meshData)
 }
 ```
 
-### SaveRes — Resource Value Parameter
-
-```csharp
-[System]
-public static void MySystem(ref SaveRes<MyData> data)
-{
-    ref var d = ref data.Ref;
-}
-```
-
-`SaveRes<T>` currently contains a `T Ref` field and has empty `Init` / `Update`
-methods. It does not itself register persistent world storage or call resource
-lifecycle methods. Do not assume it provides automatic save/load support.
-
 `Res<T>.Ref` uses static `StructSingleton<T>` storage, so it is not isolated per
 world. Choose resource ownership explicitly when working with multiple worlds.
 
 ### Local — Per-System Local State
 
 ```csharp
+public struct MyState : IRes
+{
+    public int Counter;
+    public void OnCreate(ref World world) { Counter = 0; }
+    public void OnUpdate(ref World world) { }
+}
+
 [System]
 public static void MySystem(ref Local<MyState> local)
 {
-    local.Value.counter++;
+    local.Ref.Counter++;
 }
 ```
 
-Each system gets its own isolated instance.
+`T` must be `unmanaged, IRes`. Every registration gets its own value, including
+repeated registrations of the same method. Two `Local<T>` parameters are also
+independent. Local values are isolated between worlds and `Systems` containers;
+they do not use the global singleton backing `Res<T>`.
+
+The generator emits numeric owner keys. Registration and lookup use the framework's
+unmanaged `HashMap` and `SharedStatic` registry, and can execute in Burst.
+
+`OnCreate` runs once when the local value is created. `OnUpdate` runs once on the
+main thread before each system invocation, including an empty query. Parallel
+work ranges share the same local value: synchronize writes, for example with
+`Interlocked`, or register the system as `Single` for ordinary mutable state.
+
+Local values are stored in the world arena and restored by Save/Load. Keep the
+same system registration order when loading into a new `Systems` container.
+A local absent from the snapshot is initialized normally. External native
+allocations referenced by a local are not serialized automatically.
 
 ---
 
@@ -1014,7 +1057,7 @@ public static void EmitDamage(ref Query<Entity, Health> query, ref Events<Damage
 ### Receiving Events
 
 ```csharp
-[System(Threads.Main)]
+[System]
 public static void ProcessDamage(ref Events<DamageEvent> events)
 {
     foreach (var evt in events)
@@ -1028,7 +1071,10 @@ public static void ProcessDamage(ref Events<DamageEvent> events)
 `Add()` is for a single writer; `AddPar(in TEvent)` uses a spinlock and grows
 the buffer while holding it. `ReadPar()` provides a pointer/length reader after
 producers complete. Do not grow or clear the buffer while readers use it.
-Events persist until explicitly cleared; clear once after all consumers finish.
+`AddDefaults()` registers `ClearEvents`, which clears all event buffers at its
+position in the Update list. `WorldInstaller` adds these defaults automatically.
+Place consumers before clearing and ensure producer jobs have completed. Without
+defaults, clear once after all consumers finish.
 
 ---
 
@@ -1116,6 +1162,25 @@ Bridges ECS entities to `UnityEngine.Transform` GameObjects.
 - **TransformChildSystem** — manages parent-child transform hierarchies
 - **SyncWithUnityTransformSystem** — syncs ECS transforms to Unity transforms
 
+Register them explicitly; `AddDefaults()` and `WorldInstaller` do not add them:
+
+```csharp
+systems.AddGroup(new Wargon.Nukecs.Transforms.TransformsGroup());
+```
+
+Sync reads ECS world-space `Transform` and `TransformRef`, then writes the Unity
+Transform. `LocalTransform` alone does not move a GameObject. Convert an existing
+Unity Transform before updating, then flush the deferred additions:
+
+```csharp
+var entity = world.Entity();
+Wargon.Nukecs.Transforms.TransformsUtility.Convert(gameObject.transform, ref world, ref entity);
+entity.Add(new Wargon.Nukecs.Transforms.TransformRef {
+    Value = new ObjectRef<UnityEngine.Transform>(gameObject.transform)
+});
+world.Update();
+```
+
 ---
 
 ## World Serialization
@@ -1125,7 +1190,13 @@ Bridges ECS entities to `UnityEngine.Transform` GameObjects.
 ```csharp
 byte[] data = world.Serialize();
 world.Deserialize(data);
+// Restore a new world after disposing the saved world:
+world.Dispose();
+world = World.Load(WorldConfig.Default1024, data);
 ```
+
+The byte-array overload restores the saved world slot, even when it is not slot 0.
+That slot must be free; an occupied slot is rejected without replacing its world.
 
 ### File I/O
 
@@ -1174,7 +1245,7 @@ void Awake()
 {
     world = World.Create(WorldConfig.Default1024);
 
-    systems = new Systems(ref world);
+    systems = new Systems(ref world).AddDefaults();
     systems
         .Add(MySystem.Update, Threads.MainRun)
         .Add(MySystem.Render, Threads.Main)

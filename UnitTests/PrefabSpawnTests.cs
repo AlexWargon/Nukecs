@@ -60,7 +60,7 @@ namespace Wargon.Nukecs.Tests
                 ref var lifetime = ref life.Get;
                 lifetime.Seconds -= state.Time.DeltaTime;
                 if (lifetime.Seconds <= 0f) {
-                    e.DestroyNow();
+                    e.Destroy();
                     dbug.log($"Destroyed {e.id} bullet lifetime");
                 }
             }

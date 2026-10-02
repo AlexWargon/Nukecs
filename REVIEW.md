@@ -3,6 +3,66 @@
 Reviewed revision: `dev` @ `089f73a` (2026-10-02). An earlier pass was done on
 `Storage-Rework` @ `38b4add` (2026-09-08); items fixed since then are listed in §8.
 
+## Follow-up status (2026-10-02)
+
+Follow-up (2026-10-03): the byte-array World.Load overload now deserializes the
+snapshot, preserves its world slot/handles, rejects an occupied saved slot and
+releases temporary allocations on failure. Legacy SystemsGroup Update and Fixed
+lists route to their corresponding lifecycle phases. WorldInstaller calls OnStart
+after initial ECB playback, flushes startup changes and exposes a virtual Awake.
+The unused runtime UnityEditor import was removed. README hierarchy, event clearing,
+Transform registration and deferred-copy examples were corrected; only CopyViaECB
+remains in the API.
+Validation: Unity 6000.0.63f1 EditMode, 122/122 passed with Burst enabled,
+including seven new load/lifecycle regressions. Results:
+`UnitTests/TestResults_ReviewFollowup.xml`. Player builds were not tested.
+
+`Local<T>` is implemented as per-registration, per-world resource state. Generated
+runners initialize it once, update its lifecycle once before dispatch, and restore
+its arena-backed value after load. Duplicate registrations and parallel ranges are
+covered by `UnitTests/LocalResourceTests.cs`. The README example uses `Ref` and `IRes`.
+Unity 6000.0.63f1 EditMode: 81/81 passed with Burst enabled, including 16 Local
+cases and the native batch probes. Results: `UnitTests/TestResults_LocalResources.xml`.
+Follow-up (2026-10-03): `Single<T>` and `MutRes<T>` were removed from the runtime
+and current API documentation. Their unused metadata branch was removed; other
+metadata values retain their explicit numeric IDs. `Threads.Single` remains supported.
+Removal validation: 57/57 Local and serialization tests passed with Burst enabled
+(`UnitTests/TestResults_RemoveSingleMutRes.xml`).
+Local registration now uses numeric generated owner keys and the framework's
+unmanaged HashMap. Native Burst registration/lookup and regression coverage:
+82/82 passed (`UnitTests/TestResults_LocalResourcesHashMapBurst.xml`).
+
+The findings below describe the reviewed revision, not necessarily the current tree.
+Thread mode is selected through registration; only `[System]` remains supported.
+The obsolete resource-value parameter section and removed creation tag have been
+removed from the current usage documentation. `MainRun` is synchronous `job.Run()`
+without a dependency argument; waiting for outstanding jobs is the caller's responsibility.
+This is its intended contract, not an unresolved generator question.
+
+`DestroyNow` now implements immediate destruction directly in `Entity.cs`: it disposes
+components, swap-removes the storage row, detaches queries and recycles the ID.
+It never scans pending commands: ECB captures generations and skips expired commands
+during normal playback, disposing uninstalled payloads. Pool additions defer their data.
+Reserved IDs without a storage row are handled separately. It requires exclusive
+world access outside query iteration. The dedicated destruction systems and their
+default registration were removed: deferred destruction is handled by ECB playback,
+and immediate destruction by `Entity.DestroyNow`. The legacy tag alone no longer
+deletes an entity. Regression coverage was added to `ReleaseStabilizationTests`.
+Previous immediate-destruction validation: Unity 6000.0.63f1 EditMode, 92/92 passed across stabilization, prefab,
+world and serialization fixtures, including five immediate-destruction tests and one ECB regression without defaults.
+Results: `UnitTests/TestResults_DestroyNow.xml`. This is Editor validation;
+it does not establish player/IL2CPP support.
+
+Generation follow-up: Entity is 8 bytes (`int` ID + `ushort` generation + `ushort`
+world token). The token includes the world-slot incarnation, and exhausted entity
+generations are retired instead of wrapping. `DestroyNow` leaves ECB buffers
+untouched; stale commands and Copy destinations are checked by captured identity.
+Generation-aware reactive subscriptions do not follow recycled IDs or unrelated
+entities loaded from another saved world; explicit resubscription is required.
+Unity 6000.0.63f1 EditMode: 193/193 passed, including 12 generation cases and
+pool/query, prefab, world, serialization and reactive-load regressions.
+Results: `UnitTests/TestResults_Generations.xml`. Save format is now 2.
+
 **Method.** README.md, AGENTS.md, ARCHITECTURE.md, NUKECS_AGENTS_GUIDE_EN/RU.md and
 `src/Systems/FnSystems/RuntimeQuery/README.md` were compared with the source by reading.
 Nothing was compiled or run in Unity. The source generator ships only as
@@ -85,10 +145,10 @@ Main problems:
    and Quick Start #1 says the installer handles "default systems". Either call
    `OnStart()` in the installer or say so in the Quick Start.
 10. **The hot-reload sample skips `AddDefaults()`.** `README.md:1166`
-    `new Systems(ref world)` — so no `EntityDestroySystem`, `OnPrefabSpawn` or
+    `new Systems(ref world)` — so no `OnPrefabSpawn` or
     `ClearEvents`. The demos follow the same pattern.
-11. **`CopyVieECB` is obsolete.** `README.md:430`. Use `CopyViaECB`
-    (`src/Entity/Entity.cs:458`); the old name is `[Obsolete]` (`Entity.cs:466`).
+11. **Deferred copy name.** README used the obsolete misspelled alias. Use
+    `CopyViaECB`; the alias has now been removed.
 12. **Prefab example order (to verify).** `README.md:436-441` adds `IsPrefab` (deferred
     through the ECB) and immediately calls `SpawnPrefab`, which copies at once
     (`src/World/World.Unsafe.cs:503`). `EntityPrefabMap` calls `world.Update()` before
@@ -238,10 +298,10 @@ translated), so each item applies to both.
 
 ## 7. Open questions (to verify)
 
-1. **`Threads.MainRun` after `Threads.Parallel` writers.** `ExecuteSequentialUpdate`
+1. **Clarified: `Threads.MainRun` after `Threads.Parallel` writers.** `ExecuteSequentialUpdate`
    (`src/Systems/Systems.cs:685-710`) completes previous jobs only before `Threads.Main`
-   runners. If the generated MainRun runner does not depend on or complete
-   `state.Dependencies`, a MainRun system can race with earlier Parallel jobs.
+   runners. MainRun deliberately runs synchronously without a dependency argument.
+   Complete prior jobs explicitly before accessing data they use.
 2. **Pool-component `foreach` under `Threads.Parallel`.** With an `IPoolComponent` the
    batch rewrite is disabled. Does the fallback enumerator respect the job range? If not,
    every worker processes all entities; this affects the guide's `ApplyDamage` example.

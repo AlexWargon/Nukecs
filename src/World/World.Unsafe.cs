@@ -20,6 +20,7 @@ namespace Wargon.Nukecs
             internal WorldConfig config;
             internal const int FIRST_ENTITY_ID = 1;
             public byte Id;
+            internal ushort entityWorldToken;
             public int version;
 #if NUKECS_DEBUG
             internal AliveEntitiesSet entitiesDens;
@@ -100,6 +101,7 @@ namespace Wargon.Nukecs
             }
             private void Initialize(byte id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf) {
                 Id = id;
+                entityWorldToken = World.AcquireEntityWorldToken(id);
                 config = worldConfig;
                 entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
@@ -129,7 +131,6 @@ namespace Wargon.Nukecs
                 selfPtr = worldSelf;
                 // tempMask is a fixed inline Bitmask1024 — no initialization needed
                 _ = ComponentType<DestroyEntity>.Index;
-                _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
                 //CreatePools();
@@ -161,7 +162,7 @@ namespace Wargon.Nukecs
                 }
 
                 ref var e = ref entities.ElementAt(last);
-                e = new Entity(last, Id);
+                e = new Entity(last, Self);
                 entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
@@ -189,7 +190,7 @@ namespace Wargon.Nukecs
                 }
 
                 ref var e = ref entities.ElementAt(last);
-                e = new Entity(last, Id);
+                e = new Entity(last, Self);
                 entityLocations.ElementAt(last) = new EntityLocation { archetypeIndex = archetype, row = 0 };
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
@@ -322,8 +323,8 @@ namespace Wargon.Nukecs
             {
                 version++;
                 ref var e = ref entities.ElementAt(entity);
-                e = Nukecs.Entity.Null;
-                reservedEntities.Add(entity, ref AllocatorRef);
+                e.id = 0; // Retain the generation high-water mark in the serialized arena.
+                if (e.Generation < ushort.MaxValue) reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
                 entityLocations.Ptr[entity] = default;
@@ -335,7 +336,13 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)
             {
-                return entities.ElementAt(entity).id != 0;
+                return entity > 0 && entity < lastEntityIndex && entities.Ptr[entity].id == entity;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal bool EntityIsValid(int entity, ushort generation)
+            {
+                return EntityIsValid(entity) && entities.Ptr[entity].Generation == generation;
             }
             // [MethodImpl(MethodImplOptions.AggressiveInlining)]
             // internal Entity CreateEntityWithEvent(int archetype) {
@@ -433,7 +440,7 @@ namespace Wargon.Nukecs
                 for (var i = 0; i < fromReserved; i++)
                 {
                     var id = reservedEntities.ElementAt(reservedCount - 1 - i);
-                    entities.ElementAt(id) = new Entity(id, Id);
+                    entities.ElementAt(id) = new Entity(id, Self);
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
@@ -442,7 +449,7 @@ namespace Wargon.Nukecs
                 while (created < count)
                 {
                     var id = lastEntityIndex++;
-                    entities.ElementAt(id) = new Entity(id, Id);
+                    entities.ElementAt(id) = new Entity(id, Self);
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
@@ -488,7 +495,7 @@ namespace Wargon.Nukecs
                 new Span<EntityLocation>(entityLocations.Ptr + start, count).Fill(new EntityLocation { archetypeIndex = archetype });
                 for (var i = start; i < end; i++)
                 {
-                    entities.Ptr[i] = new Entity(i, Id);
+                    entities.Ptr[i] = new Entity(i, Self);
 #if NUKECS_DEBUG
                     entitiesDens.Add(i, ref AllocatorRef);
 #endif
@@ -704,6 +711,17 @@ namespace Wargon.Nukecs
                 ECB.Playback(Self);
             }
 
+            public ptr<TParam> GetLocalSystemParam<TParam>(int slot) where TParam : unmanaged, ISystemParam
+                => resStorage.GetLocal<TParam>(slot, Self);
+
+            public ptr<TParam> CreateLocalSystemParam<TParam>(ulong owner, int scope,
+                ref HashMap<ulong, int> registrations, out int slot) where TParam : unmanaged, ISystemParam
+            {
+                var instance = LocalParamSlots.NextInstance(owner, ref registrations);
+                slot = LocalParamSlots.Acquire(owner, scope, instance);
+                return GetLocalSystemParam<TParam>(slot);
+            }
+
             public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 : unmanaged, ISystemParam
             {
                 TParam0 paramDefault = default;
@@ -749,7 +767,6 @@ namespace Wargon.Nukecs
                         }
                         break;
                     }
-                    case SystemParamMetaType.Single:
                     case SystemParamMetaType.Local:
                         param = AllocatorRef.AllocatePtr<TParam0>();
                         param.Ref = paramDefault;

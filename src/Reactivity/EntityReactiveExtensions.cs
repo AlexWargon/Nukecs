@@ -28,6 +28,7 @@ namespace Wargon.Nukecs.Reactivity
         /// <summary>Unsubscribe by the token returned from <c>OnChange</c>.</summary>
         public static void OffChange<T>(this Entity entity, long token) where T : unmanaged, IComponent
         {
+            if (!entity.IsValid()) return;
             if (ReactiveStorageRegistry<T>.TryGet(entity.worldIndex, out var storage))
                 storage.Remove(token);
         }
@@ -35,6 +36,7 @@ namespace Wargon.Nukecs.Reactivity
         /// <summary>Remove all subscriptions of type <typeparamref name="T"/> from this entity.</summary>
         public static void OffChange<T>(this Entity entity) where T : unmanaged, IComponent
         {
+            if (!entity.IsValid()) return;
             if (ReactiveStorageRegistry<T>.TryGet(entity.worldIndex, out var storage))
                 storage.RemoveAllForEntity(entity.id);
         }
@@ -50,7 +52,7 @@ namespace Wargon.Nukecs.Reactivity
             SystemsReactiveExtensions.EnsureRegistered<T>(world);
             var storage = ReactiveStorageRegistry<T>.GetOrCreate(world);
 
-            var sub = new Subscription<T> { Options = options, Managed = callback };
+            var sub = new Subscription<T> { Options = options, Managed = callback, Handle = entity };
             if (filter != null) sub.SetManagedFilter(filter);
 
             var token = storage.AddEntitySubscription(entity.id, sub);

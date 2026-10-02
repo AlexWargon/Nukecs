@@ -4,9 +4,73 @@ using NUnit.Framework;
 
 namespace Wargon.Nukecs.Tests
 {
+    public struct LoadFixResource : IRes
+    {
+        public void OnCreate(ref World world) { }
+        public void OnUpdate(ref World world) { }
+    }
+
     [TestFixture]
     public class SerializationTests
     {
+        [Test]
+        public unsafe void UntypedPointerConversion_PreservesRegionAcrossReload()
+        {
+            var allocator = new MemAllocator(4096);
+            try {
+                var original = allocator.AllocatePtr<int>(16384);
+                Assert.Greater(original.offset.BlockIndex, 0);
+                var restored = original.UntypedPointer.AsTyped<int>();
+                Assert.AreEqual(original.offset.BlockIndex, restored.offset.BlockIndex);
+                Assert.AreEqual(original.offset.Offset, restored.offset.Offset);
+                restored.OnDeserialize(ref allocator);
+                Assert.AreEqual((System.IntPtr)original.Ptr, (System.IntPtr)restored.Ptr);
+            }
+            finally { allocator.Dispose(); }
+        }
+
+        [Test]
+        public unsafe void RelocatedLoad_RebasesLookupValuesBeforeCreatingEntities()
+        {
+            var source = World.Create(WorldConfig.Default1024);
+            source.Entity(new PositionTest { X = 11 }, new VelocityTest { X = 3 });
+            source.UnsafeWorld->GetSystemParam2<Res<LoadFixResource>>();
+            source.Update();
+            var savedAddress = (System.IntPtr)source.UnsafeWorld;
+            var savedRegionSize = source.UnsafeWorld->AllocatorRef.GetRegion(0).size;
+            var data = source.Serialize();
+            source.Dispose();
+            var blocker = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.Malloc(savedRegionSize, 16, Unity.Collections.Allocator.Persistent);
+            try {
+                var world = World.Create(WorldConfig.Default16);
+                world.Deserialize(data);
+                var w = world.UnsafeWorld;
+                Assert.AreNotEqual(savedAddress, (System.IntPtr)w);
+                ref var allocator = ref w->AllocatorRef;
+                foreach (var entry in w->archetypesMap)
+                    Assert.AreEqual((System.IntPtr)entry.Value.ptr.offset.AsPtr<ArchetypeUnsafe>(ref allocator),
+                        (System.IntPtr)entry.Value.ptr.Ptr, "Archetype lookup retains a freed arena address.");
+                foreach (var entry in w->storagesMap)
+                    Assert.AreEqual((System.IntPtr)entry.Value.offset.AsPtr<StorageArchetype>(ref allocator),
+                        (System.IntPtr)entry.Value.Ptr, "Storage lookup retains a freed arena address.");
+                var resource = w->GetSystemParam2<Res<LoadFixResource>>();
+                Assert.AreEqual((System.IntPtr)resource.offset.AsPtr<Res<LoadFixResource>>(ref allocator),
+                    (System.IntPtr)resource.Ptr, "Resource lookup retains a freed arena address.");
+                for (var cycle = 0; cycle < 3; cycle++) {
+                    var entity = world.Entity(new PositionTest { X = cycle }, new VelocityTest { X = 5 });
+                    world.Update();
+                    Assert.AreEqual(cycle, entity.Get<PositionTest>().X);
+                    entity.Add<StabTag>();
+                    world.Update();
+                    Assert.AreEqual(5, entity.Get<VelocityTest>().X);
+                    entity.Destroy();
+                    world.Update();
+                    Assert.AreEqual(1, world.EntitiesAmount);
+                }
+            }
+            finally { Unity.Collections.LowLevel.Unsafe.UnsafeUtility.Free(blocker, Unity.Collections.Allocator.Persistent); }
+        }
+
         [SetUp]
         public void SetUp()
         {
