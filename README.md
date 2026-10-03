@@ -129,7 +129,7 @@ read-only access. `State.Time.DeltaTime` is the frame duration passed to
 **Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
 value increases by approximately 2 each second of simulation time. This example
 updates ECS data only. To see moving GameObjects, follow the
-[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/f48c3230e84da63fe9e0c30e739600806b211d69/Demos/README.md).
+[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/7adc2438c0661158d2fcb3c09424bb38653630f7/Demos/README.md).
 
 The snippets below build on the same `Position` and `Velocity` components.
 
@@ -211,6 +211,7 @@ queries passed to `[System]` methods automatically.
 | `Query<Position, Velocity, None<Frozen>>` | Only those without `Frozen`. |
 | `Query<Position, Velocity, (With<Frozen>, None<Fire>)>` | Only those with `Frozen` and without `Fire`. |
 | `Query<Entity, Position, Velocity>` | The same data, plus the entity handle. |
+| `Query<Health, Changed<Health>>` | Entities whose health changed. See the [reactivity example](API_REFERENCE.md#reactivity). |
 
 To skip frozen entities, change the movement system's query type. The trailing
 filter does not add a value to the loop:
@@ -355,7 +356,7 @@ show how to choose between tags, temporary payload components, and event buffers
 |---|---|
 | Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
 | Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
-| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/f48c3230e84da63fe9e0c30e739600806b211d69/Demos/README.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/7adc2438c0661158d2fcb3c09424bb38653630f7/Demos/README.md) |
 | React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
 | Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
 | Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |

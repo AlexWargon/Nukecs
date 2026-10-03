@@ -858,9 +858,44 @@ and all producer jobs complete.
 
 ## Reactivity
 
-Use `Wargon.Nukecs.Reactivity` for per-entity subscriptions. A regular unmanaged
-`IComponent` is sufficient; no `IReactive` marker or `Reactive<T>` companion is
-needed for this API.
+Use `Wargon.Nukecs.Reactivity` to process changes through system queries or
+per-entity callbacks. A regular unmanaged `IComponent` is sufficient; no
+`IReactive` marker or `Reactive<T>` companion is needed.
+
+### `Changed<T>` — Query changed components
+
+Use `Changed<T>` to process entities only when a component's value changes.
+Add `using Wargon.Nukecs.Reactivity;` to your file, then add this method to
+`MySystems`:
+
+```csharp
+[System]
+public static void HealthChangedSystem(ref Query<Health, Changed<Health>> query)
+{
+    foreach (ref var health in query)
+    {
+        UnityEngine.Debug.Log($"Health changed to {health.Value}");
+    }
+}
+```
+
+Register it in `OnWorldCreated`, after systems that update health:
+
+```csharp
+Systems.Add(MySystems.HealthChangedSystem, Threads.Main);
+```
+
+This example uses the main thread for logging. The first observation records
+the initial value; later updates process changed values. Assigning the same
+value does not count as a change. A regular `Health : IComponent` is enough;
+no `OnChange` subscription is needed.
+
+**Use plain `foreach (... in query)` with `Changed<T>`.** Change filtering relies
+on the generated system path. Explicit `iter()` and `par_iter()` do not apply
+the changed-only filter. With one data component, `foreach (ref var health in query)`
+gives direct component access, so use `health.Value` without `.Get` or `.Read`.
+
+### `OnChange<T>` — Subscribe to callbacks
 
 ```csharp
 using Wargon.Nukecs.Reactivity;
@@ -887,12 +922,6 @@ the reactive systems' update position, not synchronously on every write.
 with the current component on subscription, or defers the initial notification
 if the component has not yet been added through ECB.
 
-`Wargon.Nukecs.Reactivity.Changed<T>` is a query filter with its own change
-tracking. Use it in generated systems with plain `foreach (... in query)` as
-covered by `ReactivityTests`. Explicit runtime `.iter()` / `.par_iter()` do not
-apply this change-detection filter; they traverse its required component set.
-The older companion/tag reactive implementation was removed; use the public
-API under `src/Reactivity/` for new subscriptions and change filters.
 
 ---
 
@@ -1011,7 +1040,7 @@ ensure that pool slot exists. Use `Res<T>` for resource state. Aspects implement
 update a cached per-type aspect for that entity. Do not retain its mutable
 reference across another aspect access or share it across parallel work.
 
-Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/f48c3230e84da63fe9e0c30e739600806b211d69/Demos/README.md).
+Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/7adc2438c0661158d2fcb3c09424bb38653630f7/Demos/README.md).
 
 ## World Serialization
 
