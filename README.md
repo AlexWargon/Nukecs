@@ -129,7 +129,7 @@ read-only access. `State.Time.DeltaTime` is the frame duration passed to
 **Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
 value increases by approximately 2 each second of simulation time. This example
 updates ECS data only. To see moving GameObjects, follow the
-[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/af6b502a6cac7d301cf0e74cc8d57ef35ea77517/Demos/README.md).
+[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/bc26b9afd3104185724aa64c2e0e92e05db9227d/Demos/README.md).
 
 The snippets below build on the same `Position` and `Velocity` components.
 
@@ -356,7 +356,7 @@ show how to choose between tags, temporary payload components, and event buffers
 |---|---|
 | Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
 | Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
-| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/af6b502a6cac7d301cf0e74cc8d57ef35ea77517/Demos/README.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/bc26b9afd3104185724aa64c2e0e92e05db9227d/Demos/README.md) |
 | React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
 | Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
 | Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |
