@@ -1,7 +1,10 @@
 # Nukecs — documentation review
 
-Reviewed revision: `dev` @ `089f73a` (2026-10-02). An earlier pass was done on
-`Storage-Rework` @ `38b4add` (2026-09-08); items fixed since then are listed in §8.
+Current pass: `dev` @ `ef5cf83` (2026-10-03). Earlier passes: `Storage-Rework` @ `38b4add`
+(2026-09-08) and `dev` @ `089f73a` (2026-10-02). The full text of the `089f73a` findings is
+in commit `4442224`; this file now tracks their status plus the remaining and new findings.
+Item numbers (§1.12, §4.3, …) are kept from the `089f73a` review so they can be matched.
+The author's follow-up notes are kept verbatim below.
 
 ## Follow-up status (2026-10-02)
 
@@ -63,262 +66,271 @@ Unity 6000.0.63f1 EditMode: 193/193 passed, including 12 generation cases and
 pool/query, prefab, world, serialization and reactive-load regressions.
 Results: `UnitTests/TestResults_Generations.xml`. Save format is now 2.
 
-**Method.** README.md, AGENTS.md, ARCHITECTURE.md, NUKECS_AGENTS_GUIDE_EN/RU.md and
-`src/Systems/FnSystems/RuntimeQuery/README.md` were compared with the source by reading.
-Nothing was compiled or run in Unity. The source generator ships only as
-`SourceGen/NUKECSGEN.dll`, so generator behaviour was inferred from the DLL's strings,
-call sites and tests. Items marked **(to verify)** are inferred, not confirmed.
+---
 
-**Severity:** **High** — the example does not compile or describes wrong behaviour;
-**Medium** — misleading or a missing step; **Low** — inaccurate detail or cosmetic.
+*Everything below this line was updated for `dev` @ `ef5cf83`; line numbers refer to that
+revision.*
 
-## Summary
+**Method.** README.md, AGENTS.md, ARCHITECTURE.md, NUKECS_AGENTS_GUIDE_EN/RU.md, POST_1_0.md
+and `src/Systems/FnSystems/RuntimeQuery/README.md` were compared with the source by reading,
+and the author's follow-up claims above were checked against the source (§3). Nothing was
+compiled or run in Unity. The source generator ships only as `SourceGen/NUKECSGEN.dll`, so
+generator behaviour was inferred from the DLL's strings, call sites and tests.
 
-| Area | Score |
+**Severity:** **High** — the example does not compile, produces a wrong result or breaks a
+build; **Medium** — misleading or a missing step; **Low** — inaccurate detail or cosmetic.
+
+## 1. Summary of this pass
+
+| Area | `089f73a` | `ef5cf83` |
+|---|---|---|
+| Core ECS (components, systems, queries, ECB, resources), including the gameplay guide | 8/10 | 8.5/10 |
+| README.md accuracy on its own | 6/10 | 7.5/10 |
+| ARCHITECTURE.md | 7.5/10 | 7.5/10 |
+| Building a complete game from the docs | 5/10 | 5.5/10 |
+
+Status of the 56 findings from the `089f73a` review:
+
+| Status | Count | Items |
+|---|---|---|
+| Fixed | 19 | §1.1–1.6, §1.8–1.11, §1.13, §1.22; §2.1, §2.2, §2.6; §6.1–6.4 |
+| Obsolete (code removed) | 2 | §1.7 (`EntityCreated`), §7.4 (`Single<T>`) |
+| Answered | 2 | §7.1 (MainRun contract), §7.3 (`IRes.OnCreate`, see N2) |
+| Partly fixed | 4 | §5.2, §5.4, §6.6, §7.2 |
+| Still open | 29 | listed in §2 |
+
+What changed:
+
+- **Most High findings are fixed.** The README examples for `[System]`, `Local<T>`,
+  hierarchy, events, transforms and deferred copy now match the source.
+- **Code behind the review was fixed.** `DestroyNow` is now really immediate and documented
+  consistently. `WorldInstaller` runs `OnStart()`. `World.Load(byte[])` works, the legacy
+  `SystemsGroup` routing is fixed, and `Single<T>`/`MutRes<T>` were removed.
+- **Entity handles carry a generation**, documented in README and ARCHITECTURE.md.
+
+What remains:
+
+- **High:**
+  - the README prefab example (§1.12, now confirmed);
+  - three non-compiling AGENTS.md §16 examples (§2.3–2.5);
+  - a new player-build blocker in `EditorIcons.cs` (N1).
+- **Gaps that did not change:** installation, rendering, GameObject linking beyond
+  transforms, demo documentation.
+
+## 2. Open findings (current line numbers)
+
+### README.md
+
+- **§1.12 (High, confirmed).** The prefab example `README.md:469-476` produces empty
+  instances.
+  - `prefab.Add(...)` is deferred through the ECB (`src/Entity/Entity.cs:188-193`), but
+    `SpawnPrefab` copies the prefab immediately (`src/World/World.Unsafe.cs:510-514`). The
+    copies are made before the prefab has `Speed`/`IsPrefab`.
+  - Add `world.Update();` before `SpawnPrefab`, as `EntityPrefabMap` does
+    (`src/Unity/EntityPrefabMap.cs:45-48`).
+  - Mention that `OnPrefabSpawn` (which strips `IsPrefab` from copies) is registered only
+    by `AddDefaults()`.
+- **§1.14 (Low). `Threads` enum order.** `README.md:527-533` lists
+  `Main, MainRun, Single, Parallel`; the actual order is `Main, MainRun, Parallel, Single`
+  (`src/Systems/Systems.cs:866-886`).
+- **§1.15 (Low). `WorldConfig` capacity table.** `README.md:1288-1299` shows round
+  numbers; several presets reserve one more (`src/World/World.cs:200-247`). Tracked in
+  POST_1_0.md #18.
+- **§1.16 (Low). `ResManaged` example.** `README.md:985-998` doesn't say the resource must
+  be a `class` (`AddResManaged<T> where T : class, IRes`, `src/World/World.cs:166`).
+- **§1.17 (Low). Event type example.** `README.md:1043` makes the event an `IComponent`;
+  `Events<T>` only needs `unmanaged`.
+- **§1.18 (Low). Batch inspection snippet.** `README.md:253` uses an undeclared
+  `updateSystems`, and `Systems.Runners` returns only the Update list
+  (`src/Systems/Systems.cs:43`).
+- **§1.19 (Low). Event iteration copies.** `README.md:1063` uses
+  `foreach (var evt in events)`, which copies each event; `foreach (ref var evt in events)`
+  is supported.
+- **§1.20 (Low). Silent no-ops on live entities are undocumented.**
+  - `Add<T>` does nothing if the component is already present (`Entity.cs:191`).
+  - `Set<T>` does nothing if it is absent (`Entity.cs:238`).
+  - `TryGet` returns a null reference when absent (`Entity.cs:168`).
+  - README now documents only the expired-handle behaviour (`README.md:436`).
+- **§1.21 (Low). Fixed update is undocumented.** The interval is hardcoded to 16 ms, with
+  at most one fixed tick per `OnUpdate` (`src/Systems/Systems.cs:29`, `:142-154`).
+
+### AGENTS.md
+
+- **§2.3 (High). `SpawnSystem` uses a missing field.** `config.Ref.timer`
+  (`AGENTS.md:554`), but `ConfigData` (`AGENTS.md:482-488`) has no `timer` field.
+- **§2.4 (High). Ambiguous `Transform`.** `Get<Transform>()` / `With<Transform>()`
+  (`AGENTS.md:626`, `:630`) are CS0104 with the listed usings (`AGENTS.md:439-445`). Use
+  `using Transform = Wargon.Nukecs.Transforms.Transform;`.
+- **§2.5 (High). `GameObjectView`.** `GameObjectView : IComponent, IDisposable`
+  (`AGENTS.md:461`) lacks `using System;`, and adding it makes `Object.Destroy`
+  (`AGENTS.md:468`) ambiguous.
+- **§2.7 (Medium). Contradicting `Res<T>` advice.** `AGENTS.md:1067` says `new Res<T>().Ref`
+  works anywhere, `AGENTS.md:1070` says not to use it from MonoBehaviours, and the pausing
+  example at `AGENTS.md:1147` does exactly that.
+- **§2.8 (Low). Redeclared `e`.** The entity creation snippet `AGENTS.md:713-742` declares
+  `e` several times in one block.
+- **§2.9 (Low). Generator source path.** It points outside the repository
+  (`AGENTS.md:12`, `:287`).
+
+### ARCHITECTURE.md
+
+- **§3.1 (Medium). Stale batch-generation rules.** `ARCHITECTURE.md:95-101` still says the
+  `foreach` must be the only top-level statement and that `var dt = ...` before the loop
+  disables batching. This contradicts `README.md:233-239`, `AGENTS.md:327-334` and guide
+  EN `:213-220`.
+
+### NUKECS_AGENTS_GUIDE_EN.md / _RU.md (still equivalent)
+
+- **§4.1 (Medium). Missing reference file.** The guide references
+  `Assets/Game/Scripts/EcsTest.cs`, which is not in the repository (EN `:5`, `:112`;
+  RU `:7`, `:111`).
+- **§4.2 (Medium). Burst attribute on Main systems.** `[System, BurstCompile]` is on
+  systems registered with `Threads.Main`, where Burst is not used:
+  - EN: `Initialize` `:85` (registered `:55`, `:137`, `:164`), `Consume` `:356`
+    (registered `:371`).
+  - RU: `:85` and `:352`.
+  - This contradicts the guide's own §2.
+- **§4.3 (Medium). `ComponentArray` pitfalls are missing** (EN `:457-483`, RU `:448-472`).
+  - `AddArray` flushes the whole ECB (`src/Entity/EntityArrayExtensions.cs:52`).
+  - The API takes `this ref Entity`.
+  - `GetArray` throws when missing (`:21`).
+  - `DEFAULT_MAX_CAPACITY` is internal (`src/Components/ComponentArray.cs:12`).
+  - The 15-vs-16 capacity quirk is still in code (`ComponentArray.cs:104`).
+- **§4.4 (Low). RU formatting.** Blank lines are missing before `RU:172` (`## 2.`) and
+  `RU:473`.
+
+### Missing documentation
+
+- **§5.1 Installation.** Still missing: Unity version (the follow-up mentions
+  6000.0.63f1), required packages, the TriInspector dependency (`src/Nukecs.asmdef:8`),
+  the analyzer DLL setup, and `NUKECS_DEBUG`. There is no `package.json`
+  (POST_1_0.md #13–14).
+- **§5.2 (partly fixed) GameObject ↔ entity.** `TransformRef`,
+  `TransformsUtility.Convert` and the `EntityPrefabMap` cache are now documented.
+  `EntityBaker`, `EntityLinkSO`, `WorldBaker` and `GameObjectRef` are still not, and there
+  is no "show an entity on screen" walkthrough.
+- **§5.3 Rendering.** Nothing is documented; point readers to `RenderMeshInstanced` in
+  BoidsDemo and CubeSculptureDemo.
+- **§5.4 (partly fixed) `AddDefaults()`.** It is now mentioned, but not what it registers
+  (`OnPrefabSpawn`, `ClearEvents` — `src/Systems/Systems.cs:166-172`).
+  `Systems.Default(ref world)` (`Systems.cs:161`) is undocumented.
+- **§5.5 Status of `ISystem` / `IEntityJobSystem` / `SystemsGroup` is contradictory.**
+  AGENTS.md presents them as normal API (`AGENTS.md:617-640`, `:933-941`), the guide calls
+  them legacy (EN `:110-111`), and README is silent.
+- **§5.6 Other undocumented API.** `GetSingleton<T>`, `IAspect` / `GetAspect<T>`,
+  `AddObject` / `SetObject`.
+- **§5.7 Demos.** There is no README, no scenes and no run instructions.
+- **§5.8 Physics, input, UI, audio.** Not provided, and not stated anywhere. The `Input`
+  component (`src/Components/Component.cs:92`) is unused.
+
+### Code and packaging
+
+- **§6.5 (Low) Stray component.** `public struct Cube : IComponent` is in
+  `src/Unity/WorldInstaller.cs:65` (RotateCubeDemo depends on it).
+- **§6.6 (partly fixed) `WorldInstaller.Awake`.** `Awake` is now `protected virtual`
+  (`WorldInstaller.cs:19`) but still calls `World.DisposeStatic()` (`:21`, POST_1_0.md #17).
+- **§6.7 (Low) Name clash.** `Wargon.Nukecs.Transforms.Systems`
+  (`src/Unity/SyncTransformsSystem.cs:5`) clashes with `Wargon.Nukecs.Systems`.
+- **§6.8 (Low) Stale archives.** `SourceGen/NUKECSGEN.zip` and `SourceGen/NUKECSGEN2.zip`
+  are still tracked.
+
+### Open question
+
+- **§7.2 (partly answered). Pool-component plain `foreach` under `Threads.Parallel`.**
+  - For Entity-first queries the generated fallback enumerator is the range-splitting
+    `QueryParIterWithEntity` (DLL strings; `QueryIteratorsParallel.cs:234-340`), so the
+    guide's `ApplyDamage` example is probably correct.
+  - Non-Entity shapes such as `Query<T1, TPool>` are unconfirmed.
+  - No test runs a plain `foreach` over a pool component under Parallel. Adding one would
+    close this.
+
+## 3. Verification of the author's follow-up claims
+
+| Claim | Result |
 |---|---|
-| Core ECS (components, systems, queries, ECB, resources), including the new gameplay guide | 8/10 |
-| README.md accuracy on its own | 6/10 |
-| ARCHITECTURE.md | 7.5/10 |
-| Building a complete game from the docs | 5/10 |
+| `World.Load(WorldConfig, byte[])` deserializes, keeps the slot, rejects an occupied slot, cleans up on failure | Confirmed (`src/World/World.Static.cs:193-233`); 7 regressions in `ReviewFollowupTests.cs`. Minor: the `ManagedWorld` pointer allocated in `Create` is not freed on failure (nor on a normal `Dispose`). |
+| Legacy `SystemsGroup` lists routed to the right phases | Confirmed (`src/Systems/Systems.cs:283-293`). Within a group, all `runners` still precede all `mainThreadRunners` regardless of registration order. |
+| `WorldInstaller` runs `OnStart` after initial playback, flushes, virtual `Awake` | Confirmed (`WorldInstaller.cs:19`, `:33-36`). |
+| Runtime `UnityEditor` import removed | Confirmed for `Singleton.cs`; another one remains, see N1. |
+| `Single<T>` / `MutRes<T>` removed | Confirmed; no remaining usages in src, tests, demos or docs. |
+| Only `CopyViaECB` remains | Confirmed; an orphan doc comment for the removed alias is left at `Entity.cs:482`. |
+| `Local<T>` per registration and per world, restored on load | Consistent with `Local.cs`, `LocalParamSlots.cs`, `ResStorage.cs` and `LocalResourceTests.cs`; the generator side is visible only through DLL strings. |
+| `DestroyNow` immediate; ECB skips expired commands; destruction systems removed; tag no longer deletes | Confirmed (`Entity.cs:413-443`, `EntityCommandBuffer.cs`, `World.Unsafe.cs:318-333`). No source, test or demo relies on the tag. Leftovers: N9, N13. |
+| Entity is 8 bytes with a generation; save format 2 | Confirmed (`Entity.cs:13-20`, `:68-89`; `nukecs.cs:9`; `Serialization.cs:38-41`). The previous struct was also 8 bytes because of padding. |
+| Test results 122/122, 81/81, 57/57, 82/82, 92/92, 193/193 | **Not verifiable.** None of the referenced `UnitTests/TestResults_*.xml` files is committed. The only tracked result, `UnitTests/TestResults_20260622_154845.xml`, is stale (12 total, 1 failed). Commit the XMLs or drop the references. |
 
-What works well:
+## 4. New findings at `ef5cf83`
 
-- `NUKECS_AGENTS_GUIDE_EN.md` is the most useful document: a correct owner template
-  (`OnStart()`, `Dispose()` → `DisposeStatic()` order), thread-mode guidance, event
-  patterns and memory rules. Its examples match the source.
-- `POST_1_0.md` openly lists known limitations.
-- ARCHITECTURE.md explains the storage model and invariants in depth.
-- Most API signatures shown in README exist as documented.
-
-Main problems:
-
-- README.md was barely updated in the 1.0 pass: 15 of 20 issues from the previous
-  review remain, and two README snippets no longer compile because the code changed
-  (`[System(Threads.X)]`, `SaveRes<T>`).
-- AGENTS.md and ARCHITECTURE.md contradict the source or README in places
-  (`DestroyNow`, batch-generation rules).
-- No installation section; nothing on rendering, GameObject linking or input.
-
-## 1. README.md
-
-### High
-
-1. **`[System(Threads.Main)]` no longer compiles.** `README.md:464-465`, `README.md:1006`.
-   `SystemAttribute` (`src/Systems/Systems.cs:1004`) lost its `Threads` constructor in
-   the 1.0 pass → CS1729. The thread mode comes only from `Systems.Add(method, Threads)`
-   / `AddSystems`. Remove the attribute-argument form and document mode selection via `Add`.
-2. **`SaveRes<T>` section documents a deleted type.** `README.md:955-968`. The type was
-   removed (`src/Systems/FnSystems/Res.cs:85`). Delete the section.
-3. **`Local<T>` example does not compile.** `README.md:976-980` uses `Local<MyState>` and
-   `local.Value`. Actual: `Local<TData> where TData : unmanaged, IRes` with field `Ref`
-   (`src/Systems/FnSystems/Single.cs:136-138`). See also §7.4.
-4. **`GetRootParent` example does not compile.** `README.md:451`
-   `ref var root = ref entity.GetRootParent();` — the method returns `Entity` by value
-   (`src/Entity/EntityChildrenExtensions.cs:50`) and returns `Entity.Null` when there is
-   no parent.
-5. **Event lifetime is described wrongly.** `README.md:1020` says events persist until
-   explicitly cleared. `AddDefaults()` registers `DefaultSystems.ClearEvents`
-   (`src/Systems/Systems.cs:160`, `src/BuiltInSystems.cs:93-95`), which clears every
-   event buffer on each update, and `WorldInstaller` always calls `AddDefaults()`
-   (`src/Unity/WorldInstaller.cs:25`). The gameplay guide (§3) explains this correctly;
-   README should too.
-6. **Transform sync is off by default and README doesn't say how to enable it.**
-   `README.md:1103` ("Built-in Transform Systems"). The systems are static methods in
-   `TransformsGroup` (`src/Unity/Transforms/TransformsGroup.cs:6`) and are registered
-   neither by `WorldInstaller` nor by `AddDefaults()`; users must call
-   `Systems.AddGroup(new TransformsGroup())`. Sync is one-way and reads only world-space
-   `Transform` + `TransformRef` (`TransformsGroup.cs:72`), while both Quick Starts use
-   only `LocalTransform`, so nothing visible moves.
-7. **`EntityCreated` is never added.** `README.md:374` says it is added to new entities
-   and cleared each frame. Nothing adds it (`src/Components/Component.cs:70` only defines
-   it), and the clearing system's registration is commented out
-   (`src/Systems/Systems.cs:161`).
-
-### Medium
-
-8. **`SetParent` direction is reversed.** `README.md:448` `parent.SetParent(childParent)`.
-   In `SetParent(this ref Entity entity, Entity newParent)` the receiver is the child
-   (`src/Entity/EntityChildrenExtensions.cs:44`). It should read `child.SetParent(parent)`.
-9. **Start systems under `WorldInstaller` never run.** `WorldInstaller` does not call
-   `Systems.OnStart()` (`src/Unity/WorldInstaller.cs:19-35`). README explains `OnStart`
-   in the lifecycle section (`README.md:537-547`), but neither Quick Start mentions it,
-   and Quick Start #1 says the installer handles "default systems". Either call
-   `OnStart()` in the installer or say so in the Quick Start.
-10. **The hot-reload sample skips `AddDefaults()`.** `README.md:1166`
-    `new Systems(ref world)` — so no `OnPrefabSpawn` or
-    `ClearEvents`. The demos follow the same pattern.
-11. **Deferred copy name.** README used the obsolete misspelled alias. Use
-    `CopyViaECB`; the alias has now been removed.
-12. **Prefab example order (to verify).** `README.md:436-441` adds `IsPrefab` (deferred
-    through the ECB) and immediately calls `SpawnPrefab`, which copies at once
-    (`src/World/World.Unsafe.cs:503`). `EntityPrefabMap` calls `world.Update()` before
-    spawning. Without a playback the prefab may not yet have its components.
-    `OnPrefabSpawn`, which strips `IsPrefab` from copies, exists only with `AddDefaults()`.
-13. **Stale date.** `README.md:126` says the API is described "as of 2026-09-08", before
-    the 1.0 stabilization changes.
-
-### Low
-
-14. **`Threads` enum order.** `README.md:487-490` lists `Main, MainRun, Single, Parallel`;
-    the actual order is `Main, MainRun, Parallel, Single` (`src/Systems/Systems.cs:873`).
-15. **`WorldConfig` capacity table.** `README.md:1206-1217` shows round numbers. Actual
-    values: `Default1024` = 1025, `Default16384` = 16385, `Default163840` = 163841,
-    `Default256000` = 256001, `Default_1_000_000` = 1,000,001. Tracked in POST_1_0.md #18.
-16. **`ResManaged` example.** `README.md:945` doesn't say the resource must be a `class`
-    (`AddResManaged<T> where T : class, IRes`).
-17. **Event type example.** `README.md:989` implements `IComponent`; `Events<T>` only
-    requires `unmanaged`.
-18. **Batch inspection snippet.** `README.md:252` uses an undeclared `updateSystems`, and
-    `Systems.Runners` returns only the Update list (`src/Systems/Systems.cs:43`).
-19. **Event iteration copies.** `foreach (var evt in events)` copies each event;
-    `foreach (ref var evt in events)` is supported and avoids the copy.
-20. **Silent no-ops are undocumented.** `entity.Set<T>` does nothing if the component is
-    absent, `entity.Add<T>` does nothing if it is already present (`src/Entity/Entity.cs:177`),
-    and `TryGet` returns a null reference when the component is absent. One line each
-    would help.
-21. **Fixed update is undocumented.** The interval is hardcoded to 16 ms, with at most
-    one fixed tick per `OnUpdate` (`src/Systems/Systems.cs:28`, `:131-142`).
-22. **`Entity` equality.** Equality now includes `worldIndex`; this is not mentioned.
-
-## 2. AGENTS.md
-
-### High
-
-1. **`DestroyNow` is described as immediate.** `AGENTS.md:747`, `AGENTS.md:1000`. The
-   source (`src/Entity/Entity.cs:415`) only enqueues `ECB.Destroy`, which is identical to
-   `Destroy()`; its own XML doc says so, and inline destroy is postponed
-   (POST_1_0.md #12). README (`README.md:419-424`) is correct, so AGENTS.md contradicts
-   both.
-2. **`[System(Threads.Main)]` in the Events section no longer compiles.** `AGENTS.md:814`,
-   `AGENTS.md:838` — see §1.1.
-3. **§16 `SpawnSystem` uses a missing field.** It uses `config.Ref.timer`
-   (`AGENTS.md:546`), but `ConfigData` has no `timer` field.
-4. **§16 `RotateSystem` has an ambiguous `Transform`.** `Get<Transform>()`
-   (`AGENTS.md:622`), with the listed usings (`Wargon.Nukecs.Transforms` and
-   `UnityEngine`), is CS0104. Use `using Transform = Wargon.Nukecs.Transforms.Transform;`
-   as `src/Unity/WorldInstaller.cs:6` does.
-5. **§16 `GameObjectView` is missing `using System;`.** `GameObjectView : IComponent,
-   IDisposable` (`AGENTS.md:453`) needs it, but adding it makes `Object.Destroy`
-   (`AGENTS.md:460`) ambiguous; use `UnityEngine.Object.Destroy`.
-
-### Medium
-
-6. **"Events — Must Clear Manually"** (`AGENTS.md:1018-1029`). With `AddDefaults()` the
-   buffers are cleared every update anyway; reconcile this section with guide §3.
-7. **Contradicting `Res<T>` advice.** `AGENTS.md:1057` says not to access `Res<T>` from
-   MonoBehaviours, while the pausing example at `AGENTS.md:1134` does exactly that.
-8. **Entity creation snippet redeclares `e`.** `AGENTS.md:707-729` declares `e` several
-   times in one block (CS0128 if pasted as is).
-9. **Generator source path is outside the repository.** `../../../NUKECSGEN/`
-   (`AGENTS.md:12`, `AGENTS.md:287`), so contributors cannot find it (POST_1_0.md #15).
-
-## 3. ARCHITECTURE.md
-
-1. **Stale batch-generation rules (Medium).** `ARCHITECTURE.md:81-93` says the `foreach`
-   must be the only top-level statement and that even `var dt = ...` before the loop
-   disables batching. Since the 1.0 pass the generator preserves surrounding code
-   (`README.md:229-246`, AGENTS.md §7, guide §2,
-   `UnitTests/BatchRewriteRegressionTests.cs`). The guide sends readers to
-   ARCHITECTURE.md, so they get conflicting rules.
-
-## 4. NUKECS_AGENTS_GUIDE_EN.md / NUKECS_AGENTS_GUIDE_RU.md
-
-The EN and RU versions are equivalent (code blocks are identical; only comments are
-translated), so each item applies to both.
-
-1. **Missing reference file (Medium).** The guide references
-   `Assets/Game/Scripts/EcsTest.cs` (EN `:5`, `:112`), which is not in this repository.
-2. **Burst attribute on Main systems (Medium).** `Initialize` (EN `:85`) and
-   `MovementEvents.Consume` (EN `:349`) are `[System, BurstCompile]` but registered with
-   `Threads.Main` (EN `:55`, `:137`, `:364`), where Burst is not used. This contradicts
-   the guide's own §2 (Burst → MainRun/Single/Parallel; Main → managed code without
-   Burst). Drop the attribute or register them with `MainRun`.
-3. **`ComponentArray` pitfalls are missing (Medium).**
-   - `AddArray` flushes the whole ECB (`src/Entity/EntityArrayExtensions.cs:52`), so it
-     must not be called inside systems or during iteration.
-   - `AddArray`, `GetArray` and `RemoveArray` take `this ref Entity`, so they cannot be
-     called on a `foreach` iteration variable.
-   - `GetArray` throws when the array is missing (`EntityArrayExtensions.cs:21`).
-   - `DEFAULT_MAX_CAPACITY` is `internal` (`src/Components/ComponentArray.cs:12`), so
-     gameplay code cannot read it.
-   - The 15-vs-16 capacity quirk (`ComponentArray.cs:104`) is better fixed in code than
-     documented.
-4. **RU formatting (Low).** Blank lines are missing before `## 2.` and before the
-   "Fluent query" paragraph.
-
-## 5. Missing documentation
-
-1. **Installation.** Unity version; required packages (Burst, Collections, Mathematics,
-   Jobs); the TriInspector dependency (`src/Nukecs.asmdef:8`); how to add the analyzer
-   DLL; how to enable `NUKECS_DEBUG`. There is no `package.json` (POST_1_0.md #13–14).
-2. **GameObject ↔ entity.** `EntityBaker` (`src/Unity/EntityBaker.cs`), `EntityLinkSO`
-   (`src/Unity/EntityLinkSO.cs`), `EntityPrefabMap`, `WorldBaker`, the
-   `Convert(UnityEngine.Transform, ...)` helper (`src/Unity/Transforms/Transform.cs:27`),
-   `TransformRef` and `GameObjectRef` are undocumented. `EntityLink` and
-   `WorldInstaller.ConvertEntities` are commented out (`src/Unity/WorldInstaller.cs:32`,
-   `:48-56`). A short "how to show an entity on screen" section is the biggest gap for
-   game developers.
-3. **Rendering.** Nothing is built in. The demos use `Graphics.RenderMeshInstanced`
-   (BoidsDemo, CubeSculptureDemo); point readers to them.
-4. **`AddDefaults()` / `Systems.Default(ref world)`** (`src/Systems/Systems.cs:151-160`)
-   are not mentioned in README.
-5. **`ISystem`, `IEntityJobSystem`, legacy `SystemsGroup`.** README is silent, while the
-   guide calls them legacy. State their status in README (supported or deprecated).
-6. **Other undocumented API.** `world.GetSingleton<T>()` (`src/World/World.cs:157`),
-   aspects (`IAspect`, `GetAspect<T>`), `entity.AddObject` / `SetObject`,
-   `world.GetEntity(id)`.
-7. **Demos.** There is no README and no scenes; explain how to run each demo.
-8. **Physics, input, UI, audio.** None are provided; say so explicitly so users don't
-   search for them. The `Input` component (`src/Components/Component.cs:93`) is unused.
-
-## 6. Code and packaging issues noticed during the review
-
-1. **(High) Player builds may fail.** `src/Singleton.cs:8` has an unguarded
-   `using UnityEditor;` in the runtime assembly (`src/Nukecs.asmdef`, no platform
-   restriction). Not tested in a build.
-2. **(High) `World.Load` ignores its data.** `World.Load(WorldConfig config, byte[] data)`
-   (`src/World/World.Static.cs:171`) never reads `data` and just creates an empty world.
-3. **(Medium) Unimplemented system parameters.** `Single<T1>` and `MutRes<T>` methods
-   throw `NotImplementedException` (`src/Systems/FnSystems/Single.cs:27-37`, `:72-82`),
-   yet `Single<T>` is documented as a system parameter (README, AGENTS.md §8).
-4. **(Medium, to verify) `SystemsGroup` list mapping looks scrambled.**
-   `Systems.Add<T>(T group) where T : SystemsGroup` (`src/Systems/Systems.cs:291-297`)
-   maps `runners` → `onStart`, `fixedRunners` → `onUpdate`, `mainThreadRunners` →
-   `onFixedUpdate`, `mainThreadFixedRunners` → `onDestroy`.
-5. **(Low) Stray component.** `public struct Cube : IComponent` sits in
-   `src/Unity/WorldInstaller.cs:63`; RotateCubeDemo depends on it.
-6. **(Low) `WorldInstaller.Awake` is private and non-virtual** (`WorldInstaller.cs:19`).
-   A subclass that defines its own `Awake` silently hides it. It also calls
-   `World.DisposeStatic()` (POST_1_0.md #17).
-7. **(Low) Name clash.** The class `Wargon.Nukecs.Transforms.Systems`
-   (`src/Unity/SyncTransformsSystem.cs:5`) clashes with `Wargon.Nukecs.Systems` when both
-   namespaces are imported.
-8. **(Low) Stale archives.** `SourceGen/NUKECSGEN.zip` and `SourceGen/NUKECSGEN2.zip`
-   contain old DLL builds (POST_1_0.md #16).
-
-## 7. Open questions (to verify)
-
-1. **Clarified: `Threads.MainRun` after `Threads.Parallel` writers.** `ExecuteSequentialUpdate`
-   (`src/Systems/Systems.cs:685-710`) completes previous jobs only before `Threads.Main`
-   runners. MainRun deliberately runs synchronously without a dependency argument.
-   Complete prior jobs explicitly before accessing data they use.
-2. **Pool-component `foreach` under `Threads.Parallel`.** With an `IPoolComponent` the
-   batch rewrite is disabled. Does the fallback enumerator respect the job range? If not,
-   every worker processes all entities; this affects the guide's `ApplyDamage` example.
-3. **`IRes.OnCreate` timing.** It appears to be called from `Res<T>.Init` (once per
-   consuming system), not from `AddRes`, so it may run several times or never.
-4. **`Local<T>` / `Single<T>` generator support.** Neither is used anywhere in src, tests
-   or demos.
-
-## 8. Fixed since the previous review (`38b4add` → `089f73a`)
-
-- **README async load.** `world = await World.LoadAsync(path, world)` is documented and
-  matches `src/World/World.SerializeAndSave.cs`.
-- **README `DestroyNow`.** The description matches the source; AGENTS.md does not (§2.1).
-- **Sparse chunk `CopyTo`** works for all arities, and ARCHITECTURE.md is updated.
-- **Removals.** `SaveRes` was removed from AGENTS.md, and the duplicate `src/Reactive/`
-  was removed.
-- **Generator diagnostics.** `[RequireBatch]`, `NUKECS002` and
-  `ISystemCompilationInfoProvider` are documented accurately.
-- **New documents.** The gameplay guide and POST_1_0.md were added. AGENTS.md lists the
-  stabilization fixes; 11 were spot-checked and all are confirmed in the source.
+- **N1 (High) Player build blocker.** `src/Unity/Editor/World/EditorIcons.cs:3` has
+  `using UnityEditor;` before its `#if UNITY_EDITOR && NUKECS_DEBUG` (`:6`). The folder is
+  covered by `src/Nukecs.asmdef`, which has no platform restriction, so player builds fail
+  with the same error as the fixed `Singleton.cs`. Move the `using` inside the `#if`.
+- **N2 (Medium) `IRes.OnCreate` never runs for registered resources.** `README.md:956`
+  says it is "Called once on creation".
+  - `Res<T>.Init` (`src/Systems/FnSystems/Res.cs:56-60`) calls it only when a system
+    parameter is created for a resource that was not registered beforehand
+    (`World.Unsafe.cs`, `GetSystemParam2`).
+  - For resources added with `world.AddRes` / `AddResManaged`, the documented pattern, it
+    never runs.
+  - The `IRes` XML doc (`src/Systems/FnSystems/Local.cs:19-23`) describes `Local`
+    semantics.
+  - Fix: call `OnCreate` from `AddRes`, or fix the docs.
+- **N3 (Medium) No public way to wait for outstanding jobs.** The MainRun contract now
+  requires the caller to wait, but:
+  - `Systems.Complete()` is internal (`src/Systems/Systems.cs:296`).
+  - The public `Systems.Dependencies` (`Systems.cs:25`) and `World.DependenciesUpdate`
+    (`src/World/World.cs:81`) are never assigned a real handle.
+  - `World.CompleteAllJobs` (`src/World/World.SerializeAndSave.cs:35-39`) completes exactly
+    those handles, so save/load called from a system while Parallel jobs are in flight is
+    not synchronised.
+  - The only workaround is a `Threads.Main` system before the MainRun one. Expose a public
+    `Complete()` or document the workaround.
+- **N4 (Medium) MainRun contract scope.** "MainRun does not wait" holds for the default
+  scheduler only.
+  - With `UseDependencyGraph`, the Legacy and Chained modes complete before MainRun
+    (`SystemDependencyGraph.cs:102-105`; `Systems.cs:437-439`, `:501-503`).
+  - The Flattened modes run Main/MainRun first (`Systems.cs:592`, `:728`).
+  - The `Threads` XML doc (`Systems.cs:870`, `:875`: "In feature Main and MainRun will be
+    same") contradicts the new contract.
+- **N5 (Medium) `ClearEvents` placement.** The default `ClearEvents` is MainRun
+  (`Systems.cs:169`). It is safe only because `WorldInstaller` and the guide call
+  `AddDefaults()` first. Calling `AddDefaults()` after Parallel producers lets `ClearAll`
+  race with `AddPar` writers.
+  - `README.md:1074-1077` and `AGENTS.md:1030-1033` ("place consumers before clearing") do
+    not describe the `WorldInstaller` flow, where clearing runs first.
+  - The guide (EN `:379-385`) is accurate.
+- **N6 (Low) Stale `src/Reactive/` references.** The directory was deleted, but it is still
+  referenced at `AGENTS.md:46`, `:163-166`, `:398`; `README.md:1116`;
+  `ARCHITECTURE.md:168`.
+- **N7 (Low) Stale dates.** "Updated 2026-09-08" remains at `AGENTS.md:5`,
+  `ARCHITECTURE.md:3` and `src/Systems/FnSystems/RuntimeQuery/README.md:3`.
+- **N8 (Low) Outdated AGENTS.md wording.**
+  - `AGENTS.md:22` says `Entity (int ID)`.
+  - `AGENTS.md:38` says "3 thread modes" (there are four).
+  - `AGENTS.md:1069` says `AddManaged`; it should be `AddResManaged`.
+- **N9 (Low) Inline-destroy history is out of date.** POST_1_0.md #12 is still marked
+  BLOCKING and names the removed `EntityDestroyMTSystem`, and `AGENTS.md:251` says inline
+  row removal was reverted. `DestroyNow` now removes the row inline.
+- **N10 (Low) Handle-by-value advice contradicted by examples.** `README.md:433` says to
+  keep handles by value, while examples keep `ref` handles (`README.md:409`;
+  `AGENTS.md:715`, `:721`, `:730`).
+- **N11 (Low) README hierarchy snippet** (`README.md:483-492`):
+  - It uses an undeclared `entity` (`:489`).
+  - It doesn't say that `SetParent` / `AddChild` flush the whole ECB through `AddArray`
+    (`src/Entity/EntityArrayExtensions.cs:47-58`), so they are unsafe inside systems or
+    iteration.
+  - It doesn't say that `Destroy` / `DestroyNow` do not cascade to children; the cascade
+    code in `Archetype.cs:1065-1072` has no callers.
+- **N12 (Low) Incomplete transform list.** The README system list (`README.md:1161-1163`)
+  omits `UpdateTransformOnAddChildSystem` (`TransformsGroup.cs:19`).
+- **N13 (Low) Dead code.**
+  - `ClearTransformsSystem` (`src/Unity/Transforms/Transform.cs:88-111`) destroys
+    GameObjects of entities tagged `DestroyEntity`, but nothing adds the tag or registers
+    the system, so GameObjects behind `TransformRef` are never cleaned up automatically.
+  - An orphan doc comment remains at `Entity.cs:482`.
+  - A commented-out line remains at `Systems.cs:170`.
+- **N14 (Low) Misplaced paragraph.** In `README.md:585-592`, the new `WorldInstaller`
+  paragraph sits between "Call it … entities:" and its code block.
+- **N15 (Low) Undocumented patches.** `SourceGen/Patches~/` (diffs against the external
+  generator repository) is undocumented, and the generator source is still outside the
+  repository (POST_1_0.md #15).
