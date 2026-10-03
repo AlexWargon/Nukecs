@@ -211,6 +211,7 @@ queries passed to `[System]` methods automatically.
 | `Query<Position, Velocity, None<Frozen>>` | Only those without `Frozen`. |
 | `Query<Position, Velocity, (With<Frozen>, None<Fire>)>` | Only those with `Frozen` and without `Fire`. |
 | `Query<Entity, Position, Velocity>` | The same data, plus the entity handle. |
+| `Query<Health, Changed<Health>>` | Entities whose health changed. See the [reactivity example](API_REFERENCE.md#reactivity). |
 
 To skip frozen entities, change the movement system's query type. The trailing
 filter does not add a value to the loop:
