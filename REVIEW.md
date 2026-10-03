@@ -251,10 +251,10 @@ What remains:
 
 ### Missing documentation
 
-- **§5.1 Installation.** Still missing: Unity version (the follow-up mentions
-  6000.0.63f1), required packages, the TriInspector dependency (`src/Nukecs.asmdef:8`),
-  the analyzer DLL setup, and `NUKECS_DEBUG`. There is no `package.json`
-  (POST_1_0.md #13–14).
+- **§5.1 Installation (resolved except UPM manifest).** README now documents
+  the verified Unity/package versions, analyzer DLL setup and `NUKECS_DEBUG`.
+  TriInspector was removed on 2026-10-03; built-in authoring inspectors reuse
+  ECS Debug v2's theme. There is still no `package.json` (POST_1_0.md #14).
 - **§5.2 (partly fixed) GameObject ↔ entity.** `TransformRef`,
   `TransformsUtility.Convert` and the `EntityPrefabMap` cache are now documented.
   `EntityBaker`, `EntityLinkSO`, `WorldBaker` and `GameObjectRef` are still not, and there

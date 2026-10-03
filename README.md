@@ -26,9 +26,18 @@ Editor environment is Unity 6000.0.63f1 with Burst 1.8.29, Collections 2.6.2,
 Mathematics 1.3.2 and Unity's Jobs API. These are tested versions, not claimed
 minimum versions. Tests require Unity Test Framework (tested 1.6.0).
 
-The runtime assembly references TriInspector, used by Unity authoring components:
-install `com.codewriter.triinspector` from
-`https://github.com/codewriter-packages/Tri-Inspector.git` through Package Manager.
+Unity authoring inspectors are included and reuse ECS Debug v2's theme and cards;
+no third-party inspector package is required. They work without `NUKECS_DEBUG`.
+GameObject authoring and live Debug v2 use the same `ComponentCardDrawer` renderer
+for headers, fields and controls. Only the data binding differs (`SerializedObject`
+versus live ECS data); visual changes to the renderer apply to both.
+`WorldInstaller` displays a read-only world ID. `WorldBaker` provides Bake in edit
+mode and Load/Save in play mode, with operation status and error reporting.
+`EntityBaker` and `EntityLinkSO` display component cards. Add Component lists
+concrete, non-generic `IComponent` and `IPoolComponent` types, including structs.
+`EntityLinkSO` stores converter assets as
+Unity object references.
+
 Keep `SourceGen/NUKECSGEN.dll` and its meta file together: retain its
 `RoslynAnalyzer` asset label and disable runtime plug-in loading. Generated
 `Systems.Add` overloads and component registration depend on that analyzer.

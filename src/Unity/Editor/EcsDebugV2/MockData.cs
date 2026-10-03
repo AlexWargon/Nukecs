@@ -1,5 +1,5 @@
 #pragma warning disable CS0618
-#if UNITY_EDITOR && NUKECS_DEBUG
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -112,6 +112,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         }
     }
 
+#if NUKECS_DEBUG
     public class EntityInfo
     {
         public int id;
@@ -424,5 +425,6 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
         }
     }
+#endif
 }
 #endif

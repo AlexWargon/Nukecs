@@ -47,9 +47,9 @@ before 1.0 ships.
 12. **IL2CPP player validation.** This pass validated EditMode + Burst in the
     editor only. Run a Windows/Android IL2CPP build before calling Burst
     support complete.
-13. **TriInspector dependency** — runtime asmdef references TriInspector only
-    for `WorldInstaller` inspector cosmetics. Drop or isolate behind an editor
-    asmdef so the package installs without the git dependency.
+13. **Resolved: TriInspector dependency (2026-10-03).** Removed the assembly
+    reference and attributes. Built-in authoring inspectors reuse ECS Debug v2's
+    theme, cards and buttons without requiring `NUKECS_DEBUG`.
 14. **Package version string.** No `package.json` / version constant ships with
     the package (`NukEcs.version` is runtime-only). Add one for 1.0.
 15. **SourceGen source lives outside the package** (`../../../NUKECSGEN`) — the

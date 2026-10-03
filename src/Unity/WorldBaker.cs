@@ -1,6 +1,5 @@
 ﻿using System.IO;
 using System.Threading.Tasks;
-using TriInspector;
 using UnityEngine;
 
 namespace Wargon.Nukecs {
@@ -9,6 +8,8 @@ namespace Wargon.Nukecs {
         private IOnUpdate _onUpdate;
         private World _runtimeWorld;
         private Systems _systems;
+        internal bool HasRuntimeWorld => _runtimeWorld.IsAlive;
+        internal bool IsRuntimeReady => _systems != null && _runtimeWorld.IsAlive;
         private string FullPath => Path.Combine(path, $"{name}.wrld");
 
         private async void Awake() {
@@ -23,54 +24,63 @@ namespace Wargon.Nukecs {
         private void OnDestroy() {
             if (_runtimeWorld.IsAlive) {
                 _runtimeWorld.Dispose();
-                World.DisposeStatic();
             }
         }
 
-        [Button]
-        private void Load() {
+        internal void Load() {
+            if (HasRuntimeWorld) throw new System.InvalidOperationException("A runtime world is already loaded.");
             _runtimeWorld = World.Create(WorldConfig.Default16384);
-            ;
-
-            World.Load(FullPath, ref _runtimeWorld);
-            _systems = new Systems(ref _runtimeWorld);
-            _systems.AddDefaults();
-            AddSystems(_systems);
-            if (this is IOnCreate onCreate) onCreate.OnCreate(ref _runtimeWorld);
-            if (this is IOnUpdate onUpdate) _onUpdate = onUpdate;
+            try {
+                World.Load(FullPath, ref _runtimeWorld);
+                InitializeRuntime();
+            }
+            catch {
+                Cleanup();
+                throw;
+            }
         }
 
-        [Button]
-        private async Task LoadAsync() {
+        internal async Task LoadAsync() {
+            if (HasRuntimeWorld) throw new System.InvalidOperationException("A runtime world is already loaded.");
             _runtimeWorld = World.Create(WorldConfig.Default16384);
-            ;
             dbug.log("Loading world...");
+            try {
+                _runtimeWorld = await World.LoadAsync(FullPath, _runtimeWorld);
+                InitializeRuntime();
+                dbug.log("World loaded!");
+            }
+            catch {
+                Cleanup();
+                throw;
+            }
+        }
 
-            _runtimeWorld = await World.LoadAsync(FullPath, _runtimeWorld);
+        private void InitializeRuntime() {
             _systems = new Systems(ref _runtimeWorld);
             _systems.AddDefaults();
             AddSystems(_systems);
             if (this is IOnCreate onCreate) onCreate.OnCreate(ref _runtimeWorld);
             if (this is IOnUpdate onUpdate) _onUpdate = onUpdate;
-            dbug.log("World loaded!");
         }
 
-        [Button]
-        private void Save() {
-            _ = _runtimeWorld.SaveToFileAsync(FullPath);
+        internal Task Save() {
+            if (!IsRuntimeReady) throw new System.InvalidOperationException("The runtime world is not ready.");
+            return _runtimeWorld.SaveToFileAsync(FullPath);
         }
 
         protected abstract void AddSystems(Systems systems);
 
 
-        [Button]
-        private async void BakeInternal() {
+        internal async Task BakeInternal() {
             var world = World.Create(WorldConfig.Default16384);
-            Bake(ref world);
-            world.Update();
-            await world.SaveToFileAsync(FullPath);
-            world.Dispose();
-            World.DisposeStatic();
+            try {
+                Bake(ref world);
+                world.Update();
+                await world.SaveToFileAsync(FullPath);
+            }
+            finally {
+                if (world.IsAlive) world.Dispose();
+            }
         }
         /// <summary>
         /// Bake all world data to file.
@@ -78,6 +88,11 @@ namespace Wargon.Nukecs {
         /// </summary>
         public abstract void Bake(ref World world);
 
-        private void Cleanup() { }
+        private void Cleanup() {
+            if (_runtimeWorld.IsAlive) _runtimeWorld.Dispose();
+            _runtimeWorld = default;
+            _systems = null;
+            _onUpdate = null;
+        }
     }
 }

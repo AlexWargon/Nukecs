@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR && NUKECS_DEBUG
+#if UNITY_EDITOR
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
 #pragma warning disable CS0618
