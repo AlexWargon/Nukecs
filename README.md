@@ -34,7 +34,7 @@ and jobs.
 2. Paste this URL:
 
    ```text
-   https://github.com/AlexWargon/Nukecs.git#codex/upm
+   https://github.com/AlexWargon/Nukecs.git#upm
    ```
 
    Unity installs `src`, `SourceGen`, and Markdown documentation, along with the

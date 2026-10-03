@@ -41,7 +41,7 @@ jobs:
           GIT_INDEX_FILE: ${{ runner.temp }}/nukecs-upm.index
         run: |
           set -euo pipefail
-          branch=codex/upm
+          branch=upm
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git read-tree --empty
