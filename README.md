@@ -30,16 +30,26 @@ and jobs.
 
 ## Installation
 
-1. Install **Burst**, **Collections**, and **Mathematics** through Unity's Package Manager.
-2. Download or clone this repository and copy its folder into `Assets/Nukecs`,
-   keeping the `.meta` files. This repository is installed as source under
-   `Assets`; it does not currently include a UPM `package.json`.
+1. Install Git, then open Unity's **Package Manager → Add package from git URL**.
+2. Paste this URL:
+
+   ```text
+   https://github.com/AlexWargon/Nukecs.git#codex/upm
+   ```
+
+   Unity installs `src`, `SourceGen`, and Markdown documentation, along with the
+   required package metadata. Burst, Collections, and Mathematics are resolved
+   automatically. Demos, tests, and benchmarks stay in the source repository.
 3. Enable **Allow 'unsafe' Code** in Player Settings, or **Allow Unsafe Code**
    on your gameplay assembly definition. If you use your own assembly definition,
    add references to `Nukecs`, `Unity.Burst`, and the Unity packages your code uses.
-4. Let Unity compile. Keep `SourceGen/NUKECSGEN.dll` and its `.meta` file together:
-   the `RoslynAnalyzer` label enables system generation; runtime plug-in loading
-   should stay disabled.
+4. Let Unity compile, then follow the quick start below.
+
+For manual installation or the demos, copy the full `dev` checkout into
+`Assets/Nukecs` and install the dependencies above through Package Manager.
+Keep all `.meta` files, including the analyzer metadata in `SourceGen`.
+Choose one installation method to avoid duplicate assemblies.
+See [UPM distribution](UPM.md) for package contents and updates.
 
 The tested environment is **Unity 6000.0.63f1**, Burst **1.8.29**, Collections
 **2.6.2**, and Mathematics **1.3.2**. These are tested versions, not minimum

@@ -20,8 +20,13 @@ Examples are independent snippets; application types such as `Speed`, `Health`,
 
 ## Installation
 
-This checkout is an Assets-based Unity package, without a UPM `package.json`.
-Copy the folder into `Assets/Nukecs`, preserving `.meta` files. The verified
+For UPM installation, use the Git URL in the [README](README.md#installation).
+The distribution contains `src`, `SourceGen`, Markdown documentation, and package
+metadata. Dependencies are declared in `package.json`; see [UPM distribution](UPM.md).
+
+For manual installation, copy the full source checkout into `Assets/Nukecs`,
+preserving `.meta` files, and install the dependencies yourself. Use either UPM
+or the Assets copy, not both. The verified
 Editor environment is Unity 6000.0.63f1 with Burst 1.8.29, Collections 2.6.2,
 Mathematics 1.3.2 and Unity's Jobs API. These are tested versions, not claimed
 minimum versions. Tests require Unity Test Framework (tested 1.6.0).

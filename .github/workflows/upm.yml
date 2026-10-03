@@ -1,0 +1,62 @@
+name: Publish UPM branch
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'src/**'
+      - 'src.meta'
+      - 'SourceGen/**'
+      - 'SourceGen.meta'
+      - '*.md'
+      - '*.md.meta'
+      - 'package.json'
+      - 'package.json.meta'
+      - '.github/scripts/**'
+      - '.github/workflows/upm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-upm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check package exporter
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+      - name: Export committed package
+        run: python3 .github/scripts/export_upm.py --ref "$GITHUB_SHA" --output "$RUNNER_TEMP/nukecs-upm"
+      - name: Publish package tree
+        shell: bash
+        env:
+          GIT_INDEX_FILE: ${{ runner.temp }}/nukecs-upm.index
+        run: |
+          set -euo pipefail
+          branch=codex/upm
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git read-tree --empty
+          git --work-tree="$RUNNER_TEMP/nukecs-upm" add --all
+          tree=$(git write-tree)
+          remote=$(git ls-remote --heads origin "refs/heads/$branch")
+          parents=()
+          if [ -n "$remote" ]; then
+            git fetch origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            parent=$(git rev-parse "refs/remotes/origin/$branch")
+            if [ "$tree" = "$(git rev-parse "$parent^{tree}")" ]; then
+              echo 'Package is unchanged.'
+              exit 0
+            fi
+            parents=(-p "$parent")
+          fi
+          commit=$(git commit-tree "$tree" "${parents[@]}" -m "UPM package from $GITHUB_SHA")
+          git push origin "$commit:refs/heads/$branch"

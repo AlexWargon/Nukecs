@@ -1,7 +1,6 @@
 ﻿// ReSharper disable UnusedMember.Global
 
 using System;
-using Codice.CM.Common;
 using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
