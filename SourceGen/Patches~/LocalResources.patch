@@ -1,0 +1,97 @@
+diff --git a/SrcGen.SystemGen.cs b/SrcGen.SystemGen.cs
+index 0dc40fd..ccc7777 100644
+--- a/SrcGen.SystemGen.cs
++++ b/SrcGen.SystemGen.cs
+@@ -179,7 +179,8 @@ namespace Wargon.Nukecs.NUKECSGEN
+             var runnerInit = new StringBuilder();
+             var wrapperCopy = new StringBuilder();
+             var ptrFieldNames = new List<string>();
+-            var systemParamTypes = new List<(string name, string type)>();
++            var systemParamTypes = new List<(string name, string type, bool isLocal)>();
++            var localParamUpdates = new StringBuilder();
+             const string queryFieldName = "Query";
+ 
+             for (int i = 0; i < parameters.Length; i++)
+@@ -223,16 +224,29 @@ namespace Wargon.Nukecs.NUKECSGEN
+                     otherParamsScheduleList.Add($", ref ptr<{pType}> {pName}");
+                     wrapperFields.AppendLine($"            [NativeDisableUnsafePtrRestriction] public {pType}* {pName};");
+                     runnerFields.AppendLine($"        public ptr<{pType}> {pName};");
+-                    runnerInit.AppendLine($"                {pName} = systems.World.UnsafeWorld->GetSystemParam2<{pType}>(),");
++                    var isLocalParam = p.Type is INamedTypeSymbol localType && localType.Name == "Local"
++                        && localType.ContainingNamespace.ToDisplayString() == "Wargon.Nukecs";
++                    if (isLocalParam)
++                    {
++                        var owner = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
++                            methodSymbol.ContainingType.ToDisplayString() + "." + methodSymbol.Name + "|" + pName + "|" + pType, true);
++                        runnerFields.AppendLine($"        public int _localSlot_{pName} = -1;");
++                        runnerInit.AppendLine($"                {pName} = systems.CreateLocalSystemParam<{pType}>({owner}, out var _localSlotValue_{pName}),");
++                        runnerInit.AppendLine($"                _localSlot_{pName} = _localSlotValue_{pName},");
++                    }
++                    else
++                        runnerInit.AppendLine($"                {pName} = systems.World.UnsafeWorld->GetSystemParam2<{pType}>(),");
+                     wrapperCopy.AppendLine($"                {pName} = {pName}.Ptr,");
+                     ptrFieldNames.Add(pName);
+-                    systemParamTypes.Add((pName, pType));
++                    systemParamTypes.Add((pName, pType, isLocalParam));
+                     
+                     otherParamsCallExecuteList.Add($"{pModifier}*fullData.{pName}");
+                     otherParamsCallRunnerList.Add($"{pModifier}{pName}.Ref");
+                     otherParamsCallRunList.Add($"{pModifier}{pName}.Ref");
+                     otherParamsScheduleCallRunnerList.Add($"ref {pName}");
+-                    if (isEventsDriven && i == eventsParamIndex)
++                    if (isLocalParam)
++                        localParamUpdates.AppendLine($"            {pName}.Ref.Update(ref state.World, IntPtr.Zero);");
++                    else if (isEventsDriven && i == eventsParamIndex)
+                     {
+                         systemParamUpdateRunList.Add($"            Range _range_{pName} = new Range(0, {pName}.Ref.Count);");
+                         systemParamUpdateRunList.Add($"            {pName}.Ref.Update(ref state.World, (IntPtr)UnsafeUtility.AddressOf(ref _range_{pName}));");
+@@ -550,6 +564,7 @@ namespace Wargon.Nukecs.NUKECSGEN
+             {
+                 builder.AppendLine("            Query.Ref.Update(ref state.World, IntPtr.Zero);");
+             }
++            builder.Append(localParamUpdates);
+             builder.AppendLine("            if (Mode == Threads.Main) {");
+             if (hasQuery)
+             {
+@@ -596,6 +611,7 @@ namespace Wargon.Nukecs.NUKECSGEN
+             builder.AppendLine("            return state.Dependencies;");
+             builder.AppendLine("        }");
+             builder.AppendLine("        public void Run(ref State state) {");
++            builder.Append(localParamUpdates);
+             if (hasQuery)
+             {
+                 builder.AppendLine("            Range range = new Range(0, Query.Ref.Count);");
+@@ -622,7 +638,10 @@ namespace Wargon.Nukecs.NUKECSGEN
+             }
+             foreach (var sp in systemParamTypes)
+             {
+-                builder.AppendLine($"            {sp.name} = world.UnsafeWorld->GetSystemParam2<{sp.type}>();");
++                if (sp.isLocal)
++                    builder.AppendLine($"            {sp.name} = world.UnsafeWorld->GetLocalSystemParam<{sp.type}>(_localSlot_{sp.name});");
++                else
++                    builder.AppendLine($"            {sp.name} = world.UnsafeWorld->GetSystemParam2<{sp.type}>();");
+             }
+             builder.AppendLine("        }");
+             builder.AppendLine("    }");
+diff --git a/SrcGen.AddSystems.cs b/SrcGen.AddSystems.cs
+index 62b85f0..b55c8fc 100644
+--- a/SrcGen.AddSystems.cs
++++ b/SrcGen.AddSystems.cs
+@@ -155,7 +155,16 @@ namespace Wargon.Nukecs.NUKECSGEN
+                     if (iSystemParamSymbol != null && InheritsFrom(p.Type, iSystemParamSymbol))
+                     {
+                         var pFullType = p.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+-                        runnerInitBuilder.AppendLine($"                {p.Name} = systems.World.UnsafeWorld->GetSystemParam2<{pFullType}>(),");
++                        if (p.Type is INamedTypeSymbol localType && localType.Name == "Local"
++                            && localType.ContainingNamespace.ToDisplayString() == "Wargon.Nukecs")
++                        {
++                            var owner = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
++                                methodSymbol.ContainingType.ToDisplayString() + "." + methodSymbol.Name + "|" + p.Name + "|" + pTypeDisplay, true);
++                            runnerInitBuilder.AppendLine($"                {p.Name} = systems.CreateLocalSystemParam<{pFullType}>({owner}, out var _localSlotValue_{p.Name}),");
++                            runnerInitBuilder.AppendLine($"                _localSlot_{p.Name} = _localSlotValue_{p.Name},");
++                        }
++                        else
++                            runnerInitBuilder.AppendLine($"                {p.Name} = systems.World.UnsafeWorld->GetSystemParam2<{pFullType}>(),");
+                     }
+                 }
+             }

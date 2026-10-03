@@ -1,0 +1,16 @@
+{
+    "name": "AllocatorEditor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:fdb13d7553561e54997a99cbefc75a25"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

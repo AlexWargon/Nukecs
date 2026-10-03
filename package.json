@@ -1,0 +1,23 @@
+{
+  "name": "com.wargon.nukecs",
+  "version": "1.0.0",
+  "displayName": "Nukecs",
+  "description": "An Entity Component System for Unity with source-generated systems, shared SoA storage, Unity Jobs and Burst support.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.unity.burst": "1.8.29",
+    "com.unity.collections": "2.6.2",
+    "com.unity.mathematics": "1.3.2",
+    "com.unity.modules.animation": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0",
+    "com.unity.modules.ui": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0"
+  },
+  "keywords": ["ecs", "burst", "jobs", "source-generation"],
+  "author": {
+    "name": "AlexWargon",
+    "url": "https://github.com/AlexWargon"
+  },
+  "documentationUrl": "https://github.com/AlexWargon/Nukecs/blob/dev/README.md"
+}

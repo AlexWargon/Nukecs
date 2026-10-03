@@ -1,0 +1,65 @@
+using Unity.Burst;
+using Unity.Mathematics;
+using UnityEngine;
+using Wargon.Nukecs.Transforms;
+using Transform = Wargon.Nukecs.Transforms.Transform;
+
+namespace Wargon.Nukecs
+{
+    using static SystemPath;
+    public class WorldInstaller : MonoBehaviour
+    {
+        [SerializeField] public int WorldId = -1;
+        protected World world;
+        public ref World World => ref world;
+        protected Systems Systems;
+        protected virtual WorldConfig GetConfig() => WorldConfig.Default256;
+
+        protected virtual unsafe void Awake()
+        {
+            world = World.Create(GetConfig());
+            WorldId = world.Id;
+            Systems = new Systems(ref world);
+            Systems.AddDefaults();
+            OnWorldCreated(ref world);
+            for (var i = 0; i < world.UnsafeWorld->archetypesList.Length; i++)
+            {
+                ref var archetype = ref world.UnsafeWorld->archetypesList[i];
+                archetype.Ptr->Refresh();
+            }
+            //ConvertEntities();
+            CreateEntities(ref world);
+            world.Update();
+            Systems.OnStart();
+            world.Update();
+            WorldId = world.UnsafeWorld->Id;
+            
+        }
+
+        protected virtual void OnWorldCreated(ref World world)
+        {
+            
+        }
+
+        protected virtual void CreateEntities(ref World world)
+        {
+            
+        }
+        // protected virtual void ConvertEntities()
+        // {
+        //     var children = transform.GetComponentsInChildren<EntityLink>();
+        //     for (int i = 0; i < transform.childCount; i++)
+        //     {
+        //         var e = world.Entity();
+        //         children[i].Convert(ref world, ref e);
+        //     }
+        // }
+
+        protected virtual void OnDestroy()
+        {
+            if (WorldId >= 0 && World.Get(WorldId).IsAlive && WorldSystems.GetAll(WorldId).Contains(Systems))
+                World.Get(WorldId).Dispose();
+            WorldId = -1;
+        }
+    }
+}
