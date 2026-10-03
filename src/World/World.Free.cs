@@ -10,6 +10,7 @@ namespace Wargon.Nukecs
         {
             public void Free()
             {
+                WorldIoRequests.Cancel(Id);
                 WorldSystems.CompleteAll(Id);
                 WorldSystems.Remove(Id);
                 // Arena Guard: one cold walk — corruption planted during the session is

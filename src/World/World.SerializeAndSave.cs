@@ -2,17 +2,21 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
-using UnityEngine;
 
 namespace Wargon.Nukecs {
     public unsafe partial struct World {
         public byte[] Serialize() {
+            CompleteAllJobs(Id);
             return UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastSerialize();
         }
 
         public void Deserialize(byte[] data) {
+            DeserializeCore(data, true);
+        }
+
+        private void DeserializeCore(byte[] data, bool completeJobs) {
             var id = Id;
-            CompleteAllJobs(id);
+            if (completeJobs) CompleteAllJobs(id);
             var ecb = ECB;
             var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
             var allocatorOld = allocatorHandler.AllocatorWrapper.Allocator;
@@ -22,20 +26,21 @@ namespace Wargon.Nukecs {
         }
 
         public void LoadFromFile(string path) {
-            var id = Id;
-            CompleteAllJobs(id);
-            var ecb = ECB;
-            var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
-            var allocator = allocatorHandler.AllocatorWrapper.Allocator;
-            allocator.LoadFromFile(path);
-            allocatorHandler.AllocatorWrapper.Allocator = allocator;
-            CompleteDeserialization(ref allocator, ref allocatorHandler, ecb, id);
+            LoadFromFileCore(path, true);
         }
+
+        internal void LoadFromFileCore(string path, bool completeJobs) {
+            if (completeJobs) CompleteAllJobs(Id);
+            DeserializeCore(Decompress(File.ReadAllBytes(path)), false);
+        }
+
+        /// <summary>Complete active jobs in all Systems containers belonging to this world.</summary>
+        public void CompleteAllJobs() => CompleteAllJobs(Id);
 
         private void CompleteAllJobs(int id) {
             UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            foreach (var systems in WorldSystems.GetAll(id))
-                systems.Dependencies.Complete();
+            UnsafeWorld->systemsFixedUpdateJobDependencies.Complete();
+            foreach (var systems in WorldSystems.GetAll(id)) systems.Complete();
         }
 
         private void CompleteDeserialization(ref MemAllocator allocator, ref UnityAllocatorHandler allocatorHandler, EntityCommandBuffer savedEcb, int id) {
@@ -59,8 +64,13 @@ namespace Wargon.Nukecs {
         }
 
         public void SaveToFile(string path) {
-            UnsafeWorld->systemsUpdateJobDependencies.Complete();
-            UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.SaveToFile(path);
+            SaveToFileCore(path, true);
+        }
+
+        internal void SaveToFileCore(string path, bool completeJobs) {
+            if (completeJobs) CompleteAllJobs(Id);
+            var snapshot = UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastSerialize();
+            File.WriteAllBytes(path, MemAllocator.Compress(snapshot));
         }
 
         public partial struct WorldUnsafe {
@@ -120,133 +130,46 @@ namespace Wargon.Nukecs {
 
     public partial struct World {
         public async void LoadFromFileAsync(string path) {
-            var id = Id;
-            CompleteAllJobs(id);
-            var ecb = ECB;
-            var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
-
-            // Async file I/O — no struct mutation, safe across awaits
-            if (!File.Exists(path)) Debug.LogError($"File not found: {path}");
-            await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
-            var data = new byte[fs.Length];
-            _ = await fs.ReadAsync(data, 0, data.Length);
-            var decompressed = await DecompressAsync(data);
-
-            // Synchronous deserialization — FastDeserialize modifies the local copy correctly
-            var allocator = allocatorHandler.AllocatorWrapper.Allocator;
-            allocator.FastDeserialize(decompressed);
-            allocatorHandler.AllocatorWrapper.Allocator = allocator;
-
-            CompleteDeserialization(ref allocator, ref allocatorHandler, ecb, id);
+            await LoadAsync(path, this);
         }
 
         public async Task SaveToFileAsync(string path) {
-            UnsafeWorldRef.systemsUpdateJobDependencies.Complete();
-            await UnsafeWorldRef.AllocatorHandler.AllocatorWrapper.Allocator.SaveToFileAsync(path);
+            // Capture the entire snapshot before the first await. File I/O never retains
+            // arena pointers, so a later load/dispose cannot invalidate an in-flight save.
+            var snapshot = Serialize();
+            await using var file = new FileStream(path, FileMode.Create, FileAccess.Write);
+            await using var gzip = new GZipStream(file, CompressionLevel.Optimal);
+            await gzip.WriteAsync(snapshot, 0, snapshot.Length);
         }
 
-        /// <summary>
-        /// Loads the arena and returns the refreshed world. Assign the result:
-        /// world = await World.LoadAsync(path, world); the arena may relocate.
-        /// </summary>
+        /// <summary>Read asynchronously, then complete current jobs and apply the snapshot.
+        /// Assign the result: world = await World.LoadAsync(path, world).</summary>
         public static async Task<World> LoadAsync(string filePath, World world) {
             var id = world.Id;
-            try {
-                if (!File.Exists(filePath)) throw new Exception($"File not found: {filePath}");
-
-                await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                var data = new byte[fs.Length];
-                _ = await fs.ReadAsync(data, 0, data.Length);
-                var w = world.unsafeWorldPtr;
-                var allocatorHandler = w.Ref.AllocatorHandler;
-                var a = w.Ref.AllocatorRef;
-                w.Ref.systemsUpdateJobDependencies.Complete();
-                foreach (var sys in WorldSystems.GetAll(id))
-                    sys.Dependencies.Complete();
-                var ecb = w.Ref.EntityCommandBuffer;
-                var decompressed = await DecompressAsync(data);
-                a.FastDeserialize(decompressed);
-                ComponentTypeMap.ReRegisterFunctionPointers();
-                allocatorHandler.AllocatorWrapper.Allocator = a;
-                w.OnDeserialize(ref a);
-                w.Ref.OnDeserialize(ref a);
-                w.Ref.AllocatorRef = a;
-                w.Ref.AllocatorHandler = allocatorHandler;
-                w.Ref.EntityCommandBuffer = ecb;
-                unsafe
-                {
-                    w.Ref.EntityCommandBuffer.FixAfterDeserialize(w.Ptr, ref a);
-                }
-
-
-                world.unsafeWorldPtr = w;
-                // FixManagedWorld reads the slot back via Get(id) — publish the loaded world
-                // into the slot first (the instance path in CompleteDeserialization does the same)
-                Get(id) = world;
-                FixManagedWorld(id);
-                world.ReinitAllSystems();
-                return world;
-            } catch (Exception e) {
-                dbug.error(e.Message);
-                throw;
-            } finally {
-                Get(id) = world;
+            var lifetime = WorldIoRequests.Lifetime(id);
+            world.CompleteAllJobs(id);
+            byte[] compressed;
+            await using (var file = new FileStream(filePath, FileMode.Open, FileAccess.Read)) {
+                using var buffer = new MemoryStream();
+                await file.CopyToAsync(buffer);
+                compressed = buffer.ToArray();
             }
+            var snapshot = await DecompressAsync(compressed);
+            // The arena can relocate during awaits; resolve the current world only when
+            // applying, and never apply an old request to a recreated world slot.
+            world = Get(id);
+            if (!world.IsAlive || WorldIoRequests.Lifetime(id) != lifetime)
+                throw new ObjectDisposedException(nameof(World));
+            world.DeserializeCore(snapshot, true);
+            return world;
         }
 
         public static void Load(string filePath, ref World world) {
-            var id = world.Id;
-            try {
-                if (!File.Exists(filePath)) throw new Exception($"File not found: {filePath}");
-
-                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                var data = new byte[fs.Length];
-
-                _ = fs.Read(data, 0, data.Length);
-                var w = world.unsafeWorldPtr;
-                var allocatorHandler = w.Ref.AllocatorHandler;
-                var a = w.Ref.AllocatorRef;
-                w.Ref.systemsUpdateJobDependencies.Complete();
-                foreach (var sys in WorldSystems.GetAll(id))
-                    sys.Dependencies.Complete();
-                var ecb = w.Ref.EntityCommandBuffer;
-                a.FastDeserialize(Decompress(data));
-                ComponentTypeMap.ReRegisterFunctionPointers();
-                allocatorHandler.AllocatorWrapper.Allocator = a;
-                w.OnDeserialize(ref a);
-                w.Ref.OnDeserialize(ref a);
-                w.Ref.AllocatorRef = a;
-                w.Ref.AllocatorHandler = allocatorHandler;
-                w.Ref.EntityCommandBuffer = ecb;
-                unsafe
-                {
-                    w.Ref.EntityCommandBuffer.FixAfterDeserialize(w.Ptr, ref a);
-                }
-
-                world.unsafeWorldPtr = w;
-                // FixManagedWorld reads the slot back via Get(id) — publish the loaded world
-                // into the slot first (the instance path in CompleteDeserialization does the same)
-                Get(id) = world;
-                FixManagedWorld(id);
-                world.ReinitAllSystems();
-            } catch (Exception e) {
-                dbug.error(e.Message);
-                throw;
-            } finally {
-                Get(id) = world;
-            }
+            world.LoadFromFile(filePath);
         }
 
         public void Load(string filePath) {
-            if (!File.Exists(filePath)) Debug.LogError($"File not found: {filePath}");
-            var id = Id;
-            CompleteAllJobs(id);
-            var ecb = ECB;
-            var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
-            var allocator = allocatorHandler.AllocatorWrapper.Allocator;
-            allocator.LoadFromFile(filePath);
-            allocatorHandler.AllocatorWrapper.Allocator = allocator;
-            CompleteDeserialization(ref allocator, ref allocatorHandler, ecb, id);
+            LoadFromFile(filePath);
         }
 
         private static byte[] Decompress(byte[] inputData) {

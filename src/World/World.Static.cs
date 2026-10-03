@@ -234,6 +234,7 @@ namespace Wargon.Nukecs
         }
         public static void DisposeStatic()
         {
+            WorldIoRequests.CancelAll();
             StaticObjectRefStorage.Clear();
             OnDisposeStaticEvent?.Invoke();
             OnDisposeStaticEvent = null;
