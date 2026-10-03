@@ -16,7 +16,19 @@ namespace Wargon.Nukecs {
         Archetype = 0,
         Pool = 1
     }
-    
+
+    /// <summary>
+    /// Storage category of a component type. Determines which archetype mask holds its bit:
+    /// Inline — data components stored in the archetype data buffer;
+    /// Tag — zero-sized components, filter-only, no bytes in the data buffer;
+    /// Pool — components stored in a per-entity GenericPool outside the archetype data buffer.
+    /// </summary>
+    public enum ComponentCategory : byte {
+        Inline = 0,
+        Tag = 1,
+        Pool = 2
+    }
+
     [Serializable][StructLayout(LayoutKind.Sequential)]
     public struct ComponentTypeData
     {
@@ -29,6 +41,7 @@ namespace Wargon.Nukecs {
         public bool isArray;
         public bool IsArrayElement;
         public StorageType storageType;
+        public ComponentCategory category;
         [NativeDisableUnsafePtrRestriction]
         internal IntPtr disposeFn;
         [NativeDisableUnsafePtrRestriction]

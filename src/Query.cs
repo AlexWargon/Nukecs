@@ -22,16 +22,31 @@ namespace Wargon.Nukecs
         public int Count
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => queryUnsafe->count;
+            get
+            {
+                RestoreIfNeed();
+                return queryUnsafe->count;
+            }
         }
 
         public bool IsEmpty
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => queryUnsafe->count == 0;
+            get
+            {
+                RestoreIfNeed();
+                return queryUnsafe->count == 0;
+            }
         }
 
-        internal int CountMulti => queryUnsafe->count / queryUnsafe->world->job_worker_count;
+        internal int CountMulti
+        {
+            get
+            {
+                RestoreIfNeed();
+                return queryUnsafe->count / queryUnsafe->world->job_worker_count;
+            }
+        }
 
         public bool IsValid
         {
@@ -73,13 +88,13 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        internal Query With(int componentIndex)
+        public Query With(int componentIndex)
         {
             queryUnsafe->With(componentIndex);
             return this;
         }
 
-        internal Query None(int componentIndex)
+        public Query None(int componentIndex)
         {
             queryUnsafe->None(componentIndex);
             return this;
@@ -90,15 +105,31 @@ namespace Wargon.Nukecs
         {
             if (Count > 0)
             {
-                var len = queryUnsafe->matchingArchetypes.length;
-                var ptr = queryUnsafe->matchingArchetypes.Ptr;
-                var arches = queryUnsafe->world->archetypesList.Ptr;
-                for (var i = 0; i < len; i++)
+                if (queryUnsafe->UseStorageIteration())
                 {
-                    ref var arch = ref arches[ptr[i]].Ref;
-                    if (arches[ptr[i]].Ref.count > 0)
+                    var storages = queryUnsafe->GetMatchingStorages();
+                    var list = queryUnsafe->world->storagesList.Ptr;
+                    for (var i = 0; i < storages.length; i++)
                     {
-                        return ref queryUnsafe->world->entities.Ptr[arch.packedEntities.Ptr[0]];
+                        ref var st = ref list[storages.Ptr[i]].Ref;
+                        if (st.count > 0)
+                            return ref queryUnsafe->world->entities.Ptr[st.packedEntities.Ptr[0]];
+                    }
+                }
+                else
+                {
+                    var len = queryUnsafe->matchingArchetypes.length;
+                    var ptr = queryUnsafe->matchingArchetypes.Ptr;
+                    var arches = queryUnsafe->world->archetypesList.Ptr;
+                    for (var i = 0; i < len; i++)
+                    {
+                        ref var arch = ref arches[ptr[i]].Ref;
+                        if (arches[ptr[i]].Ref.count > 0)
+                        {
+                            var rowsPtr = arch.RowsAreDense ? null : arch.rows.Ptr;
+                            var row0 = rowsPtr != null ? rowsPtr[0] : 0;
+                            return ref queryUnsafe->world->entities.Ptr[arch.packedEntities.Ptr[row0]];
+                        }
                     }
                 }
             }
@@ -154,6 +185,8 @@ namespace Wargon.Nukecs
         public QueryEnumerator2 GetEnumerator()
         {
             RestoreIfNeed();
+            if (queryUnsafe->UseStorageIteration())
+                return new QueryEnumerator2(queryUnsafe);
             return new QueryEnumerator2(in queryUnsafe->matchingArchetypes, queryUnsafe->world);
         }
     }
@@ -167,7 +200,40 @@ namespace Wargon.Nukecs
         public MemoryList<int> matchingArchetypes;
         public int matchingArchetypesCount;
 
-        public int count;
+        internal int entityCount;
+
+        // ---------------- storage-mode iteration ----------------
+        // A query qualifies when every `with` bit is inline-category. `none` bits of any category
+        // are allowed: non-inline none-bits disqualify individual storages at match time when one
+        // of their sharing logical archetypes is non-empty (prefab/dead variants live in separate
+        // logical archetypes of the same storage).
+        /// <summary>0 = unknown, 1 = not storage mode, 2 = storage mode.</summary>
+        internal byte storageModeState;
+        /// <summary>1 when at least one inline-matching storage is disqualified by a non-empty
+        /// tag/pool none-bit logical archetype — the query falls back to the archetype path.</summary>
+        public byte storageDegraded;
+        internal bool storageMasksDirty;
+        /// <summary>1 when with/none masks changed (or the query was created) after the last
+        /// archetype scan — the lazy rescan re-runs CheckQuery over existing archetypes on next
+        /// use, so a query built after entities/archetypes exist still matches them.</summary>
+        internal byte archetypeMasksDirty;
+        internal int storagesBuiltForLen;
+        internal int storagesBuiltAtVersion;
+        /// <summary>Indices into world->storagesList whose every row matches this query.</summary>
+        public MemoryList<int> matchingStorages;
+        internal MemoryList<int> storageFilterBits;
+
+        /// <summary>Number of matching entities. Storage-mode queries compute it from storages.</summary>
+        public int count
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get
+            {
+                if (UseStorageIteration()) return StorageModeCount();
+                return entityCount;
+            }
+        }
+
         internal ptr<World.WorldUnsafe> worldPtr;
         [NativeDisableUnsafePtrRestriction] public World.WorldUnsafe* world;
         internal ptr<QueryUnsafe> self;
@@ -200,9 +266,17 @@ namespace Wargon.Nukecs
             with.OnDeserialize(ref allocator);
             none.OnDeserialize(ref allocator);
             matchingArchetypes.OnDeserialize(ref allocator);
+            matchingStorages.OnDeserialize(ref allocator);
+            storageFilterBits.OnDeserialize(ref allocator);
             self.OnDeserialize(ref allocator);
             worldPtr.OnDeserialize(ref allocator);
             world = worldPtr.Ptr;
+            storageModeState = 0;
+            storageMasksDirty = true;
+            // rescan archetype backlinks after load — dup-attach guard in CheckQuery makes it safe
+            archetypeMasksDirty = 1;
+            storagesBuiltForLen = -1;
+            storagesBuiltAtVersion = -1;
         }
 
         internal static void Free(QueryUnsafe* queryImpl)
@@ -219,7 +293,7 @@ namespace Wargon.Nukecs
 
         internal static ptr<QueryUnsafe> CreatePtrRef(ptr<World.WorldUnsafe> world, bool withDefaultNoneTypes = true)
         {
-            var ptr = world.Ptr->_allocate_ptr<QueryUnsafe>();
+            var ptr = world.Ptr->_allocate_ptr<QueryUnsafe>(1, AllocatorTags.Query);
             ptr.Ref = new QueryUnsafe(world, ptr, withDefaultNoneTypes);
             return ptr;
         }
@@ -230,9 +304,19 @@ namespace Wargon.Nukecs
             this.worldPtr = world;
             this.with = DynamicBitmask.CreateForComponents(world.Ptr);
             this.none = DynamicBitmask.CreateForComponents(world.Ptr);
-            this.count = 0;
+            this.entityCount = 0;
             this.matchingArchetypes = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
             this.matchingArchetypesCount = 0;
+            this.storageModeState = 0;
+            this.storageDegraded = 0;
+            this.storageMasksDirty = true;
+            // start dirty: a query created after entities/archetypes exist lazily attaches
+            // to them on first use (EnsureArchetypesMatched)
+            this.archetypeMasksDirty = 1;
+            this.storagesBuiltForLen = -1;
+            this.storagesBuiltAtVersion = -1;
+            this.matchingStorages = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
+            this.storageFilterBits = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
             this.Id = world.Ptr->queries.Length;
             this.ChangedEntitiesPtr = null;
             this.ChangedOffsetsPtr = null;
@@ -254,12 +338,32 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public MultiArray<int> GetEntities(Allocator allocator)
         {
+            if (UseStorageIteration())
+            {
+                var storages = GetMatchingStorages();
+                var storageArray = new MultiArray<int>(storages.length, allocator);
+                for (var index = 0; index < storages.length; index++)
+                {
+                    ref var st = ref world->storagesList.Ptr[storages.Ptr[index]].Ref;
+                    if (st.count > 0)
+                        storageArray.Add(st.packedEntities.Ptr, st.count);
+                }
+                return storageArray;
+            }
             var array = new MultiArray<int>(matchingArchetypes.length, allocator);
             for (var index = 0; index < matchingArchetypes.Length; index++)
             {
                 var matchingArchetype = matchingArchetypes[index];
                 ref var arch = ref world->archetypesList.ElementAt(matchingArchetype).Ref;
-                array.Add(arch.packedEntities.Ptr, arch.count);
+                var rowsPtr = arch.RowsAreDense ? null : arch.rows.Ptr;
+                if (rowsPtr == null)
+                {
+                    array.Add(arch.packedEntities.Ptr, arch.count);
+                }
+                else
+                {
+                    array.AddGathered(arch.packedEntities.Ptr, rowsPtr, arch.count, allocator);
+                }
             }
             return array;
         }
@@ -267,11 +371,27 @@ namespace Wargon.Nukecs
         public ref Entity GetEntity(int index)
         {
             var remaining = index;
+            if (UseStorageIteration())
+            {
+                var storages = GetMatchingStorages();
+                for (var i = 0; i < storages.length; i++)
+                {
+                    ref var st = ref world->storagesList.Ptr[storages.Ptr[i]].Ref;
+                    if (remaining < st.count)
+                        return ref world->entities.Ptr[st.packedEntities.Ptr[remaining]];
+                    remaining -= st.count;
+                }
+                return ref world->entities.Ptr[0];
+            }
             for (var i = 0; i < matchingArchetypes.length; i++)
             {
                 ref var arch = ref world->archetypesList.Ptr[matchingArchetypes.Ptr[i]].Ref;
                 if (remaining < arch.count)
-                    return ref world->entities.Ptr[arch.packedEntities.Ptr[remaining]];
+                {
+                    var rowsPtr = arch.RowsAreDense ? null : arch.rows.Ptr;
+                    var row = rowsPtr != null ? rowsPtr[remaining] : remaining;
+                    return ref world->entities.Ptr[arch.packedEntities.Ptr[row]];
+                }
                 remaining -= arch.count;
             }
             return ref world->entities.Ptr[0];
@@ -281,11 +401,27 @@ namespace Wargon.Nukecs
         public int GetEntityID(int index)
         {
             var remaining = index;
+            if (UseStorageIteration())
+            {
+                var storages = GetMatchingStorages();
+                for (var i = 0; i < storages.length; i++)
+                {
+                    ref var st = ref world->storagesList.Ptr[storages.Ptr[i]].Ref;
+                    if (remaining < st.count)
+                        return st.packedEntities.Ptr[remaining];
+                    remaining -= st.count;
+                }
+                return -1;
+            }
             for (var i = 0; i < matchingArchetypes.length; i++)
             {
                 ref var arch = ref world->archetypesList.Ptr[matchingArchetypes.Ptr[i]].Ref;
                 if (remaining < arch.count)
-                    return arch.packedEntities.Ptr[remaining];
+                {
+                    var rowsPtr = arch.RowsAreDense ? null : arch.rows.Ptr;
+                    var row = rowsPtr != null ? rowsPtr[remaining] : remaining;
+                    return arch.packedEntities.Ptr[row];
+                }
                 remaining -= arch.count;
             }
             return -1;
@@ -294,7 +430,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Add(int entity)
         {
-            count++;
+            entityCount++;
             unchecked
             {
                 newVersion++;
@@ -309,7 +445,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BatchAdd(int* entityIds, int cnt)
         {
-            count += cnt;
+            entityCount += cnt;
             unchecked
             {
                 newVersion++;
@@ -319,7 +455,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void BatchAddRange(int startEntityId, int cnt)
         {
-            count += cnt;
+            entityCount += cnt;
             unchecked
             {
                 newVersion++;
@@ -329,7 +465,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal void Remove(int entity)
         {
-            count--;
+            entityCount--;
             unchecked
             {
                 newVersion++;
@@ -343,23 +479,215 @@ namespace Wargon.Nukecs
         public QueryUnsafe* With(int type)
         {
             with.Add(type);
+            // an explicit With overrides the default none (IsPrefab, DestroyEntity): a type in
+            // both masks makes CheckQuery reject every matching archetype — the query would
+            // silently never match anything (typed Init has no withDefaultNoneTypes=false opt-out)
+            if (none.Contains(type)) none.Remove(type);
+            storageModeState = 0;
+            storageMasksDirty = true;
+            archetypeMasksDirty = 1;
             return self.Ptr;
         }
 
         public bool HasWith(int type)
         {
-            return with.Has(type);
+            // Contains: type indexes past the mask capacity (types registered after the
+            // query was created) legitimately read as "not a with-filter".
+            return with.Contains(type);
         }
 
         public bool HasNone(int type)
         {
-            return none.Has(type);
+            return none.Contains(type);
         }
 
         public QueryUnsafe* None(int type)
         {
             none.Add(type);
+            storageModeState = 0;
+            storageMasksDirty = true;
+            archetypeMasksDirty = 1;
             return self.Ptr;
+        }
+
+        // ---------------- storage-mode ----------------
+
+        /// <summary>
+        /// True when this query can iterate whole storages densely (no per-row gather).
+        /// Requires every `with` bit to be inline-category. `none` bits may be tag/pool:
+        /// such bits disqualify individual storages at match time (see <see cref="GetMatchingStorages"/>).
+        /// </summary>
+        public bool IsStorageMode()
+        {
+            if (storageModeState == 0)
+                storageModeState = (byte)(AllWithBitsInline() ? 2 : 1);
+            return storageModeState == 2;
+        }
+
+        /// <summary>
+        /// True when the query qualifies for dense storage iteration AND no storage was
+        /// disqualified by non-empty tag/pool none-bit archetypes (degraded → archetype path).
+        /// May rebuild the matching storages list — main thread only.
+        /// </summary>
+        public bool UseStorageIteration()
+        {
+            if (world == null)
+            {
+                // query outlived its world (e.g. a system's cached query ticked after
+                // DisposeStatic/world teardown) — never rescan or deref here
+                return false;
+            }
+            if (archetypeMasksDirty != 0) EnsureArchetypesMatched();
+            if (!IsStorageMode()) return false;
+            GetMatchingStorages();
+            return storageDegraded == 0;
+        }
+
+        /// <summary>
+        /// Lazily re-runs CheckQuery over all existing archetypes after mask mutation or late
+        /// query creation — cheap no-op unless dirty. Main thread only (mutates archetype
+        /// query backlinks); job paths use TryUseStorageIteration which never rescans.
+        /// </summary>
+        public void EnsureArchetypesMatched()
+        {
+            if (archetypeMasksDirty == 0) return;
+            archetypeMasksDirty = 0;
+            for (var i = 0; i < world->archetypesList.length; i++)
+            {
+                ref var arch = ref world->archetypesList.Ptr[i].Ref;
+                arch.CheckQuery(in self);
+            }
+        }
+
+        /// <summary>
+        /// Job-safe variant: NEVER rebuilds. True only when the snapshot is already fresh
+        /// (the main thread refreshed it via RefreshStorageMode / GetMatchingStorages,
+        /// e.g. from the generated Schedule before dispatching jobs) and not degraded.
+        /// Stale snapshot → false → safe archetype path.
+        /// </summary>
+        public bool TryUseStorageIteration()
+        {
+            if (storageModeState != 2) return false;
+            var w = world;
+            if (storageMasksDirty
+                || storagesBuiltForLen != w->storagesList.length
+                || storagesBuiltAtVersion != w->version)
+                return false;
+            return storageDegraded == 0;
+        }
+
+        /// <summary>Main-thread refresh of the storage-mode snapshot before system dispatch.</summary>
+        public void RefreshStorageMode()
+        {
+            if (world == null) return;
+            if (archetypeMasksDirty != 0) EnsureArchetypesMatched();
+            if (storageModeState == 2) GetMatchingStorages();
+        }
+
+        private bool AllWithBitsInline()
+        {
+            with.ExtractSetBits(ref storageFilterBits, ref world->AllocatorRef);
+            for (var i = 0; i < storageFilterBits.length; i++)
+            {
+                if (ComponentTypeMap.GetCategory(storageFilterBits.Ptr[i]) != ComponentCategory.Inline)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Storages whose every row matches this query. Inline filters are checked against the
+        /// storage mask directly; tag/pool none-bits disqualify the storage while any of its
+        /// sharing logical archetypes holding that bit is non-empty.
+        /// Lazily rebuilt when filters change, new storages appear, or world structure changes
+        /// (world->version is bumped by every row allocation/removal and archetype migration).
+        /// </summary>
+        public MemoryList<int> GetMatchingStorages()
+        {
+            var w = world;
+            // Parallel system runners call Update(range) inside jobs — a rebuild may be
+            // triggered from any thread. Serialize rebuild + snapshot reads with the world
+            // spinner so iterators never observe a half-built list.
+            w->spinner.Acquire();
+            if (storageMasksDirty
+                || storagesBuiltForLen != w->storagesList.length
+                || storagesBuiltAtVersion != w->version)
+            {
+                RebuildMatchingStorages();
+            }
+            w->spinner.Release();
+            return matchingStorages;
+        }
+
+        private void RebuildMatchingStorages()
+        {
+            var w = world;
+            matchingStorages.Clear();
+            var degraded = (byte)0;
+            if (!IsStorageMode())
+            {
+                // with-bits contain tag/pool categories: no storage inlineMask can ever
+                // contain them, so the loop below would leave matchingStorages empty with
+                // degraded == 0 — and the generated batch dispatcher would take the dense
+                // storage walk over an EMPTY list, silently iterating nothing (dead system,
+                // e.g. With<TagEvent> in TOption). Force the archetype path instead.
+                degraded = 1;
+            }
+            else
+            {
+                none.ExtractSetBits(ref storageFilterBits, ref w->AllocatorRef);
+                var noneBits = storageFilterBits;
+                for (var si = 0; si < w->storagesList.length; si++)
+                {
+                    ref var st = ref w->storagesList.Ptr[si].Ref;
+                    if (!st.IsCreated) continue;
+                    if (!st.inlineMask.ContainsAll(ref with)) continue;
+                    if (!st.inlineMask.ContainsNone(ref none)) continue;
+                    if (!NoneBitsClearInLogicalArchetypes(w, si, ref noneBits))
+                    {
+                        // a non-empty tag/pool none-archetype lives in this storage:
+                        // per-row exclusion is impossible in dense mode → degrade the whole query
+                        degraded = 1;
+                        continue;
+                    }
+                    matchingStorages.Add(si, ref w->AllocatorRef);
+                }
+            }
+            storageDegraded = degraded;
+            storagesBuiltForLen = w->storagesList.length;
+            storagesBuiltAtVersion = w->version;
+            storageMasksDirty = false;
+        }
+
+        private static bool NoneBitsClearInLogicalArchetypes(World.WorldUnsafe* w, int storageIndex, ref MemoryList<int> noneBits)
+        {
+            if (noneBits.length == 0) return true;
+            ref var st = ref w->storagesList.Ptr[storageIndex].Ref;
+            for (var li = 0; li < noneBits.length; li++)
+            {
+                var bit = noneBits.Ptr[li];
+                var category = ComponentTypeMap.GetCategory(bit);
+                if (category == ComponentCategory.Inline) continue; // already checked against inlineMask
+                for (var ai = 0; ai < st.logicalArchetypes.length; ai++)
+                {
+                    ref var la = ref w->archetypesList.Ptr[st.logicalArchetypes.Ptr[ai]].Ref;
+                    if (la.count == 0) continue;
+                    // Contains: the LA's masks may be smaller than this query's none-bit
+                    // (type registered after the LA was created) — reads as absent.
+                    if (category == ComponentCategory.Tag && la.tagMask.Contains(bit)) return false;
+                    if (category == ComponentCategory.Pool && la.poolMask.Contains(bit)) return false;
+                }
+            }
+            return true;
+        }
+
+        private int StorageModeCount()
+        {
+            var total = 0;
+            var storages = GetMatchingStorages();
+            for (var i = 0; i < storages.length; i++)
+                total += world->storagesList.Ptr[storages.Ptr[i]].Ref.count;
+            return total;
         }
 
         [BurstDiscard]
@@ -395,6 +723,11 @@ namespace Wargon.Nukecs
         private int _archIndex;
         private int _row;
         private int _remaining;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
+        [NativeDisableUnsafePtrRestriction] private StorageArchetype* _storage;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryEnumerator2(in MemoryList<int> arches, World.WorldUnsafe* world)
@@ -406,11 +739,39 @@ namespace Wargon.Nukecs
             _row = 0;
             _remaining = 0;
             _arch = default;
+            _rows = null;
+            _storageMode = false;
+            _storages = null;
+            _storagesLen = 0;
+            _storage = null;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryEnumerator2(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.length;
+            _storage = null;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _row = 0;
+            _remaining = 0;
+            _arch = default;
+            _rows = null;
         }
 
         public ref Entity Current
         {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)] get => ref _world->entities.Ptr[_arch->packedEntities.Ptr[_row]];
+            [MethodImpl(MethodImplOptions.AggressiveInlining)] get {
+                if (_storageMode)
+                    return ref _world->entities.Ptr[_storage->packedEntities.Ptr[_row]];
+                var row = _rows != null ? _rows[_row] : _row;
+                return ref _world->entities.Ptr[_arch->packedEntities.Ptr[row]];
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -423,11 +784,26 @@ namespace Wargon.Nukecs
                 return true;
             }
 
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    _storage = _world->storagesList.Ptr[_storages[_archIndex]].Ptr;
+                    var count = _storage->count;
+                    if (count <= 0) continue;
+                    _row = 0;
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
+            }
+
             while (++_archIndex < _archesLen)
             {
                 _arch = _world->archetypesList.Ptr[_arches[_archIndex]].Ptr;
                 var count = _arch->count;
                 if (count <= 0) continue;
+                _rows = _arch->RowsAreDense ? null : _arch->rows.Ptr;
                 _row = 0;
                 _remaining = count - 1;
                 return true;
@@ -444,6 +820,9 @@ namespace Wargon.Nukecs
         private int _countInArch;
         private readonly QueryUnsafe* _query;
         private ArchetypeUnsafe* _currentArchetype;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private StorageArchetype* _currentStorage;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal QueryEnumerator(QueryUnsafe* queryUnsafe)
         {
@@ -453,18 +832,34 @@ namespace Wargon.Nukecs
             _archRow = 0;
             _countInArch = 0;
             _currentArchetype = default;
+            _rows = null;
+            _storageMode = queryUnsafe->UseStorageIteration();
+            _currentStorage = null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             if (++_lastIndex >= _query->count) return false;
+            if (_storageMode)
+            {
+                if (_lastArch < 0 || ++_archRow >= _countInArch)
+                {
+                    var storages = _query->GetMatchingStorages();
+                    if (++_lastArch >= storages.length) return false;
+                    _currentStorage = _query->world->storagesList.Ptr[storages.Ptr[_lastArch]].Ptr;
+                    _countInArch = _currentStorage->count;
+                    _archRow = 0;
+                }
+                return true;
+            }
             if (_lastArch < 0 || ++_archRow >= _countInArch)
             {
                 if (++_lastArch >= _query->matchingArchetypes.length) return false;
                 var archIndex = _query->matchingArchetypes.Ptr[_lastArch];
                 _currentArchetype = _query->world->archetypesList.Ptr[archIndex].Ptr;
                 _countInArch = _currentArchetype->count;
+                _rows = _currentArchetype->RowsAreDense ? null : _currentArchetype->rows.Ptr;
                 _archRow = 0;
             }
             return true;
@@ -483,11 +878,60 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                ref var e = ref _query->world->entities.Ptr[_currentArchetype->packedEntities.Ptr[_archRow]];
+                if (_storageMode)
+                    return ref _query->world->entities.Ptr[_currentStorage->packedEntities.Ptr[_archRow]];
+                var row = _rows != null ? _rows[_archRow] : _archRow;
+                ref var e = ref _query->world->entities.Ptr[_currentArchetype->packedEntities.Ptr[row]];
                 return ref e;
             }
         }
     }
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Ref4<T1, T2, T3, T4> 
+        where T1 : unmanaged
+        where T2 : unmanaged
+        where T3 : unmanaged
+        where T4 : unmanaged
+    {
+        [NativeDisableUnsafePtrRestriction] internal T1* _p1;
+        [NativeDisableUnsafePtrRestriction] internal T2* _p2;
+        [NativeDisableUnsafePtrRestriction] internal T3* _p3;
+        [NativeDisableUnsafePtrRestriction] internal T4* _p4;
+        internal int len;
+        public Span<T1> Components0 => new (_p1, len);
+        public Span<T2> Components1 => new (_p2, len);
+        public Span<T3> Components2 => new (_p3, len);
+        public Span<T4> Components3 => new (_p4, len);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Ref4(T1* p1, T2* p2, T3* p3, T4* p4, int len)
+        {
+            _p1 = p1;
+            _p2 = p2;
+            _p3 = p3;
+            _p4 = p4;
+            this.len = len;
+        }
+        public ref T1 C1
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p1;
+        }
+        public ref T2 C2
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p2;
+        }
+        public ref T3 C3
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p3;
+        }
+        public ref T4 C4
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *_p4;
+        }
+    }   
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Ref<TComponent> where TComponent : unmanaged
     {
@@ -522,8 +966,7 @@ namespace Wargon.Nukecs
         }
         public static implicit operator Ref<TComponent>(TComponent r)
         {
-            var ptr = (TComponent*)Unsafe.AsPointer(ref r);
-            return new Ref<TComponent>(ptr);
+            return new Ref<TComponent>((TComponent*)Unsafe.AsPointer(ref r));
         }
     }
 

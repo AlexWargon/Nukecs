@@ -42,7 +42,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ptr<T> AsTyped<T>() where T : unmanaged
         {
-            return new ptr<T>(cached, offset.Offset, true);
+            return new ptr<T> { cached = (T*)cached, offset = offset };
         }
         
         internal ptr_str<T> as_ptr_str<T>() where T : struct

@@ -48,7 +48,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
         [System]
-        public static void TickLifetime(ref Query<BulletLifetime>.WithEntity query, ref State state)
+        public static void TickLifetime(ref Query<Entity,BulletLifetime> query, ref State state)
         {
             foreach (var (e, life) in query)
             {
@@ -60,7 +60,7 @@ namespace Wargon.Nukecs.Tests
                 ref var lifetime = ref life.Get;
                 lifetime.Seconds -= state.Time.DeltaTime;
                 if (lifetime.Seconds <= 0f) {
-                    e.DestroyNow();
+                    e.Destroy();
                     dbug.log($"Destroyed {e.id} bullet lifetime");
                 }
             }

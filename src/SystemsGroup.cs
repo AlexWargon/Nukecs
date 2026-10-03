@@ -20,7 +20,7 @@ namespace Wargon.Nukecs
             this.name = name;
         }
 
-        public unsafe SystemsGroup Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem {
+        public unsafe SystemsGroup Add<T>(bool dummy = false) where T : struct, IEntityJobSystem {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -47,7 +47,7 @@ namespace Wargon.Nukecs
         }
 
 
-        public SystemsGroup Add<T>(int dymmy = 1) where T : struct, ISystem {
+        public SystemsGroup Add<T>(int dummy = 1) where T : struct, ISystem {
             T system = default;
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);
@@ -73,7 +73,7 @@ namespace Wargon.Nukecs
             }
             return this;
         }
-        public SystemsGroup Add<T>(byte dymmy = 1) where T : class, ISystem, new() {
+        public SystemsGroup Add<T>(byte dummy = 1) where T : class, ISystem, new() {
             T system = new T();
             if (system is IOnCreate s) {
                 s.OnCreate(ref world);

@@ -62,7 +62,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
         [System]
-        public static void Movement4_4(ref Query<PositionTest, VelocityTest,DamageTest, HealthTest> query, ref State state)
+        public static void Movement4_4(ref Query<PositionTest, VelocityTest, DamageTest, HealthTest> query, ref State state)
         {
             foreach (var (pos, vel, dmg, hp) in query)
             {
@@ -71,7 +71,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
         [System]
-        public static void AddComponentSystem(ref Query<PositionTest, None<VelocityTest>>.WithEntity query)
+        public static void AddComponentSystem(ref Query<Entity,PositionTest, None<VelocityTest>> query)
         {
             foreach (var (e, _) in query)
             {
@@ -79,7 +79,7 @@ namespace Wargon.Nukecs.Tests
             }
         }
         [System]
-        public static void RemoveComponentSystem(ref Query<PositionTest, VelocityTest>.WithEntity query)
+        public static void RemoveComponentSystem(ref Query<Entity,PositionTest, VelocityTest> query)
         {
             foreach (var (e, _, _) in query)
             {

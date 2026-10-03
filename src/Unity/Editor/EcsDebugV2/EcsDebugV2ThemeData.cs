@@ -1,5 +1,5 @@
 #pragma warning disable CS0618
-#if UNITY_EDITOR && NUKECS_DEBUG
+#if UNITY_EDITOR
 using System;
 using System.IO;
 using System.Linq;

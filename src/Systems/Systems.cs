@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
+using Wargon.Nukecs.Collections;
 using Unity.Jobs;
 using UnityEngine;
 
@@ -21,7 +22,9 @@ namespace Wargon.Nukecs
 
     public unsafe class Systems
     {
-        public JobHandle Dependencies;
+        /// <summary>The current execution dependency, including jobs scheduled this update.</summary>
+        public ref JobHandle Dependencies => ref _state.Dependencies;
+        private readonly List<JobHandle> _scheduledJobs = new List<JobHandle>();
         public World World;
         private State _state;
         internal ref State State => ref _state;
@@ -35,6 +38,8 @@ namespace Wargon.Nukecs
         private bool _graphBuilt;
         private GroupScheduleMode _groupScheduleMode = GroupScheduleMode.LegacyGroupComplete;
         private readonly List<SystemDependencyInfo> _dependencyInfos;
+        private HashMap<ulong, int> _localRegistrations;
+        private readonly int _localScope;
         private Unity.Collections.NativeArray<Unity.Jobs.JobHandle> _handleBuffer;
 
         public SystemDependencyGraph DependencyGraph => _dependencyGraph;
@@ -52,7 +57,14 @@ namespace Wargon.Nukecs
             systemDestroyers = new List<ISystemDestroyer>();
             _dependencyInfos = new List<SystemDependencyInfo>();
             World = world;
+            _localScope = WorldSystems.GetAll(world.Id).Count;
             WorldSystems.Add(world.UnsafeWorld->Id, this);
+        }
+
+        public ptr<TParam> CreateLocalSystemParam<TParam>(ulong owner, out int slot)
+            where TParam : unmanaged, ISystemParam
+        {
+            return World.UnsafeWorld->CreateLocalSystemParam<TParam>(owner, _localScope, ref _localRegistrations, out slot);
         }
 
         private readonly List<ISystemDestroyer> systemDestroyers;
@@ -71,7 +83,7 @@ namespace Wargon.Nukecs
             _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
             World.UnsafeWorld->timeData = _state.Time;
             for (var i = 0; i < onStart.Count; i++)
-                _state.Dependencies = onStart[i].Schedule(UpdateContext.Update, ref _state);
+                _state.Dependencies = ScheduleTracked(onStart[i]);
             _state.Dependencies.Complete();
         }
 
@@ -85,12 +97,14 @@ namespace Wargon.Nukecs
             _state.Time.DeltaTimeFixed = FIXED_UPDATE_INTERVAL;
             World.UnsafeWorld->timeData = _state.Time;
             for (var i = 0; i < onDestroy.Count; i++)
-                _state.Dependencies = onDestroy[i].Schedule(UpdateContext.Update, ref _state);
+                _state.Dependencies = ScheduleTracked(onDestroy[i]);
             _state.Dependencies.Complete();
         }
 
         public void OnUpdate(float dt, float time)
         {
+            if (_localScope == 0) WorldIoRequests.Process(ref World);
+            _scheduledJobs.Clear(); // The preceding update completed every scheduled job.
             _allSystems.Start();
             _state.Dependencies = World.DependenciesUpdate;
             _state.World = World;
@@ -108,7 +122,7 @@ namespace Wargon.Nukecs
 
                 if (onFixedUpdate.Count == 0 && onUpdate.Count == 1)
                 {
-                    _state.Dependencies = onUpdate[0].Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies = ScheduleTracked(onUpdate[0]);
                     _state.Dependencies.Complete();
                     _allSystems.End();
                     return;
@@ -120,7 +134,7 @@ namespace Wargon.Nukecs
             {
                 if (onFixedUpdate.Count == 0 && onUpdate.Count == 1)
                 {
-                    _state.Dependencies = onUpdate[0].Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies = ScheduleTracked(onUpdate[0]);
                     _state.Dependencies.Complete();
                     _allSystems.End();
                     return;
@@ -138,7 +152,7 @@ namespace Wargon.Nukecs
                     var mode = runner is IThreadModeProvider provider ? provider.Mode : Threads.Main;
                     if (mode == Threads.Main)
                         _state.Dependencies.Complete();
-                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies = ScheduleTracked(runner);
                 }
                 _timeSinceLastFixedUpdate = 0;
             }
@@ -153,33 +167,16 @@ namespace Wargon.Nukecs
             return new Systems(ref world).AddDefaults();
         }
 
+        /// <summary>Append prefab/event defaults. Register before gameplay systems so
+        /// frame-start event clearing cannot race with Parallel producers.</summary>
         public Systems AddDefaults()
         {
-            this.Add(DefaultSystems.EntityDestroySystem, Threads.MainRun);
-            this.Add(DefaultSystems.OnPrefabSpawn);
+            this.Add(DefaultSystems.OnPrefabSpawn, Threads.MainRun);
             this.Add(DefaultSystems.ClearEvents, Threads.MainRun);
-            Add<ClearEntityCreatedEventSystem>();
             return this;
         }
 
-        public Systems RemoveComponent<T>() where T : unmanaged, IComponent
-        {
-            var system = new RemoveComponentSystem
-            {
-                Type = ComponentType<T>.Index
-            };
-            var runner = new EntityJobSystemRunner<RemoveComponentSystem>
-            {
-                System = system,
-                Mode = system.Mode,
-                EcbJob = default
-            };
-            runner.Query = runner.System.GetQuery(ref World).queryUnsafe;
-            onUpdate.Add(runner);
-            return this;
-        }
-
-        public Systems Add<T>(bool dymmy = false) where T : struct, IEntityJobSystem
+        public Systems Add<T>(bool dummy = false) where T : struct, IEntityJobSystem
         {
             T system = default;
             if (system is IOnCreate s)
@@ -203,7 +200,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(ushort dymmy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy
+        public Systems Add<T>(ushort dummy = 1) where T : unmanaged, IEntityJobSystem, IOnDestroy
         {
             T system = default;
             if (system is IOnCreate s)
@@ -228,7 +225,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(int dymmy = 1) where T : struct, ISystem
+        public Systems Add<T>(int dummy = 1) where T : struct, ISystem
         {
             T system = default;
             if (system is IOnCreate onCreate)
@@ -256,7 +253,7 @@ namespace Wargon.Nukecs
             return this;
         }
 
-        public Systems Add<T>(long dymmy = 1) where T : class, ISystem, new()
+        public Systems Add<T>(long dummy = 1) where T : class, ISystem, new()
         {
             var system = new T();
             if (system is IOnCreate s)
@@ -291,24 +288,37 @@ namespace Wargon.Nukecs
         public Systems Add<T>(T group) where T : SystemsGroup
         {
             group.world = World;
-            onStart.AddRange(group.runners);
-            onUpdate.AddRange(group.fixedRunners);
-            onFixedUpdate.AddRange(group.mainThreadRunners);
-            onDestroy.AddRange(group.mainThreadFixedRunners);
+            onUpdate.AddRange(group.runners);
+            onUpdate.AddRange(group.mainThreadRunners);
+            onFixedUpdate.AddRange(group.fixedRunners);
+            onFixedUpdate.AddRange(group.mainThreadFixedRunners);
             systemDestroyers.AddRange(group.destroyRunners);
             InvalidateDependencyGraph();
             return this;
         }
 
 
-        internal void Complete()
+        public void Complete()
         {
+            // Graph branches can run independently of the current State dependency.
+            foreach (var handle in _scheduledJobs) handle.Complete();
+            _scheduledJobs.Clear();
             _state.Dependencies.Complete();
+        }
+
+        private JobHandle ScheduleTracked(ISystemRunner runner)
+        {
+            var handle = runner.Schedule(UpdateContext.Update, ref _state);
+            if (!handle.Equals(default(JobHandle))) _scheduledJobs.Add(handle);
+            return handle;
         }
 
         public void OnWorldDeserialize(World.WorldUnsafe* world)
         {
             World.unsafeWorldPtr = world->selfPtr;
+            // Loading may happen inside a running main-thread system. Its runner
+            // and the remaining systems must see the relocated arena immediately.
+            _state.World = World;
             RebuildQueryPointers(onStart, world);
             RebuildQueryPointers(onUpdate, world);
             RebuildQueryPointers(onFixedUpdate, world);
@@ -339,6 +349,7 @@ namespace Wargon.Nukecs
             onWorldDispose?.Invoke(ref World);
             foreach (var systemDestroyer in systemDestroyers) systemDestroyer.Destroy(ref World);
             if (_handleBuffer.IsCreated) _handleBuffer.Dispose();
+            if (_localRegistrations.IsCreated) _localRegistrations.Dispose();
         }
 
         public Systems UseDependencyGraph(bool enable = true,
@@ -442,14 +453,14 @@ namespace Wargon.Nukecs
                 {
                     savedDeps.Complete();
                     _state.Dependencies = savedDeps;
-                    onUpdate[idx].Schedule(UpdateContext.Update, ref _state);
+                    ScheduleTracked(onUpdate[idx]);
                     savedDeps = _state.Dependencies;
                 }
 
                 if (group.ParallelIndices.Length == 1)
                 {
                     _state.Dependencies = savedDeps;
-                    onUpdate[group.ParallelIndices[0]].Schedule(UpdateContext.Update, ref _state);
+                    ScheduleTracked(onUpdate[group.ParallelIndices[0]]);
                     savedDeps = _state.Dependencies;
                 }
                 else if (group.ParallelIndices.Length > 1)
@@ -468,8 +479,7 @@ namespace Wargon.Nukecs
                     for (int i = 0; i < count; i++)
                     {
                         _state.Dependencies = savedDeps;
-                        _handleBuffer[i] = onUpdate[group.ParallelIndices[i]]
-                            .Schedule(UpdateContext.Update, ref _state);
+                        _handleBuffer[i] = ScheduleTracked(onUpdate[group.ParallelIndices[i]]);
                     }
 
                     var combined = Unity.Jobs.JobHandle.CombineDependencies(_handleBuffer);
@@ -506,14 +516,14 @@ namespace Wargon.Nukecs
                 {
                     savedDeps.Complete();
                     _state.Dependencies = savedDeps;
-                    onUpdate[idx].Schedule(UpdateContext.Update, ref _state);
+                    ScheduleTracked(onUpdate[idx]);
                     savedDeps = _state.Dependencies;
                 }
 
                 if (group.ParallelIndices.Length == 1)
                 {
                     _state.Dependencies = savedDeps;
-                    var handle = onUpdate[group.ParallelIndices[0]].Schedule(UpdateContext.Update, ref _state);
+                    var handle = ScheduleTracked(onUpdate[group.ParallelIndices[0]]);
                     if (group.HasECB)
                     {
                         savedDeps = new ECBJob
@@ -544,8 +554,7 @@ namespace Wargon.Nukecs
                     for (int i = 0; i < count; i++)
                     {
                         _state.Dependencies = savedDeps;
-                        _handleBuffer[i] = onUpdate[group.ParallelIndices[i]]
-                            .Schedule(UpdateContext.Update, ref _state);
+                        _handleBuffer[i] = ScheduleTracked(onUpdate[group.ParallelIndices[i]]);
                     }
 
                     var combined = Unity.Jobs.JobHandle.CombineDependencies(_handleBuffer);
@@ -600,7 +609,7 @@ namespace Wargon.Nukecs
                     continue;
 
                 _state.Dependencies = savedDeps;
-                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+                handles[i] = ScheduleTracked(onUpdate[i]);
             }
 
             // ═══ Parallel/Single: schedule with deps among themselves ═══
@@ -611,7 +620,7 @@ namespace Wargon.Nukecs
 
                 var deps = CombinePredHandles(preds[i], handles, savedDeps);
                 _state.Dependencies = deps;
-                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+                handles[i] = ScheduleTracked(onUpdate[i]);
             }
 
             // ═══ Single combined Complete ═══
@@ -695,12 +704,12 @@ namespace Wargon.Nukecs
                 {
                     _state.SkipECBSchedule = savedSkip;
                     _state.Dependencies.Complete();
-                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies = ScheduleTracked(runner);
                 }
                 else
                 {
                     _state.SkipECBSchedule = 1;
-                    _state.Dependencies = runner.Schedule(UpdateContext.Update, ref _state);
+                    _state.Dependencies = ScheduleTracked(runner);
                 }
             }
             _state.SkipECBSchedule = savedSkip;
@@ -738,7 +747,7 @@ namespace Wargon.Nukecs
                     continue;
 
                 _state.Dependencies = savedDeps;
-                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+                handles[i] = ScheduleTracked(onUpdate[i]);
             }
 
             // ═══ Phase 2: Schedule ALL Parallel/Single systems ═══
@@ -751,7 +760,7 @@ namespace Wargon.Nukecs
 
                 var deps = CombinePredHandles(preds[i], handles, savedDeps);
                 _state.Dependencies = deps;
-                handles[i] = onUpdate[i].Schedule(UpdateContext.Update, ref _state);
+                handles[i] = ScheduleTracked(onUpdate[i]);
             }
 
             // ═══ Phase 3: Single combined Complete ═══
@@ -871,12 +880,12 @@ namespace Wargon.Nukecs
     {
         /// <summary>
         /// Execute system on main thread.
-        /// In feature Main and MainRun will be same.
+        /// The default scheduler completes dependencies before calling the managed method.
         /// </summary>
         Main,
         /// <summary>
         /// Execute system on main thread using Unity Job System Run.
-        /// In feature Main and MainRun will be same.
+        /// Run is synchronous and takes no dependency; scheduler graph modes may synchronize first.
         /// </summary>
         MainRun,
         /// <summary>
@@ -923,40 +932,6 @@ namespace Wargon.Nukecs
         void OnWorldDeserialize(ref World world);
     }
 
-    [BurstCompile]
-    public struct ClearEntityCreatedEventSystem : IEntityJobSystem
-    {
-        public Threads Mode => Threads.Single;
-        public Query GetQuery(ref World world)
-        {
-            return world.Query().With<EntityCreated>();
-        }
-
-        public void OnUpdate(ref Entity entity, ref State state)
-        {
-            entity.Remove<EntityCreated>();
-        }
-    }
-
-    
-    [BurstCompile]
-    internal struct RemoveComponentSystem : IEntityJobSystem
-    {
-        internal int Type;
-        public Threads Mode => Threads.Single;
-
-        public Query GetQuery(ref World world)
-        {
-            return world.Query().With(Type);
-        }
-
-        [BurstCompile]
-        public void OnUpdate(ref Entity entity, ref State state)
-        {
-            state.World.ECB.Remove(entity.id, Type);
-        }
-    }
-
     public struct JobCallback : IJob
     {
         public FunctionPointer<Action> callback;
@@ -1000,15 +975,6 @@ namespace Wargon.Nukecs
     [AttributeUsage((AttributeTargets.Method))]
     public class SystemAttribute : Attribute
     {
-        public Threads mode;
-        public SystemAttribute()
-        {
-            this.mode = Threads.Parallel;
-        }
-        public SystemAttribute(Threads mode)
-        {
-            this.mode = mode;
-        }
     }
 
     public interface ISystemsGroup

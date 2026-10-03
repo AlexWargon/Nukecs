@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
@@ -20,6 +20,7 @@ namespace Wargon.Nukecs
             internal WorldConfig config;
             internal const int FIRST_ENTITY_ID = 1;
             public byte Id;
+            internal ushort entityWorldToken;
             public int version;
 #if NUKECS_DEBUG
             internal AliveEntitiesSet entitiesDens;
@@ -30,8 +31,13 @@ namespace Wargon.Nukecs
             internal Archetype rootArchetype;
             public MemoryList<EntityLocation> entityLocations;
             internal HashMap<int, Archetype> archetypesMap;
-            internal DynamicBitmask tempMask;
+            /// <summary>Fixed-size scratch mask (prefab spawn path) — inline value, no
+            /// world-allocator allocation and no save/load fixups.</summary>
+            internal Bitmask1024 tempMask;
             public MemoryList<ptr<ArchetypeUnsafe>> archetypesList;
+            // Storage archetypes: data-buffer owners keyed by inline mask, shared between logical archetypes.
+            public MemoryList<ptr<StorageArchetype>> storagesList;
+            internal HashMap<int, ptr<StorageArchetype>> storagesMap;
             internal MemoryList<GenericPool> pools;
             internal int poolsCount;
             internal MemoryList<ptr<QueryUnsafe>> queries;
@@ -95,6 +101,7 @@ namespace Wargon.Nukecs
             }
             private void Initialize(byte id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf) {
                 Id = id;
+                entityWorldToken = World.AcquireEntityWorldToken(id);
                 config = worldConfig;
                 entities = new MemoryList<Entity>(worldConfig.StartEntitiesAmount, ref AllocatorRef, true, clear:true);
                 prefabsToSpawn = new MemoryList<Entity>(64, ref AllocatorRef, clear:true);
@@ -104,6 +111,8 @@ namespace Wargon.Nukecs
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
                 archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                storagesList = new MemoryList<ptr<StorageArchetype>>(32, ref AllocatorRef, clear:true);
+                storagesMap = new HashMap<int, ptr<StorageArchetype>>(32, ref AllocatorHandler);
                 queriesHashToIndex = new HashMap<int, int>(64, ref AllocatorHandler);
                 
                 DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef, clear:true);
@@ -120,9 +129,8 @@ namespace Wargon.Nukecs
                 aspects = new Aspects(ref AllocatorRef, id);
                 
                 selfPtr = worldSelf;
-                tempMask = DynamicBitmask.CreateForComponents(Self);
+                // tempMask is a fixed inline Bitmask1024 — no initialization needed
                 _ = ComponentType<DestroyEntity>.Index;
-                _ = ComponentType<EntityCreated>.Index;
                 _ = ComponentType<IsPrefab>.Index;
                 SetDefaultNone();
                 //CreatePools();
@@ -154,7 +162,7 @@ namespace Wargon.Nukecs
                 }
 
                 ref var e = ref entities.ElementAt(last);
-                e = new Entity(last, Id);
+                e = new Entity(last, Self);
                 entityLocations.ElementAt(e.id) = default;
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
@@ -182,7 +190,7 @@ namespace Wargon.Nukecs
                 }
 
                 ref var e = ref entities.ElementAt(last);
-                e = new Entity(last, Id);
+                e = new Entity(last, Self);
                 entityLocations.ElementAt(last) = new EntityLocation { archetypeIndex = archetype, row = 0 };
 #if NUKECS_DEBUG
                 entitiesDens.Add(e.id, ref AllocatorRef);
@@ -214,7 +222,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal ref GenericPool GetPool<T>() where T : unmanaged{
                 var poolIndex = ComponentType<T>.Index;
-                //if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
+                if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
@@ -225,6 +233,7 @@ namespace Wargon.Nukecs
             
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public ref GenericPool GetUntypedPool(int poolIndex) {
+                if (poolIndex >= pools.Capacity) EnsurePoolCapacity(poolIndex + 32);
                 ref var pool = ref pools.Ptr[poolIndex];
                 if (!pool.IsCreated)
                 {
@@ -314,8 +323,8 @@ namespace Wargon.Nukecs
             {
                 version++;
                 ref var e = ref entities.ElementAt(entity);
-                e = Nukecs.Entity.Null;
-                reservedEntities.Add(entity, ref AllocatorRef);
+                e.id = 0; // Retain the generation high-water mark in the serialized arena.
+                if (e.Generation < ushort.MaxValue) reservedEntities.Add(entity, ref AllocatorRef);
                 entitiesAmount--;
                 lastDestroyedEntity = entity;
                 entityLocations.Ptr[entity] = default;
@@ -327,7 +336,13 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public bool EntityIsValid(int entity)
             {
-                return entities.ElementAt(entity).id != 0;
+                return entity > 0 && entity < lastEntityIndex && entities.Ptr[entity].id == entity;
+            }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            internal bool EntityIsValid(int entity, ushort generation)
+            {
+                return EntityIsValid(entity) && entities.Ptr[entity].Generation == generation;
             }
             // [MethodImpl(MethodImplOptions.AggressiveInlining)]
             // internal Entity CreateEntityWithEvent(int archetype) {
@@ -425,7 +440,7 @@ namespace Wargon.Nukecs
                 for (var i = 0; i < fromReserved; i++)
                 {
                     var id = reservedEntities.ElementAt(reservedCount - 1 - i);
-                    entities.ElementAt(id) = new Entity(id, Id);
+                    entities.ElementAt(id) = new Entity(id, Self);
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
@@ -434,7 +449,7 @@ namespace Wargon.Nukecs
                 while (created < count)
                 {
                     var id = lastEntityIndex++;
-                    entities.ElementAt(id) = new Entity(id, Id);
+                    entities.ElementAt(id) = new Entity(id, Self);
                     entityLocations.ElementAt(id) = new EntityLocation { archetypeIndex = archetype };
                     outEntities[created++] = id;
                 }
@@ -480,7 +495,7 @@ namespace Wargon.Nukecs
                 new Span<EntityLocation>(entityLocations.Ptr + start, count).Fill(new EntityLocation { archetypeIndex = archetype });
                 for (var i = start; i < end; i++)
                 {
-                    entities.Ptr[i] = new Entity(i, Id);
+                    entities.Ptr[i] = new Entity(i, Self);
 #if NUKECS_DEBUG
                     entitiesDens.Add(i, ref AllocatorRef);
 #endif
@@ -536,30 +551,34 @@ namespace Wargon.Nukecs
             internal ref ArchetypeUnsafe GetArchetypeNoneIsPrefab(in Entity prefab)
             {
                 ref var prefabArchetype = ref prefab.ArchetypeRef;
-                tempMask.CopyFrom(ref prefabArchetype.mask);
+                prefabArchetype.CopyMasksTo(ref tempMask);
                 tempMask.Remove(ComponentType<IsPrefab>.Index);
                 ref var targetArch = ref GetOrCreateArchetype(ref tempMask).ptr.Ref;
                 tempMask.Clear();
                 return ref targetArch;
             }
-            internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false) {
+            internal Archetype CreateArchetype(ref MemoryList<int> types, bool copyList = false, int mapKey = -1) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx, copyList);
+                if (mapKey >= 0) ptr.Ptr->hashId = mapKey;
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
+                ptr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-            internal Archetype CreateArchetype(ref Span<int> types) {
+            internal Archetype CreateArchetype(ref Span<int> types, int mapKey = -1) {
                 var idx = archetypesList.length;
                 var ptr = ArchetypeUnsafe.CreatePtr(Self, idx, ref types);
+                if (mapKey >= 0) ptr.Ptr->hashId = mapKey;
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
+                ptr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
@@ -567,13 +586,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal void CreateArchetype(ref MemoryList<int> types, out Archetype archetype) {
-                var idx = archetypesList.length;
-                var archetypePtr = ArchetypeUnsafe.CreatePtr(Self, ref types, idx);
-                archetype = new Archetype();
-                archetype.ptr = archetypePtr;
-                archetypesList.Add(in archetypePtr, ref AllocatorRef);
-                archetypesMap[archetypePtr.Ptr->hashId] = archetype;
-                //return archetype;
+                archetype = CreateArchetype(ref types);
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -590,6 +603,7 @@ namespace Wargon.Nukecs
                 Archetype archetype;
                 archetype.ptr = ptr;
                 archetypesList.Add(in ptr, ref AllocatorRef);
+                ptr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[ptr.Ptr->hashId] = archetype;
                 return archetype;
             }
@@ -598,22 +612,28 @@ namespace Wargon.Nukecs
 #endif
             internal Archetype GetOrCreateArchetype(ref Span<int> types) {
                 var hash = DynamicBitmask.ComputeHash((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length);
-                if (archetypesMap.TryGetValue(hash, out var archetype)) {
-                    return archetype;
+                // Linear probing with equality re-check: a 32-bit hash collision between
+                // different type sets must not silently alias two archetypes.
+                while (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    if (archetype.Unsafe->MatchesTypes((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length))
+                        return archetype;
+                    hash++;
                 }
-                return CreateArchetype(ref types);
+                return CreateArchetype(ref types, hash);
             }
 #if !NUKECS_DEBUG
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal Archetype GetOrCreateArchetype(ref MemoryList<int> types, bool copyList = false) {
                 var hash = DynamicBitmask.ComputeHash(types.Ptr, types.length);
-                if (archetypesMap.TryGetValue(hash, out var archetype)) {
-                    types.Dispose();
-                    return archetype;
+                while (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    if (archetype.Unsafe->MatchesTypes(types.Ptr, types.length)) {
+                        types.Dispose();
+                        return archetype;
+                    }
+                    hash++;
                 }
-                
-                return CreateArchetype(ref types);
+                return CreateArchetype(ref types, copyList, hash);
             }
             [BurstDiscard]
 #if !NUKECS_DEBUG
@@ -626,18 +646,37 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal Archetype GetOrCreateArchetype(ref DynamicBitmask mask) {
                 var hash = mask.ComputeHash();
-                if (archetypesMap.TryGetValue(hash, out var archetype))
-                    return archetype;
-                return CreateArchetype(ref mask);
+                while (archetypesMap.TryGetValue(hash, out var archetype)) {
+                    if (archetype.Unsafe->FullMaskEquals(ref mask))
+                        return archetype;
+                    hash++;
+                }
+                return CreateArchetype(ref mask, hash);
+            }
+
+            /// <summary>
+            /// Fixed 1024-bit scratch-mask entry point (ECB playback, prefab spawn). Routes
+            /// through the types-list path so the map hash stays in the single
+            /// DynamicBitmask.ComputeHash(int*, count) family — Bitmask1024 has its own hash
+            /// family and mixing them would duplicate archetypes for the same type set.
+            /// </summary>
+            internal Archetype GetOrCreateArchetype(ref Bitmask1024 mask) {
+                var count = mask.Count;
+                if (count == 0) return rootArchetype;
+                Span<int> types = stackalloc int[count];
+                mask.FillTypes(types);
+                return GetOrCreateArchetype(ref types);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            internal Archetype CreateArchetype(ref DynamicBitmask mask) {
+            internal Archetype CreateArchetype(ref DynamicBitmask mask, int mapKey = -1) {
                 var idx = archetypesList.length;
                 var archetypePtr = ArchetypeUnsafe.CreatePtrFromBitmask(Self, idx, ref mask);
+                if (mapKey >= 0) archetypePtr.Ptr->hashId = mapKey;
                 Archetype archetype;
                 archetype.ptr = archetypePtr;
                 archetypesList.Add(in archetypePtr, ref AllocatorRef);
+                archetypePtr.Ref.storagePtr.Ref.logicalArchetypes.Add(idx, ref AllocatorRef);
                 archetypesMap[archetypePtr.Ptr->hashId] = archetype;
                 return archetype;
             }
@@ -647,9 +686,40 @@ namespace Wargon.Nukecs
                 return archetypesMap[hash];
             }
 
+            /// <summary>
+            /// Returns the shared data owner for the given inline mask, creating it on first use.
+            /// Linear probing with mask equality re-check against hash collisions.
+            /// </summary>
+            internal ptr<StorageArchetype> GetOrCreateStorage(ref DynamicBitmask inlineMask) {
+                var hash = inlineMask.ComputeHash();
+                while (storagesMap.TryGetValue(hash, out var existing)) {
+                    if (existing.Ref.inlineMask.SequenceEqual(ref inlineMask)) {
+                        existing.Ref.refCount++;
+                        return existing;
+                    }
+                    hash++;
+                }
+                var idx = storagesList.length;
+                var ptr = StorageArchetype.CreatePtr(Self, idx, ref inlineMask);
+                storagesList.Add(in ptr, ref AllocatorRef);
+                storagesMap[hash] = ptr;
+                return ptr;
+            }
+
             internal void Update()
             {
                 ECB.Playback(Self);
+            }
+
+            public ptr<TParam> GetLocalSystemParam<TParam>(int slot) where TParam : unmanaged, ISystemParam
+                => resStorage.GetLocal<TParam>(slot, Self);
+
+            public ptr<TParam> CreateLocalSystemParam<TParam>(ulong owner, int scope,
+                ref HashMap<ulong, int> registrations, out int slot) where TParam : unmanaged, ISystemParam
+            {
+                var instance = LocalParamSlots.NextInstance(owner, ref registrations);
+                slot = LocalParamSlots.Acquire(owner, scope, instance);
+                return GetLocalSystemParam<TParam>(slot);
             }
 
             public ptr<TParam0> GetSystemParam2<TParam0>() where TParam0 : unmanaged, ISystemParam
@@ -697,7 +767,6 @@ namespace Wargon.Nukecs
                         }
                         break;
                     }
-                    case SystemParamMetaType.Single:
                     case SystemParamMetaType.Local:
                         param = AllocatorRef.AllocatePtr<TParam0>();
                         param.Ref = paramDefault;
@@ -728,14 +797,18 @@ namespace Wargon.Nukecs
 
             public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
             {
+                if (resStorage.HasRes<Res<TRes>>()) return;
                 var resRef = new Res<TRes>(res);
-                resStorage.AddRes(in resRef, Self);
+                if (resStorage.AddRes(in resRef, Self))
+                    resStorage.GetRes<Res<TRes>>().Ref.Init(ref selfPtr);
             }
 
             public void AddResManaged<TRes>(TRes res) where TRes : class, IRes
             {
+                if (resStorage.HasRes<ResManaged<TRes>>()) return;
                 var resRef = new ResManaged<TRes>(res);
-                resStorage.AddRes(resRef, Self);
+                if (resStorage.AddRes(resRef, Self))
+                    resStorage.GetRes<ResManaged<TRes>>().Ref.Init(ref selfPtr);
             }
         }
     }

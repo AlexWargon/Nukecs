@@ -1,5 +1,5 @@
 #pragma warning disable CS0618
-#if UNITY_EDITOR && NUKECS_DEBUG
+#if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using UnityEditor;
@@ -14,6 +14,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     using static Constant;
 
+    /// <summary>Canonical component inspector renderer for live ECS data and GameObject authoring.</summary>
     public class ComponentCardDrawer
     {
         private static Texture2D _resizeCursorTex;
@@ -39,9 +40,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private int _labelDragSubIdx = -1;
 
         private readonly FieldRow[] _rows;
-        private EcsDebugV2Window _window;
+        private IComponentCardBinding _binding;
 
-        private ComponentCardDrawer(ComponentInfo template)
+        public ComponentCardDrawer(ComponentInfo template)
         {
             _compName = template.Name;
             var byteSize = template.ByteSize;
@@ -49,67 +50,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             card = EcsDebugV2Theme.CreateGlassCard();
             card.style.marginBottom = 7;
 
-            var compHeader = new VisualElement
-            {
-                style =
-                {
-                    height = EcsDebugV2Theme.ComponentHeaderHeight,
-                    flexDirection = FlexDirection.Row,
-                    alignItems = Align.Center,
-                    paddingLeft = 12,
-                    paddingRight = 6,
-                    paddingTop = 4,
-                    paddingBottom = 4,
-                    backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.GlassBorder
-                }
-            };
-            var compNameLabel = new Label(template.Name)
-            {
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.Body,
-                    color = EcsDebugV2Theme.Foreground,
-                    unityFontStyleAndWeight = FontStyle.Bold
-                }
-            };
-            compHeader.Add(compNameLabel);
-            var sizeLabel = new Label($"{byteSize} Bytes")
-            {
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.FieldName,
-                    color = EcsDebugV2Theme.MutedText,
-                    marginLeft = 6
-                }
-            };
-            compHeader.Add(sizeLabel);
-
-            var removeBtn = new Button(() => { _window?.RemoveComponent(_entityId, _compName); })
-            {
-                text = "\u2715",
-                tooltip = $"Remove {template.Name}",
-                style =
-                {
-                    fontSize = EcsDebugV2Theme.Font.FieldName,
-                    color = EcsDebugV2Theme.MutedText,
-                    backgroundColor = Color.clear,
-                    paddingLeft = 4,
-                    paddingRight = 4,
-                    paddingTop = 2,
-                    paddingBottom = 2,
-                    marginLeft = Length.Auto(),
-                    width = 24,
-                    height = 24
-                }
-            };
-            removeBtn.SetupBorder(Color.clear, 0);
-            removeBtn.RegisterCallback<MouseEnterEvent, Color>((_, color) => removeBtn.style.color = color,
-                EcsDebugV2Theme.Red);
-            removeBtn.RegisterCallback<MouseLeaveEvent, Color>((_, color) => removeBtn.style.color = color,
-                EcsDebugV2Theme.MutedText);
-            compHeader.Add(removeBtn);
+            var compHeader = ComponentCardVisuals.CreateHeader(template.Name, byteSize,
+                () => _binding?.RemoveComponent(_entityId, _compName));
+            var sizeLabel = compHeader.Q<Label>("component-size");
             card.Add(compHeader);
 
             var isTag = template.Fields.Count == 1 && template.Fields[0].Key == TAG_LABEL;
@@ -228,11 +171,11 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             return Active[index];
         }
 
-        public void Bind(int entityId, string compName, EcsDebugV2Window window, int compIdx, ComponentInfo comp)
+        public void Bind(int entityId, string compName, IComponentCardBinding window, int compIdx, ComponentInfo comp)
         {
             _entityId = entityId;
             _compName = compName;
-            _window = window;
+            _binding = window;
 
             for (var i = 0; i < _rows.Length; i++)
             {
@@ -425,7 +368,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 {
                     bg = EcsDebugV2Theme.SurfaceHover;
                 }
-                else if (_window != null && _window.changes.TryGetValue(r.changeKey, out var ts))
+                else if (_binding != null && _binding.TryGetChangeTime(r.changeKey, out var ts))
                 {
                     var age = now - ts;
                     bg = age < 1200 ? EcsDebugV2Theme.YellowA015 : Color.clear;
@@ -498,8 +441,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (subIdx >= comp.Fields.Count) continue;
                 var subKey = comp.Fields[subIdx].Key;
                 var subChangeKey = $"{_entityId}:{_compName}:{subKey}";
-                if (_window != null &&
-                    _window.changes.TryGetValue(subChangeKey, out var ts) &&
+                if (_binding != null &&
+                    _binding.TryGetChangeTime(subChangeKey, out var ts) &&
                     now - ts < 1200)
                 {
                     anyHighlighted = true;
@@ -560,13 +503,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     paddingTop = 4,
                     paddingBottom = 4,
                     backgroundColor = Color.clear,
-                    borderBottomWidth = 1,
-                    borderBottomColor = EcsDebugV2Theme.GlassBorder,
                     transitionDuration = new List<TimeValue> { new(0.1f, TimeUnit.Second) },
                     transitionProperty = new List<StylePropertyName> { new("background-color") }
                 }
             };
 
+            ComponentCardVisuals.SetupFieldRow(row);
             var keyLabel = new Label(fieldKey)
             {
                 style =
@@ -578,6 +520,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexShrink = 0
                 }
             };
+            ComponentCardVisuals.SetupFieldLabel(keyLabel);
             row.Add(keyLabel);
 
             VisualElement editor;
@@ -628,7 +571,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     tf.RegisterValueChangedCallback(evt =>
                     {
                         if (double.TryParse(evt.newValue, out var n))
-                            _window.SetFieldValue(_entityId, _compName, fieldKey, FieldValue.FromNumber(n));
+                            _binding.SetFieldValue(_entityId, _compName, fieldKey, FieldValue.FromNumber(n));
                     });
                     tf.RegisterCallback<PointerDownEvent>(evt =>
                     {
@@ -650,7 +593,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
                             var newVal = ds.baseVal + delta * speed;
                             tf.SetValueWithoutNotify(newVal.ToString(GENERAL_NUMBER_FORMAT));
-                            _window.SetFieldValue(_entityId, _compName, fieldKey,
+                            _binding.SetFieldValue(_entityId, _compName, fieldKey,
                                 FieldValue.FromNumber(newVal));
                         }
                     });
@@ -749,7 +692,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         var newVal = !r.lastBoolVal;
                         r.lastBoolVal = newVal;
                         _rows[capturedIdx] = r;
-                        _window.SetFieldValue(_entityId, _compName, fieldKey,
+                        _binding.SetFieldValue(_entityId, _compName, fieldKey,
                             FieldValue.FromBool(newVal));
 
                         thumb.style.marginLeft = newVal ? 20 : 2;
@@ -817,7 +760,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     };
 
                     tf.RegisterValueChangedCallback(evt =>
-                        _window.SetFieldValue(_entityId, _compName, fieldKey,
+                        _binding.SetFieldValue(_entityId, _compName, fieldKey,
                             FieldValue.FromString(evt.newValue)));
                     tf.RegisterCallback<FocusInEvent>(_ => underline.style.opacity = 1);
                     tf.RegisterCallback<FocusOutEvent>(_ => underline.style.opacity = 0);
@@ -867,8 +810,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     var capturedIdx = rowIdx;
                     link.RegisterCallback<ClickEvent>(_ =>
                     {
-                        if (_window != null && _rows[capturedIdx].lastEntityRefVal > 0)
-                            _window.SelectEntity(_rows[capturedIdx].lastEntityRefVal);
+                        if (_binding != null && _rows[capturedIdx].lastEntityRefVal > 0)
+                            _binding.SelectEntity(_rows[capturedIdx].lastEntityRefVal);
                     });
                     container.Add(link);
 
@@ -894,7 +837,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         {
                             if (int.TryParse(evt.newValue, out var n))
                             {
-                                _window.SetFieldValue(_entityId, _compName, capturedFieldKey,
+                                _binding.SetFieldValue(_entityId, _compName, capturedFieldKey,
                                     FieldValue.FromEntityRef(n));
                                 link.text = $"#{n}  ";
                             }
@@ -989,7 +932,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             menu.AddItem(new GUIContent(name), idx == r.lastEnumIndex, () =>
                             {
                                 var enumVal = FieldValue.FromEnum(r.lastEnumNames, r.lastEnumRawValues, idx, rawVal);
-                                _window.SetFieldValue(_entityId, _compName, capturedFieldKey, enumVal);
+                                _binding.SetFieldValue(_entityId, _compName, capturedFieldKey, enumVal);
                             });
                         }
                         menu.DropDown(btn.worldBound);
@@ -1028,7 +971,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             {
                                 var newName = newObj != null ? newObj.name : "null";
                                 var newId = newObj != null ? newObj.GetInstanceID() : 0;
-                                _window.SetFieldValue(_entityId, _compName, fieldKey,
+                                _binding.SetFieldValue(_entityId, _compName, fieldKey,
                                     FieldValue.FromObjectRef(objTypeResolved.Name, newName, newId, true));
                             }
                         })
@@ -1125,7 +1068,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
                         var newVal = _labelDragBaseVal + delta * speed;
                         capturedTf.SetValueWithoutNotify(newVal.ToString("G"));
-                        _window.SetFieldValue(_entityId, _compName, capturedFieldKey,
+                        _binding.SetFieldValue(_entityId, _compName, capturedFieldKey,
                             FieldValue.FromNumber(newVal));
                     }
                 });
@@ -1142,6 +1085,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
 
             editor.name = $"editor-{_compName}-{fieldKey}";
+            ComponentCardVisuals.SetupValueSurface(editor, value.Type != FieldValueType.Bool);
             row.Add(editor);
 
             var ri = rowIdx;
@@ -1217,6 +1161,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 }
             };
 
+            ComponentCardVisuals.SetupFieldRow(row);
             var prefixLabel = new Label(prefix)
             {
                 style =
@@ -1228,6 +1173,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     flexShrink = 0
                 }
             };
+            ComponentCardVisuals.SetupFieldLabel(prefixLabel);
             row.Add(prefixLabel);
 
             var subFieldNames = new string[fieldIndices.Count];
@@ -1315,7 +1261,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 subTextField.RegisterValueChangedCallback(evt =>
                 {
                     if (double.TryParse(evt.newValue, out var n))
-                        _window.SetFieldValue(_entityId, _compName, capturedSubKey,
+                        _binding.SetFieldValue(_entityId, _compName, capturedSubKey,
                             FieldValue.FromNumber(n));
                 });
 
@@ -1343,7 +1289,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         var speed = evt.shiftKey ? 0.01 : evt.ctrlKey ? 10.0 : 0.5;
                         var newVal = _labelDragBaseVal + delta * speed;
                         subTextField.SetValueWithoutNotify(newVal.ToString("G"));
-                        _window.SetFieldValue(_entityId, _compName, capturedSubKey,
+                        _binding.SetFieldValue(_entityId, _compName, capturedSubKey,
                             FieldValue.FromNumber(newVal));
                     }
                 });
@@ -1365,6 +1311,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
 
             editor.name = $"editor-{_compName}-{prefix}";
+            ComponentCardVisuals.SetupValueSurface(editor, shadeContainer: false);
             row.Add(editor);
 
             var subIndices = new int[fieldIndices.Count];

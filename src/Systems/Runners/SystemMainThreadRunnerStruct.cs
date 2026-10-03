@@ -33,7 +33,11 @@ namespace Wargon.Nukecs
         public void OnWorldDeserialize(World world) {
             FixQueryFields(world);
             if (System is IOnWorldDeserialize deser)
+            {
                 deser.OnWorldDeserialize(ref world);
+                // Interface dispatch boxes a struct; retain the mutated boxed value.
+                System = (TSystem)deser;
+            }
         }
 
         private void FixQueryFields(World world) {

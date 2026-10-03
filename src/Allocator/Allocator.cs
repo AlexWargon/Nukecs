@@ -1,6 +1,7 @@
 namespace Wargon.Nukecs
 {
     using System;
+    using System.Runtime.CompilerServices;
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
@@ -161,6 +162,9 @@ namespace Wargon.Nukecs
             r.cursor = m.Cursor;
             r.freeHead = NPOS;
             r.freeCount = 0;
+            // freed headers below the marker cursor must not stay as free-list ghosts
+            for (int i = 0; i < regionCount; i++)
+                RebuildFreeList(i);
             lock_.Release();
         }
 
@@ -202,8 +206,47 @@ namespace Wargon.Nukecs
             }
         }
 
-        private void* Alloc(long size)
+        /// <summary>
+        /// Rebuilds a region's free-list by walking block headers from the region start up to
+        /// the cursor. Used after FastDeserialize: the saved bytes contain freed headers
+        /// (negative Size, e.g. from DynamicBitmask.EnsureCapacity growth) while the Region
+        /// metadata was reset — leaving them unrelinked lets later Dealloc/Alloc coalesce
+        /// against ghost blocks and corrupt the arena.
+        /// </summary>
+        private unsafe void RebuildFreeList(int ri)
         {
+            ref var r = ref regions[ri];
+            byte* bp = r.basePtr;
+            r.freeHead = NPOS;
+            r.freeCount = 0;
+            long tail = NPOS;
+            long hOff = 0;
+            // every block advances at least ALIGN + OVR bytes — the walk is finite;
+            // break on a malformed header (corrupt save) keeping whatever was relinked
+            while (hOff + HDR <= r.cursor)
+            {
+                var h = (Header*)(bp + hOff);
+                long sz = h->Size;
+                long data = sz < 0 ? -sz : sz;
+                if (data < ALIGN) break;
+                if (sz < 0)
+                {
+                    h->NextFree = NPOS;
+                    if (tail == NPOS) r.freeHead = hOff;
+                    else ((Header*)(bp + tail))->NextFree = hOff;
+                    tail = hOff;
+                    r.freeCount++;
+                }
+                hOff += data + OVR;
+            }
+        }
+
+        private void* Alloc(long size, int tag) {
+            // Arena Guard: canary adds 16 guard bytes to the END of the aligned data slot
+            // (slot = A16(size) + 16). Guard presence is marked in NextFree bit 32 so
+            // Validate can check it later; flags OFF → layout identical to canary-less.
+            var guard = (AllocatorDebugState.Mode & AllocatorDebugMode.Canary) != 0;
+            if (guard) size += 16;
             size = A16(Math.Max(size, ALIGN));
             long total = size + OVR;
 
@@ -232,6 +275,7 @@ namespace Wargon.Nukecs
                         if (remain >= OVR + ALIGN)
                         {
                             h->Size = size;
+                            h->NextFree = TagWord(tag, guard);
                             WriteF(bp, curOff, size + OVR);
 
                             long sOff = curOff + size + OVR;
@@ -242,18 +286,23 @@ namespace Wargon.Nukecs
                             r.freeHead = sOff;
                             WriteF(bp, sOff, remain);
                             r.freeCount++;
+                            if ((AllocatorDebugState.Mode & AllocatorDebugMode.PoisonFree) != 0)
+                                PoisonFirst16(bp + sOff + HDR);
 
                             totalAllocated += size + OVR;
                         }
                         else
                         {
                             h->Size = freeSz;
+                            h->NextFree = TagWord(tag, guard);
                             WriteF(bp, curOff, freeSz + OVR);
                             totalAllocated += freeSz + OVR;
                         }
 
+                        var dataPtr = bp + curOff + HDR;
+                        if (guard) WriteGuard(dataPtr + size - 16, i, curOff);
                         lock_.Release();
-                        return bp + curOff + HDR;
+                        return dataPtr;
                     }
 
                     prevOff = curOff;
@@ -265,12 +314,14 @@ namespace Wargon.Nukecs
                     long off = r.cursor;
                     var hh = (Header*)(bp + off);
                     hh->Size = size;
-                    hh->NextFree = 0;
+                    hh->NextFree = TagWord(tag, guard);
                     WriteF(bp, off, total);
                     r.cursor += total;
                     totalAllocated += total;
+                    var dataPtr = bp + off + HDR;
+                    if (guard) WriteGuard(dataPtr + size - 16, i, off);
                     lock_.Release();
-                    return bp + off + HDR;
+                    return dataPtr;
                 }
             }
 
@@ -280,12 +331,46 @@ namespace Wargon.Nukecs
             ref var rn = ref regions[ri];
             var hn = (Header*)(rn.basePtr);
             hn->Size = size;
-            hn->NextFree = 0;
+            hn->NextFree = TagWord(tag, guard);
             WriteF(rn.basePtr, 0, total);
             rn.cursor = total;
             totalAllocated += total;
+            var dataPtrNew = rn.basePtr + HDR;
+            if (guard) WriteGuard(dataPtrNew + size - 16, ri, 0);
             lock_.Release();
-            return rn.basePtr + HDR;
+            return dataPtrNew;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static long TagWord(int tag, bool guard) => tag | (guard ? 1L << 32 : 0L);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void WriteGuard(byte* guardPtr, int ri, long hOff)
+        {
+            var m0 = 0x5A5AA5A5DEADBEEFUL ^ ((ulong)(uint)ri << 32) ^ (ulong)hOff;
+            ((ulong*)guardPtr)[0] = m0;
+            ((ulong*)guardPtr)[1] = ~m0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool GuardIntact(byte* guardPtr, int ri, long hOff)
+        {
+            var m0 = 0x5A5AA5A5DEADBEEFUL ^ ((ulong)(uint)ri << 32) ^ (ulong)hOff;
+            return ((ulong*)guardPtr)[0] == m0 && ((ulong*)guardPtr)[1] == ~m0;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void PoisonFirst16(byte* userPtr)
+        {
+            ((ulong*)userPtr)[0] = 0xDDDDDDDDDDDDDDDDUL;
+            ((ulong*)userPtr)[1] = 0xDDDDDDDDDDDDDDDDUL;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool PoisonIntact(byte* userPtr)
+        {
+            return ((ulong*)userPtr)[0] == 0xDDDDDDDDDDDDDDDDUL
+                && ((ulong*)userPtr)[1] == 0xDDDDDDDDDDDDDDDDUL;
         }
 
         private void Dealloc(int ri, long userOffset)
@@ -301,6 +386,10 @@ namespace Wargon.Nukecs
             if (size <= 0) { lock_.Release(); return; }
 
             h->Size = -size;
+            // Arena Guard: poison the first 16 user bytes so later writes into this freed
+            // block (use-after-free) are detected by Validate
+            if ((AllocatorDebugState.Mode & AllocatorDebugMode.PoisonFree) != 0)
+                PoisonFirst16(bp + hOff + HDR);
 
             long merged = size;
             long mOff = hOff;
@@ -366,12 +455,12 @@ namespace Wargon.Nukecs
             return -1;
         }
 
-        public ptr_offset AllocateRaw(long size) => ToOff(Alloc(size));
-        public void* Allocate(long size) => Alloc(size);
+        public ptr_offset AllocateRaw(long size, int tag = 0) => ToOff(Alloc(size, tag));
+        public void* Allocate(long size, int tag = 0) => Alloc(size, tag);
 
-        public IntPtr AllocateRaw(long size, ref int error)
+        public IntPtr AllocateRaw(long size, ref int error, int tag = 0)
         {
-            var p = Alloc(size);
+            var p = Alloc(size, tag);
             if (p == null) { error = AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY; return IntPtr.Zero; }
             error = 0;
             return (IntPtr)p;
@@ -379,18 +468,18 @@ namespace Wargon.Nukecs
 
         public ptr<T> AllocatePtr<T>() where T : unmanaged => AllocatePtr<T>(sizeof(T));
 
-        public ptr<T> AllocatePtr<T>(long size) where T : unmanaged
+        public ptr<T> AllocatePtr<T>(long size, int tag = 0) where T : unmanaged
         {
-            var p = Alloc(size);
+            var p = Alloc(size, tag);
             if (p == null) return ptr<T>.NULL;
             int ri = FindRegion(p);
             long off = (byte*)p - regions[ri].basePtr;
             return new ptr<T>(regions[ri].basePtr, new ptr_offset((uint)ri, (uint)off));
         }
 
-        public ptr AllocatePtr(long size)
+        public ptr AllocatePtr(long size, int tag = 0)
         {
-            var p = Alloc(size);
+            var p = Alloc(size, tag);
             if (p == null) return ptr.NULL;
             int ri = FindRegion(p);
             long off = (byte*)p - regions[ri].basePtr;
@@ -444,6 +533,162 @@ namespace Wargon.Nukecs
         }
 
         public void Free(uint p, ref int error) { Dealloc(0, p); error = AllocatorError.NO_ERRORS; }
+
+        // ------------------------------------------------------------------
+        // Arena Guard: corruption validation + leak/tag statistics
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Walks every region's block chain and checks: header sanity (size aligned,
+        /// chain within cursor), canary guards of canary-allocated blocks (OOB writes past
+        /// live allocations) and poison of freed blocks (use-after-free writes).
+        /// Limitation: freeing the LAST block of a region rewinds its cursor (Dealloc) —
+        /// such blocks leave the chain, and UAF writes into the rewound tail are invisible
+        /// to this walk by construction (that space is unallocated region memory).
+        /// Burst-safe core: no managed types, caller reports via ValidateAndReport.
+        /// </summary>
+        public bool Validate(out AllocatorDebugState.Violation violation)
+        {
+            var checkGuards = (AllocatorDebugState.Mode & AllocatorDebugMode.Canary) != 0;
+            var checkPoison = (AllocatorDebugState.Mode & AllocatorDebugMode.PoisonFree) != 0;
+            violation = default;
+
+            for (int ri = 0; ri < regionCount; ri++)
+            {
+                ref var r = ref regions[ri];
+                byte* bp = r.basePtr;
+                if (bp == null) continue;
+                long hOff = 0;
+                while (hOff + HDR <= r.cursor)
+                {
+                    var h = (Header*)(bp + hOff);
+                    long data = h->Size < 0 ? -h->Size : h->Size;
+                    if (data < ALIGN || (data & 15) != 0)
+                    {
+                        violation = NewViolation(ri, hOff, data, h, AllocatorDebugState.ViolationKind.BadHeaderSize);
+                        return false;
+                    }
+                    if (hOff + data + OVR > r.cursor)
+                    {
+                        violation = NewViolation(ri, hOff, data, h, AllocatorDebugState.ViolationKind.ChainOutOfCursor);
+                        return false;
+                    }
+                    if (h->Size >= 0)
+                    {
+                        // live block: guard check (only for blocks allocated with canary ON)
+                        if (checkGuards && (h->NextFree & (1L << 32)) != 0
+                            && !GuardIntact(bp + hOff + HDR + data - 16, ri, hOff))
+                        {
+                            violation = NewViolation(ri, hOff, data, h, AllocatorDebugState.ViolationKind.CanaryBroken);
+                            return false;
+                        }
+                    }
+                    else if (checkPoison && data >= 16 && !PoisonIntact(bp + hOff + HDR))
+                    {
+                        violation = NewViolation(ri, hOff, data, h, AllocatorDebugState.ViolationKind.FreedBlockWritten);
+                        return false;
+                    }
+                    hOff += data + OVR;
+                }
+            }
+            return true;
+        }
+
+        private static AllocatorDebugState.Violation NewViolation(
+            int ri, long hOff, long data, Header* h, AllocatorDebugState.ViolationKind kind)
+            => new AllocatorDebugState.Violation
+            {
+                Region = ri,
+                BlockOffset = hOff,
+                DataSize = data,
+                Tag = (int)(h->NextFree & 0xFFFFFFFF),
+                Kind = kind
+            };
+
+        /// <summary>Managed wrapper: validate + log the result (report goes through [BurstDiscard]).</summary>
+        public bool ValidateAndReport(string context)
+        {
+            if (Validate(out var v))
+            {
+                AllocatorDebugState.ReportClean(context, 0, totalAllocated);
+                return true;
+            }
+            AllocatorDebugState.Report(in v, context);
+            return false;
+        }
+
+        /// <summary>
+        /// Poisons the first 16 user bytes of every currently free block. Call when
+        /// PoisonFree is switched ON mid-session: blocks freed before the switch would
+        /// otherwise hold arbitrary bytes and trip Validate with false positives.
+        /// </summary>
+        public unsafe void PoisonAllFree()
+        {
+            for (int ri = 0; ri < regionCount; ri++)
+            {
+                ref var r = ref regions[ri];
+                byte* bp = r.basePtr;
+                if (bp == null) continue;
+                long hOff = 0;
+                while (hOff + HDR <= r.cursor)
+                {
+                    var h = (Header*)(bp + hOff);
+                    long data = h->Size < 0 ? -h->Size : h->Size;
+                    if (data < ALIGN || (data & 15) != 0) break;
+                    if (h->Size < 0 && data >= 16)
+                        PoisonFirst16(bp + hOff + HDR);
+                    hOff += data + OVR;
+                }
+            }
+        }
+
+        /// <summary>Fixed-capacity per-tag aggregation of LIVE blocks (leak/growth signal).</summary>
+        public struct TagStats
+        {
+            public const int Capacity = 32;
+            public fixed int Tags[Capacity];
+            public fixed long Counts[Capacity];
+            public fixed long Bytes[Capacity];
+            public int Length;
+        }
+
+        public unsafe void GetTagStats(ref TagStats stats)
+        {
+            stats.Length = 0;
+            for (int ri = 0; ri < regionCount; ri++)
+            {
+                ref var r = ref regions[ri];
+                byte* bp = r.basePtr;
+                if (bp == null) continue;
+                long hOff = 0;
+                while (hOff + HDR <= r.cursor)
+                {
+                    var h = (Header*)(bp + hOff);
+                    long data = h->Size < 0 ? -h->Size : h->Size;
+                    if (data < ALIGN || (data & 15) != 0) break;
+                    if (h->Size >= 0)
+                    {
+                        var tag = (int)(h->NextFree & 0xFFFFFFFF);
+                        var slot = -1;
+                        for (var i = 0; i < stats.Length; i++)
+                            if (stats.Tags[i] == tag) { slot = i; break; }
+                        if (slot < 0 && stats.Length < TagStats.Capacity)
+                        {
+                            slot = stats.Length++;
+                            stats.Tags[slot] = tag;
+                            stats.Counts[slot] = 0;
+                            stats.Bytes[slot] = 0;
+                        }
+                        if (slot >= 0)
+                        {
+                            stats.Counts[slot]++;
+                            stats.Bytes[slot] += data;
+                        }
+                    }
+                    hOff += data + OVR;
+                }
+            }
+        }
 
         public void Dispose()
         {

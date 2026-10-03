@@ -85,20 +85,20 @@
         }
     }
     public struct NoneSyncTransform : IComponent { }
+    /// <summary>Compatibility cleanup for explicitly tagged DestroyEntity views.
+    /// Register on the main thread. This destroys GameObjects only, not ECS entities;
+    /// ordinary Entity.Destroy does not add that legacy tag.</summary>
     public struct ClearTransformsSystem : ISystem, IOnCreate
     {
         private Query query;
         public void OnCreate(ref World world)
         {
-            query = world.Query(withDefaultNoneTypes : false).With<DestroyEntity>().With<TransformRef>();
+            query = world.Query(withDefaultNoneTypes: false).With<DestroyEntity>().With<TransformRef>();
         }
-
         public void OnUpdate(ref State state)
         {
             foreach (ref var entity in query)
-            {
                 UnityEngine.Object.Destroy(entity.Get<TransformRef>().Value.Value.gameObject);
-            }
         }
     }
 }

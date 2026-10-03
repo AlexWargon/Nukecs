@@ -1,798 +1,365 @@
+![Nukecs](https://github.com/AlexWargon/Nukecs/assets/37613162/827d5e54-82ff-45d5-af2f-bac06fabc2ec)
 
-![logo-no-background](https://github.com/AlexWargon/Nukecs/assets/37613162/827d5e54-82ff-45d5-af2f-bac06fabc2ec)
+# Nukecs
 
-### <img src="https://github.com/AlexWargon/Nukecs/assets/37613162/553b8223-c304-4429-8def-96e2830d5ca7" width=2% height=2%> NUKECS — Fast C# Entity Component System for Unity
+**An Entity Component System for Unity, with Burst and the C# Job System.**
 
-Burst-compiled ECS framework with source-generated systems, custom allocator, and hot reload support.
+Keep game data in small structs and write gameplay as ordinary C# methods.
+Nukecs generates the code that connects your systems to queries, resources,
+and jobs.
 
-- **Burst-compiled** systems by default
-- **Source-generated** system runners from `[System]` static methods
-- **Custom arena allocator** — no GC pressure
-- **World serialization** — save/load entire world state
-- **Hot reload** — edit systems during Play Mode
+- **High performance.** Efficient single-threaded iteration, source-generated loops,
+  and parallel execution with Unity Jobs and Burst.
+- **Less boilerplate.** Write systems as static `[System]` methods. Nukecs generates
+  runners and connects queries, resources, and events. `WorldInstaller` handles
+  world setup and cleanup.
+- **Flexible component storage.** Combine inline data, tags, and pool components.
+  Shared SoA storage avoids copying inline data when tags or pool components change.
+- **Hot reload in Play Mode.** Edit system logic without restarting the simulation.
+  Hot-reloaded systems run without Burst compilation.
+- **Gameplay tools included.** Event streams, reactive subscriptions, shared
+  resources, and per-system state.
+- **Save and restore ECS state.** Serialize allocator-backed world data, including
+  entities and components.
+- **Built-in debugging.** Inspect entities, components, and system dependencies.
+  Track arena memory usage and detect memory corruption with Arena Guard.
 
----
+[Installation](#installation) · [Quick start](#quick-start) · [Components](#components) ·
+[Entities](#entities) · [Queries](#queries) · [Systems](#systems) ·
+[Further reading](#further-reading)
 
-## Quick Start
+## Installation
 
-### 1. Create a WorldInstaller
+1. Install Git, then open Unity's **Package Manager → Add package from git URL**.
+2. Paste this URL:
 
-Inherit from `WorldInstaller`, add systems in `OnWorldCreated`, and drive the update loop:
+   ```text
+   https://github.com/AlexWargon/Nukecs.git#upm
+   ```
+
+   Unity installs `src`, `SourceGen`, and Markdown documentation, along with the
+   required package metadata. Burst, Collections, and Mathematics are resolved
+   automatically. Demos, tests, and benchmarks stay in the source repository.
+3. Enable **Allow 'unsafe' Code** in Player Settings, or **Allow Unsafe Code**
+   on your gameplay assembly definition. If you use your own assembly definition,
+   add references to `Nukecs`, `Unity.Burst`, and the Unity packages your code uses.
+4. Let Unity compile, then follow the quick start below.
+
+For manual installation or the demos, copy the full `dev` checkout into
+`Assets/Nukecs` and install the dependencies above through Package Manager.
+Keep all `.meta` files, including the analyzer metadata in `SourceGen`.
+Choose one installation method to avoid duplicate assemblies.
+See [UPM distribution](UPM.md) for package contents and updates.
+
+The tested environment is **Unity 6000.0.63f1**, Burst **1.8.29**, Collections
+**2.6.2**, and Mathematics **1.3.2**. These are tested versions, not minimum
+requirements. Player/IL2CPP support is not established by Editor tests.
+
+## Quick start
+
+This example moves one entity along the X axis at two units per second.
+It introduces five ideas:
+
+| Term | Meaning in this example |
+|---|---|
+| **World** | Owns the entities and their data. |
+| **Entity** | Identifies the thing being moved. |
+| **Component** | Stores one piece of data: position or velocity. |
+| **Query** | Selects entities that have both components. |
+| **System** | Updates their positions each frame. |
+
+Create `QuickStart.cs`, paste the code below, and attach `QuickStart` to an empty
+GameObject. Then enter Play Mode.
 
 ```csharp
-using Wargon.Nukecs;
-using Wargon.Nukecs.Transforms;
+using Unity.Burst;
 using Unity.Mathematics;
-
-public class GameBootstrap : WorldInstaller
-{
-    protected override WorldConfig GetConfig() => WorldConfig.Default256;
-
-    protected override void OnWorldCreated(ref World world)
-    {
-        Systems
-            .AddGroup(new GameSystems())
-            ;
-    }
-
-    private void Update()
-    {
-        Systems.OnUpdate(Time.deltaTime, Time.time);
-    }
-}
-```
-
-`WorldInstaller` handles world creation, default systems, and disposal automatically. Override `CreateEntities(ref World)` to spawn initial entities.
-
-### 2. Define Components
-
-```csharp
+using UnityEngine;
 using Wargon.Nukecs;
 
-public struct Speed : IComponent { public float Value; }
-public struct Health : IComponent { public int Value; }
-public struct PlayerTag : IComponent { }
-```
-
-Components are unmanaged structs. Empty structs become **tag components** with zero memory cost.
-
-### 3. Define Systems
-
-```csharp
-[BurstCompile]
-public static class MovementSystems
+namespace NukecsQuickStart
 {
-    [System, BurstCompile]
-    public static void Move(ref Query<LocalTransform, Speed> query,ref State state)
+    public struct Position : IComponent { public float3 Value; }
+    public struct Velocity : IComponent { public float3 Value; }
+
+    public sealed class QuickStart : WorldInstaller
     {
-        var dt = state.Time.DeltaTime;
-        foreach (var (t, s) in query.par_iter())
+        protected override void OnWorldCreated(ref World world)
         {
-            ref var transform = ref t.Get;
-            ref readonly var speed = ref s.Read;
-            transform.Position += new float3(1, 0, 0) * speed.Value * dt;
+            Systems.Add(MySystems.MoveSystem, Threads.Parallel);
+        }
+
+        protected override void CreateEntities(ref World world)
+        {
+            var entity = world.Entity();
+            entity.Add(new Position { Value = float3.zero });
+            entity.Add(new Velocity { Value = new float3(2f, 0f, 0f) });
+        }
+
+        private void Update()
+        {
+            Systems.OnUpdate(Time.deltaTime, Time.time);
+        }
+    }
+
+    public static class MySystems
+    {
+        [System, BurstCompile]
+        public static void MoveSystem(ref Query<Position, Velocity> query, ref State state)
+        {
+            foreach (var (position, velocity) in query)
+            {
+                position.Get.Value += velocity.Read.Value * state.Time.DeltaTime;
+            }
         }
     }
 }
 ```
 
-### 4. Add Systems to the World
+**What happens:** `WorldInstaller` creates the world, then calls your two setup
+hooks. It applies the queued component additions and runs startup systems.
+Each `Update` runs the registered movement system. When the installer is
+destroyed, it disposes the world and runs system cleanup.
 
-```csharp
-Systems
-    .Add(MovementSystems.Move, Threads.MainRun)
-    ;
-```
+Inside the loop, `.Get` gives writable access to a component; `.Read` gives
+read-only access. `State.Time.DeltaTime` is the frame duration passed to
+`Systems.OnUpdate`.
 
-The source generator creates the `Systems.Add(delegate, Threads)` extension for each `[System]` method automatically.
+**Check the result:** enable the `NUKECS_DEBUG` Scripting Define Symbol and open
+**Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
+value increases by approximately 2 each second of simulation time. This example
+updates ECS data only. To see moving GameObjects, follow the
+[rotate-cube demo setup](Demos/README.md).
 
-### 5. Create Entities
-
-```csharp
-protected override void CreateEntities(ref World world)
-{
-    var e = world.Entity();
-    e.Add(new LocalTransform { Position = float3.zero, Scale = new float3(1,1,1) });
-    e.Add(new Speed { Value = 5f });
-}
-```
-
----
+The snippets below build on the same `Position` and `Velocity` components.
 
 ## Components
 
-### IComponent — Inline Archetype Storage (Default)
+A component is an unmanaged struct that holds data. Keep behavior in systems.
 
 ```csharp
-public struct Velocity : IComponent { public float3 Value; }
+public struct Health : IComponent { public int Value; }
+public struct Frozen : IComponent { } // An empty component is a tag.
+public struct Fire : IComponent { }
 ```
 
-Stored inline in archetype data arrays. This is the default and most efficient storage.
+Use tags to mark an entity for filtering, such as `Frozen`, `Enemy`, or
+`Selected`. They have no per-entity data payload.
 
-### IPoolComponent — Separate Pool Storage
-
-```csharp
-public struct MyPoolData : IPoolComponent { public float3 Value; }
-```
-
-Stored in a separate SparseSet pool. Use for components that are sparse (few entities have them) or large.
-
-### IArrayComponent — Dynamic Array Components
+For rare or large data, use `IPoolComponent`:
 
 ```csharp
-public struct Child : IArrayComponent { public Entity Value; }
-```
-
-Dynamic arrays attached to entities. Accessed via `entity.GetArray<T>()` and `entity.AddArray<T>()`.
-
-### IDisposable Components
-
-```csharp
-public struct MyComponent : IComponent, System.IDisposable
+public struct DamageRequest : IPoolComponent
 {
-    public NativeArray<int> Data;
-    public void Dispose() { Data.Dispose(); }
+    public int Amount;
 }
 ```
 
-`Dispose()` is called automatically when the component is removed or the entity is destroyed.
+Regular components live together in columns for iteration. Pool components
+live in separate storage; adding or removing one preserves the entity's inline
+data columns. Both kinds can appear in the same query.
 
-### ICopyable\<T\> Components
-
-```csharp
-public struct MyCopyable : IComponent, ICopyable<MyCopyable>
-{
-    public NativeList<int> List;
-    public MyCopyable Copy(int to)
-    {
-        var copy = new NativeList<int>(List.Length, Allocator.Persistent);
-        copy.CopyFrom(in List);
-        return new MyCopyable { List = copy };
-    }
-}
-```
-
-Called when `entity.Copy()` is used to duplicate an entity.
-
-### Tag Components
-
-```csharp
-public struct EnemyTag : IComponent { }
-```
-
-Empty structs consume no memory in archetype storage — used only for query filtering.
-
-### Built-in Components
-
-| Component | Description |
-|-----------|-------------|
-| `DestroyEntity` | Marks entity for deferred destruction |
-| `EntityCreated` | Added to newly created entities (cleared each frame) |
-| `ChildOf` | Parent reference — `ChildOf { Value = parentEntity }` |
-| `Child` | Array component for child references |
-| `IsPrefab` | Marks prefab entities |
-
----
+Prefer small values and IDs in frequently used components. Put shared collections
+in shared storage and keep a key in the component. The
+[gameplay guide](NUKECS_AGENTS_GUIDE_EN.md#4-components-used-by-many-entities)
+explains ownership, collection costs, and disposal.
 
 ## Entities
 
-### Creation
+Create an entity and add its initial data in `CreateEntities`:
 
 ```csharp
-var e = world.Entity();
-var e2 = world.Entity<Speed>();                       // with default component
-var e3 = world.Entity(new Speed { Value = 5f });     // with initial value
-var e4 = world.Entity<Speed, Health>();               // multiple components
+var entity = world.Entity();
+entity.Add(new Health { Value = 100 });
 ```
 
-### Batch Creation
+**Adding, removing, and destroying are deferred.** Nukecs queues these operations
+in an Entity Command Buffer (ECB) and applies them at a safe point. The installer
+applies initial additions after `CreateEntities`; the systems loop handles
+playback during normal updates.
+
+Once the component has been added, read or change its value directly:
 
 ```csharp
-var entities = world.BatchCreateEntity(500);
-for (int i = 0; i < entities.Length; i++)
+if (entity.Has<Health>())
 {
-    ref var e = ref entities[i];
-    e.Add(new LocalTransform { Position = new float3(i, 0, 0) });
-}
-```
-
-### Operations
-
-```csharp
-ref var speed = ref entity.Get<Speed>();            // read/write ref
-ref readonly var speed = ref entity.Read<Speed>();  // readonly ref
-entity.Set(new Speed { Value = 10f });              // overwrite existing
-entity.Add(new Speed { Value = 5f });               // add (deferred via ECB)
-entity.Remove<Speed>();                             // remove (deferred via ECB)
-bool has = entity.Has<Speed>();                     // check existence
-ref var speed = ref entity.TryGet<Speed>(out bool exists); // safe access
-```
-
-### Destruction
-
-```csharp
-entity.Destroy();      // deferred — processed on next world.Update()
-entity.DestroyNow();   // immediate
-```
-
-`entity.Destroy()` is equivalent to `entity.Add(new DestroyEntity())`. The built-in `EntityDestroySystem` handles actual cleanup.
-
-### Copying
-
-```csharp
-var copy = entity.Copy();         // immediate deep copy
-var copy = entity.CopyVieECB();   // deferred copy via ECB
-```
-
-### Prefabs
-
-```csharp
-var prefab = world.Entity();
-prefab.Add(new Speed { Value = 5f });
-prefab.Add(new IsPrefab());
-
-var instance = world.SpawnPrefab(prefab);
-var instances = world.SpawnPrefabs(prefab, 100);
-```
-
-### Hierarchy
-
-```csharp
-parent.AddChild(child);
-parent.SetParent(childParent);
-parent.RemoveChild(child);
-ref var child = ref parent.GetChild(0);
-ref var root = ref entity.GetRootParent();
-```
-
----
-
-## Systems (FnSystems)
-
-Nukecs uses a **source-generated** approach. Mark static methods with `[System]` — the source generator creates job structs, runner classes, and `Systems.Add()` overloads automatically.
-
-### System Attribute
-
-```csharp
-[System]                                    // default: Threads.Parallel
-[System(Threads.Main)]                      // explicit thread mode
-[System(Threads.MainRun)]
-```
-
-### Auto-Injected Parameters
-
-The source generator detects parameter types and injects them automatically:
-
-| Parameter | Description |
-|-----------|-------------|
-| `ref Query<T1, T2, ...>` | Query iteration over matching entities |
-| `ref State` | World, Time, Dependencies |
-| `ref Res<T>` | Singleton resource (read/write) |
-| `ref ResManaged<T>` | Managed singleton resource |
-| `ref Events<TEvent>` | Event stream (send/receive) |
-| `ref Local<TData>` | Per-system local state |
-| `ref Single<T>` | Singleton entity accessor |
-
-### Thread Modes
-
-```csharp
-public enum Threads
-{
-    Main,       // Main thread
-    MainRun,    // Main thread via Job System Run
-    Single,     // Single worker thread
-    Parallel    // All parallel threads (default)
-}
-```
-
-### Adding Systems
-
-```csharp
-Systems
-    .Add(MySystems.Spawn, Threads.MainRun)
-    .Add(MySystems.Update, Threads.MainRun)
-    .Add(MySystems.Render, Threads.Main)
-    .Add(MySystems.Physics)              // default: Threads.Parallel
-    ;
-```
-
-### Query Iteration
-
-#### `par_iter()` — Parallel-safe ref iteration (recommended)
-
-```csharp
-foreach (var (t, v) in query.par_iter())
-{
-    ref var transform = ref t.Get;       // read/write
-    ref readonly var vel = ref v.Read;   // readonly
-    transform.Position += vel.Value * dt;
-}
-```
-
-#### `iter_unsafe()` — Raw pointer iteration (highest performance)
-
-```csharp
-foreach (var (t, v) in query.iter_unsafe())
-{
-    t->Position += v->Value * dt;
-}
-```
-
-#### `par_iter_unsafe()` — Parallel raw pointer iteration
-
-```csharp
-foreach (var (t, v) in query.par_iter_unsafe())
-{
-    t->Position += v->Value * dt;
-}
-```
-
-#### `iter()` — Sequential ref iteration
-
-```csharp
-foreach (var (t, v) in query.iter())
-{
-    ref var transform = ref t.Get;
-    transform.Position += v.Value * dt;
-}
-```
-
-#### `iter_chunk()` — Chunk-based iteration
-
-```csharp
-foreach (var chunk in query.iter_chunk())
-{
-    // Process entities in chunks
-}
-```
-
-### WithEntity — Access Entity in Iteration
-
-Append `.WithEntity` to get the `Entity` in the deconstruction:
-
-```csharp
-[System, BurstCompile]
-public static void Process(
-    ref Query<LocalTransform, Speed>.WithEntity query,
-    ref State state)
-{
-    foreach (var (e, t, s) in query.par_iter())
-    {
-        ref var transform = ref t.Get;
-        transform.Position += s.Get.Value * state.Time.DeltaTime;
-        if (transform.Position.y < 0)
-            e.Destroy();
-    }
-}
-```
-
-### Query Filter Modifiers
-
-Use `None<T>` and `With<T>` as the last type parameter to filter without reading:
-
-```csharp
-// None<T> — exclude entities that have component T
-ref Query<LocalTransform, Velocity, None<StaticTag>> query
-
-// With<T> — include only entities that have component T (readable via .Get)
-ref Query<LocalTransform, With<CubeStateTag>> query
-```
-
-`None<T1, T2>` and `With<T1, T2>` support multiple components.
-
-### ISystemsGroup — Organize Systems
-
-```csharp
-[BurstCompile]
-public class GameSystems : ISystemsGroup
-{
-    public void Build(Systems systems, ref World world)
-    {
-        systems
-            .Add(Spawn, Threads.MainRun)
-            .Add(Move)
-            .Add(Render, Threads.Main)
-            ;
-    }
-
-    [System, BurstCompile]
-    public static void Spawn(ref State state, ref Res<Config> config) { }
-
-    [System, BurstCompile]
-    public static void Move(ref Query<LocalTransform, Velocity> query, ref State state) { }
-
-    [System]
-    public static void Render(ref Query<LocalTransform> query, ref State state) { }
+    ref var health = ref entity.Get<Health>();
+    health.Value -= 10;                         // Changes the stored value now.
+    entity.Set(new Health { Value = 50 });      // Replaces an existing value now.
 }
 
-// Registration:
-Systems.AddGroup(new GameSystems());
+entity.Remove<Health>();                       // Queued.
+entity.Destroy();                              // Queued.
 ```
 
-### BurstCompile
+Use `ref` when you want to edit the stored component; a value copy is independent
+of it. `Add` adds a missing component; use `Set` to update an existing one.
 
-Always add `[BurstCompile]` to both the containing class (for `ISystemsGroup`) or the static method for maximum performance:
-
-```csharp
-[System, BurstCompile]
-public static void MySystem(ref Query<Transform> query) { }
-```
-
----
+Keep entity handles by value and use `entity.IsValid()` before accessing a handle
+that may have been destroyed. Queue structural changes inside query loops and
+let the scheduler apply them; do not call `world.Update()` during iteration.
 
 ## Queries
 
-### Fluent API (manual queries)
+A typed query selects entities with the requested components. Nukecs initializes
+queries passed to `[System]` methods automatically.
+
+| Query | Selects |
+|---|---|
+| `Query<Position, Velocity>` | Entities with position and velocity. |
+| `Query<Position, Velocity, With<Frozen>>` | Only those that also have `Frozen`. |
+| `Query<Position, Velocity, None<Frozen>>` | Only those without `Frozen`. |
+| `Query<Position, Velocity, (With<Frozen>, None<Fire>)>` | Only those with `Frozen` and without `Fire`. |
+| `Query<Entity, Position, Velocity>` | The same data, plus the entity handle. |
+| `Query<Health, Changed<Health>>` | Entities whose health changed. See the [reactivity example](API_REFERENCE.md#reactivity). |
+
+To skip frozen entities, change the movement system's query type. The trailing
+filter does not add a value to the loop:
 
 ```csharp
-var query = world.Query()
-    .With<LocalTransform>()
-    .With<Speed>()
-    .None<StaticTag>();
-```
-
-### Generic Typed Queries (in systems)
-
-Queries in `[System]` methods are auto-created by the source generator:
-
-```csharp
-Query<T1>
-Query<T1, TOption>
-Query<T1, T2, TOption>
-Query<T1, T2, T3, TOption>
-Query<T1, T2, T3, T4, TOption>
-Query<T1, T2, T3, T4, T5, TOption>
-```
-
-Where `TOption` can be a regular component, `None<T>`, or `With<T>`.
-
-### Access Patterns
-
-```csharp
-ref T val = ref componentRef.Get;       // read/write access
-ref readonly T val = ref componentRef.Read;  // readonly access
-```
-
-### Query Properties
-
-```csharp
-int count = query.Count;
-bool empty = query.IsEmpty;
-```
-
----
-
-## Entity Command Buffer (ECB)
-
-All `Add`, `Remove`, and `Destroy` operations are **deferred** through the Entity Command Buffer:
-
-```csharp
-entity.Add(new Speed { Value = 5f });   // Queued in ECB
-entity.Remove<Speed>();                  // Queued in ECB
-entity.Destroy();                        // Queued in ECB
-```
-
-ECB playback happens on `world.Update()`:
-
-```csharp
-world.Update();   // Plays back all queued ECB commands
-```
-
-> **Important:** Changes are not visible until the next `Update()`. If you need immediate access, use `entity.Set<T>()` to modify existing components.
-
-The ECB is **thread-safe** — it uses per-thread command buffers internally.
-
----
-
-## State
-
-`State` is auto-injected into systems and provides:
-
-```csharp
-public struct State
+[System, BurstCompile]
+public static void MoveSystem(ref Query<Position, Velocity, None<Frozen>> query,
+    ref State state)
 {
-    public JobHandle Dependencies;
-    public World World;
-    public TimeData Time;
-}
-
-public struct TimeData
-{
-    public float DeltaTime;
-    public float DeltaTimeFixed;
-    public float Time;
-    public float ElapsedTime;
-    public int TickCount;
-}
-```
-
-Usage in systems:
-
-```csharp
-[System]
-public static void MySystem(ref Query<Speed> query, ref State state)
-{
-    var dt = state.Time.DeltaTime;
-    var world = state.World;
-}
-```
-
----
-
-## Resources
-
-### IRes — Unmanaged Resources
-
-```csharp
-public struct GameConfig : IRes
-{
-    public float MoveSpeed;
-    public int MaxEntities;
-
-    public void OnCreate(ref World world)
+    foreach (var (position, velocity) in query)
     {
-        // Called once on creation. Can use managed types.
-    }
-
-    public void OnUpdate(ref World world)
-    {
-        // Called before each system update. Unmanaged only.
+        position.Get.Value += velocity.Read.Value * state.Time.DeltaTime;
     }
 }
 ```
 
-### Registering Resources
+Combine filters in a tuple to apply several conditions at once. This system
+stops frozen entities unless they also have `Fire`:
 
 ```csharp
-world.AddRes(new GameConfig { MoveSpeed = 5f, MaxEntities = 1000 });
-```
-
-### Accessing in Systems
-
-```csharp
-[System]
-public static void Move(
-    ref Query<LocalTransform, Speed> query,
-    ref State state,
-    ref Res<GameConfig> config)
+[System, BurstCompile]
+public static void StopFrozenSystem(
+    ref Query<Position, Velocity, (With<Frozen>, None<Fire>)> query)
 {
-    float speed = config.Ref.MoveSpeed;
-}
-```
-
-### ResManaged — Managed Resources
-
-For resources that reference managed objects (e.g., `Mesh`, `Material`):
-
-```csharp
-world.AddResManaged(new MeshData { Mesh = mesh, Material = material });
-
-[System]
-public static void Render(ref ResManaged<MeshData> meshData)
-{
-    var mesh = meshData.Val.Mesh;
-    var material = meshData.Val.Material;
-}
-```
-
-### SaveRes — Per-World Allocator-Stored Resource
-
-```csharp
-[System]
-public static void MySystem(ref SaveRes<MyData> data)
-{
-    ref var d = ref data.Ref;
-}
-```
-
-`SaveRes<T>` is stored in the world's custom allocator and survives serialization.
-
-### Local — Per-System Local State
-
-```csharp
-[System]
-public static void MySystem(ref Local<MyState> local)
-{
-    local.Value.counter++;
-}
-```
-
-Each system gets its own isolated instance.
-
----
-
-## Events
-
-```csharp
-public struct DamageEvent : IComponent { public int Amount; public Entity Target; }
-```
-
-### Sending Events
-
-```csharp
-[System]
-public static void ApplyDamage(ref Events<DamageEvent> events)
-{
-    events.Add(new DamageEvent { Amount = 10, Target = target });
-}
-```
-
-### Receiving Events
-
-```csharp
-[System]
-public static void ProcessDamage(ref Events<DamageEvent> events)
-{
-    foreach (var evt in events)
+    foreach (var (position, velocity) in query)
     {
-        // Handle event
+        velocity.Get.Value = float3.zero;
     }
-    events.Clear();
 }
 ```
 
----
+Both conditions must match. The tuple is a filter: the loop still returns only
+`position` and `velocity`. Add this method to `MySystems` and register it before
+`MoveSystem` with `Threads.Parallel` to stop matching entities before movement.
 
-## Transforms
-
-Nukecs provides built-in transform components:
-
-### Transform (World-Space)
+To remove entities that leave an area, add this method to `MySystems` and
+register it after `MoveSystem` with `Threads.Parallel`:
 
 ```csharp
-public struct Transform : IComponent
+[System, BurstCompile]
+public static void RemoveOutOfBounds(ref Query<Entity, Position> query)
 {
-    public float3 Position;
-    public quaternion Rotation;
-    public float3 Scale;
-    public float4x4 Matrix => float4x4.TRS(Position, Rotation, Scale);
+    foreach (var (entity, position) in query.par_iter())
+    {
+        if (position.Read.Value.x > 100f)
+            entity.Destroy();
+    }
 }
 ```
 
-### LocalTransform (Local-Space)
+Here `entity` is an `Entity` value, so call `entity.Destroy()` directly.
+
+Start with plain `foreach (... in query)` for component processing. Eligible
+loops use generated batch code. If you need an explicit iterator,
+**`par_iter()` respects the current job's range**; `iter()` visits the entire
+query and would repeat that work in each parallel worker. Iterator details and
+limits are in the [runtime query guide](src/Systems/FnSystems/RuntimeQuery/README.md).
+
+Queries exclude prefab entities and the legacy `DestroyEntity` tag by default.
+If you create manual `world.Query()` queries, retain and reuse them instead of
+creating new ones every frame.
+
+## Systems
+
+A system is a static method marked with `[System]`. Add `[BurstCompile]` when
+its code is Burst-compatible, then register the method in `OnWorldCreated`.
+The generated runner provides its parameters and schedules its work.
+
+### Choose an execution mode
+
+| Mode | Use it for |
+|---|---|
+| `Threads.Parallel` | Independent per-entity work on worker threads. The default. |
+| `Threads.Single` | Sequential work in one scheduled job. |
+| `Threads.Main` | GameObjects, UI, input, and other managed Unity APIs. |
+| `Threads.MainRun` | Synchronous job execution on the calling thread. |
+
+Parallel workers should write only their own entity data. Shared counters,
+resources, and writes to arbitrary target entities need synchronization or
+sequential processing. Keep managed Unity API calls in `Threads.Main` systems
+without `[BurstCompile]`. `MainRun` does not automatically wait for earlier jobs;
+see the [execution reference](API_REFERENCE.md#adding-systems) before mixing it
+with worker systems.
+
+### Register systems in order
+
+For several methods, chain `Add` calls or use `AddSystems`:
 
 ```csharp
-public struct LocalTransform : IComponent
-{
-    public float3 Position;
-    public quaternion Rotation;
-    public float3 Scale;
-    public float4x4 Matrix => float4x4.TRS(Position, Rotation, Scale);
-}
+// In OnWorldCreated; replace the single MoveSystem registration from QuickStart.
+// RemoveOutOfBounds is the method shown above, added to MySystems.
+Systems.AddSystems(SystemPath.Update,
+    (MySystems.MoveSystem, Threads.Parallel),
+    (MySystems.RemoveOutOfBounds, Threads.Parallel));
 ```
 
-### TransformRef — Unity Transform Bridge
+The default scheduler chains worker jobs in registration order. Registering a
+method twice makes it run twice. For larger features, bundle registrations in
+an [`ISystemsGroup`](API_REFERENCE.md#isystemsgroup--organize-systems).
+
+### Select a lifecycle phase
+
+Update is the default. Use `path:` for a different phase:
 
 ```csharp
-public struct TransformRef : IComponent
-{
-    public ObjectRef<UnityEngine.Transform> Value;
-}
+// Initialize and Cleanup are your own static [System] methods.
+Systems.Add(MySystems.Initialize, Threads.Main, path: SystemPath.Start);
+Systems.Add(MySystems.Cleanup, Threads.Main, path: SystemPath.Destroy);
 ```
 
-Bridges ECS entities to `UnityEngine.Transform` GameObjects.
+With `WorldInstaller`, Start runs once after initial entity setup; Destroy runs
+when the world is disposed. You only need to drive `Systems.OnUpdate` from
+`Update`. The installer already adds the default systems and calls `OnStart`.
 
-### Built-in Transform Systems
+For fixed-step systems or manual world ownership, see the
+[lifecycle reference](API_REFERENCE.md#registering-a-lifecycle-phase).
 
-- **TransformChildSystem** — manages parent-child transform hierarchies
-- **SyncWithUnityTransformSystem** — syncs ECS transforms to Unity transforms
+### Use more than component data
 
----
+Add parameters to a system method as needed:
 
-## World Serialization
+| Parameter | Purpose |
+|---|---|
+| `ref State state` | Access the world and simulation time. |
+| `ref Res<T> config` | Share a struct resource through `config.Ref`. |
+| `ref ResManaged<T> view` | Access managed resource objects on the main thread. |
+| `ref Local<T> local` | Keep state for this system registration through `local.Ref`. |
+| `ref Events<T> events` | Send or receive a stream of events. |
 
-### Serialize / Deserialize
+Resources and locals implement `IRes`, with `OnCreate` and `OnUpdate` hooks.
+`Res<T>` values are shared across worlds in the current version; `Local<T>`
+values are isolated per system registration.
 
-```csharp
-byte[] data = world.Serialize();
-world.Deserialize(data);
-```
+For events, use `AddPar` in parallel producers. Read after producers finish and
+clear after the last consumer. `WorldInstaller` also clears previous-frame events
+at the start of each update. The [gameplay guide's event examples](NUKECS_AGENTS_GUIDE_EN.md#3-events-tags-pool-payloads-or-eventst)
+show how to choose between tags, temporary payload components, and event buffers.
 
-### File I/O
+## Further reading
 
-```csharp
-world.SaveToFile("path/to/save.dat");
-world.LoadFromFile("path/to/save.dat");
-```
-
-### Async File I/O
-
-```csharp
-await world.SaveToFileAsync("path/to/save.dat");
-await world.LoadFromFileAsync("path/to/save.dat");
-```
-
-### Static Load
-
-```csharp
-World.Load("path/to/save.dat", ref world);
-```
-
-Serialization captures the entire world state: all entities, components, queries, and archetypes. Function pointers are re-registered on deserialization automatically.
-
----
-
-## Hot Reload (Editor Only)
-
-`HotReloadSystems` wraps a regular `Systems` instance and swaps system runners when source files change during Play Mode.
-
-### Setup
-
-```csharp
-using Wargon.Nukecs.HotReload;
-
-private Systems systems;
-
-void Awake()
-{
-    world = World.Create(WorldConfig.Default1024);
-
-    systems = new Systems(ref world);
-    systems
-        .Add(MySystem.Update, Threads.MainRun)
-        .Add(MySystem.Render, Threads.Main)
-        .AddHotReload();
-}
-
-void Update()
-{
-    systems.OnUpdate(Time.deltaTime, Time.time);
-}
-
-void OnDestroy()
-{
-    world.Dispose();
-}
-```
-
-### How It Works
-
-1. `StartTracking()` resolves each system runner to its source `.cs` file
-2. A file watcher monitors changes during Play Mode
-3. On change, the system is recompiled via Roslyn/csc
-4. The new runner replaces the old one, **preserving query state**
-
----
-
-## World Configuration
-
-```csharp
-public struct WorldConfig
-{
-    public int StartPoolSize;
-    public int StartEntitiesAmount;
-    public int StartComponentsAmount;
-}
-```
-
-### Presets
-
-| Preset | Capacity |
-|--------|----------|
-| `WorldConfig.Default16` | 16 |
-| `WorldConfig.Default` | 64 |
-| `WorldConfig.Default256` | 256 |
-| `WorldConfig.Default1024` | 1,024 |
-| `WorldConfig.Default6144` | 6,144 |
-| `WorldConfig.Default16384` | 16,384 |
-| `WorldConfig.Default65536` | 65,536 |
-| `WorldConfig.Default163840` | 163,840 |
-| `WorldConfig.Default256000` | 256,000 |
-| `WorldConfig.Default_1_000_000` | 1,000,000 |
-
-### Multiple Worlds
-
-Up to **8 worlds** can exist simultaneously. Each `WorldInstaller` manages its own world.
-
-```csharp
-var world1 = World.Create(WorldConfig.Default256);
-var world2 = World.Create(WorldConfig.Default1024);
-```
-
----
-
-## Editor Tools
-
-- **ECS Debug Window** — inspect entities, archetypes, and components at runtime
-- **Allocator Debugger** — monitor custom allocator memory usage
-- **Memory Profiler** — track memory allocation patterns
+| I want to… | Read |
+|---|---|
+| Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
+| Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](Demos/README.md) |
+| React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
+| Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
+| Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |
+| Understand iteration and batching | [Runtime queries](src/Systems/FnSystems/RuntimeQuery/README.md) and [batch generation](API_REFERENCE.md#generated-batch-code) |
+| Understand the storage implementation | [Architecture](ARCHITECTURE.md) |
+| Work on the framework itself | [Agent reference](AGENTS.md) and [test guidance](API_REFERENCE.md#verification) |

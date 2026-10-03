@@ -12,6 +12,7 @@ namespace Wargon.Nukecs
         where T1 : unmanaged
     {
         private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
+        private static readonly bool T1IsTag = !T1IsEntity && ComponentType<T1>.Data.category == ComponentCategory.Tag;
         [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
         private readonly int _archesLen;
         [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
@@ -19,7 +20,11 @@ namespace Wargon.Nukecs
         private int _remaining;
         [NativeDisableUnsafePtrRestriction] private T1* _data;
         [NativeDisableUnsafePtrRestriction] private int* _packedEntities;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
         private int _entityRow;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIterT1(in MemoryList<int> arches, World.WorldUnsafe* world)
         {
@@ -30,6 +35,29 @@ namespace Wargon.Nukecs
             _remaining = 0;
             _data = null;
             _packedEntities = null;
+            _rows = null;
+            _entityRow = 0;
+            _storageMode = false;
+            _storages = null;
+            _storagesLen = 0;
+        }
+
+        /// <summary>Storage-mode iterator: walks whole storages densely, no row gather.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIterT1(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.Length;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _remaining = 0;
+            _data = null;
+            _packedEntities = null;
+            _rows = null;
             _entityRow = 0;
         }
 
@@ -47,10 +75,15 @@ namespace Wargon.Nukecs
             if (_remaining > 0)
             {
                 _remaining--;
+                _entityRow++;
                 if (T1IsEntity)
                 {
-                    _entityRow++;
-                    _data = (T1*)(&(_world->entities.Ptr[_packedEntities[_entityRow]]));
+                    var row = _rows != null ? _rows[_entityRow] : _entityRow;
+                    _data = (T1*)(&(_world->entities.Ptr[_packedEntities[row]]));
+                }
+                else if (_rows != null && !T1IsTag)
+                {
+                    _data += _rows[_entityRow] - _rows[_entityRow - 1];
                 }
                 else
                 {
@@ -59,20 +92,51 @@ namespace Wargon.Nukecs
                 return true;
             }
 
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    ref var st = ref _world->storagesList.Ptr[_storages[_archIndex]].Ref;
+                    var count = st.count;
+                    if (count <= 0) continue;
+                    _rows = null;
+                    if (T1IsEntity)
+                    {
+                        _packedEntities = st.packedEntities.Ptr;
+                        _entityRow = 0;
+                        _data = (T1*)(&(_world->entities.Ptr[_packedEntities[0]]));
+                    }
+                    else
+                    {
+                        if (T1IsTag) _data = TagSlotStub<T1>.GetPtr();
+                        else _data = (T1*)(st.data.Ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                        _entityRow = 0;
+                    }
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
+            }
+
             while (++_archIndex < _archesLen)
             {
                 ref var arch = ref _world->archetypesList.Ptr[_arches[_archIndex]].Ref;
                 var count = arch.count;
                 if (count <= 0) continue;
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
                 if (T1IsEntity)
                 {
                     _packedEntities = arch.packedEntities.Ptr;
                     _entityRow = 0;
-                    _data = (T1*)(&(_world->entities.Ptr[_packedEntities[0]]));
+                    var row0 = _rows != null ? _rows[0] : 0;
+                    _data = (T1*)(&(_world->entities.Ptr[_packedEntities[row0]]));
                 }
                 else
                 {
-                    _data = (T1*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                    if (T1IsTag) _data = TagSlotStub<T1>.GetPtr();
+                    else _data = (T1*)(arch.data.Ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                    if (!T1IsTag && _rows != null) _data += _rows[0];
+                    _entityRow = 0;
                 }
                 _remaining = count - 1;
                 return true;
@@ -92,6 +156,11 @@ namespace Wargon.Nukecs
         private int _archIndex;
         private int _remaining;
         private TTuple _tuple;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _listIdx;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIter(in MemoryList<int> arches, World.WorldUnsafe* world)
         {
@@ -101,6 +170,30 @@ namespace Wargon.Nukecs
             _archIndex = -1;
             _remaining = 0;
             _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _storageMode = false;
+            _storages = null;
+            _storagesLen = 0;
+        }
+
+        /// <summary>Storage-mode iterator: walks whole storages densely, no row gather.
+        /// Tuple pointers are anchored via any logical archetype of the storage (they delegate to it).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIter(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.length;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _remaining = 0;
+            _tuple = default;
+            _rows = null;
+            _listIdx = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -117,8 +210,25 @@ namespace Wargon.Nukecs
             if (_remaining > 0)
             {
                 _remaining--;
-                _tuple.Add();
+                if (_rows != null) _tuple.AdvanceTo(_rows[++_listIdx]);
+                else _tuple.Add();
                 return true;
+            }
+
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    ref var st = ref _world->storagesList.Ptr[_storages[_archIndex]].Ref;
+                    var count = st.count;
+                    if (count <= 0) continue;
+                    ref var la = ref _world->archetypesList.Ptr[st.logicalArchetypes.Ptr[0]].Ref;
+                    _tuple.SetData(ref la);
+                    _rows = null;
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
             }
 
             while (++_archIndex < _archesLen)
@@ -127,6 +237,8 @@ namespace Wargon.Nukecs
                 var count = arch.count;
                 if (count <= 0) continue;
                 _tuple.SetData(ref arch);
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                if (_rows != null) { _listIdx = 0; _tuple.AdvanceTo(_rows[0]); }
                 _remaining = count - 1;
                 return true;
             }
@@ -145,6 +257,11 @@ namespace Wargon.Nukecs
         private int _archIndex;
         private int _remaining;
         private TTuple _tuple;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _listIdx;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIterWithEntity(in MemoryList<int> arches, World.WorldUnsafe* world)
         {
@@ -154,6 +271,29 @@ namespace Wargon.Nukecs
             _archIndex = -1;
             _remaining = 0;
             _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _storageMode = false;
+            _storages = null;
+            _storagesLen = 0;
+        }
+
+        /// <summary>Storage-mode iterator: walks whole storages densely, no row gather.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIterWithEntity(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.length;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _remaining = 0;
+            _tuple = default;
+            _rows = null;
+            _listIdx = 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -162,15 +302,32 @@ namespace Wargon.Nukecs
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)] get => _tuple;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
             if (_remaining > 0)
             {
                 _remaining--;
-                _tuple.Add();
+                if (_rows != null) _tuple.AdvanceTo(_rows[++_listIdx]);
+                else _tuple.Add();
                 return true;
+            }
+
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    ref var st = ref _world->storagesList.Ptr[_storages[_archIndex]].Ref;
+                    var count = st.count;
+                    if (count <= 0) continue;
+                    ref var la = ref _world->archetypesList.Ptr[st.logicalArchetypes.Ptr[0]].Ref;
+                    _tuple.SetData(ref la, la.packedEntities.Ptr, _world->entities.Ptr);
+                    _rows = null;
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
             }
 
             while (++_archIndex < _archesLen)
@@ -179,6 +336,8 @@ namespace Wargon.Nukecs
                 var count = arch.count;
                 if (count <= 0) continue;
                 _tuple.SetData(ref arch, arch.packedEntities.Ptr, _world->entities.Ptr);
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                if (_rows != null) { _listIdx = 0; _tuple.AdvanceTo(_rows[0]); }
                 _remaining = count - 1;
                 return true;
             }
@@ -223,12 +382,14 @@ namespace Wargon.Nukecs
     public interface IComponentTuple
     {
         void Add();
+        void AdvanceTo(int row);
         void SetData(ref ArchetypeUnsafe archetype);
         void SetDataParallel(ref ArchetypeUnsafe archetype, int localStart);
     }
     public unsafe interface IComponentEntityTuple
     {
         void Add();
+        void AdvanceTo(int row);
         void SetData(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities);
         void SetDataParallel(ref ArchetypeUnsafe archetype, int* localEntities, Entity* globalEntities, int localStart);
     }
@@ -326,6 +487,9 @@ namespace Wargon.Nukecs
         where T3 : unmanaged, IComponent
         where TOption : unmanaged
     {
+        private static readonly bool T1IsTag = ComponentType<T1>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T2IsTag = QueryParamInfo<T2>.IsComponent && ComponentType<T2>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T3IsTag = QueryParamInfo<T3>.IsComponent && ComponentType<T3>.Data.category == ComponentCategory.Tag;
         [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
         private readonly int _archesLen;
         [NativeDisableUnsafePtrRestriction] private readonly World.WorldUnsafe* _world;
@@ -333,6 +497,9 @@ namespace Wargon.Nukecs
         private int _remaining;
         private Ptr4<T1, T2, T3, TOption> _tuple;
         private readonly bool _optIsComponent;
+        private static readonly bool TOIsTag = QueryParamInfo<TOption>.IsComponent && ComponentType<TOption>.Data.category == ComponentCategory.Tag;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _listIdx;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIterTN(in MemoryList<int> arches, World.WorldUnsafe* world)
         {
@@ -342,6 +509,8 @@ namespace Wargon.Nukecs
             _archIndex = -1;
             _remaining = 0;
             _tuple = default;
+            _rows = null;
+            _listIdx = 0;
             _optIsComponent = QueryParamInfo<TOption>.IsComponent;
         }
 
@@ -360,10 +529,15 @@ namespace Wargon.Nukecs
             if (_remaining > 0)
             {
                 _remaining--;
-                _tuple.p0++;
-                _tuple.p1++;
-                _tuple.p2++;
-                if (_optIsComponent) _tuple.p3++;
+                if (_rows != null) {
+                    var delta = _rows[_listIdx + 1] - _rows[_listIdx];
+                    _listIdx++;
+                    _tuple.p0 += delta; _tuple.p1 += delta; _tuple.p2 += delta;
+                    if (_optIsComponent) _tuple.p3 += delta;
+                } else {
+                    _tuple.p0++; _tuple.p1++; _tuple.p2++;
+                    if (_optIsComponent) _tuple.p3++;
+                }
                 return true;
             }
 
@@ -373,11 +547,22 @@ namespace Wargon.Nukecs
                 var count = arch.count;
                 if (count <= 0) continue;
                 var ptr = arch.data.Ptr;
-                _tuple.p0 = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
-                _tuple.p1 = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
-                _tuple.p2 = (T3*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                if (!T1IsTag) _tuple.p0 = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                if (!T2IsTag) _tuple.p1 = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                if (!T3IsTag) _tuple.p2 = (T3*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
                 if (_optIsComponent)
                     _tuple.p3 = (TOption*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<TOption>.Index)));
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                if (_rows != null) {
+                    _listIdx = 0;
+                    var d = _rows[0];
+                    _tuple.p0 += d; _tuple.p1 += d; _tuple.p2 += d;
+                    if (_optIsComponent) _tuple.p3 += d;
+                }
+                if (T1IsTag) _tuple.p0 = TagSlotStub<T1>.GetPtr();
+                if (T2IsTag) _tuple.p1 = TagSlotStub<T2>.GetPtr();
+                if (T3IsTag) _tuple.p2 = TagSlotStub<T3>.GetPtr();
+                if (TOIsTag) _tuple.p3 = TagSlotStub<TOption>.GetPtr();
                 _remaining = count - 1;
                 return true;
             }
@@ -434,6 +619,11 @@ namespace Wargon.Nukecs
         where T4 : unmanaged, IComponent
         where T5 : unmanaged
     {
+        private static readonly bool T1IsTag = !T1IsEntity && ComponentType<T1>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T2IsTag = QueryParamInfo<T2>.IsComponent && ComponentType<T2>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T3IsTag = QueryParamInfo<T3>.IsComponent && ComponentType<T3>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T4IsTag = QueryParamInfo<T4>.IsComponent && ComponentType<T4>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T5IsTag = QueryParamInfo<T5>.IsComponent && ComponentType<T5>.Data.category == ComponentCategory.Tag;
         private static readonly bool T1IsEntity = typeof(T1) == typeof(Entity);
         
         [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
@@ -443,6 +633,11 @@ namespace Wargon.Nukecs
         private int _remaining;
         private Ptr5<T1, T2, T3, T4, T5> _tuple;
         private readonly bool _t5IsComponent;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _listIdx;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIter5(in MemoryList<int> arches, World.WorldUnsafe* world)
@@ -453,9 +648,37 @@ namespace Wargon.Nukecs
             _archIndex = -1;
             _remaining = 0;
             _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _storageMode = false;
+            _storages = null;
+            _storagesLen = 0;
             if (T1IsEntity)
             {
                 _tuple.p0 = (T1*)world->entities.Ptr;
+            }
+            _t5IsComponent = QueryParamInfo<T5>.IsComponent;
+        }
+
+        /// <summary>Storage-mode iterator: walks whole storages densely, no row gather.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryIter5(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.Length;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _remaining = 0;
+            _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            if (T1IsEntity)
+            {
+                _tuple.p0 = (T1*)_world->entities.Ptr;
             }
             _t5IsComponent = QueryParamInfo<T5>.IsComponent;
         }
@@ -475,13 +698,48 @@ namespace Wargon.Nukecs
             if (_remaining > 0)
             {
                 _remaining--;
-                if (T1IsEntity) _tuple.entity++;
-                else _tuple.p0++;
-                _tuple.p1++;
-                _tuple.p2++;
-                _tuple.p3++;
-                if (_t5IsComponent) _tuple.p4++;
+                if (_rows != null) {
+                    var delta = _rows[_listIdx + 1] - _rows[_listIdx];
+                    _listIdx++;
+                    if (T1IsEntity) _tuple.entity += delta; else _tuple.p0 += delta;
+                    _tuple.p1 += delta; _tuple.p2 += delta; _tuple.p3 += delta;
+                    if (_t5IsComponent) _tuple.p4 += delta;
+                } else {
+                    if (T1IsEntity) _tuple.entity++;
+                    else _tuple.p0++;
+                    _tuple.p1++; _tuple.p2++; _tuple.p3++;
+                    if (_t5IsComponent) _tuple.p4++;
+                }
                 return true;
+            }
+
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    ref var st = ref _world->storagesList.Ptr[_storages[_archIndex]].Ref;
+                    var count = st.count;
+                    if (count <= 0) continue;
+                    var ptr = st.data.Ptr;
+                    if (T1IsEntity)
+                        _tuple.entity = st.packedEntities.Ptr;
+                    else
+                        if (!T1IsTag) _tuple.p0 = (T1*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                    if (!T2IsTag) _tuple.p1 = (T2*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                    if (!T3IsTag) _tuple.p2 = (T3*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                    if (!T4IsTag) _tuple.p3 = (T4*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T4>.Index)));
+                    if (_t5IsComponent)
+                        if (!T5IsTag) _tuple.p4 = (T5*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T5>.Index)));
+                    _rows = null;
+                    if (T1IsTag) _tuple.p0 = TagSlotStub<T1>.GetPtr();
+                    if (T2IsTag) _tuple.p1 = TagSlotStub<T2>.GetPtr();
+                    if (T3IsTag) _tuple.p2 = TagSlotStub<T3>.GetPtr();
+                    if (T4IsTag) _tuple.p3 = TagSlotStub<T4>.GetPtr();
+                    if (T5IsTag) _tuple.p4 = TagSlotStub<T5>.GetPtr();
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
             }
 
             while (++_archIndex < _archesLen)
@@ -493,12 +751,25 @@ namespace Wargon.Nukecs
                 if (T1IsEntity)
                     _tuple.entity = arch.packedEntities.Ptr;
                 else
-                    _tuple.p0 = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
-                _tuple.p1 = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
-                _tuple.p2 = (T3*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
-                _tuple.p3 = (T4*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index)));
+                    if (!T1IsTag) _tuple.p0 = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                if (!T2IsTag) _tuple.p1 = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                if (!T3IsTag) _tuple.p2 = (T3*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                if (!T4IsTag) _tuple.p3 = (T4*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index)));
                 if (_t5IsComponent)
-                    _tuple.p4 = (T5*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T5>.Index)));
+                    if (!T5IsTag) _tuple.p4 = (T5*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T5>.Index)));
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                if (_rows != null) {
+                    _listIdx = 0;
+                    var d = _rows[0];
+                    if (T1IsEntity) _tuple.entity += d; else _tuple.p0 += d;
+                    _tuple.p1 += d; _tuple.p2 += d; _tuple.p3 += d;
+                    if (_t5IsComponent) _tuple.p4 += d;
+                }
+                if (T1IsTag) _tuple.p0 = TagSlotStub<T1>.GetPtr();
+                if (T2IsTag) _tuple.p1 = TagSlotStub<T2>.GetPtr();
+                if (T3IsTag) _tuple.p2 = TagSlotStub<T3>.GetPtr();
+                if (T4IsTag) _tuple.p3 = TagSlotStub<T4>.GetPtr();
+                if (T5IsTag) _tuple.p4 = TagSlotStub<T5>.GetPtr();
                 _remaining = count - 1;
                 return true;
             }
@@ -561,6 +832,11 @@ namespace Wargon.Nukecs
         private int _remaining;
         private Ref5<T1, T2, T3, T4, T5> _tuple;
         private readonly bool _t5IsComponent;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
+        private int _listIdx;
+        private readonly bool _storageMode;
+        [NativeDisableUnsafePtrRestriction] private readonly int* _storages;
+        private readonly int _storagesLen;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryRefIter5(in MemoryList<int> arches, World.WorldUnsafe* world)
@@ -571,7 +847,32 @@ namespace Wargon.Nukecs
             _archIndex = -1;
             _remaining = 0;
             _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _storageMode = false;
+            _storages = null;
+            _storagesLen = 0;
             _tuple.allEntities = world->entities.Ptr;
+            _t5IsComponent = QueryParamInfo<T5>.IsComponent;
+        }
+
+        /// <summary>Storage-mode iterator: walks whole storages densely, no row gather.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryRefIter5(QueryUnsafe* query)
+        {
+            _world = query->world;
+            var storages = query->GetMatchingStorages();
+            _storages = storages.Ptr;
+            _storagesLen = storages.Length;
+            _storageMode = true;
+            _arches = null;
+            _archesLen = 0;
+            _archIndex = -1;
+            _remaining = 0;
+            _tuple = default;
+            _rows = null;
+            _listIdx = 0;
+            _tuple.allEntities = _world->entities.Ptr;
             _t5IsComponent = QueryParamInfo<T5>.IsComponent;
         }
 
@@ -590,17 +891,55 @@ namespace Wargon.Nukecs
             if (_remaining > 0)
             {
                 _remaining--;
-                if (T1IsEntity)
-                {
-                    _tuple.entity++;
-                    _tuple.p0.data = (T1*)(_tuple.allEntities + *_tuple.entity);
+                if (_rows != null) {
+                    var delta = _rows[_listIdx + 1] - _rows[_listIdx];
+                    _listIdx++;
+                    if (T1IsEntity)
+                    {
+                        _tuple.entity += delta;
+                        _tuple.p0.data = (T1*)(_tuple.allEntities + *_tuple.entity);
+                    }
+                    else _tuple.p0.data += delta;
+                    _tuple.p1.data += delta; _tuple.p2.data += delta; _tuple.p3.data += delta;
+                    if (_t5IsComponent) _tuple.p4.data += delta;
+                } else {
+                    if (T1IsEntity)
+                    {
+                        _tuple.entity++;
+                        _tuple.p0.data = (T1*)(_tuple.allEntities + *_tuple.entity);
+                    }
+                    else _tuple.p0.data++;
+                    _tuple.p1.data++; _tuple.p2.data++; _tuple.p3.data++;
+                    if (_t5IsComponent) _tuple.p4.data++;
                 }
-                else _tuple.p0.data++;
-                _tuple.p1.data++;
-                _tuple.p2.data++;
-                _tuple.p3.data++;
-                if (_t5IsComponent) _tuple.p4.data++;
                 return true;
+            }
+
+            if (_storageMode)
+            {
+                while (++_archIndex < _storagesLen)
+                {
+                    ref var st = ref _world->storagesList.Ptr[_storages[_archIndex]].Ref;
+                    var count = st.count;
+                    if (count <= 0) continue;
+                    var ptr = st.data.Ptr;
+                    if (T1IsEntity)
+                    {
+                        _tuple.entity = st.packedEntities.Ptr;
+                        _tuple.p0.data = (T1*)(_tuple.allEntities + *_tuple.entity);
+                    }
+                    else
+                        _tuple.p0.data = (T1*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                    _tuple.p1.data = (T2*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                    _tuple.p2.data = (T3*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                    _tuple.p3.data = (T4*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T4>.Index)));
+                    if (_t5IsComponent)
+                        _tuple.p4.data = (T5*)(ptr + st.GetComponentOffset(st.GetComponentLocalIndex(ComponentType<T5>.Index)));
+                    _rows = null;
+                    _remaining = count - 1;
+                    return true;
+                }
+                return false;
             }
 
             while (++_archIndex < _archesLen)
@@ -621,6 +960,19 @@ namespace Wargon.Nukecs
                 _tuple.p3.data = (T4*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T4>.Index)));
                 if (_t5IsComponent)
                     _tuple.p4.data = (T5*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T5>.Index)));
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                if (_rows != null) {
+                    _listIdx = 0;
+                    var d = _rows[0];
+                    if (T1IsEntity)
+                    {
+                        _tuple.entity += d;
+                        _tuple.p0.data = (T1*)(_tuple.allEntities + *_tuple.entity);
+                    }
+                    else _tuple.p0.data += d;
+                    _tuple.p1.data += d; _tuple.p2.data += d; _tuple.p3.data += d;
+                    if (_t5IsComponent) _tuple.p4.data += d;
+                }
                 _remaining = count - 1;
                 return true;
             }
@@ -690,6 +1042,7 @@ namespace Wargon.Nukecs
         where T1 : unmanaged, IComponent
         where T2 : unmanaged
     {
+        private static readonly bool T1IsTag = ComponentType<T1>.Data.category == ComponentCategory.Tag;
         private static readonly bool _t2IsComponent = QueryParamInfo<T2>.IsComponent;
 
         [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
@@ -699,7 +1052,9 @@ namespace Wargon.Nukecs
         private int _remaining;
         private EntityTuple2<T1, T2> _tuple;
         [NativeDisableUnsafePtrRestriction] private int* _packedEntities;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
         private int _entityRow;
+        private static readonly bool T2IsTag = QueryParamInfo<T2>.IsComponent && ComponentType<T2>.Data.category == ComponentCategory.Tag;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIterE2(in MemoryList<int> arches, World.WorldUnsafe* world)
@@ -711,6 +1066,7 @@ namespace Wargon.Nukecs
             _remaining = 0;
             _tuple = default;
             _packedEntities = null;
+            _rows = null;
             _entityRow = 0;
         }
 
@@ -730,9 +1086,20 @@ namespace Wargon.Nukecs
             {
                 _remaining--;
                 _entityRow++;
-                _tuple.Entity = _world->entities.Ptr[_packedEntities[_entityRow]];
-                _tuple.c1.data++;
-                if (_t2IsComponent) _tuple.c2.data++;
+                if (_rows != null)
+                {
+                    var row = _rows[_entityRow];
+                    _tuple.Entity = _world->entities.Ptr[_packedEntities[row]];
+                    var delta = row - _rows[_entityRow - 1];
+                    _tuple.c1.data += delta;
+                    if (_t2IsComponent) _tuple.c2.data += delta;
+                }
+                else
+                {
+                    _tuple.Entity = _world->entities.Ptr[_packedEntities[_entityRow]];
+                    _tuple.c1.data++;
+                    if (_t2IsComponent) _tuple.c2.data++;
+                }
                 return true;
             }
 
@@ -744,9 +1111,14 @@ namespace Wargon.Nukecs
                 byte* ptr = arch.data.Ptr;
                 _packedEntities = arch.packedEntities.Ptr;
                 _entityRow = 0;
-                _tuple.Entity = _world->entities.Ptr[_packedEntities[0]];
-                _tuple.c1.data = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                var row0 = _rows != null ? _rows[0] : 0;
+                _tuple.Entity = _world->entities.Ptr[_packedEntities[row0]];
+                if (!T1IsTag) _tuple.c1.data = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
                 if (_t2IsComponent) _tuple.c2.data = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                if (_rows != null) { _tuple.c1.data += row0; if (_t2IsComponent) _tuple.c2.data += row0; }
+                if (T1IsTag) _tuple.c1.data = TagSlotStub<T1>.GetPtr();
+                if (T2IsTag) _tuple.c2.data = TagSlotStub<T2>.GetPtr();
                 _remaining = count - 1;
                 return true;
             }
@@ -785,6 +1157,8 @@ namespace Wargon.Nukecs
         where T2 : unmanaged, IComponent
         where T3 : unmanaged
     {
+        private static readonly bool T1IsTag = ComponentType<T1>.Data.category == ComponentCategory.Tag;
+        private static readonly bool T2IsTag = QueryParamInfo<T2>.IsComponent && ComponentType<T2>.Data.category == ComponentCategory.Tag;
         private static readonly bool _t3IsComponent = QueryParamInfo<T3>.IsComponent;
 
         [NativeDisableUnsafePtrRestriction] private readonly int* _arches;
@@ -794,7 +1168,9 @@ namespace Wargon.Nukecs
         private int _remaining;
         private EntityTuple3<T1, T2, T3> _tuple;
         [NativeDisableUnsafePtrRestriction] private int* _packedEntities;
+        [NativeDisableUnsafePtrRestriction] private int* _rows;
         private int _entityRow;
+        private static readonly bool T3IsTag = QueryParamInfo<T3>.IsComponent && ComponentType<T3>.Data.category == ComponentCategory.Tag;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public QueryIterE3(in MemoryList<int> arches, World.WorldUnsafe* world)
@@ -806,6 +1182,7 @@ namespace Wargon.Nukecs
             _remaining = 0;
             _tuple = default;
             _packedEntities = null;
+            _rows = null;
             _entityRow = 0;
         }
 
@@ -825,10 +1202,22 @@ namespace Wargon.Nukecs
             {
                 _remaining--;
                 _entityRow++;
-                _tuple.Entity = _world->entities.Ptr[_packedEntities[_entityRow]];
-                _tuple.c1.data++;
-                _tuple.c2.data++;
-                if (_t3IsComponent) _tuple.c3.data++;
+                if (_rows != null)
+                {
+                    var row = _rows[_entityRow];
+                    _tuple.Entity = _world->entities.Ptr[_packedEntities[row]];
+                    var delta = row - _rows[_entityRow - 1];
+                    _tuple.c1.data += delta;
+                    _tuple.c2.data += delta;
+                    if (_t3IsComponent) _tuple.c3.data += delta;
+                }
+                else
+                {
+                    _tuple.Entity = _world->entities.Ptr[_packedEntities[_entityRow]];
+                    _tuple.c1.data++;
+                    _tuple.c2.data++;
+                    if (_t3IsComponent) _tuple.c3.data++;
+                }
                 return true;
             }
 
@@ -840,10 +1229,16 @@ namespace Wargon.Nukecs
                 byte* ptr = arch.data.Ptr;
                 _packedEntities = arch.packedEntities.Ptr;
                 _entityRow = 0;
-                _tuple.Entity = _world->entities.Ptr[_packedEntities[0]];
-                _tuple.c1.data = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
-                _tuple.c2.data = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
+                _rows = arch.RowsAreDense ? null : arch.rows.Ptr;
+                var row0 = _rows != null ? _rows[0] : 0;
+                _tuple.Entity = _world->entities.Ptr[_packedEntities[row0]];
+                if (!T1IsTag) _tuple.c1.data = (T1*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T1>.Index)));
+                if (!T2IsTag) _tuple.c2.data = (T2*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T2>.Index)));
                 if (_t3IsComponent) _tuple.c3.data = (T3*)(ptr + arch.GetComponentOffset(arch.GetComponentLocalIndex(ComponentType<T3>.Index)));
+                if (_rows != null) { _tuple.c1.data += row0; _tuple.c2.data += row0; if (_t3IsComponent) _tuple.c3.data += row0; }
+                if (T1IsTag) _tuple.c1.data = TagSlotStub<T1>.GetPtr();
+                if (T2IsTag) _tuple.c2.data = TagSlotStub<T2>.GetPtr();
+                if (T3IsTag) _tuple.c3.data = TagSlotStub<T3>.GetPtr();
                 _remaining = count - 1;
                 return true;
             }

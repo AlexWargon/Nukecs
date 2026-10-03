@@ -197,19 +197,14 @@ namespace Wargon.Nukecs.Editor
             for (int i = 0; i < w->archetypesList.Length; i++)
             {
                 var arch = w->archetypesList.Ptr[i].Ptr;
-                total += arch->mask.GetMemorySizeUsed();
+                total += arch->inlineMask.GetMemorySizeUsed();
+                total += arch->tagMask.GetMemorySizeUsed();
+                total += arch->poolMask.GetMemorySizeUsed();
                 total += arch->types.GetMemorySizeUsed();
                 total += arch->queries.GetMemorySizeUsed();
-                total += arch->transactions.GetMemorySizeUsed();
+
                 total += arch->destroyEdge.addEntity.GetMemorySizeUsed();
                 total += arch->destroyEdge.removeEntity.GetMemorySizeUsed();
-
-                foreach (var kv in arch->transactions)
-                {
-                    ref var edge = ref kv.Value.Ref;
-                    total += edge.addEntity.GetMemorySizeUsed();
-                    total += edge.removeEntity.GetMemorySizeUsed();
-                }
             }
             return total;
         }
@@ -520,9 +515,6 @@ namespace Wargon.Nukecs.Editor
             for (var i = 0; i < w->archetypesList.Length; i++)
             {
                 overhead += sizeof(ArchetypeUnsafe);
-                var arch = w->archetypesList.Ptr[i].Ptr;
-                foreach (var kv in arch->transactions)
-                    overhead += sizeof(Edge);
             }
 
             for (var i = 0; i < w->queries.Length; i++)

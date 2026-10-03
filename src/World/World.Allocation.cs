@@ -5,13 +5,13 @@ namespace Wargon.Nukecs
     {
         public unsafe partial struct WorldUnsafe
         {
-            public T* _allocate<T>(int items = 1) where T: unmanaged
+            public T* _allocate<T>(int items = 1, int tag = 0) where T: unmanaged
             {
-                return (T*)AllocatorRef.Allocate(sizeof(T) * items);
+                return (T*)AllocatorRef.Allocate(sizeof(T) * items, tag);
             }
-            public ptr<T> _allocate_ptr<T>(int items = 1) where T: unmanaged
+            public ptr<T> _allocate_ptr<T>(int items = 1, int tag = 0) where T : unmanaged
             {
-                return AllocatorRef.AllocatePtr<T>(sizeof(T) * items);
+                return AllocatorRef.AllocatePtr<T>(sizeof(T) * items, tag);
             }
             public void _free<T>(T* ptr) where T : unmanaged
             {

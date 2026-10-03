@@ -74,6 +74,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Simple_RawReflection()
         {
             var obj = (object)new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -96,6 +97,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Simple_FastReflection()
         {
             var obj = (object)new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -121,6 +123,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void SetField_Simple_RawReflection()
         {
             var obj = (object)new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -142,6 +145,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void SetField_Simple_Reflect()
         {
             var obj = new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -170,6 +174,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void SetField_Simple_FastReflection()
         {
             var obj = new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -193,6 +198,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_RawReflection()
         {
             var obj = (object)new ComplexData
@@ -219,6 +225,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_FastReflection()
         {
             var obj = (object)new ComplexData { hp = 100, maxHp = 200, score = 42, x = 1, y = 2, z = 3, level = 5 };
@@ -239,6 +246,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_ByIndex_vs_ByName_RawReflection()
         {
             var obj = (object)new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -259,6 +267,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_ByName_FastReflection()
         {
             var obj = (object)new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -282,6 +291,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_ByName_Reflect()
         {
             var obj = (object)new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -303,6 +313,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetProperty_Length_RawReflection()
         {
             var boxed = (object)new int[16];
@@ -320,6 +331,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetProperty_Length_FastReflection()
         {
             var boxed = (object)new int[16];
@@ -337,6 +349,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void InvokeMethod_RawReflection()
         {
             var list = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7 };
@@ -358,6 +371,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void InvokeMethod_FastReflection()
         {
             var list = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7 };
@@ -385,6 +399,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Simple_PointerOffset()
         {
             var data = new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -414,6 +429,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void SetField_Simple_PointerOffset()
         {
             var data = new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -447,6 +463,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_PointerOffset()
         {
             var data = new ComplexData { hp = 100, maxHp = 200, score = 42, x = 1, y = 2, z = 3, level = 5 };
@@ -479,6 +496,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_ThreeWay()
         {
             var boxed = (object)new ComplexData { hp = 100, maxHp = 200, score = 42, x = 1, y = 2, z = 3, level = 5 };
@@ -514,6 +532,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Simple_Reflect()
         {
             var data = new SimpleData { x = 1, y = 2, z = 3, id = 42, active = true };
@@ -545,6 +564,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Managed_Reflect()
         {
             object classData = new ClassData()
@@ -577,6 +597,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Managed_Reflect_object()
         {
             object classData = new ClassData()
@@ -609,6 +630,7 @@ namespace Wargon.Nukecs.Tests
         }
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_Reflect_NoBoxing()
         {
             var raw = new ComplexData { hp = 100, maxHp = 200, score = 42, x = 1, y = 2, z = 3, level = 5 };
@@ -639,6 +661,7 @@ namespace Wargon.Nukecs.Tests
 
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_Reflect()
         {
             var raw = new ComplexData
@@ -680,6 +703,7 @@ namespace Wargon.Nukecs.Tests
         
         [Test]
         [Performance]
+        [Category("Benchmark")]
         public void GetField_Complex_Reflect__object()
         {
             var raw = new ComplexData

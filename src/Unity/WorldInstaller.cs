@@ -1,4 +1,3 @@
-using TriInspector;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
@@ -10,15 +9,14 @@ namespace Wargon.Nukecs
     using static SystemPath;
     public class WorldInstaller : MonoBehaviour
     {
-        [ReadOnly][SerializeField] public int WorldId;
+        [SerializeField] public int WorldId = -1;
         protected World world;
         public ref World World => ref world;
         protected Systems Systems;
         protected virtual WorldConfig GetConfig() => WorldConfig.Default256;
 
-        private unsafe void Awake()
+        protected virtual unsafe void Awake()
         {
-            World.DisposeStatic();
             world = World.Create(GetConfig());
             WorldId = world.Id;
             Systems = new Systems(ref world);
@@ -31,6 +29,8 @@ namespace Wargon.Nukecs
             }
             //ConvertEntities();
             CreateEntities(ref world);
+            world.Update();
+            Systems.OnStart();
             world.Update();
             WorldId = world.UnsafeWorld->Id;
             
@@ -57,8 +57,9 @@ namespace Wargon.Nukecs
 
         protected virtual void OnDestroy()
         {
-            world.Dispose();
+            if (WorldId >= 0 && World.Get(WorldId).IsAlive && WorldSystems.GetAll(WorldId).Contains(Systems))
+                World.Get(WorldId).Dispose();
+            WorldId = -1;
         }
     }
-    public struct Cube : IComponent { }
 }

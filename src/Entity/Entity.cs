@@ -8,29 +8,36 @@ using Unity.Burst;
 
 namespace Wargon.Nukecs
 {
-    [Serializable,StructLayout(LayoutKind.Sequential)]
+    [Serializable,StructLayout(LayoutKind.Sequential)][BurstCompile]
     public unsafe struct Entity : IEquatable<Entity>
     {
         public int id;
-        internal byte worldIndex;
+        public ushort Generation { get; internal set; }
+        public ushort WorldToken { get; internal set; }
+        internal byte worldIndex => (byte)(WorldToken & (World.MAX_WORLD_COUNT - 1));
 
-        public World.WorldUnsafe* worldPointer => World.Get(worldIndex).UnsafeWorld;
+        public World.WorldUnsafe* worldPointer {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get {
+                if (!IsValid()) throw new InvalidOperationException("The entity handle is no longer alive.");
+                return World.Get(worldIndex).UnsafeWorld;
+            }
+        }
 
         public ref World world => ref World.Get(worldPointer->Id);
         public static readonly Entity Null = default;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal Entity(int id, byte world)
-        {
-            this.id = id;
-            this.worldIndex = world;
-        }
+        internal Entity(int id, byte world) : this(id, World.Get(world).UnsafeWorld) { }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal Entity(int id, World.WorldUnsafe* worldPointer)
         {
             this.id = id;
-            this.worldIndex = worldPointer->Id;
+            var previous = worldPointer->entities.Ptr[id].Generation;
+            if (previous == ushort.MaxValue) throw new InvalidOperationException("Entity generation exhausted.");
+            Generation = (ushort)(previous + 1);
+            WorldToken = worldPointer->entityWorldToken;
         }
         internal ref ArchetypeUnsafe ArchetypeRef
         {
@@ -40,16 +47,17 @@ namespace Wargon.Nukecs
 
         public override string ToString()
         {
-            return $"e:{id}";
+            return $"e:{id}:{Generation}";
         }
 
 
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        // Identity remains stable after destruction, arena relocation and ID reuse.
         public bool Equals(Entity other)
         {
-            return id == other.id;
+            return id == other.id && WorldToken == other.WorldToken && Generation == other.Generation;
         }
 
 #if !NUKECS_DEBUG
@@ -65,7 +73,7 @@ namespace Wargon.Nukecs
 #endif
         public override int GetHashCode()
         {
-            return HashCode.Combine(id, unchecked((int)(long)worldPointer));
+            return HashCode.Combine(id, WorldToken, Generation);
         }
 
 #if !NUKECS_DEBUG
@@ -73,7 +81,7 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator ==(in Entity one, in Entity two)
         {
-            return one.id == two.id;
+            return one.Equals(two);
         }
 
 #if !NUKECS_DEBUG
@@ -81,15 +89,19 @@ namespace Wargon.Nukecs
 #endif
         public static bool operator !=(in Entity one, in Entity two)
         {
-            return one.id != two.id;
+            return !one.Equals(two);
         }
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public bool IsValid()
         {
-            if (id == 0) return false;
-            return World.Get(worldIndex).unsafeWorldPtr.Ptr->entities.ElementAt(id).id != 0;
+            if (id <= 0 || Generation == 0 || WorldToken == 0) return false;
+            ref var currentWorld = ref World.Get(worldIndex);
+            if (!currentWorld.IsAlive) return false;
+            var w = currentWorld.UnsafeWorld;
+            return w->entityWorldToken == WorldToken && id < w->lastEntityIndex && w->entities.Ptr[id].id == id
+                && w->entities.Ptr[id].Generation == Generation;
         }
     }
 
@@ -101,23 +113,29 @@ namespace Wargon.Nukecs
 #endif
         public static bool Has<T>(this in Entity entity) where T : unmanaged, IComponent
         {
-            return entity.ArchetypeRef.Has<T>();
+            return entity.IsValid() && entity.ArchetypeRef.Has<T>();
         }
 
         public static bool Has(this in Entity entity, int componentIndex)
         {
-            return entity.ArchetypeRef.Has(componentIndex);
+            return entity.IsValid() && entity.ArchetypeRef.Has(componentIndex);
         }
-#if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-#endif
         [BurstCompile]
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Data;
-            var worldPtr = entity.worldPointer;
-            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
-            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            ref var loc = ref entity.worldPointer->entityLocations.Ptr[entity.id];
+            ref var arch = ref entity.worldPointer->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            // Generic callers constrained to IComponent also accept IPoolComponent.
+            if (componentType.category == ComponentCategory.Pool && arch.Has(componentType.index))
+                return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+            if (componentType.category == ComponentCategory.Tag)
+            {
+                if (arch.Has(componentType.index))
+                    return ref *TagSlotStub<T>.GetPtr(); // tags carry no data
+                throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
+            }
             if (arch.offsetMap.Mask.HasFast(componentType.index))
             {
                 var off = arch.offsetMap.GetRef(componentType.index);
@@ -136,10 +154,13 @@ namespace Wargon.Nukecs
 #endif
         public static ref T TryGet<T>(this in Entity entity, out bool exist) where T : unmanaged, IComponent
         {
+            if (!entity.IsValid()) { exist = false; return ref *(T*)null; }
             var componentType = ComponentType<T>.Index;
             exist = entity.ArchetypeRef.Has(componentType);
             if (exist)
             {
+                if (ComponentType<T>.Data.category == ComponentCategory.Tag)
+                    return ref *TagSlotStub<T>.GetPtr(); // tags carry no data
                 var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
                 var ptr = entity.ArchetypeRef.GetComponentDataPtr(componentType, loc.row);
                 return ref *(T*)ptr;
@@ -149,8 +170,9 @@ namespace Wargon.Nukecs
 
         public static ref T TryGet<T>(this Entity entity, out bool exist) where T : unmanaged, IPoolComponent
         {
+            if (!entity.IsValid()) { exist = false; return ref *(T*)null; }
             exist = entity.ArchetypeRef.Has(ComponentType<T>.Index);
-            return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
+            return ref (exist ? ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id) : ref *(T*)null);
         }
 
         [BurstDiscard]
@@ -176,8 +198,7 @@ namespace Wargon.Nukecs
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
-            entity.worldPointer->GetPool<T>().Set(entity.id, in component);
-            entity.worldPointer->ECB.Add<T>(entity.id);
+            entity.worldPointer->ECB.Add(entity.id, component);
         }
 
 #if !NUKECS_DEBUG
@@ -196,7 +217,6 @@ namespace Wargon.Nukecs
         {
             var componentType = ComponentType<T>.Index;
             if (entity.ArchetypeRef.Has(componentType)) return;
-            entity.worldPointer->GetPool<T>().Set(entity.id);
             entity.worldPointer->ECB.Add(entity.id, componentType);
         }
 #if !NUKECS_DEBUG
@@ -213,11 +233,16 @@ namespace Wargon.Nukecs
 #endif
         public static void Set<T>(this in Entity entity, in T component) where T : unmanaged, IComponent
         {
-            var componentType = ComponentType<T>.Index;
-            if (!entity.ArchetypeRef.Has(componentType)) return;
+            var componentType = ComponentType<T>.Data;
             ref var arch = ref entity.ArchetypeRef;
+            if (!arch.Has(componentType.index)) return;
+            if (componentType.storageType == StorageType.Pool)
+            {
+                entity.worldPointer->GetPool<T>().Set(entity.id, component);
+                return;
+            }
             var loc = entity.worldPointer->entityLocations.Ptr[entity.id];
-            var ptr = arch.GetComponentDataPtr(componentType, loc.row);
+            var ptr = arch.GetComponentDataPtr(componentType.index, loc.row);
             if (ptr != null)
                 *(T*)ptr = component;
         }
@@ -233,10 +258,8 @@ namespace Wargon.Nukecs
         internal static void AddBytes(this in Entity entity, byte[] component, int componentIndex)
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
-            var ctData = ComponentTypeMap.GetComponentType(componentIndex);
-            if (ctData.storageType == StorageType.Pool)
-                entity.worldPointer->GetUntypedPool(componentIndex).WriteBytes(entity.id, component);
-            entity.worldPointer->ECB.Add(entity.id, componentIndex);
+            fixed (byte* data = component)
+                entity.worldPointer->ECB.AddBytes(entity.id, data, componentIndex);
         }
 
 #if !NUKECS_DEBUG
@@ -246,9 +269,7 @@ namespace Wargon.Nukecs
             int componentIndex)
         {
             if (entity.ArchetypeRef.Has(componentIndex)) return;
-            var ctData = ComponentTypeMap.GetComponentType(componentIndex);
-            if (ctData.storageType == StorageType.Pool)
-                entity.worldPointer->GetUntypedPool(componentIndex).WriteBytesUnsafe(entity.id, component, sizeInBytes);
+            entity.worldPointer->ECB.AddBytes(entity.id, component, componentIndex);
         }
 
 #if !NUKECS_DEBUG
@@ -262,8 +283,7 @@ namespace Wargon.Nukecs
             ref var ecb = ref entity.worldPointer->ECB;
             if (ctData.storageType == StorageType.Pool)
             {
-                entity.worldPointer->GetUntypedPool(ctData.index).AddObject(entity.id, component);
-                ecb.Add(entity.id, ctData.index);
+                ecb.AddObject(entity.id, component, ctData);
                 return;
             }
             ecb.AddObject(entity.id, component, ctData);
@@ -307,11 +327,9 @@ namespace Wargon.Nukecs
         public static ref readonly T Read<T>(this in Entity entity) where T : unmanaged, IComponent
         {
             var componentType = ComponentType<T>.Data;
-            var worldPtr = entity.worldPointer;
-            ref var loc = ref worldPtr->entityLocations.Ptr[entity.id];
-            ref var arch = ref worldPtr->archetypesList.Ptr[loc.archetypeIndex].Ref;
-            var off = arch.offsetMap.GetRef(componentType.index);
-            return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
+            ref var loc = ref entity.worldPointer->entityLocations.Ptr[entity.id];
+            ref var arch = ref entity.worldPointer->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            return ref *(T*)(arch.data.Ptr + arch.offsetMap.GetRef(componentType.index) + loc.row * componentType.size);
         }
 
 #if !NUKECS_DEBUG
@@ -375,6 +393,7 @@ namespace Wargon.Nukecs
 #endif
         public static void Destroy(this in Entity entity)
         {
+            if (!entity.IsValid()) return;
 #if NUKECS_DEBUG
             entity.worldPointer->AddComponentChange(new World.ComponentChange
             {
@@ -391,9 +410,15 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
+        /// <summary>
+        /// Immediately removes this entity and disposes its installed components. Pending
+        /// ECB commands expire by generation and are cleaned up on playback. Requires exclusive
+        /// world access: complete outstanding jobs and do not call during query iteration.
+        /// </summary>
         public static void DestroyNow(this in Entity entity)
         {
-            ref var ecb = ref entity.worldPointer->ECB;
+            if (!entity.IsValid()) return;
+            var world = entity.worldPointer;
 #if NUKECS_DEBUG
             entity.worldPointer->AddComponentChange(new World.ComponentChange
             {
@@ -402,7 +427,19 @@ namespace Wargon.Nukecs
                 timeStamp = entity.worldPointer->timeData.ElapsedTime
             });
 #endif
-            ecb.Destroy(entity.id);
+            var entityId = entity.id;
+            var loc = world->entityLocations.Ptr[entityId];
+            ref var arch = ref world->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            for (var i = 0; i < arch.types.length; i++) {
+                var type = arch.types.Ptr[i];
+                if (ComponentTypeMap.GetComponentType(type).storageType == StorageType.Pool)
+                    world->GetUntypedPool(type).Remove(entityId);
+            }
+            if (loc.archetypeIndex != 0) {
+                arch.DestroyEntity(loc.row);
+                arch.ExecuteDestroyEdge(entityId);
+            }
+            world->OnDestroyEntity(entityId);
         }
 
 #if !NUKECS_DEBUG
@@ -433,7 +470,9 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static Entity CopyVieECB(this in Entity entity)
+        /// <summary>Creates an empty entity and queues an ECB copy of every component from
+        /// <paramref name="entity"/> into it (data lands on ECB playback).</summary>
+        public static Entity CopyViaECB(this in Entity entity)
         {
             var e = entity.worldPointer->CreateEntity();
             entity.worldPointer->ECB.Copy(entity.id, e.id);
@@ -444,6 +483,9 @@ namespace Wargon.Nukecs
         {
             return $"#:{entity.id:D7}";
         }
+
+        /// <summary>Index of the entity's current logical archetype in world.archetypesList
+        /// (historical name says Hash but it is an archetype index, not a hash).</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetArchetypeHash(this in Entity entity)
         {

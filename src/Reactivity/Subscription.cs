@@ -21,6 +21,7 @@ namespace Wargon.Nukecs.Reactivity
     {
         public long Token;
         public int EntityId;
+        public Entity Handle;
         public ReactDelegate<T> Managed;
         public ReactFilter<T> ManagedFilter;
         public ReactOptions Options;

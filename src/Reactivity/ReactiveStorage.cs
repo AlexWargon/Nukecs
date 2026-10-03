@@ -48,6 +48,9 @@ namespace Wargon.Nukecs.Reactivity
 
         public long AddEntitySubscription(int entityId, Subscription<T> sub)
         {
+            if (ManagedPerEntity.TryGetValue(entityId, out var previous) && previous.Count > 0
+                && previous[0].Handle != sub.Handle)
+                RemoveAllForEntity(entityId);
             sub.Token = _nextToken++;
             sub.EntityId = entityId;
             _byToken[sub.Token] = sub;
@@ -102,6 +105,7 @@ namespace Wargon.Nukecs.Reactivity
                 }
             }
             ts.Offsets.Remove(entityId);
+            ts.PendingTriggers.Remove(entityId);
         }
 
         public void Dispose()

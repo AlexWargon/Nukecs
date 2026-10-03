@@ -82,20 +82,9 @@ namespace Wargon.Nukecs
             return res.Ref;
         }
     }
-    [StructLayout(LayoutKind.Sequential)]
-    public struct SaveRes<TRes> : ISystemParam where TRes : struct, IRes
-    {
-        public TRes Ref;
-        public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
-        public void Init(ref ptr<World.WorldUnsafe> worldPtr)
-        {
-        }
+    // SaveRes<TRes> was removed before 1.0: it registered nothing, persisted nothing and
+    // was referenced nowhere — its name implied save-related behavior that never existed.
 
-        public void Update(ref World world, IntPtr dt)
-        {
-        }
-    }
-    
     public struct TimeRes
     {
         public float DeltaTime;

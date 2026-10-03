@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -18,7 +17,6 @@ namespace Wargon.Nukecs {
         Events = 0,
         Query = 1,
         World = 2,
-        Single = 3,
         Service = 4,
         State = 5,
         Resource = 6,
@@ -77,7 +75,7 @@ namespace Wargon.Nukecs {
 
         public void Add<TParam>(in TParam param) where TParam : unmanaged, ISystemParam 
         {
-            var ptr = _world.Ref._allocate_ptr<TParam>();
+            var ptr = _world.Ref._allocate_ptr<TParam>(1, AllocatorTags.Query);
             SystemParamData<TParam>.Set(new SystemParamData
             {
                 metaType = param.MetaType,

@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
 
 #if UNITY_EDITOR && NUKECS_DEBUG
+using UnityEditor;
 namespace Wargon.Nukecs.Editor
 {
 public class EditorIcons : EditorWindow

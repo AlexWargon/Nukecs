@@ -140,6 +140,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             _worldInfoTimestamp = 0;
         }
 
+        /// <summary>Index of the world slot this provider currently inspects (editor tools, e.g. scene gizmos).</summary>
+        public int WorldIndex => _worldIndex;
+
         public int GetEntityCount()
         {
             return !IsWorldValid() ? 0 : GetWorld().UnsafeWorld->entitiesAmount;
@@ -401,13 +404,17 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
                     {
-                        if (q.with.Has(typeIdx))
+                        // Contains (not Has): the global type registry keeps growing via lazy
+                        // ComponentType<T>.Index registration, while query masks are sized to the
+                        // type count at query creation — indexes past a mask's capacity must read
+                        // as absent instead of throwing ArgumentOutOfRangeException.
+                        if (q.with.Contains(typeIdx))
                         {
                             var t = ComponentTypeMap.GetType(typeIdx);
                             withList.Add(t?.Name ?? $"Type_{typeIdx}");
                         }
 
-                        if (q.none.Has(typeIdx))
+                        if (q.none.Contains(typeIdx))
                         {
                             var t = ComponentTypeMap.GetType(typeIdx);
                             withoutList.Add(t?.Name ?? $"Type_{typeIdx}");

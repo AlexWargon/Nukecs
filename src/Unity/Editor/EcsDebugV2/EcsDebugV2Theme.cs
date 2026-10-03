@@ -1,5 +1,5 @@
 #pragma warning disable CS0618
-#if UNITY_EDITOR && NUKECS_DEBUG
+#if UNITY_EDITOR
 using System;
 using UnityEditor;
 using UnityEngine;
@@ -448,6 +448,103 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 if (guard != null && guard()) return;
                 r.style.backgroundColor = Color.clear;
             });
+        }
+    }
+
+    /// <summary>Data operations for the shared component card renderer; contains no layout code.</summary>
+    public interface IComponentCardBinding
+    {
+        void RemoveComponent(int entityId, string componentName);
+        void SetFieldValue(int entityId, string componentName, string fieldKey, FieldValue value);
+        void SelectEntity(int entityId);
+        bool TryGetChangeTime(string key, out long timestamp);
+    }
+
+    /// <summary>Component card visuals shared by live Debug v2 and serialized authoring inspectors.</summary>
+    public static class ComponentCardVisuals
+    {
+        public const int HeaderHeight = 22;
+        public const int FieldHeight = 24;
+        public const int FieldLabelWidth = 130;
+
+        public static VisualElement CreateHeader(string title, int? byteSize, Action remove)
+        {
+            var header = new VisualElement { style = {
+                flexDirection = FlexDirection.Row, alignItems = Align.Center,
+                height = HeaderHeight, minHeight = HeaderHeight, maxHeight = HeaderHeight,
+                flexShrink = 0, paddingLeft = 12, paddingRight = 4,
+                backgroundColor = EcsDebugV2Theme.PanelElevated.WithAlpha(0.5f),
+                borderBottomWidth = 1, borderBottomColor = EcsDebugV2Theme.GlassBorder
+            } };
+            header.Add(new Label(title) { style = {
+                color = EcsDebugV2Theme.Foreground, fontSize = EcsDebugV2Theme.Font.Body,
+                unityFontStyleAndWeight = FontStyle.Bold
+            } });
+            var size = new Label(byteSize.HasValue ? $"{byteSize} Bytes" : "") {
+                name = "component-size", style = {
+                    color = EcsDebugV2Theme.MutedText, fontSize = EcsDebugV2Theme.Font.FieldName,
+                    marginLeft = 6
+                }
+            };
+            header.Add(size);
+            var button = new Button(remove) { text = "×", tooltip = $"Remove {title}", style = {
+                fontSize = 18, color = EcsDebugV2Theme.MutedText, backgroundColor = Color.clear,
+                width = 28, height = HeaderHeight, minHeight = HeaderHeight, flexShrink = 0,
+                marginLeft = Length.Auto(), marginRight = 0, marginTop = 0, marginBottom = 0,
+                paddingTop = 0, paddingBottom = 0, paddingLeft = 0, paddingRight = 0,
+                unityTextAlign = TextAnchor.MiddleCenter
+            } };
+            button.SetupBorder(Color.clear, 0);
+            button.RegisterCallback<MouseEnterEvent>(_ => button.style.color = EcsDebugV2Theme.Red);
+            button.RegisterCallback<MouseLeaveEvent>(_ => button.style.color = EcsDebugV2Theme.MutedText);
+            header.Add(button);
+            return header;
+        }
+
+        public static void SetupFieldRow(VisualElement row)
+        {
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.minHeight = FieldHeight;
+            row.style.paddingLeft = 12;
+            row.style.paddingRight = 6;
+            row.style.paddingTop = 2;
+            row.style.paddingBottom = 2;
+            row.style.backgroundColor = Color.clear;
+            row.style.borderBottomWidth = 0;
+        }
+
+        public static void SetupFieldLabel(Label label)
+        {
+            label.style.width = FieldLabelWidth;
+            label.style.flexShrink = 0;
+            label.style.fontSize = EcsDebugV2Theme.Font.FieldName;
+            label.style.color = EcsDebugV2Theme.MutedText;
+        }
+
+        public static void SetupValueSurface(VisualElement value, bool shadeContainer = true)
+        {
+            value.style.backgroundColor = shadeContainer ? EcsDebugV2Theme.Background : Color.clear;
+            value.style.minWidth = 0;
+            value.SetupRadius(2);
+            if (value is TextField text) SetupTextField(text);
+            value.Query<TextField>().ForEach(SetupTextField);
+            value.Query<VisualElement>(className: "unity-base-field__input").ForEach(input => {
+                input.style.backgroundColor = EcsDebugV2Theme.Background;
+                input.style.color = EcsDebugV2Theme.Foreground;
+                input.style.unityTextAlign = TextAnchor.MiddleLeft;
+                input.SetupBorder(Color.clear, 0);
+                input.SetupRadius(2);
+            });
+        }
+
+        private static void SetupTextField(TextField field)
+        {
+            field.style.backgroundColor = EcsDebugV2Theme.Background;
+            field.style.color = EcsDebugV2Theme.Foreground;
+            field.style.fontSize = EcsDebugV2Theme.Font.FieldName;
+            field.style.unityFontStyleAndWeight = FontStyle.Normal;
+            field.style.unityTextAlign = TextAnchor.MiddleLeft;
         }
     }
 }

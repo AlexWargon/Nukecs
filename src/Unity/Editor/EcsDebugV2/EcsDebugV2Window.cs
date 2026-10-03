@@ -12,7 +12,7 @@ using UnityEngine.UIElements;
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
     using static Constant;
-    public class EcsDebugV2Window : EditorWindow
+    public class EcsDebugV2Window : EditorWindow, IComponentCardBinding
     {
         public IEcsDataProvider provider;
         public List<EntityInfo> entities;
@@ -20,6 +20,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public List<QueryInfo> queries;
         public List<ResourceInfo> resources;
         public Dictionary<string, long> changes = new ();
+        public bool TryGetChangeTime(string key, out long timestamp) => changes.TryGetValue(key, out timestamp);
         public Dictionary<int, EntityInfo> entityMap = new ();
         public Dictionary<int, ArchetypeInfo> archetypeMap = new ();
         public Dictionary<int, QueryInfo> queryMap = new ();
