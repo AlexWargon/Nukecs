@@ -256,7 +256,7 @@ then produces compiler error `NUKECS002` with a reason. Generated runners
 implement `ISystemCompilationInfoProvider`; inspect `CompilationInfo.Kind`
 (`PointerBatch`, `ChangedBatch`, `RuntimeIteration`, `NoQuery`), `FallbackReason`,
 and `HasSurroundingCode`. This reports generation, not native Burst execution
-or the actual dense/sparse branch. See README for an inspection example.
+or the actual dense/sparse branch. See the [API reference](API_REFERENCE.md#generated-batch-code) for an inspection example.
 
 `FallbackDetail` explains the first blocker, naming the component/local or
 unsupported syntax and suggesting a correction. `FallbackFile`, `FallbackLine`,
