@@ -18,10 +18,14 @@ namespace Wargon.Nukecs {
             var id = Id;
             if (completeJobs) CompleteAllJobs(id);
             var ecb = ECB;
+            var managedWorld = UnsafeWorld->ManagedWorld;
             var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
             var allocatorOld = allocatorHandler.AllocatorWrapper.Allocator;
             allocatorOld.FastDeserialize(data);
             allocatorHandler.AllocatorWrapper.Allocator = allocatorOld;
+            // Domain wrappers are owned by this live world, not by the saved arena.
+            unsafeWorldPtr.OnDeserialize(ref allocatorOld);
+            UnsafeWorld->ManagedWorld = managedWorld;
             CompleteDeserialization(ref allocatorOld, ref allocatorHandler, ecb, id);
         }
 

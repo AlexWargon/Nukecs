@@ -26,7 +26,9 @@ namespace Wargon.Nukecs
             var id = UnsafeWorld->Id;
             lastFreeSlot = id;
             var allocator = UnsafeWorld->AllocatorHandler;
+            var managedWorld = UnsafeWorld->ManagedWorld;
             UnsafeWorld->Free();
+            domainAllocator.Data.Free(managedWorld.UntypedPointer);
             allocator.Dispose();
             unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
             worldCount--;

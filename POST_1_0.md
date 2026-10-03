@@ -41,7 +41,7 @@ before 1.0 ships.
     `RemoveAndDispose` semantics for pool components are not covered by tests).
 11b. **Resolved: sparse chunk CopyTo addressing.** The copied pointer stayed at the current row while offsets used the previous row, causing wrong reads (reproduced: iteration sum 25, copy sum 13). Offsets now stay relative to the current row in arities 1, 2, 4-8 (arity 3 already used base pointers). MoveNext no longer advances past the final row in arities 1-8. All three ignored tests re-enabled; 20 targeted chunk checks pass, including nonmonotonic rows [1,5,3], copy windows after advancing, sentinels and ECB row/location backlinks. This does not validate the excluded inline-destroy path.
 12b. **Resolved: async load left a stale caller World.** LoadAsync took a struct by value; FastDeserialize can relocate the arena and only refresh the static slot/local copy. A different-size-arena regression reproduced the pointer mismatch without dereferencing freed memory. LoadAsync now returns Task<World>; callers must assign `world = await World.LoadAsync(path, world)`. Package call sites updated, including WorldBaker. Serialization fixture plus relocation regression: 39/39 passed. Legacy instance async-void LoadFromFileAsync still requires a separate API cleanup.
-12. **Inline destroy / reserved-id migration accounting (BLOCKING for inline-destroy contract).** `ArchetypeUnsafe.Destroy` does not remove the storage row; the row is reclaimed only by ECB playback. An attempt to remove the row inline (mirror of the ECB branch) passed local invariants but corrupted the arena later in prefab chains. Probes (see git history of this pass): after an inline destroy, a fresh entity taking the recycled id and migrating root→archetype through the ECB grows the archetype `rows` list by 2 while the storage grows by 1 (`rowsList=[0,1,1,2]`, storage=3) — two `AddRow`s for one `AllocateRow` somewhere in the ECB playback/reserved-id chain, pre-existing and masked in the old code because the ghost row kept both counts in lockstep. Rework needed: single-owner destroy path (either always inline with a full rows-list+reserved contract, or drop `EntityDestroyMTSystem`'s inline `arch.Destroy`), plus an invariant assert (rows.length == storage.count) under a debug flag.
+12. **Resolved: inline destroy / reserved-id accounting (2026-10-03).** Entity.DestroyNow owns immediate disposal, row/query removal and generation-aware recycling, including reserved IDs. Deferred Destroy is handled by ECB; dedicated destruction systems were removed. ECB validates captured generations and releases expired payloads. The earlier reverted experiment is historical, not a current blocker. Regression coverage: ReleaseStabilizationTests and generation/prefab fixtures.
 11. **par_iter ref deconstruction under Burst (4 components): not reproduced on current HEAD.** Added RuntimeQueryBurstRangeRegressionTests: a native Burst function-pointer probe counts MoveNext and writes float3 components over dense/sparse disjoint ranges; generated Single/Parallel runners each visit 2049 entities exactly once. All four checks pass. The exact original `Wargon.EcsBenches.Nukecs.BenchNukecs.Nukecs_Iteration_4Components_Parallel_Par_Iter_Ref_Burst` (100k entities, 110 updates) also passes in isolation from other benchmarks. No runtime iterator or generator change was needed. Combined targeted run: 64 passed, 0 failed, 0 skipped; XML/log at `../../nukecs-ci/stab-targeted-final.*`. This is Editor/Burst evidence, not IL2CPP validation.
 ## Packaging / infra
 12. **IL2CPP player validation.** This pass validated EditMode + Burst in the
@@ -59,9 +59,10 @@ before 1.0 ships.
     `dependency_graph*.txt`, `mermaid-*.png`, `UnitTests/Results/`,
     stale `DEPENDENCY_GRAPH_STATUS.md` (claims 2 red DepGraph tests; the
     current baseline is green), stale zips in `SourceGen/`.
-17. **`WorldInstaller.Awake()` calls `World.DisposeStatic()`** — instantiating
-    any installer tears down every live world and static registry. Make it
-    opt-in.
+17. **Resolved: WorldInstaller ownership (2026-10-03).** Awake no longer resets
+    global state. Each installer disposes only the world associated with its
+    registered Systems, preserving other worlds and reused slots. Explicit
+    session-wide reset remains World.DisposeStatic.
 18. **`WorldConfig` off-by-ones** — `Default1024` reserves 1025, `Default16384`
     16385, `Default163840` 163841, `Default256000` 256001,
     `Default_1_000_000` 1_000_001, while `Default6144`/`Default65536` are

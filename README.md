@@ -16,7 +16,27 @@ Burst-compiled ECS framework with source-generated systems, custom allocator, an
 
 ---
 
-[Gameplay agent guide: the EcsTest.cs coding style](NUKECS_AGENTS_GUIDE_EN.md) ([Russian version](NUKECS_AGENTS_GUIDE_RU.md)) — lifecycle, system registration, Burst/Parallel execution, events, and component memory usage.
+[Gameplay agent guide](NUKECS_AGENTS_GUIDE_EN.md) ([Russian version](NUKECS_AGENTS_GUIDE_RU.md)) — lifecycle, system registration, Burst/Parallel execution, events, and component memory usage.
+
+## Installation
+
+This checkout is an Assets-based Unity package, without a UPM `package.json`.
+Copy the folder into `Assets/Nukecs`, preserving `.meta` files. The verified
+Editor environment is Unity 6000.0.63f1 with Burst 1.8.29, Collections 2.6.2,
+Mathematics 1.3.2 and Unity's Jobs API. These are tested versions, not claimed
+minimum versions. Tests require Unity Test Framework (tested 1.6.0).
+
+The runtime assembly references TriInspector, used by Unity authoring components:
+install `com.codewriter.triinspector` from
+`https://github.com/codewriter-packages/Tri-Inspector.git` through Package Manager.
+Keep `SourceGen/NUKECSGEN.dll` and its meta file together: retain its
+`RoslynAnalyzer` asset label and disable runtime plug-in loading. Generated
+`Systems.Add` overloads and component registration depend on that analyzer.
+
+Enable unsafe code in consuming assembly definitions. `NUKECS_DEBUG` is an
+optional Scripting Define Symbol for diagnostics/editor tools. Editor tests do
+not establish IL2CPP/player support. Physics, input, UI and audio remain
+application code using Unity APIs/packages.
 
 ## Minimal Quick Start
 
@@ -250,6 +270,8 @@ Add `[RequireBatch]` to make unsupported traversal an error (`NUKECS002`) rather
 than a silent fallback. Inspect a generated runner's compile-time status:
 
 ```csharp
+// updateSystems is the Systems container created during initialization.
+// Runners exposes Update registrations only, not Start/FixedUpdate/Destroy.
 foreach (var runner in updateSystems.Runners)
     if (runner is ISystemCompilationInfoProvider provider)
         UnityEngine.Debug.Log($"{runner.Name}: {provider.CompilationInfo.Kind}, " +
@@ -406,7 +428,7 @@ var e4 = world.Entity<Speed, Health>();               // multiple components
 var entities = world.BatchCreateEntity(500);
 for (int i = 0; i < entities.Length; i++)
 {
-    ref var e = ref entities[i];
+    var e = entities[i];
     e.Add(new LocalTransform { Position = new float3(i, 0, 0) });
 }
 ```
@@ -415,12 +437,12 @@ for (int i = 0; i < entities.Length; i++)
 
 ```csharp
 ref var speed = ref entity.Get<Speed>();            // read/write ref
-ref readonly var speed = ref entity.Read<Speed>();  // readonly ref
+ref readonly var readSpeed = ref entity.Read<Speed>();  // readonly ref
 entity.Set(new Speed { Value = 10f });              // overwrite existing
 entity.Add(new Speed { Value = 5f });               // add (deferred via ECB)
 entity.Remove<Speed>();                             // remove (deferred via ECB)
 bool has = entity.Has<Speed>();                     // check existence
-ref var speed = ref entity.TryGet<Speed>(out bool exists); // safe access
+ref var optionalSpeed = ref entity.TryGet<Speed>(out bool exists); // safe access
 ```
 
 ### Destruction
@@ -439,6 +461,10 @@ handle throw rather than accessing the replacement entity. APIs taking a bare in
 ID, such as `world.GetEntity(id)`, resolve the current entity in that slot.
 Reactive subscriptions belong to the full handle identity. Loading an unrelated
 saved entity with the same ID requires an explicit new subscription.
+
+On a live entity, `Add<T>` does nothing when T is already installed; `Set<T>`
+does nothing when T is absent. `TryGet<T>` also returns a null reference when
+the component is absent: check its `exists` output before dereferencing.
 
 ```csharp
 entity.Destroy();      // deferred — processed on next world.Update()
@@ -470,10 +496,14 @@ var deferredCopy = entity.CopyViaECB(); // deferred copy via ECB
 var prefab = world.Entity();
 prefab.Add(new Speed { Value = 5f });
 prefab.Add(new IsPrefab());
+world.Update(); // Apply deferred prefab components before immediate copying.
 
 var instance = world.SpawnPrefab(prefab);
 var instances = world.SpawnPrefabs(prefab, 100);
 ```
+
+Register `AddDefaults()` before gameplay systems: its `OnPrefabSpawn` removes
+`IsPrefab` from spawned copies during the next system pass.
 
 Unity-side `EntityPrefabMap` caches must resolve a current handle after loading.
 `GetOrCreatePrefab(source, ref world)` reuses a uniquely named `IsPrefab` entity
@@ -485,11 +515,16 @@ Cached Entity values in MonoBehaviours are not rewritten by arena deserializatio
 ```csharp
 child.SetParent(parent);
 world.Update();
-ref var firstChild = ref parent.GetChild(0);
-var root = entity.GetRootParent(); // Entity.Null when entity has no parent
+var firstChild = parent.GetChild(0);
+var root = child.GetRootParent(); // Entity.Null when child has no parent
 parent.RemoveChild(child);
 world.Update();
 ```
+
+`SetParent` and `AddChild` can
+flush the entire ECB through `AddArray`; call them during exclusive setup,
+outside jobs and query iteration. Destruction does not cascade to children:
+destroy owned children explicitly before their parent.
 
 ---
 
@@ -528,8 +563,8 @@ public enum Threads
 {
     Main,       // Main thread
     MainRun,    // Main thread via Job System Run
-    Single,     // Single worker thread
-    Parallel    // All parallel threads (default)
+    Parallel,   // All parallel threads (default)
+    Single      // Single worker thread
 }
 ```
 
@@ -585,9 +620,6 @@ Adding a Start system only registers it; it does not execute immediately.
 `OnUpdate` does not automatically call `OnStart`, and `OnStart` has no once-only
 guard. Call it after building the systems and creating initial entities:
 
-`WorldInstaller` already calls it once after `CreateEntities` and initial ECB
-playback; do not call it again from the installer hooks.
-
 ```csharp
 systems.OnStart(); // after all registrations and initial entity setup
 // In the game loop:
@@ -595,6 +627,22 @@ systems.OnUpdate(deltaTime, time);
 // On shutdown; world disposal also invokes the registered destroy systems:
 world.Dispose();
 ```
+
+`WorldInstaller` already calls `OnStart` once after `CreateEntities` and initial
+ECB playback; do not call it again from installer hooks. Fixed update uses a
+hardcoded 0.016-second interval and runs at most once per `OnUpdate`, without
+catch-up ticks.
+
+`AddDefaults()` appends `OnPrefabSpawn` and `ClearEvents`, both MainRun, to the
+Update list. Call it before gameplay registrations. `Systems.Default(ref world)`
+is shorthand for `new Systems(ref world).AddDefaults()`. Under the default
+scheduler, MainRun does not wait for previous jobs. Legacy/Chained graph modes
+synchronize execution groups before MainRun; Flattened graph modes run all
+Main/MainRun systems before scheduling worker systems.
+
+Method systems are recommended for new gameplay. `ISystem`, `IEntityJobSystem`
+and `SystemsGroup` remain supported compatibility APIs; their examples in
+AGENTS.md describe existing code, rather than the preferred style for new code.
 
 #### Registering Multiple Systems with AddSystems
 
@@ -969,6 +1017,12 @@ public struct GameConfig : IRes
 world.AddRes(new GameConfig { MoveSpeed = 5f, MaxEntities = 1000 });
 ```
 
+`AddRes` and `AddResManaged` call `OnCreate(ref World)` immediately on first
+registration in that world. Connecting the resource to additional systems does
+not call it again. Repeated registration of an existing resource is ignored and
+preserves its initialized value/instance. Resources first requested by a system
+are initialized automatically through the same `Init` lifecycle.
+
 ### Accessing in Systems
 
 ```csharp
@@ -984,7 +1038,8 @@ public static void Move(
 
 ### ResManaged — Managed Resources
 
-For resources that reference managed objects (e.g., `Mesh`, `Material`):
+For resources that reference managed objects (e.g., `Mesh`, `Material`), define
+the resource as a `class` implementing `IRes`:
 
 ```csharp
 world.AddResManaged(new MeshData { Mesh = mesh, Material = material });
@@ -1040,7 +1095,7 @@ allocations referenced by a local are not serialized automatically.
 ## Events
 
 ```csharp
-public struct DamageEvent : IComponent { public int Amount; public Entity Target; }
+public struct DamageEvent { public int Amount; public Entity Target; }
 ```
 
 ### Sending Events
@@ -1060,7 +1115,7 @@ public static void EmitDamage(ref Query<Entity, Health> query, ref Events<Damage
 [System]
 public static void ProcessDamage(ref Events<DamageEvent> events)
 {
-    foreach (var evt in events)
+    foreach (ref var evt in events)
     {
         // Handle event
     }
@@ -1072,9 +1127,11 @@ public static void ProcessDamage(ref Events<DamageEvent> events)
 the buffer while holding it. `ReadPar()` provides a pointer/length reader after
 producers complete. Do not grow or clear the buffer while readers use it.
 `AddDefaults()` registers `ClearEvents`, which clears all event buffers at its
-position in the Update list. `WorldInstaller` adds these defaults automatically.
-Place consumers before clearing and ensure producer jobs have completed. Without
-defaults, clear once after all consumers finish.
+position in the Update list. Register defaults first, as `WorldInstaller` does:
+clearing removes previous-frame events before this frame's producers/consumers.
+Under the default scheduler, late defaults can race with Parallel writes because
+ClearEvents is MainRun. Without defaults, clear once after all consumers finish
+and all producer jobs complete.
 
 ---
 
@@ -1113,7 +1170,7 @@ if the component has not yet been added through ECB.
 tracking. Use it in generated systems with plain `foreach (... in query)` as
 covered by `ReactivityTests`. Explicit runtime `.iter()` / `.par_iter()` do not
 apply this change-detection filter; they traverse its required component set.
-Files under `src/Reactive/` describe the older implementation; use the public
+The older companion/tag reactive implementation was removed; use the public
 API under `src/Reactivity/` for new subscriptions and change filters.
 
 ---
@@ -1160,6 +1217,7 @@ Bridges ECS entities to `UnityEngine.Transform` GameObjects.
 ### Built-in Transform Systems
 
 - **TransformChildSystem** — manages parent-child transform hierarchies
+- **UpdateTransformOnAddChildSystem** — updates transforms when a child is attached
 - **SyncWithUnityTransformSystem** — syncs ECS transforms to Unity transforms
 
 Register them explicitly; `AddDefaults()` and `WorldInstaller` do not add them:
@@ -1183,6 +1241,57 @@ world.Update();
 
 ---
 
+## Additional Unity Integration
+
+### Unity authoring and visible entities
+
+During setup on the main thread, create a visible GameObject and attach it to
+an ECS entity using the transform bridge:
+
+```csharp
+var view = GameObject.CreatePrimitive(PrimitiveType.Cube);
+var visibleEntity = world.Entity();
+Wargon.Nukecs.Transforms.TransformsUtility.Convert(view.transform, ref world, ref visibleEntity);
+visibleEntity.Add(new Wargon.Nukecs.Transforms.TransformRef { Value = view.transform });
+world.Update();
+systems.AddGroup(new Wargon.Nukecs.Transforms.TransformsGroup());
+// Ensure a camera sees the cube; update its ECS Transform to move it.
+```
+
+`TransformRef` and `GameObjectRef` (the latter is currently in
+`Wargon.Nukecs.Tests`) are references, not GameObject ownership. Entity destruction
+does not automatically destroy those objects. Release owned views on the main
+thread in application cleanup. `ClearTransformsSystem` remains a manual
+main-thread compatibility system for explicitly tagged `DestroyEntity` views:
+it destroys their GameObjects only. Ordinary `Destroy()` does not add that tag.
+The rotate-cube demo shows an explicit disposable view owner.
+
+`EntityBaker` stores inspector-configured `IComponent` values and creates an
+entity when `Bake(ref world)` is called; it does not bake automatically or
+provide a GameObject link. `Wargon.Nukecs.Tests.EntityLinkSO.Convert(ref world)`
+creates an entity from a ScriptableObject's components and custom converters.
+Both defer component additions; apply the setup ECB before reading/copying them.
+`WorldBaker` is an abstract authoring/session component: subclasses implement
+`Bake(ref world)` and `AddSystems`, choose a file name and use its inspector bake/
+load buttons. These are managed authoring helpers, not Burst gameplay systems.
+
+### Other existing APIs
+
+`entity.AddObject(IComponent)` adds boxed component data through ECB;
+`SetObject(IComponent)` writes component data through runtime type metadata.
+They are managed authoring/debug APIs, not Burst methods; prefer generic
+`Add<T>` / `Set<T>` in gameplay. `SetObject` on pool storage uses the pool setter,
+while the inline path does nothing when the component is absent.
+
+`world.GetSingleton<T>()` is a low-level accessor for pool slot 0. It neither
+queries for a unique entity nor initializes a missing value; the caller must
+ensure that pool slot exists. Use `Res<T>` for resource state. Aspects implement
+`IAspect<T>` and `IAspect`; `world.GetAspect<T>(ref entity)` / `entity.GetAspect<T>()`
+update a cached per-type aspect for that entity. Do not retain its mutable
+reference across another aspect access or share it across parallel work.
+
+Rendering samples and scene setup are in [Demos/README.md](Demos/README.md).
+
 ## World Serialization
 
 ### Serialize / Deserialize
@@ -1201,9 +1310,42 @@ That slot must be free; an occupied slot is rejected without replacing its world
 ### File I/O
 
 ```csharp
-world.SaveToFile("path/to/save.dat");
-world.LoadFromFile("path/to/save.dat");
+world.Save("path/to/save.dat");
+world.Load("path/to/save.dat");
 ```
+
+`Save` / `Load` execute immediately and first complete the world's active jobs,
+including jobs already scheduled in the current system pass. `SaveToFile` /
+`LoadFromFile` and `Serialize` / `Deserialize` use the same completion policy.
+`Threads.MainRun` retains its `Jobs.Run()` semantics; it does not wait for
+dependencies automatically. Explicit saving/loading performs that wait.
+
+### Deferred file requests
+
+```csharp
+Task save = world.RequestSave("path/to/save.dat");
+Task<World> load = world.RequestLoad("path/to/save.dat");
+// Requests execute before the next primary systems.OnUpdate(dt, time).
+// Observe/await the tasks after that pass to receive completion or I/O errors.
+// If retaining a World struct copy, refresh it: world = await load;
+```
+
+Requests execute in insertion order before update systems, without an extra
+`Complete`: the preceding systems update already completed its jobs. Requests
+issued during a pass or by load callbacks wait for the next pass. With several
+`Systems` containers for one world, the first registered container owns this
+boundary and must be updated first. Complete any externally scheduled jobs
+before this boundary; they are outside the framework's dependency tracking.
+
+`RequestLoad` returns `Task<World>` containing the refreshed world, because loading
+can relocate its arena. Registered systems are rebound automatically; external
+code retaining a `World` struct should assign the returned value.
+
+Queues live outside the saved arena and are independent per world. Disposing
+the world cancels pending tasks. A failed request faults its task and leaves
+later requests eligible to execute. These file APIs are managed main-thread
+adapters; do not call them from Burst jobs or block on a request task inside
+the system pass that must process it.
 
 ### Async File I/O
 
@@ -1290,20 +1432,19 @@ public struct WorldConfig
 | `WorldConfig.Default16` | 16 |
 | `WorldConfig.Default` | 64 |
 | `WorldConfig.Default256` | 256 |
-| `WorldConfig.Default1024` | 1,024 |
+| `WorldConfig.Default1024` | 1,025 |
 | `WorldConfig.Default6144` | 6,144 |
-| `WorldConfig.Default16384` | 16,384 |
+| `WorldConfig.Default16384` | 16,385 |
 | `WorldConfig.Default65536` | 65,536 |
-| `WorldConfig.Default163840` | 163,840 |
-| `WorldConfig.Default256000` | 256,000 |
-| `WorldConfig.Default_1_000_000` | 1,000,000 |
+| `WorldConfig.Default163840` | 163,841 |
+| `WorldConfig.Default256000` | 256,001 |
+| `WorldConfig.Default_1_000_000` | 1,000,001 |
 
 ### Multiple Worlds
 
-The static registry supports up to **8 worlds**. Create them explicitly when
-running multiple worlds: `WorldInstaller.Awake()` calls `World.DisposeStatic()`
-before creating its world, so multiple installers do not provide independent
-world ownership automatically.
+The static registry supports up to **8 worlds**. Each `WorldInstaller` creates
+and disposes its own world. `World.DisposeStatic()` is an explicit session/domain
+reset that affects all worlds; do not call it when creating another installer.
 
 ```csharp
 var world1 = World.Create(WorldConfig.Default256);

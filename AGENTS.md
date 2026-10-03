@@ -2,7 +2,7 @@
 
 When writing gameplay code with this framework, follow [NUKECS_AGENTS_GUIDE_EN.md](NUKECS_AGENTS_GUIDE_EN.md) (English) or [NUKECS_AGENTS_GUIDE_RU.md](NUKECS_AGENTS_GUIDE_RU.md) (Russian): method-system registration, Init/Update/OnDestroy lifecycle, Burst/Parallel, event patterns and component memory rules.
 
-Current API reference updated from source on 2026-09-08. Start with
+Current API reference updated from source on 2026-10-03. Start with
 [README.md](README.md) for usage, [ARCHITECTURE.md](ARCHITECTURE.md) for storage
 invariants, and the [runtime iterator contract](src/Systems/FnSystems/RuntimeQuery/README.md)
 for explicit `iter()` / `par_iter()`. Handoff documents contain historical APIs.
@@ -19,7 +19,7 @@ Nukecs is a **Burst-compiled ECS framework for Unity**. It uses `unsafe` code an
 ## 2. Architecture
 
 ```
-World → Archetype[] → Entity (int ID)
+World → Archetype[] → Entity (8-byte generational handle)
      → StorageArchetype[] → shared SoA columns (same inline mask)
      → Queries[]     → QueryEnumerator / Query<T1..TN, TOption> / Chunk<T1..T8>
      → Systems        → OnUpdate() dispatch (onStart/onUpdate/onFixedUpdate/onDestroy)
@@ -35,7 +35,7 @@ World → Archetype[] → Entity (int ID)
 - **Archetype** — logical identity (`inlineMask + tagMask + poolMask`) and storage-row membership (`src/Archetype.cs`). `StorageArchetype` owns shared SoA data (`src/StorageArchetype.cs`); tag/pool changes do not copy inline columns.
 - **Entity** — generational handle (8 bytes: `int id`, `ushort Generation`, `ushort WorldToken`); location stored in `World.entityLocations` (archetypeIndex + row)
 - **Query** — matches logical masks, with optional dense storage traversal. Explicit `iter()` / `par_iter()` use `QueryRuntimeIter1..9` for 1–8 data components; plain foreach retains the generated batch path when eligible (`src/Systems/FnSystems/RuntimeQuery/`).
-- **Systems** — functions with `[System]` attribute; source-gen creates runners; 3 thread modes: Main, Single, Parallel (`src/Systems/Systems.cs`). Lifecycle lists: `onStart`, `onUpdate`, `onFixedUpdate`, `onDestroy`. `ISystemRunner` interface for struct/class systems.
+- **Systems** — functions with `[System]` attribute; source-gen creates runners; 4 thread modes: Main, MainRun, Parallel, Single (`src/Systems/Systems.cs`). Lifecycle lists: `onStart`, `onUpdate`, `onFixedUpdate`, `onDestroy`. `ISystemRunner` interface for struct/class systems.
 - **EntityCommandBuffer (ECB)** — deferred add/remove/destroy; flushed on `world.Update()` (`src/Entity/EntityCommandBuffer.cs`)
 - **Component Storage** — two modes: inline (packed in archetype data array) and Pool (separate `GenericPool<T>` with SparseSet) (`src/Components/GenericPool.cs`)
 - **Allocator** — custom `MemAllocator` with `ptr<T>` wrapper, `MemoryArray<T>`, `MemoryList<T>` (`src/Allocator/`)
@@ -43,7 +43,7 @@ World → Archetype[] → Entity (int ID)
 - **Events** — `Events<TEvent>` thread-safe event buffer; `AddPar` for parallel writes (spinlock); `EventsParallelReader<TEvent>` for parallel reads; `EventsStorage` central registry (`src/Systems/FnSystems/Events.cs`)
 - **Resources** — `Res<T>` / `ResManaged<T>` singleton resource accessors; `IRes` interface with `OnCreate`/`OnUpdate`; `ResStorage` unmanaged storage (`src/Systems/FnSystems/Res.cs`, `ResManaged.cs`, `ResStorage.cs`)
 - **Chunk Iteration** — `Chunk<T1..T8>` archetype chunk iterators; `IChunk` interface; direct pointer iteration over archetype component arrays (`src/Systems/FnSystems/Chunk.cs`)
-- **Reactivity** — `OnChange<T>` / `OffChange<T>` subscriptions, snapshots and main-thread dispatch; `Reactivity.Changed<T>` is a generated-query filter (`src/Reactivity/`). `src/Reactive/` is the historical implementation.
+- **Reactivity** — `OnChange<T>` / `OffChange<T>` subscriptions, snapshots and main-thread dispatch; `Reactivity.Changed<T>` is a generated-query filter (`src/Reactivity/`). The historical companion/tag implementation was removed.
 - **Hot Reload** — `HotReloadSystems` wraps `Systems`; file watching + Roslyn compilation + runner swapping at runtime (`src/Systems/HotReload/`, `src/Unity/Editor/HotReload/`)
 - **DynamicBuffer** — `DynamicBuffer<T>` Unity-style dynamic buffer component (`src/Components/DynamicBuffer.cs`)
 - **IEntityJobSystem** — per-entity job system interface; `EntityJobSystemRunner<T>` dispatches (`src/Systems/EntityJobSystem.cs`)
@@ -160,10 +160,6 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 | `src/Reactivity/ReactDispatchSystem.cs` | Main-thread callback dispatch and subscription cleanup |
 | `src/Reactivity/ReactDelegate.cs` | ReactDelegate, ReactFilter and Changed<T> query filter |
 | `src/Reactivity/ReactiveStorage.cs` | Per-world/type subscription and snapshot storage |
-| `src/Reactive/ReactiveCheckSystem.cs` | `ReactiveCheckSystem<T>` detects component changes via memcmp; `AddReactive<T>()` extension |
-| `src/Reactive/ReactAndClearSystem.cs` | Clears `Changed<T>` tags and fires callbacks |
-| `src/Reactive/ComponentChangeEvent.cs` | Static event system for component change notifications |
-| `src/Reactive/ReactDelegate.cs` | `ReactDelegate<T>` delegate type |
 
 ### Collections
 
@@ -248,7 +244,7 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 - Typed `Query<..., DestroyEntity>` never matched — `DestroyEntity` sat in BOTH with and default-none masks. Fix: explicit `With` overrides a default none of the same type (`QueryUnsafe.With`).
 - Fluent queries created/mutated after entities existed stayed attached to nothing (silent zero results). Fix: lazy archetype rescan (`archetypeMasksDirty` + `EnsureArchetypesMatched`), dup-attach guard in `CheckQuery`.
 - Zero-with queries (`world.Query()`) matched nothing. Fix: they match every archetype minus none bits.
-- `ArchetypeUnsafe.Destroy` materialized junk pools for tag types and never cleared pool slots. Fix: it mirrors the ECB destroy branch for pool storage. The storage row is still reclaimed by the ECB path only — inline row removal was attempted and REVERTED: it exposed a pre-existing accounting inconsistency in the reserved-id → ECB-migration chain (rows list outgrowing the storage, arena corruption in prefab chains; bisected and verified). See POST_1_0.md #12.
+- Immediate destruction is implemented by Entity.DestroyNow, including row removal, pool disposal and generation-aware ID recycling. Deferred Destroy uses ECB playback without a destruction system; reserved IDs and stale commands are handled explicitly.
 - Disposable components leaked when their column was dropped by a Remove migration. Fix: `MoveEntityTo` disposes dropped disposable columns (surviving columns are NOT disposed — the destination row still references them). `ECB RemoveAndDispose` therefore works.
 - Removing a pool component left the pool slot behind. Fix: ECB playback clears pool slots for pool-storage removals.
 - `Chunk<T>`/`Chunk<T1,T2>` CopyTo memcpy'd on shared (sparse) storage; arities 4–8 never bound `_rows` (iteration AND CopyTo read foreign rows); arity-8 CopyTo had a duplicated T6 branch and no T8 branch. All fixed; `iter_chunk2` (raw block) is `[Obsolete]`.
@@ -395,7 +391,7 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 - A Burst check job compares bytes against snapshots; dispatch completes that job and invokes callbacks on the main thread at the reactive systems' update position.
 - `ReactOptions.Once` removes a subscription after dispatch. `TriggerImmediately` fires synchronously if the component exists, otherwise defers the initial trigger until observation after ECB playback.
 - `Changed<T> : IFilter` has separate query snapshots. Generated batch code detects changes and iterates the changed list; runtime iter/par_iter do not implement that filtering. Use an eligible plain foreach in a generated system, as in ReactivityTests.
-- `src/Reactive/` contains the historical companion/tag implementation; do not use its descriptions as the contract for the current API.
+- The historical companion/tag reactive implementation was deleted.
 
 ## 13. Hot Reload
 
@@ -436,8 +432,11 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 ### Namespaces
 
 ```csharp
+using System;
 using Wargon.Nukecs;
 using Wargon.Nukecs.Transforms;
+using Transform = Wargon.Nukecs.Transforms.Transform;
+using Systems = Wargon.Nukecs.Systems;
 using Wargon.Nukecs.HotReload;
 using Unity.Burst;
 using Unity.Mathematics;
@@ -465,7 +464,7 @@ public struct GameObjectView : IComponent, IDisposable
     {
         if (val.IsValid() && val != null)
         {
-            Object.Destroy(val.Value);
+            UnityEngine.Object.Destroy(val.Value);
             val.Dispose();
         }
     }
@@ -483,6 +482,7 @@ public struct ConfigData : IRes
 {
     public int TargetCount;
     public float CubeScale;
+    public float Timer;
     public void OnCreate(ref World world) { }
     public void OnUpdate(ref World world) { }
 }
@@ -551,7 +551,7 @@ public class GameSystems
         ref Res<ConfigData> config)
     {
         var count = config.Ref.TargetCount;
-        config.Ref.timer -= state.Time.DeltaTime;
+        config.Ref.Timer -= state.Time.DeltaTime;
     }
 
     // Query + multiple Res + State
@@ -712,33 +712,33 @@ WorldConfig.Default_1_000_000
 
 ```csharp
 // Empty entity
-ref var entity = ref world.Entity();
+var entity = world.Entity();
 
 // With components
-var e = world.Entity(new Health { Value = 100 }, new Position { X = 0, Y = 0 });
+var initialEntity = world.Entity(new Health { Value = 100 }, new Position { X = 0, Y = 0 });
 
 // Create then add (deferred via ECB)
-ref var e = ref world.Entity();
-e.Add(new Health { Value = 100 });
-e.Add<EnemyTag>();
-e.Add(new Name("Player"));
+var addedEntity = world.Entity();
+addedEntity.Add(new Health { Value = 100 });
+addedEntity.Add<EnemyTag>();
+addedEntity.Add(new Name("Player"));
 
 // Batch creation
 var entities = world.BatchCreateEntity(count);
 for (int i = 0; i < entities.Length; i++)
 {
-    ref var e = ref entities[i];
+    var e = entities[i];
     e.Add(new Position { X = i * 1.5f });
     e.Add<Velocity>();
 }
 
 // From archetype
 var arch = world.GetArchetype(typeof(Position), typeof(Velocity));
-var e = arch.CreateEntity();
-e.Get<Position>().X = 5;
+var archetypeEntity = arch.CreateEntity();
+archetypeEntity.Get<Position>().X = 5;
 
 // Batch from archetype
-var entities = arch.BatchCreateEntity(count);
+var archetypeEntities = arch.BatchCreateEntity(count);
 ```
 
 ### Entity Component Access
@@ -1025,12 +1025,14 @@ if (hp.Current <= 0)
 }
 ```
 
-### Events — Clear After Consumers
+### Events — Frame-start Clearing and Explicit Cleanup
 
 `Events<T>` are immediate buffers. `AddDefaults()` registers `ClearEvents`, which
-clears all buffers at its position in the Update list; `WorldInstaller` adds those
-defaults automatically. Without defaults, clear explicitly after all consumers
-and producer jobs finish. Do not clear early when later systems need the events.
+clears all buffers at its position in the Update list. Register defaults first,
+as `WorldInstaller` does: clearing removes the previous frame's events before
+this frame's producers/consumers. Under the default scheduler, late MainRun
+clearing can race with earlier Parallel writers. Without defaults, clear
+explicitly after all consumers and producer jobs finish.
 
 ```csharp
 [System]
@@ -1064,10 +1066,10 @@ upgradeState.Ref.SelectionPending = false;
 
 ### Resources — Managed vs Unmanaged
 
-- `Res<T>` where `T : struct, IRes` — unmanaged, static storage. Access via `new Res<T>().Ref` works anywhere.
+- `Res<T>` where `T : struct, IRes` — domain-global static storage. After registration, `new Res<T>().Ref` resolves that value; it does not initialize it and throws if the singleton has not been created.
 - `ResManaged<T>` where `T : class, IRes` — for resources containing managed types (arrays, GameObjects, etc.). Registered via `world.AddResManaged()`.
-- Resources with managed types (arrays, lists) **must** be classes registered with `AddManaged`.
-- `Res<T>` / `ResManaged<T>` should only be accessed inside `[System]` methods or from `World` context. Don't access from arbitrary MonoBehaviours — use static fields on the system class instead.
+- Resources with managed types (arrays, lists) **must** be classes registered with `AddResManaged`.
+- Prefer injected parameters in systems. A MonoBehaviour may read an already registered `Res<T>` on the main thread after jobs finish, as in the pause example; this does not initialize it or provide per-world isolation. For UI, a Main system can publish a snapshot.
 
 ### Query Caching
 
@@ -1273,3 +1275,5 @@ source. Born from the 2026-08-25 crash-hunt (phantom types via CopyUnion OOB).
   `GetGroupScheduleMode()` or the `Nuke.cs/Dependency Graph` window.
 - Tests: `UnitTests/DependencyGraphTests.cs`. Historical status reports are not
   evidence that the current revision and every mode have passed a fresh run.
+
+Generator sources are not bundled: ../../../NUKECSGEN/ is this checkout's sibling repository, not a portable install path. See SourceGen/Patches~/README.md for maintenance patches and SourceGen/Tests~/README.md for generator checks.

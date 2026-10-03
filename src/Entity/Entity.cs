@@ -479,7 +479,6 @@ namespace Wargon.Nukecs
             return e;
         }
 
-        /// <summary>[Obsolete typo shim for CopyViaECB — kept so existing call sites compile.]</summary>
         internal static string ToDebugString(this in Entity entity)
         {
             return $"#:{entity.id:D7}";

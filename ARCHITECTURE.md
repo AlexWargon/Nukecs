@@ -1,6 +1,6 @@
 # Nukecs — Architecture for AI Agents
 
-> Updated against the source on 2026-09-08. This document explains the storage model and the reasons behind design decisions.
+> Updated against the source on 2026-10-03. This document explains the storage model and the reasons behind design decisions.
 > See [README.md](README.md) for the user-facing API and [AGENTS.md](AGENTS.md) for the code reference.
 > The new iterator contract is in [RuntimeQuery/README.md](src/Systems/FnSystems/RuntimeQuery/README.md).
 > Optimization history and measurements are recorded in HANDOFF_ArchetypeMasks.md.
@@ -92,13 +92,14 @@ data through a lazy storage scan. Typed `Query<T...>.Init`, in contrast, calls
 
 ### Batch Generation and the Fastest Storage Path
 
-For ordinary component queries, the current generator requires a block-bodied
-`[System]` method whose only top-level statement is a single plain
-`foreach (... in query)`. It analyzes the first typed Query parameter; the loop
-must name that parameter directly. Additional or nested foreach loops, local
-functions, and statements before or after the loop disable the rewrite. Even
-`var dt = state.Time.DeltaTime;` before the loop is enough to disable it. Local
-variables inside the loop body are allowed.
+For ordinary component queries, the generator analyzes a single plain
+`foreach (... in query)` over the first typed Query parameter. Surrounding code,
+including `var dt = state.Time.DeltaTime`, unsafe blocks and if branches is
+preserved; captured ordinary locals are forwarded by ref. Multiple primary-query
+loops, nested loops in the selected body, local functions and loop-local control
+flow such as return/break/goto/yield fall back. Captured ref locals, constants,
+anonymous types and reserved captured names are unsupported. Inspect the runner's
+`CompilationInfo` for the actual fallback reason, or use `[RequireBatch]`.
 
 The generator must recognize the iteration variables and component types, and
 none of the iterated component types may implement `IPoolComponent`. Explicit
@@ -165,7 +166,7 @@ require `NUKECS_DEBUG`. Gizmos edit only the world-space Transform, without Undo
 - New reactivity lives in `src/Reactivity/`, without adding Reactive<T> to an
   entity. The generated batch path handles `Changed<T>`; explicit runtime
   iter/par_iter do not perform change detection. Subscriptions and Changed
-  queries have separate snapshots; do not confuse them with historical `src/Reactive/` files.
+  queries have separate snapshots; the historical companion/tag implementation was removed.
 - Principle: one-off diagnostics must not remain in the framework's hot path
   (MigrationStats and QueryBookkeepingBypass were removed after investigation).
 

@@ -2,8 +2,7 @@
 
 This guide applies to new gameplay code built with Nukecs. Follow it when
 creating the MonoBehaviour that owns the world, components, and systems.
-The style follows `Assets/Game/Scripts/EcsTest.cs`, while excluding its legacy
-`.Add<T>()` system registrations and application-specific dependencies.
+The examples below are self-contained; no external gameplay project is required.
 
 [Russian version](NUKECS_AGENTS_GUIDE_RU.md).
 
@@ -82,10 +81,10 @@ namespace Game.Ecs
 
     public static class GameSystems
     {
-        [System, BurstCompile]
+        [System]
         public static void Initialize(ref State state)
         {
-            // One-time Burst-compatible gameplay initialization.
+            // One-time main-thread gameplay initialization.
         }
 
         [System, BurstCompile]
@@ -108,8 +107,7 @@ Rules for the agent:
   them through `.Add(GameSystems.Method, Threads.Parallel)`. Select lifecycle
   with `path: SystemPath.Start / Update / FixedUpdate / Destroy`.
 - Do not introduce new `ISystem`/`IEntityJobSystem` implementations registered
-  through `.Add<MySystem>()`. This is the legacy style; its presence in
-  `EcsTest.cs` is not a pattern to copy.
+  through `.Add<MySystem>()`. These remain supported for existing code; new gameplay uses method systems.
 - `Update()` obtains `dt` and calls `updateSystems.OnUpdate(dt, Time.time)`.
   Put gameplay logic, event handling, input, and synchronization in systems.
   Do not add manual `world.Update()`, additional ECB playback, or entity
@@ -353,7 +351,7 @@ public static class MovementEvents
         }
     }
 
-    [System, BurstCompile]
+    [System]
     public static void Consume(ref Events<MovedEvent> events)
     {
         foreach (ref var ev in events)
@@ -460,6 +458,10 @@ For a small set of elements on an entity, use `ComponentArray<T>`, where
 `T : unmanaged, IArrayComponent`. Use the entity API `AddArray<T>()`,
 `GetArray<T>()`, and `RemoveArray<T>()`; a default array is not a ready-to-use
 buffer.
+
+These methods take `this ref Entity`: use a writable local Entity value.
+`AddArray` flushes the entire ECB; call it only during exclusive setup outside
+jobs/query iteration. `GetArray` throws when absent. The capacity constant is internal.
 
 ```csharp
 public struct InventorySlot : IArrayComponent

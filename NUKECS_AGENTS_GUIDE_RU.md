@@ -3,9 +3,7 @@
 [English version](NUKECS_AGENTS_GUIDE_EN.md).
 
 Это руководство для нового игрового кода на Nukecs. Следуй ему при создании
-MonoBehaviour-владельца мира, компонентов и систем. Стиль основан на
-`Assets/Game/Scripts/EcsTest.cs`, но его старые регистрации через `.Add<T>()`
-и прикладные зависимости не переносим.
+MonoBehaviour-владельца мира, компонентов и систем. Примеры ниже самостоятельны и не требуют внешнего игрового проекта.
 
 Актуальный API: [AGENTS.md](AGENTS.md). Хранение и инварианты:
 [ARCHITECTURE.md](ARCHITECTURE.md). Явные итераторы:
@@ -82,10 +80,10 @@ namespace Game.Ecs
 
     public static class GameSystems
     {
-        [System, BurstCompile]
+        [System]
         public static void Initialize(ref State state)
         {
-            // Однократная Burst-совместимая настройка игровой логики.
+            // Однократная настройка игровой логики на главном потоке.
         }
 
         [System, BurstCompile]
@@ -108,7 +106,7 @@ namespace Game.Ecs
   `.Add(GameSystems.Method, Threads.Parallel)`; для lifecycle используй
   `path: SystemPath.Start / Update / FixedUpdate / Destroy`.
 - Не создавай новые `ISystem`/`IEntityJobSystem` реализации с регистрацией
-  `.Add<MySystem>()`. Это старый стиль, его наличие в `EcsTest.cs` не образец.
+  `.Add<MySystem>()`. Это поддерживаемый API существующего кода; новый код использует метод-системы.
 - `Update()` содержит получение `dt` и `updateSystems.OnUpdate(dt, Time.time)`.
   Игровая логика, обработка событий, ввод и синхронизация идут в системы.
   Не добавляй туда ручной `world.Update()`, вторую обработку ECB или обход сущностей.
@@ -169,6 +167,7 @@ updateSystems
 своего вызова. Не регистрируй те же методы дополнительно через `Add`/`AddSystems`,
 иначе они выполнятся повторно. Классы `GameSystems` и `DamageSystems` приведены
 в примерах этого руководства; держи их и группу в доступном namespace.
+
 ## 2. Burst и параллельные системы — предпочтительный вариант
 
 Сначала пытайся выразить систему через unmanaged-компоненты, `Query`, `State`,
@@ -349,7 +348,7 @@ public static class MovementEvents
         }
     }
 
-    [System, BurstCompile]
+    [System]
     public static void Consume(ref Events<MovedEvent> events)
     {
         foreach (ref var ev in events)
@@ -450,6 +449,8 @@ public struct RarePathBuffer : IComponent, System.IDisposable
 Для небольшого набора элементов на сущности есть `ComponentArray<T>`, где
 `T : unmanaged, IArrayComponent`. Используй entity API `AddArray<T>()`,
 `GetArray<T>()`, `RemoveArray<T>()`; не создавай default-массив как готовый буфер.
+
+Методы принимают `this ref Entity`: используй изменяемую локальную копию Entity. `AddArray` применяет весь ECB мира; вызывай его только при эксклюзивной настройке вне jobs и обхода query. `GetArray` бросает исключение при отсутствии компонента. Константа ёмкости internal и недоступна игровому коду.
 
 ```csharp
 public struct InventorySlot : IArrayComponent

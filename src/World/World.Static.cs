@@ -221,6 +221,7 @@ namespace Wargon.Nukecs
                 // Deserialization may have replaced the initial arena. Release the owned
                 // allocator/ECB directly rather than dereferencing its former world pointer.
                 ecb.Dispose();
+                domainAllocator.Data.Free(managedWorld.UntypedPointer);
                 allocatorHandler.AllocatorWrapper.Allocator = allocator;
                 allocatorHandler.Dispose();
                 Get(temporaryId) = default;

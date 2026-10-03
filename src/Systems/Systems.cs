@@ -167,11 +167,12 @@ namespace Wargon.Nukecs
             return new Systems(ref world).AddDefaults();
         }
 
+        /// <summary>Append prefab/event defaults. Register before gameplay systems so
+        /// frame-start event clearing cannot race with Parallel producers.</summary>
         public Systems AddDefaults()
         {
             this.Add(DefaultSystems.OnPrefabSpawn, Threads.MainRun);
             this.Add(DefaultSystems.ClearEvents, Threads.MainRun);
-            //Add<ClearEntityCreatedEventSystem>();
             return this;
         }
 
@@ -879,12 +880,12 @@ namespace Wargon.Nukecs
     {
         /// <summary>
         /// Execute system on main thread.
-        /// In feature Main and MainRun will be same.
+        /// The default scheduler completes dependencies before calling the managed method.
         /// </summary>
         Main,
         /// <summary>
         /// Execute system on main thread using Unity Job System Run.
-        /// In feature Main and MainRun will be same.
+        /// Run is synchronous and takes no dependency; scheduler graph modes may synchronize first.
         /// </summary>
         MainRun,
         /// <summary>

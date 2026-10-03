@@ -14,19 +14,18 @@ namespace Wargon.Nukecs
         internal void SetResource(IRes res);
     }
     /// <summary>
-    /// Individual context for system. New instance for every system
+    /// Resource lifecycle used by shared Res/ResManaged values and per-registration Local values.
     /// </summary>
     public interface IRes
     {
         /// <summary>
-        /// Call ones on res creation.
+        /// Called once when a resource is first registered in a world, or a Local value is created.
         /// Can use managed types.
         /// </summary>
         /// <param name="world">ECS World : Wargon.Nukecs.World</param>
         void OnCreate(ref World world);
         /// <summary>
-        /// Call before every system update.
-        /// Can't use managed types.
+        /// Called when a consuming system parameter updates. Unmanaged job paths must be Burst-compatible.
         /// </summary>
         /// <param name="world">ECS World : Wargon.Nukecs.World</param>
         void OnUpdate(ref World world);

@@ -3,6 +3,9 @@ using UnityEngine;
 using Wargon.Nukecs;
 using Object = UnityEngine.Object;
 
+// Compatibility namespace retained for existing demo consumers.
+namespace Wargon.Nukecs { public struct Cube : IComponent { } }
+
 namespace Wargon.Nukecs.Demos.HotReload
 {
     public struct RotationSpeed : IComponent

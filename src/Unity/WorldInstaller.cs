@@ -10,7 +10,7 @@ namespace Wargon.Nukecs
     using static SystemPath;
     public class WorldInstaller : MonoBehaviour
     {
-        [ReadOnly][SerializeField] public int WorldId;
+        [ReadOnly][SerializeField] public int WorldId = -1;
         protected World world;
         public ref World World => ref world;
         protected Systems Systems;
@@ -18,7 +18,6 @@ namespace Wargon.Nukecs
 
         protected virtual unsafe void Awake()
         {
-            World.DisposeStatic();
             world = World.Create(GetConfig());
             WorldId = world.Id;
             Systems = new Systems(ref world);
@@ -59,8 +58,9 @@ namespace Wargon.Nukecs
 
         protected virtual void OnDestroy()
         {
-            world.Dispose();
+            if (WorldId >= 0 && World.Get(WorldId).IsAlive && WorldSystems.GetAll(WorldId).Contains(Systems))
+                World.Get(WorldId).Dispose();
+            WorldId = -1;
         }
     }
-    public struct Cube : IComponent { }
 }

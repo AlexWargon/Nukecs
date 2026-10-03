@@ -8,6 +8,56 @@ The author's follow-up notes are kept verbatim below.
 
 ## Follow-up status (2026-10-02)
 
+### Current remediation (2026-10-03, working tree)
+
+The lists below the separator describe the historical reviewed revision. This
+section records the current implementation; their original numbering/text is
+retained for traceability.
+
+- **High:** N1's UnityEditor import is now guarded; the analyzer is excluded from
+  Android/iOS runtime loading. The prefab example applies ECB before copying and
+  explains OnPrefabSpawn. AGENTS examples now have the timer field, System import,
+  qualified UnityEngine.Object and aliases for Transform/Systems (§1.12, §2.3–2.5).
+- **Runtime lifecycle:** N2 is fixed: explicit resource registration initializes
+  the stored wrapper once, and duplicate registration preserves the original.
+  N3 is fixed: public Complete APIs wait for live State dependencies and independent
+  scheduled branches. RequestSave/RequestLoad process a detached frame-boundary
+  queue; immediate Save/Load synchronize. See WorldIoRequestTests.
+- **World ownership:** WorldInstaller no longer calls DisposeStatic in Awake;
+  destroying one installer preserves other worlds and reused world slots (§6.6).
+  ManagedWorld domain wrappers are freed on disposal/load failure; deserialization
+  retains the current world's owned wrapper instead of trusting a saved pointer.
+- **Medium documentation:** batch rules, MainRun graph-mode behavior, event-clearing
+  order, resource access, compatibility system APIs, ComponentArray restrictions,
+  installation, Unity authoring/visible entities, rendering and demo setup are
+  documented (§2.7, §3.1, §4.1–4.3, §5.1–5.8, N4–N5). EN/RU guides no longer
+  depend on an absent gameplay file, and Main examples no longer imply native Burst.
+- **Pool Parallel question (§7.2):** ReviewPriorityTests cover plain foreach both
+  with and without Entity, multiple logical archetypes, removed rows and all four
+  graph modes, using 2049 initial entities and checking exactly one visit.
+- **Low:** corrected enum order, capacities, managed resource/event definitions,
+  inspection context, event references, no-op semantics, fixed interval, handle
+  examples, hierarchy restrictions, transform list, obsolete links/dates/history
+  and misplaced paragraphs. Cube moved to demo code with its namespace preserved;
+  stale analyzer archives and orphan comments were removed. Generator patches
+  have maintenance documentation. The Transforms.Systems name is retained for
+  compatibility; examples use a Systems alias to avoid ambiguity.
+- **N13 correction:** ClearTransformsSystem is used by ClientRunner in the host
+  game outside this package. It remains a documented main-thread compatibility
+  cleanup for explicitly tagged views; it is not automatic Entity.Destroy cleanup.
+
+Remaining release work is broader packaging/validation: a distributable UPM
+manifest, bundled/versioned full generator sources, ready-made demo scenes and
+an actual player/IL2CPP build. The Assets installation and manual demo setup are
+documented; Editor/Burst checks do not claim player compatibility. Historical test
+counts below are local run records, not evidence for an already published artifact.
+Test-result XMLs and Unity logs remain local verification artifacts and are
+not included in the repository commits.
+Validation: Unity 6000.0.63f1 EditMode with Burst enabled, 110/110 passed,
+0 failed and 0 skipped. Includes native Local registration/lookup probes and
+both pool-query forms in the default scheduler and all graph modes. No player
+or IL2CPP build was run.
+
 Follow-up (2026-10-03): the byte-array World.Load overload now deserializes the
 snapshot, preserves its world slot/handles, rejects an occupied saved slot and
 releases temporary allocations on failure. Legacy SystemsGroup Update and Fixed

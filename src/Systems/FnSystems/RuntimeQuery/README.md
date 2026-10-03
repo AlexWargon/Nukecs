@@ -1,6 +1,6 @@
 # Runtime query iteration
 
-Current API, checked against source on 2026-09-08. See the
+Current API, checked against source on 2026-10-03. See the
 [framework guide](../../../../README.md) for world/system setup and
 [architecture](../../../../ARCHITECTURE.md) for shared storage invariants.
 
