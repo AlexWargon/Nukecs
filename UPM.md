@@ -3,7 +3,7 @@
 Install with **Package Manager > Add package from git URL**:
 
 ```text
-https://github.com/AlexWargon/Nukecs.git#codex/upm
+https://github.com/AlexWargon/Nukecs.git#upm
 ```
 
 The package name is `com.wargon.nukecs`. Unity installs the dependencies declared
@@ -13,7 +13,7 @@ for branch, tag, and full commit-hash URLs.
 
 ## Package contents
 
-The `codex/upm` distribution branch contains only:
+The `upm` distribution branch contains only:
 
 - `src/` and `SourceGen/`, with their tracked contents and `.meta` files.
 - Root Markdown documentation and its `.meta` files.
@@ -32,7 +32,7 @@ full `dev` checkout instead.
 
 Edit `dev`, including the package version in `package.json`. The
 **Publish UPM branch** GitHub Actions workflow exports relevant commits pushed
-to `dev` and appends a commit to `codex/upm`. It can also be run manually on `dev`.
+to `dev` and appends a commit to `upm`. It can also be run manually on `dev`.
 The workflow needs the repository's Actions service enabled and permission to
 write that branch. A rejected push fails the run; it never force-pushes.
 
@@ -55,4 +55,4 @@ The package version is independent of the integer save-format version.
 Unity locks Git packages to a resolved commit in `Packages/packages-lock.json`.
 Update the Git dependency through Package Manager to receive a newer export;
 an existing project does not follow the branch on every launch. For reproducible
-releases, pin a full commit hash from `codex/upm` in place of the branch name.
+releases, pin a full commit hash from `upm` in place of the branch name.
