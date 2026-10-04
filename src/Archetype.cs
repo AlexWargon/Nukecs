@@ -1084,8 +1084,9 @@ namespace Wargon.Nukecs
             // the ECB playback is the single authoritative destroy path. Attempting inline
             // row removal (DestroyEntity(loc.row)) exposed a pre-existing accounting
             // inconsistency in the reserved-id → ECB-migration chain (ghost rows, rows list
-            // outgrowing the storage, arena corruption in prefab chains). Full analysis in
-            // POST_1_0.md. The pool-slot loop above mirrors the ECB destroy branch.
+            // outgrowing the storage, arena corruption in prefab chains). Resolved by the
+            // 2026-10-03 Entity.DestroyNow rework (see git history). The pool-slot loop above
+            // mirrors the ECB destroy branch.
             // DestroyEntity(world->entityLocations.Ptr[entity].row);
             ExecuteDestroyEdge(entity);
             world->OnDestroyEntity(entity);

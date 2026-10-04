@@ -50,7 +50,8 @@ See [UPM distribution](UPM.md) for package contents and updates.
 
 The tested environment is **Unity 6000.0.63f1**, Burst **1.8.29**, Collections
 **2.6.2**, and Mathematics **1.3.2**. These are tested versions, not minimum
-requirements. Player/IL2CPP support is not established by Editor tests.
+requirements. Windows player builds with both Mono and IL2CPP have been run and
+behaved as in the Editor; other player platforms have not been checked.
 
 ## Quick start
 

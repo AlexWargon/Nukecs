@@ -603,7 +603,7 @@ namespace Wargon.Nukecs.Tests
                 "FIX B1: inline destroy must clear pool slots (it also no longer materializes junk pools for tags)");
             // NOTE: the storage row and the storage-mode query counts settle on ECB playback
             // only (destroyEdge decrements archetype-path counters) — inline destroy is not
-            // instantly visible to dense queries; part of the same POST_1_0.md #12 rework.
+            // instantly visible to dense queries; part of the same 2026-10-03 DestroyNow rework.
         }
 
         // ==================================================================

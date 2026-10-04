@@ -372,14 +372,14 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 - `Res<TRes>` where `TRes : struct, IRes` — wraps `StructSingleton<TRes>` (static, not per-world); `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
 - `ResManaged<TRes>` — for class-type resources; uses `ManagedResRef<T>` (GCHandle-like wrapper)
 - `IResourceGetSet` — boxing/unboxing interface for reflection-based access (used by debug tools)
-- `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). The `Res<T>` wrapper still resolves to the domain-global `StructSingleton` — resource VALUES are not isolated per world (POST_1_0.md #3).
+- `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). The `Res<T>` wrapper still resolves to the domain-global `StructSingleton` — resource VALUES are not isolated per world (ROADMAP.md #3).
 
 ## 11. Chunk Iteration
 
 - `Chunk<T1..T8>` — direct archetype chunk iterators implementing `IChunk`
 - `SetData(ref ArchetypeUnsafe)` — resolves component pointers via `GetComponentLocalIndex` + `GetComponentOffset`
 - Iterator pattern: `_remaining` countdown; each `MoveNext()` decrements and advances all component pointers
-- Access via component ref properties. NAMING TRAP: arities 2-4 use 1-based names (C1..C4), arities 5+ use 0-based names (C0..C7) — arity-4 `C4` is T4 but arity-5 `C4` is T5. Unify in 2.0 (see POST_1_0.md). Arity-1 exposes `Get()` only.
+- Access via component ref properties. NAMING TRAP: arities 2-4 use 1-based names (C1..C4), arities 5+ use 0-based names (C0..C7) — arity-4 `C4` is T4 but arity-5 `C4` is T5. Unify in 2.0 (see ROADMAP.md #1). Arity-1 exposes `Get()` only.
 - `CopyTo<TU>(TU* dest, int len)` — component-selective copy of `len` rows from the CURRENT chunk position. All arities gather per-row on sparse (shared) storage and memcpy when dense. The len window is rows[_rowIdx .. _rowIdx+len) — copy before advancing the iterator.
 
 ## 12. Reactivity
