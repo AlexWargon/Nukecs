@@ -37,9 +37,6 @@ and jobs.
    https://github.com/AlexWargon/Nukecs.git#upm
    ```
 
-   Unity installs `src`, `SourceGen`, and Markdown documentation, along with the
-   required package metadata. Burst, Collections, and Mathematics are resolved
-   automatically. Demos, tests, and benchmarks stay in the source repository.
 3. Enable **Allow 'unsafe' Code** in Player Settings, or **Allow Unsafe Code**
    on your gameplay assembly definition. If you use your own assembly definition,
    add references to `Nukecs`, `Unity.Burst`, and the Unity packages your code uses.
