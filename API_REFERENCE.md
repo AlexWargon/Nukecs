@@ -1040,7 +1040,7 @@ ensure that pool slot exists. Use `Res<T>` for resource state. Aspects implement
 update a cached per-type aspect for that entity. Do not retain its mutable
 reference across another aspect access or share it across parallel work.
 
-Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/bc26b9afd3104185724aa64c2e0e92e05db9227d/Demos/README.md).
+Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/fd6ad836074550adb9b0ce099c0a05374ecab112/Demos/README.md).
 
 ## World Serialization
 

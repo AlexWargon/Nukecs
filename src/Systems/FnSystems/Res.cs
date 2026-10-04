@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Wargon.Nukecs.Tests;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable StaticMemberInGenericType
@@ -11,20 +9,20 @@ namespace Wargon.Nukecs
     using static UnsafeStatic;
 
     /// <summary>
-    /// Provides read/write access to a singleton resource
+    /// Provides read/write access to a per-world singleton resource
     /// from a system parameter.
     /// Example: <code>ExampleSystem(ref Res&lt;TRes&gt; res){ }</code>
+    /// The value lives in the world arena (ResStorage slot), so it is isolated per world,
+    /// saved with the world, and changing the TRes layout does not require an editor restart.
+    /// Outside systems use <see cref="World.GetRes{TRes}"/>.
     /// </summary>
     /// <typeparam name="TRes">The resource type.</typeparam>
-    [StructLayout(LayoutKind.Sequential, Size = 1)]
-    public struct Res<TRes> : ISystemParam, IResourceGetSet where TRes : struct, IRes
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Res<TRes> : ISystemParam, IResourceGetSet where TRes : unmanaged, IRes
     {
+        /// <summary>Resource value. Systems receive the param by ref into the world arena slot.</summary>
+        public TRes Ref;
         public SystemParamMetaType MetaType => SystemParamMetaType.Resource;
-        public ref TRes Ref
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => ref StructSingleton<TRes>.Instance;
-        }
 
         void IResourceGetSet.SetResource(IRes res)
         {
@@ -43,19 +41,11 @@ namespace Wargon.Nukecs
 
         public Res(in TRes resource)
         {
-            if (!StructSingleton<TRes>.IsCreated)
-            {
-                StructSingleton<TRes>.Create(resource);
-            }
             Ref = resource;
         }
 
-        public unsafe void Init(ref ptr<World.WorldUnsafe> worldPtr)
+        public void Init(ref ptr<World.WorldUnsafe> worldPtr)
         {
-            if (!StructSingleton<TRes>.IsCreated)
-            {
-                StructSingleton<TRes>.Create();
-            }
             Ref.OnCreate(ref worldPtr.Ref.ManagedWorld.Ref);
         }
 

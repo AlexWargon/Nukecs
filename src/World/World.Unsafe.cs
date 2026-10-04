@@ -803,6 +803,18 @@ namespace Wargon.Nukecs
                     resStorage.GetRes<Res<TRes>>().Ref.Init(ref selfPtr);
             }
 
+            public ref TRes GetRes<TRes>() where TRes : unmanaged, IRes
+            {
+                if (!resStorage.HasRes<Res<TRes>>())
+                    throw new InvalidOperationException($"[Nukecs] World {Id} does not have resource {typeof(TRes).Name}");
+                return ref resStorage.GetRes<Res<TRes>>().Ref.Ref;
+            }
+
+            public bool HasRes<TRes>() where TRes : unmanaged, IRes
+            {
+                return resStorage.HasRes<Res<TRes>>();
+            }
+
             public void AddResManaged<TRes>(TRes res) where TRes : class, IRes
             {
                 if (resStorage.HasRes<ResManaged<TRes>>()) return;

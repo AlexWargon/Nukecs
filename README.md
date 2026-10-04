@@ -37,9 +37,6 @@ and jobs.
    https://github.com/AlexWargon/Nukecs.git#upm
    ```
 
-   Unity installs `src`, `SourceGen`, and Markdown documentation, along with the
-   required package metadata. Burst, Collections, and Mathematics are resolved
-   automatically. Demos, tests, and benchmarks stay in the source repository.
 3. Enable **Allow 'unsafe' Code** in Player Settings, or **Allow Unsafe Code**
    on your gameplay assembly definition. If you use your own assembly definition,
    add references to `Nukecs`, `Unity.Burst`, and the Unity packages your code uses.
@@ -53,7 +50,8 @@ See [UPM distribution](UPM.md) for package contents and updates.
 
 The tested environment is **Unity 6000.0.63f1**, Burst **1.8.29**, Collections
 **2.6.2**, and Mathematics **1.3.2**. These are tested versions, not minimum
-requirements. Player/IL2CPP support is not established by Editor tests.
+requirements. Windows player builds with both Mono and IL2CPP have been run and
+behaved as in the Editor; other player platforms have not been checked.
 
 ## Quick start
 
@@ -129,7 +127,7 @@ read-only access. `State.Time.DeltaTime` is the frame duration passed to
 **Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
 value increases by approximately 2 each second of simulation time. This example
 updates ECS data only. To see moving GameObjects, follow the
-[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/bc26b9afd3104185724aa64c2e0e92e05db9227d/Demos/README.md).
+[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/fd6ad836074550adb9b0ce099c0a05374ecab112/Demos/README.md).
 
 The snippets below build on the same `Position` and `Velocity` components.
 
@@ -342,8 +340,9 @@ Add parameters to a system method as needed:
 | `ref Events<T> events` | Send or receive a stream of events. |
 
 Resources and locals implement `IRes`, with `OnCreate` and `OnUpdate` hooks.
-`Res<T>` values are shared across worlds in the current version; `Local<T>`
-values are isolated per system registration.
+`Res<T>` values live in the world arena and are isolated per world; read them
+outside systems with `world.GetRes<T>()`. `Local<T>` values are isolated per
+system registration.
 
 For events, use `AddPar` in parallel producers. Read after producers finish and
 clear after the last consumer. `WorldInstaller` also clears previous-frame events
@@ -356,7 +355,7 @@ show how to choose between tags, temporary payload components, and event buffers
 |---|---|
 | Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
 | Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
-| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/bc26b9afd3104185724aa64c2e0e92e05db9227d/Demos/README.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/fd6ad836074550adb9b0ce099c0a05374ecab112/Demos/README.md) |
 | React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
 | Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
 | Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |

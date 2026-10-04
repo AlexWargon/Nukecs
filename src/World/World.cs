@@ -163,6 +163,21 @@ namespace Wargon.Nukecs
         {
             UnsafeWorldRef.AddRes(res);
         }
+
+        /// <summary>
+        /// Returns this world's resource value (the same arena slot systems see through Res&lt;TRes&gt;).
+        /// Throws if the resource was neither added nor requested by a registered system.
+        /// Main thread only, after jobs touching the resource have completed.
+        /// </summary>
+        public ref TRes GetRes<TRes>() where TRes : unmanaged, IRes
+        {
+            return ref UnsafeWorldRef.GetRes<TRes>();
+        }
+
+        public bool HasRes<TRes>() where TRes : unmanaged, IRes
+        {
+            return UnsafeWorldRef.HasRes<TRes>();
+        }
         public void AddResManaged<TRes>(TRes res) where TRes : class, IRes
         {
             UnsafeWorldRef.AddResManaged(res);
