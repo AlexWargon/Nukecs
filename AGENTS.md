@@ -191,7 +191,7 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 |------|-------------|
 | `src/dbug.cs` | Debug logging utility |
 | `src/NUnsafe.cs` | Additional unsafe utilities |
-| `src/Singleton.cs` | `StructSingleton<T>` and `Singleton<T>` implementations |
+| `src/Singleton.cs` | `Singleton<T>` (SharedStatic, IInit/IDisposable) and `SingletonRegistry` |
 | `src/SparseSet.cs` | Sparse set data structure |
 | `src/StaticAllocations.cs` | Static allocation helpers |
 | `src/SystemsGroup.cs` | `SystemsGroup` — named group of system runners |
@@ -264,7 +264,7 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 
 - Up to `World.MAX_WORLD_COUNT` (8) simultaneous live worlds; exceeding it throws.
 - Entity-level state (entities, archetypes, queries, events, ECB, reactive registries) is fully per world.
-- `ComponentType` registry and resource slot ids are domain-global; resource VALUES resolve to domain-global `StructSingleton` (see §10) — resources are NOT value-isolated per world in 1.0.
+- `ComponentType` registry and resource slot ids are domain-global; `Res<T>` VALUES live in each world's arena (see §10) and are isolated per world.
 - `Save/Load` round-trips one world's arena; save files are not portable across different component registration orders (type indices are first-touch assigned) and carry a magic + int format version header.
 
 ## 6. Testing
@@ -347,7 +347,7 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 |-------|----------|-------------|
 | `State` | `State` | Execution context: World, TimeData, Dependencies |
 | `Query<T1..TN, TOption>` | `Query` | Component query with foreach iteration |
-| `Res<TRes>` | `Resource` | Read/write access to unmanaged singleton resource |
+| `Res<TRes>` | `Resource` | Read/write access to the world's unmanaged singleton resource |
 | `ResManaged<TRes>` | `Resource` | Read/write access to managed (class) singleton resource |
 | `Events<TEvent>` | `Events` | Thread-safe event buffer; `AddPar` for parallel writes |
 | `Local<TData>` | `Local` | Per-system local data |
@@ -369,10 +369,10 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
   then restore the value after Save/Load. Parallel ranges share the local; writes
   require synchronization. Use `local.Ref`, and keep registration order when loading.
 
-- `Res<TRes>` where `TRes : struct, IRes` — wraps `StructSingleton<TRes>` (static, not per-world); `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
+- `Res<TRes>` where `TRes : unmanaged, IRes` — holds the value in its `Ref` field; the param itself lives in the world's `ResStorage` arena slot and systems receive it by `ref` (always declare `ref Res<T>`; a by-value param is a copy). No `SharedStatic`, so changing the resource layout needs no editor restart. `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
 - `ResManaged<TRes>` — for class-type resources; uses `ManagedResRef<T>` (GCHandle-like wrapper)
 - `IResourceGetSet` — boxing/unboxing interface for reflection-based access (used by debug tools)
-- `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). The `Res<T>` wrapper still resolves to the domain-global `StructSingleton` — resource VALUES are not isolated per world (ROADMAP.md #3).
+- `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). Values are per world, are saved/loaded with the arena, and are read outside systems via `world.GetRes<T>()` / `world.HasRes<T>()`.
 
 ## 11. Chunk Iteration
 
@@ -1003,7 +1003,7 @@ public static void CollisionSystem(
 |-----------|--------|-------------------|
 | `entity.Get<T>()` / `entity.Set()` | Immediate | Yes |
 | `Events<T>.Add()` / `.Clear()` | Immediate | Yes |
-| `Res<T>.Ref` | Immediate (static) | Yes |
+| `Res<T>.Ref` / `world.GetRes<T>()` | Immediate (world arena) | Yes |
 | `entity.Add<T>()` | **Deferred** (ECB) | After playback, possibly in the same frame |
 | `entity.Remove<T>()` | **Deferred** (ECB) | After playback, possibly in the same frame |
 | `entity.Destroy()` | **Deferred** (ECB) | After playback, possibly in the same frame |
@@ -1066,10 +1066,10 @@ upgradeState.Ref.SelectionPending = false;
 
 ### Resources — Managed vs Unmanaged
 
-- `Res<T>` where `T : struct, IRes` — domain-global static storage. After registration, `new Res<T>().Ref` resolves that value; it does not initialize it and throws if the singleton has not been created.
+- `Res<T>` where `T : unmanaged, IRes` — per-world arena storage. Outside systems use `world.GetRes<T>()` (ref return); it throws if the world neither added the resource nor registered a system that requests it. `new Res<T>().Ref` is just a detached default copy.
 - `ResManaged<T>` where `T : class, IRes` — for resources containing managed types (arrays, GameObjects, etc.). Registered via `world.AddResManaged()`.
 - Resources with managed types (arrays, lists) **must** be classes registered with `AddResManaged`.
-- Prefer injected parameters in systems. A MonoBehaviour may read an already registered `Res<T>` on the main thread after jobs finish, as in the pause example; this does not initialize it or provide per-world isolation. For UI, a Main system can publish a snapshot.
+- Prefer injected parameters in systems. A MonoBehaviour may read an already registered resource through `world.GetRes<T>()` on the main thread after jobs finish, as in the pause example; this does not initialize it. For UI, a Main system can publish a snapshot.
 
 ### Query Caching
 
@@ -1146,7 +1146,7 @@ To pause, gate `Systems.OnUpdate()` on game state:
 ```csharp
 void Update()
 {
-    if (new Res<GameState>().Ref.Value == GameStateType.Playing)
+    if (World.GetRes<GameState>().Value == GameStateType.Playing)
         Systems.OnUpdate(Time.deltaTime, Time.time);
 }
 ```

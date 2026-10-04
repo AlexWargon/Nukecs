@@ -419,7 +419,7 @@ its lifetime.
   explicit capacity, lifetime, and disposal.
 - Access shared managed data through `ResManaged<T>`/Main systems. Use unmanaged
   resources/shared buffers with explicit ownership for Burst data. `Res<T>`
-  values in 1.0 are domain-global, rather than isolated per world.
+  values are per world; outside systems read them via `world.GetRes<T>()`.
 
 ### Collections inside rare components: IDisposable
 

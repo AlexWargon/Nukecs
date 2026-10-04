@@ -63,6 +63,40 @@ namespace Wargon.Nukecs.Tests
             Assert.AreEqual(0, rejected.Creates);
         }
 
+        [Test] public void Res_ValuesAreIsolatedPerWorld()
+        {
+            var a = World.Create(WorldConfig.Default256);
+            var b = World.Create(WorldConfig.Default256);
+            a.AddRes(new ResourceLifecycleValue { Value = 1 });
+            b.AddRes(new ResourceLifecycleValue { Value = 2 });
+            Assert.AreEqual(11, a.GetRes<ResourceLifecycleValue>().Value);
+            Assert.AreEqual(12, b.GetRes<ResourceLifecycleValue>().Value);
+            Assert.AreEqual(a.Id, a.GetRes<ResourceLifecycleValue>().WorldId);
+            Assert.AreEqual(b.Id, b.GetRes<ResourceLifecycleValue>().WorldId);
+            a.GetRes<ResourceLifecycleValue>().Value = 100;
+            Assert.AreEqual(12, b.GetRes<ResourceLifecycleValue>().Value, "Writing world A must not touch world B.");
+        }
+
+        [Test] public void GetRes_SharesSlotWithSystemParam()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+            systems.Add(ResourceLifecycleSystems.Value, Threads.MainRun);
+            var resource = world.UnsafeWorld->GetSystemParam2<Res<ResourceLifecycleValue>>();
+            Assert.IsTrue(world.HasRes<ResourceLifecycleValue>());
+            world.GetRes<ResourceLifecycleValue>().Value = 42;
+            Assert.AreEqual(42, resource.Ref.Ref.Value);
+        }
+
+        [Test] public void GetRes_ThrowsWhenWorldHasNoResource()
+        {
+            var a = World.Create(WorldConfig.Default256);
+            var b = World.Create(WorldConfig.Default256);
+            a.AddRes(new ResourceLifecycleValue());
+            Assert.IsFalse(b.HasRes<ResourceLifecycleValue>());
+            Assert.Throws<System.InvalidOperationException>(() => b.GetRes<ResourceLifecycleValue>());
+        }
+
         [Test] public void AutomaticRegistration_StillInitializesOnce()
         {
             var world = World.Create(WorldConfig.Default256);

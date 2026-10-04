@@ -202,8 +202,8 @@ namespace Wargon.Nukecs.Tests
             world.Update();
 
             systems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(60, new Res<SmCounter>().Ref.Sum, "Generated storage loop must sum every row");
-            Assert.AreEqual(3, new Res<SmCounter>().Ref.Count);
+            Assert.AreEqual(60, world.GetRes<SmCounter>().Sum, "Generated storage loop must sum every row");
+            Assert.AreEqual(3, world.GetRes<SmCounter>().Count);
             world.Dispose();
         }
 
@@ -221,7 +221,7 @@ namespace Wargon.Nukecs.Tests
             world.Update();
 
             systems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(e1.id + 10 + e2.id + 20, new Res<SmCounter>().Ref.Sum,
+            Assert.AreEqual(e1.id + 10 + e2.id + 20, world.GetRes<SmCounter>().Sum,
                 "Storage loop with Entity param must resolve correct entities");
             world.Dispose();
         }
@@ -244,9 +244,9 @@ namespace Wargon.Nukecs.Tests
             world.Update();
 
             systems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(total, new Res<SmCounter>().Ref.Count,
+            Assert.AreEqual(total, world.GetRes<SmCounter>().Count,
                 "par_iter over shared storage must cover all rows exactly once");
-            Assert.AreEqual(total, new Res<SmCounter>().Ref.Sum);
+            Assert.AreEqual(total, world.GetRes<SmCounter>().Sum);
             world.Dispose();
         }
 
@@ -339,7 +339,7 @@ namespace Wargon.Nukecs.Tests
             world.Update();
 
             systems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(2, new Res<SmCounter>().Ref.Count,
+            Assert.AreEqual(2, world.GetRes<SmCounter>().Count,
                 "With<Tag> option must iterate via the archetype path (dead storage-walk bug)");
 
             // Threads.Main runners flush the ECB right after each system: the tags are
@@ -347,13 +347,13 @@ namespace Wargon.Nukecs.Tests
             // (query recovers from degradation once the none-tag LA is empty).
             Assert.IsFalse(e1.Has<SmTagA>(), "Tag must be removed after the Main-runner ECB flush");
             Assert.IsFalse(e2.Has<SmTagA>(), "Tag must be removed after the Main-runner ECB flush");
-            Assert.AreEqual(30, new Res<SmCounter>().Ref.Sum,
+            Assert.AreEqual(30, world.GetRes<SmCounter>().Sum,
                 "None<Tag> query must see entities once the tag is removed (TransformChildSystem shape)");
 
             world.Update(); // no-op for ECB here (already flushed by the runner), keeps frame pacing realistic
             systems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(2, new Res<SmCounter>().Ref.Count, "Second frame: no tagged entities must match");
-            Assert.AreEqual(60, new Res<SmCounter>().Ref.Sum, "Second frame accumulates once per entity");
+            Assert.AreEqual(2, world.GetRes<SmCounter>().Count, "Second frame: no tagged entities must match");
+            Assert.AreEqual(60, world.GetRes<SmCounter>().Sum, "Second frame accumulates once per entity");
             world.Dispose();
         }
 

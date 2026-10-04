@@ -89,7 +89,7 @@ namespace Wargon.Nukecs.Tests
 
             systems.OnUpdate(0.016f, 0f);
 
-            Assert.AreEqual(2, new Res<Qi4Result>().Ref.Count);
+            Assert.AreEqual(2, world.GetRes<Qi4Result>().Count);
             Assert.AreEqual(11, first.Get<Qi4A>().Value);
             Assert.AreEqual(1100, first.Get<Qi4C>().Value);
             Assert.AreEqual(22, second.Get<Qi4A>().Value);
@@ -112,8 +112,8 @@ namespace Wargon.Nukecs.Tests
 
             systems.OnUpdate(0.016f, 0f);
 
-            Assert.AreEqual(2, new Res<Qi4Result>().Ref.Count);
-            Assert.AreEqual(444, new Res<Qi4Result>().Ref.Sum);
+            Assert.AreEqual(2, world.GetRes<Qi4Result>().Count);
+            Assert.AreEqual(444, world.GetRes<Qi4Result>().Sum);
             world.Dispose();
         }
 
@@ -135,13 +135,13 @@ namespace Wargon.Nukecs.Tests
             world.Update();
 
             poolSystems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(2, new Res<Qi4Result>().Ref.Count);
-            Assert.AreEqual(3333, new Res<Qi4Result>().Ref.Sum);
+            Assert.AreEqual(2, world.GetRes<Qi4Result>().Count);
+            Assert.AreEqual(3333, world.GetRes<Qi4Result>().Sum);
 
-            new Res<Qi4Result>().Ref = default;
+            world.GetRes<Qi4Result>() = default;
             tagSystems.OnUpdate(0.016f, 0f);
-            Assert.AreEqual(1, new Res<Qi4Result>().Ref.Count);
-            Assert.AreEqual(111, new Res<Qi4Result>().Ref.Sum);
+            Assert.AreEqual(1, world.GetRes<Qi4Result>().Count);
+            Assert.AreEqual(111, world.GetRes<Qi4Result>().Sum);
             world.Dispose();
         }
 

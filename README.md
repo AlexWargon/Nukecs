@@ -340,8 +340,9 @@ Add parameters to a system method as needed:
 | `ref Events<T> events` | Send or receive a stream of events. |
 
 Resources and locals implement `IRes`, with `OnCreate` and `OnUpdate` hooks.
-`Res<T>` values are shared across worlds in the current version; `Local<T>`
-values are isolated per system registration.
+`Res<T>` values live in the world arena and are isolated per world; read them
+outside systems with `world.GetRes<T>()`. `Local<T>` values are isolated per
+system registration.
 
 For events, use `AddPar` in parallel producers. Read after producers finish and
 clear after the last consumer. `WorldInstaller` also clears previous-frame events

@@ -616,13 +616,13 @@ namespace Wargon.Nukecs.Tests
             var systems = new Systems(ref _world).Add(StabChunkSystems.Chunk2, Threads.Main);
             SpawnStab(10); // evens tagged → shared storage, tag-free rows scattered
 
-            new Res<StabCounter>().Ref.Sum = 0;
-            new Res<StabCounter>().Ref.CopySum = 0;
-            new Res<StabCounter>().Ref.Count = 0;
-            new Res<StabCounter>().Ref.SentinelHits = 0;
+            _world.GetRes<StabCounter>().Sum = 0;
+            _world.GetRes<StabCounter>().CopySum = 0;
+            _world.GetRes<StabCounter>().Count = 0;
+            _world.GetRes<StabCounter>().SentinelHits = 0;
             systems.OnUpdate(0.016f, 0f);
 
-            var c = new Res<StabCounter>().Ref;
+            var c = _world.GetRes<StabCounter>();
             Assert.AreEqual(25, c.Sum, "FIX B3: iteration must gather only the query's scattered rows (sum of odd V)");
             Assert.AreEqual(25, c.CopySum, "FIX B3: CopyTo must gather, not memcpy past rows[0]");
             Assert.AreEqual(5, c.Count);
@@ -636,13 +636,13 @@ namespace Wargon.Nukecs.Tests
             var systems = new Systems(ref _world).Add(StabChunkSystems.Chunk2, Threads.Main);
             SpawnStab(10, withTag: false); // dense storage
 
-            new Res<StabCounter>().Ref.Sum = 0;
-            new Res<StabCounter>().Ref.CopySum = 0;
-            new Res<StabCounter>().Ref.Count = 0;
-            new Res<StabCounter>().Ref.SentinelHits = 0;
+            _world.GetRes<StabCounter>().Sum = 0;
+            _world.GetRes<StabCounter>().CopySum = 0;
+            _world.GetRes<StabCounter>().Count = 0;
+            _world.GetRes<StabCounter>().SentinelHits = 0;
             systems.OnUpdate(0.016f, 0f);
 
-            var c = new Res<StabCounter>().Ref;
+            var c = _world.GetRes<StabCounter>();
             Assert.AreEqual(45, c.Sum);
             Assert.AreEqual(45, c.CopySum);
             Assert.AreEqual(10, c.Count);
@@ -656,13 +656,13 @@ namespace Wargon.Nukecs.Tests
             var systems = new Systems(ref _world).Add(StabChunkSystems.Chunk5, Threads.Main);
             SpawnStab(10);
 
-            new Res<StabCounter>().Ref.Sum = 0;
-            new Res<StabCounter>().Ref.CopySum = 0;
-            new Res<StabCounter>().Ref.Count = 0;
-            new Res<StabCounter>().Ref.SentinelHits = 0;
+            _world.GetRes<StabCounter>().Sum = 0;
+            _world.GetRes<StabCounter>().CopySum = 0;
+            _world.GetRes<StabCounter>().Count = 0;
+            _world.GetRes<StabCounter>().SentinelHits = 0;
             systems.OnUpdate(0.016f, 0f);
 
-            var c = new Res<StabCounter>().Ref;
+            var c = _world.GetRes<StabCounter>();
             Assert.AreEqual(25, c.Sum, "FIX B3: arity-5 SetData must bind rows on shared storage");
             Assert.AreEqual(25, c.CopySum);
             Assert.AreEqual(5, c.Count);
@@ -676,13 +676,13 @@ namespace Wargon.Nukecs.Tests
             var systems = new Systems(ref _world).Add(StabChunkSystems.Chunk8, Threads.Main);
             SpawnStab(10);
 
-            new Res<StabCounter>().Ref.Sum = 0;
-            new Res<StabCounter>().Ref.CopySum = 0;
-            new Res<StabCounter>().Ref.Count = 0;
-            new Res<StabCounter>().Ref.SentinelHits = 0;
+            _world.GetRes<StabCounter>().Sum = 0;
+            _world.GetRes<StabCounter>().CopySum = 0;
+            _world.GetRes<StabCounter>().Count = 0;
+            _world.GetRes<StabCounter>().SentinelHits = 0;
             systems.OnUpdate(0.016f, 0f);
 
-            var c = new Res<StabCounter>().Ref;
+            var c = _world.GetRes<StabCounter>();
             Assert.AreEqual(25, c.Sum, "FIX B3: arity-8 gather");
             Assert.AreEqual(25, c.CopySum, "FIX B3: arity-8 CopyTo must copy the T8 column (branch was a duplicated T6 check)");
             Assert.AreEqual(5, c.Count);

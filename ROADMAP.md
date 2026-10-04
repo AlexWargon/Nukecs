@@ -15,10 +15,9 @@ value within each section.
    other arities return `QueryIter<PtrTuple<..>>`; arity-1 has no
    `iter_unsafe()/par_iter_unsafe()`; `iter_refs()`/`iter_chunk2()` are legacy.
    `iter_chunk2()` is `[Obsolete]` — delete in 2.0.
-3. **Per-world `Res<T>`.** `Res<T>` reads a domain-global `StructSingleton`;
-   the per-world `resStorage` stores wrapper copies that resolve to the same
-   global. 1.0 contract: resources are domain-scoped, not per-world. A real
-   per-world resource param needs its own design (resolution via world id).
+3. ~~**Per-world `Res<T>`.**~~ Done 2026-10-04: the value lives in the
+   `Res<T>` param inside the world's `resStorage` slot (no `StructSingleton`);
+   outside systems use `world.GetRes<T>()`.
 4. **Query dedup / lifetime.** Identical fluent chains are never deduplicated
    and queries live until world disposal (`QueryUnsafe.Free` has no callers).
    Add an intern table + explicit `world.RemoveQuery()`.

@@ -273,7 +273,7 @@ namespace Wargon.Nukecs.Tests
             Assert.AreEqual(7, e2.Get<TmPool>().Value, "Pool value before runner");
             systems.OnUpdate(0.016f, 0f);
 
-            Assert.AreEqual(12, new Res<TmCounter>().Ref.Sum,
+            Assert.AreEqual(12, world.GetRes<TmCounter>().Sum,
                 "Pool component must be readable as a direct tuple field (gather from GenericPool)");
 
             world.Dispose();
@@ -298,7 +298,7 @@ namespace Wargon.Nukecs.Tests
             systems.Add(TmPoolSystems.SumPoolDirectSystem, Threads.Main);
             systems.OnUpdate(0.016f, 0f);
 
-            Assert.AreEqual(12, new Res<TmCounter>().Ref.Sum,
+            Assert.AreEqual(12, world.GetRes<TmCounter>().Sum,
                 "Direct foreach (source-gen path) must read pool component fields");
 
             world.Dispose();

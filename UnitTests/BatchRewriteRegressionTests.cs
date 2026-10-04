@@ -175,7 +175,7 @@ namespace Wargon.Nukecs.Tests
                 }
                 world.Update();
                 systems.OnUpdate(1f, 1f);
-                var stats = new Res<BatchEnvelopeStats>().Ref;
+                var stats = world.GetRes<BatchEnvelopeStats>();
                 Assert.Greater(stats.Prefix, 0, "Prefix must run even for an empty query.");
                 Assert.AreEqual(stats.Prefix, stats.Suffix, "Dispatcher must not return past the suffix.");
                 Assert.AreEqual(expectedCount, stats.Count, "Captured locals must propagate walker writes.");
