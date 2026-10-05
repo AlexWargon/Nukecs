@@ -84,7 +84,7 @@ namespace NukecsQuickStart
     {
         protected override void OnWorldCreated(ref World world)
         {
-            Systems.Add(MySystems.MoveSystem, Threads.Parallel);
+            Systems.Add(MySystems.MoveSystem);
         }
 
         protected override void CreateEntities(ref World world)
