@@ -234,7 +234,9 @@ namespace Wargon.Nukecs
             }
         }
 
-        internal ptr<World.WorldUnsafe> worldPtr;
+        // Untyped on purpose: ptr<WorldUnsafe> here plus MemoryList<ptr<QueryUnsafe>> in WorldUnsafe
+        // is a generic layout cycle that CoreCLR (Unity 7+) rejects with TypeLoadException.
+        internal ptr worldPtr;
         [NativeDisableUnsafePtrRestriction] public World.WorldUnsafe* world;
         internal ptr<QueryUnsafe> self;
 
@@ -270,7 +272,7 @@ namespace Wargon.Nukecs
             storageFilterBits.OnDeserialize(ref allocator);
             self.OnDeserialize(ref allocator);
             worldPtr.OnDeserialize(ref allocator);
-            world = worldPtr.Ptr;
+            world = worldPtr.As<World.WorldUnsafe>();
             storageModeState = 0;
             storageMasksDirty = true;
             // rescan archetype backlinks after load — dup-attach guard in CheckQuery makes it safe
@@ -301,7 +303,7 @@ namespace Wargon.Nukecs
         internal QueryUnsafe(ptr<World.WorldUnsafe> world, ptr<QueryUnsafe> self, bool withDefaultNoneTypes = true)
         {
             this.world = world.Ptr;
-            this.worldPtr = world;
+            this.worldPtr = world.UntypedPointer;
             this.with = DynamicBitmask.CreateForComponents(world.Ptr);
             this.none = DynamicBitmask.CreateForComponents(world.Ptr);
             this.entityCount = 0;

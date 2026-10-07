@@ -284,7 +284,15 @@ namespace Wargon.Nukecs
     public unsafe struct ComponentPoolUntyped
     {
         public MemoryList<Chunk> Chunks;
-        public ptr<World.WorldUnsafe> world;
+        // Stored untyped: a ptr<WorldUnsafe> field closes the layout cycle
+        // WorldUnsafe -> MemoryList<GenericPool> -> ptr<ComponentPoolUntyped> -> ptr<WorldUnsafe>,
+        // which CoreCLR (Unity 7+) rejects with TypeLoadException.
+        internal ptr worldPtr;
+        public ptr<World.WorldUnsafe> world
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => worldPtr.AsTyped<World.WorldUnsafe>();
+        }
         public int componentSize;
         public ComponentTypeData componentTypeData;
         internal Spinner chunkLock;
@@ -300,7 +308,7 @@ namespace Wargon.Nukecs
                     chunk.OnDeserialize(ref allocator);
                 }
             }
-            world.OnDeserialize(ref allocator);
+            worldPtr.OnDeserialize(ref allocator);
             FixPtrComponents(ref allocator);
         }
 
@@ -332,7 +340,7 @@ namespace Wargon.Nukecs
             
             ptr.Ref.componentTypeData = ComponentType<T>.Data;
             ptr.Ref.componentSize = ptr.Ref.componentTypeData.size;
-            ptr.Ref.world = world;
+            ptr.Ref.worldPtr = world.UntypedPointer;
             return ptr;
         }
 
@@ -346,7 +354,7 @@ namespace Wargon.Nukecs
                     lenAsCapacity:true);
             ptr.Ref.componentSize = data.size;
             ptr.Ref.componentTypeData = data;
-            ptr.Ref.world = world;
+            ptr.Ref.worldPtr = world.UntypedPointer;
             return ptr;
         }
         

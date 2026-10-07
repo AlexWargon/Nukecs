@@ -53,6 +53,10 @@ The tested environment is **Unity 6000.0.63f1**, Burst **1.8.29**, Collections
 requirements. Windows player builds with both Mono and IL2CPP have been run and
 behaved as in the Editor; other player platforms have not been checked.
 
+Unity **7000.0.0a7** (alpha, CoreCLR scripting runtime) has also been tried: the
+Editor and a CoreCLR player build work. Alpha releases change often, so treat
+this as a smoke test rather than full support.
+
 ## Quick start
 
 This example moves one entity along the X axis at two units per second.
@@ -127,7 +131,7 @@ read-only access. `State.Time.DeltaTime` is the frame duration passed to
 **Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
 value increases by approximately 2 each second of simulation time. This example
 updates ECS data only. To see moving GameObjects, follow the
-[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/90ed7bd929a8d74ebf485907edbe86bdd77d6b55/Demos/README.md).
+[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/cfd6416414a1c833adb9fb84cbae13ba41603991/Demos/README.md).
 
 The snippets below build on the same `Position` and `Velocity` components.
 
@@ -355,7 +359,7 @@ show how to choose between tags, temporary payload components, and event buffers
 |---|---|
 | Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
 | Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
-| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/90ed7bd929a8d74ebf485907edbe86bdd77d6b55/Demos/README.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/cfd6416414a1c833adb9fb84cbae13ba41603991/Demos/README.md) |
 | React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
 | Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
 | Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |

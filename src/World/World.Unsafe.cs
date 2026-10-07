@@ -61,7 +61,15 @@ namespace Wargon.Nukecs
             internal UnityAllocatorHandler AllocatorHandler;
             internal ref MemAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
             internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
-            public ptr<World> ManagedWorld;
+            // Stored untyped: World holds ptr<WorldUnsafe>, so a ptr<World> field here is a
+            // generic layout cycle that CoreCLR (Unity 7+) rejects with TypeLoadException.
+            internal ptr managedWorldPtr;
+            public ptr<World> ManagedWorld {
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                get => managedWorldPtr.AsTyped<World>();
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                set => managedWorldPtr = value.UntypedPointer;
+            }
             public ref EntityCommandBuffer ECB {
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 get => ref Self->EntityCommandBuffer;
