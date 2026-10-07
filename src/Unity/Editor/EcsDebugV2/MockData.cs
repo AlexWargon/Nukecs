@@ -5,6 +5,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+#if UNITY_6000_4_OR_NEWER
+using ObjectId = UnityEngine.EntityId;
+#else
+using ObjectId = System.Int32;
+#endif
 
 namespace Wargon.Nukecs.Editor.EcsDebugV2
 {
@@ -34,7 +39,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
         public string ObjectTypeName;
         public string ObjectName;
-        public int ObjectInstanceId;
+        public ObjectId ObjectInstanceId;
         public bool IsUnityObject;
 
         public string ArrayElementTypeName;
@@ -52,7 +57,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static FieldValue FromEnum(string[] names, long[] rawValues, int selectedIndex, long rawValue)
             => new () { Type = FieldValueType.Enum, EnumNames = names, EnumRawValues = rawValues, EnumSelectedIndex = selectedIndex, EnumRawValue = rawValue, NumberVal = rawValue };
 
-        public static FieldValue FromObjectRef(string typeName, string objName, int instanceId, bool isUnityObject = false)
+        public static FieldValue FromObjectRef(string typeName, string objName, ObjectId instanceId, bool isUnityObject = false)
             => new () { Type = FieldValueType.ObjectRef, ObjectTypeName = typeName, ObjectName = objName, ObjectInstanceId = instanceId, IsUnityObject = isUnityObject };
 
         public static FieldValue FromComponentArray(string elemTypeName, int length)
@@ -68,7 +73,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 case FieldValueType.Bool: return BoolVal == other.BoolVal;
                 case FieldValueType.EntityRef: return EntityRefVal == other.EntityRefVal;
                 case FieldValueType.Enum: return EnumRawValue == other.EnumRawValue;
-                case FieldValueType.ObjectRef: return ObjectInstanceId == other.ObjectInstanceId;
+                case FieldValueType.ObjectRef: return ObjectInstanceId.Equals(other.ObjectInstanceId);
                 case FieldValueType.ComponentArray: return ArrayLength == other.ArrayLength;
                 default: return false;
             }

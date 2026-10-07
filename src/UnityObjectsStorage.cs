@@ -4,6 +4,11 @@ using System.Runtime.InteropServices;
 using Unity.Collections;
 using UnityEngine;
 using Object = UnityEngine.Object;
+#if UNITY_6000_4_OR_NEWER
+using ObjectId = UnityEngine.EntityId;
+#else
+using ObjectId = System.Int32;
+#endif
 
 namespace Wargon.Nukecs {
     // public class UnityObjectsStorage {
@@ -44,15 +49,15 @@ namespace Wargon.Nukecs {
     
     internal struct UnityObjectRefMap : IDisposable
     {
-        public NativeHashMap<int, int> InstanceIDMap;
-        public NativeList<int> InstanceIDs;
+        public NativeHashMap<ObjectId, int> InstanceIDMap;
+        public NativeList<ObjectId> InstanceIDs;
 
         public bool IsCreated => InstanceIDs.IsCreated && InstanceIDMap.IsCreated;
 
         public UnityObjectRefMap(Allocator allocator)
         {
-            InstanceIDMap = new NativeHashMap<int, int>(0, allocator);
-            InstanceIDs = new NativeList<int>(0, allocator);
+            InstanceIDMap = new NativeHashMap<ObjectId, int>(0, allocator);
+            InstanceIDs = new NativeList<ObjectId>(0, allocator);
         }
 
         public void Dispose()
@@ -66,15 +71,15 @@ namespace Wargon.Nukecs {
             var objects = new System.Collections.Generic.List<UnityEngine.Object>();
 
             if (IsCreated && InstanceIDs.Length > 0)
-                Resources.InstanceIDToObjectList(InstanceIDs.AsArray(), objects);
+                UnityObjectId.ToObjectList(InstanceIDs.AsArray(), objects);
 
             return objects.ToArray();
         }
 
-        public int Add(int instanceId)
+        public int Add(ObjectId instanceId)
         {
             var index = -1;
-            if (instanceId != 0 && IsCreated)
+            if (!UnityObjectId.IsNone(instanceId) && IsCreated)
             {
                 if (!InstanceIDMap.TryGetValue(instanceId, out index))
                 {
@@ -93,11 +98,11 @@ namespace Wargon.Nukecs {
     internal struct UntypedUnityObjectRef : IEquatable<UntypedUnityObjectRef>
     {
         [SerializeField]
-        internal int instanceId;
+        internal ObjectId instanceId;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(UntypedUnityObjectRef other)
         {
-            return instanceId == other.instanceId;
+            return instanceId.Equals(other.instanceId);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object obj)
@@ -107,7 +112,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode()
         {
-            return instanceId;
+            return instanceId.GetHashCode();
         }
     }
 
@@ -127,12 +132,10 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator UnityObjectRef<T>(T instance)
         {
-            var instanceId = instance == null ? 0 : instance.GetInstanceID();
-
-            return FromInstanceID(instanceId);
+            return FromInstanceID(UnityObjectId.Of(instance));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static UnityObjectRef<T> FromInstanceID(int instanceId)
+        internal static UnityObjectRef<T> FromInstanceID(ObjectId instanceId)
         {
             var result = new UnityObjectRef<T>{Id = new UntypedUnityObjectRef{ instanceId = instanceId }};
             return result;
@@ -141,9 +144,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static implicit operator T(UnityObjectRef<T> unityObjectRef)
         {
-            if (unityObjectRef.Id.instanceId == 0)
-                return null;
-            return (T) Resources.InstanceIDToObject(unityObjectRef.Id.instanceId);
+            return (T) UnityObjectId.ToObject(unityObjectRef.Id.instanceId);
         }
         
         /// <summary>
@@ -162,7 +163,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(UnityObjectRef<T> other)
         {
-            return Id.instanceId == other.Id.instanceId;
+            return Id.instanceId.Equals(other.Id.instanceId);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -186,7 +187,7 @@ namespace Wargon.Nukecs {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsValid()
         {
-            return Resources.InstanceIDIsValid(Id.instanceId);
+            return UnityObjectId.IsValid(Id.instanceId);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

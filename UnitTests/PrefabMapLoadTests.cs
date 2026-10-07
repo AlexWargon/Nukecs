@@ -42,8 +42,8 @@ namespace Wargon.Nukecs.Tests
             var restored = EntityPrefabMap.GetOrCreatePrefab(source, ref world);
             Assert.AreEqual(savedPrefab, restored);
             Assert.AreEqual(2, source.Conversions);
-            Assert.AreEqual(restored, EntityPrefabMap.GetPrefab(source.GetInstanceID()));
-            var spawned = EntityPrefabMap.Spawn(source.GetInstanceID());
+            Assert.AreEqual(restored, EntityPrefabMap.GetPrefab(UnityObjectId.Of(source)));
+            var spawned = EntityPrefabMap.Spawn(UnityObjectId.Of(source));
             Assert.AreEqual(91, spawned.Get<PositionTest>().X);
         }
         [Test]

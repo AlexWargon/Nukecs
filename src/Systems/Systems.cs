@@ -932,40 +932,6 @@ namespace Wargon.Nukecs
         void OnWorldDeserialize(ref World world);
     }
 
-    public struct JobCallback : IJob
-    {
-        public FunctionPointer<Action> callback;
-
-        public void Execute()
-        {
-            callback.Invoke();
-        }
-    }
-
-    public static class JobExtensions
-    {
-        public static JobHandle ScheduleWithCallback<T>(this T job, Action callback, JobHandle dependencies = default)
-            where T : struct, IJob
-        {
-            return new JobCallback
-            {
-                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
-            }.Schedule(job.Schedule(dependencies));
-        }
-
-        public static JobHandle ScheduleWithCallback<T>(this T jobData, int arrayLength, int indicesPerJobCount,
-            Action callback,
-            JobHandle dependsOn = default)
-            where T : struct, IJobParallelForBatch
-        {
-            var handle = jobData.ScheduleBatch(arrayLength, indicesPerJobCount, dependsOn);
-            return new JobCallback
-            {
-                callback = new FunctionPointer<Action>(Marshal.GetFunctionPointerForDelegate(callback))
-            }.Schedule(handle);
-        }
-    }
-
     internal struct SystemInfo<T>
     {
         internal static SharedStatic<int> data = SharedStatic<int>.GetOrCreate<SystemInfo<T>>();

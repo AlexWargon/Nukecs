@@ -6,6 +6,11 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Cursor = UnityEngine.Cursor;
+#if UNITY_6000_4_OR_NEWER
+using ObjectId = UnityEngine.EntityId;
+#else
+using ObjectId = System.Int32;
+#endif
 
 // ReSharper disable EmptyGeneralCatchClause
 // ReSharper disable HeapView.CanAvoidClosure
@@ -342,7 +347,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                         break;
                     case FieldValueType.ObjectRef:
-                        if (fv.ObjectInstanceId != r.lastObjectInstanceId || fv.ObjectName != r.lastObjectName)
+                        if (!fv.ObjectInstanceId.Equals(r.lastObjectInstanceId) || fv.ObjectName != r.lastObjectName)
                         {
                             r.lastObjectInstanceId = fv.ObjectInstanceId;
                             r.lastObjectName = fv.ObjectName;
@@ -963,14 +968,14 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             var rIdx = capturedRowIdx;
                             if (rIdx < 0 || rIdx >= _rows.Length) return;
                             var r = _rows[rIdx];
-                            var currentObj = EditorUtility.InstanceIDToObject(r.lastObjectInstanceId);
+                            var currentObj = UnityObjectId.EditorToObject(r.lastObjectInstanceId);
                             var objTypeResolved = r.objectFieldType ?? typeof(UnityEngine.Object);
                             var newObj = EditorGUILayout.ObjectField(currentObj, objTypeResolved, true,
                                 GUILayout.Height(18));
                             if (newObj != currentObj)
                             {
                                 var newName = newObj != null ? newObj.name : "null";
-                                var newId = newObj != null ? newObj.GetInstanceID() : 0;
+                                var newId = UnityObjectId.Of(newObj);
                                 _binding.SetFieldValue(_entityId, _compName, fieldKey,
                                     FieldValue.FromObjectRef(objTypeResolved.Name, newName, newId, true));
                             }
@@ -1130,7 +1135,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 lastEnumIndex = value.Type == FieldValueType.Enum ? value.EnumSelectedIndex : 0,
                 lastEnumRawValue = value.Type == FieldValueType.Enum ? value.EnumRawValue : 0,
                 lastObjectName = value.Type == FieldValueType.ObjectRef ? value.ObjectName : null,
-                lastObjectInstanceId = value.Type == FieldValueType.ObjectRef ? value.ObjectInstanceId : 0,
+                lastObjectInstanceId = value.Type == FieldValueType.ObjectRef ? value.ObjectInstanceId : default,
                 lastObjectTypeName = value.Type == FieldValueType.ObjectRef ? value.ObjectTypeName : null,
                 lastArrayElementTypeName = value.Type == FieldValueType.ComponentArray ? value.ArrayElementTypeName : null,
                 lastArrayLength = value.Type == FieldValueType.ComponentArray ? value.ArrayLength : 0,
@@ -1434,7 +1439,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             public int lastEnumIndex;
             public long lastEnumRawValue;
             public string lastObjectName;
-            public int lastObjectInstanceId;
+            public ObjectId lastObjectInstanceId;
             public string lastObjectTypeName;
             public string lastArrayElementTypeName;
             public int lastArrayLength;
