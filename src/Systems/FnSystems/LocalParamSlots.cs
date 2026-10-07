@@ -6,10 +6,12 @@ using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs
 {
-    // Slot IDs share the resource index space; the values are owned by each world.
+    // Session-local slot ids for generated runners; worlds store locals by the stable Key.
     internal static class LocalParamSlots
     {
-        private struct Key : IEquatable<Key>
+        // Stable across sessions: Owner is the generator's FNV-1a of the method/parameter
+        // identity, Scope the Systems container index, Instance the registration ordinal.
+        internal struct Key : IEquatable<Key>
         {
             internal ulong Owner;
             internal int Scope;
@@ -19,6 +21,8 @@ namespace Wargon.Nukecs
         }
         private struct RegistryKey { }
         private static readonly SharedStatic<HashMap<Key, int>> Slots = SharedStatic<HashMap<Key, int>>.GetOrCreate<RegistryKey>();
+        private struct ReverseKey { }
+        private static readonly SharedStatic<HashMap<int, Key>> SlotKeys = SharedStatic<HashMap<int, Key>>.GetOrCreate<ReverseKey>();
         private struct GateKey { }
         private static readonly SharedStatic<Spinner> Gate = SharedStatic<Spinner>.GetOrCreate<GateKey>();
 
@@ -42,15 +46,30 @@ namespace Wargon.Nukecs
                 slot = ResourceSlotIds.Acquire();
                 if (slots.Count == slots.Capacity) slots.Capacity *= 2;
                 slots.TryAdd(key, slot);
+                ref var keys = ref SlotKeys.Data;
+                if (!keys.IsCreated) keys = new HashMap<int, Key>(64, Allocator.Persistent);
+                if (keys.Count == keys.Capacity) keys.Capacity *= 2;
+                keys.TryAdd(slot, key);
             }
             Gate.Data.Release();
             return slot;
+        }
+
+        internal static bool TryGetKey(int slot, out Key key)
+        {
+            Gate.Data.Acquire();
+            key = default;
+            var found = SlotKeys.Data.IsCreated && SlotKeys.Data.TryGetValue(slot, out key);
+            Gate.Data.Release();
+            return found;
         }
 
         internal static void Dispose()
         {
             if (Slots.Data.IsCreated) Slots.Data.Dispose();
             Slots.Data = default;
+            if (SlotKeys.Data.IsCreated) SlotKeys.Data.Dispose();
+            SlotKeys.Data = default;
             Gate.Data = default;
             ResourceSlotIds.Reset();
         }

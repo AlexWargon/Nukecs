@@ -191,7 +191,7 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 |------|-------------|
 | `src/dbug.cs` | Debug logging utility |
 | `src/NUnsafe.cs` | Additional unsafe utilities |
-| `src/Singleton.cs` | `Singleton<T>` (SharedStatic, IInit/IDisposable) and `SingletonRegistry` |
+| `src/Singleton.cs` | `Singleton<T>` (Burst-compatible; SharedStatic holds only pointer+size, value in a Malloc block, reset before assembly reload) and `SingletonRegistry` |
 | `src/SparseSet.cs` | Sparse set data structure |
 | `src/StaticAllocations.cs` | Static allocation helpers |
 | `src/SystemsGroup.cs` | `SystemsGroup` — named group of system runners |
@@ -252,7 +252,7 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 - Corrupt saves corrupted the heap: `FastDeserialize` trusted `savedRegionCount`. Fix: save header (magic + int version + regionCount) validated before any allocation; `NukEcs.version` is `const int`.
 - `Compress/CompressAsync` wrote the wrong byte length; `SaveToFile` didn't truncate; loads ignored short reads; `serializedAllocator` static buffer raced between worlds. All fixed.
 - `World.Create` could overwrite a live world (naive `lastFreeSlot++`); the 9th world wrote past the worlds array. Fix: aliveness-checked slot acquisition + clean error at `MAX_WORLD_COUNT`.
-- `res_type<T>.index` was derived from the per-world list length → cross-world type-confused resource reads. Fix: globally stable slot ids + per-world padding.
+- `res_type<T>.index` was derived from the per-world list length → cross-world type-confused resource reads. Fix (2026-10-07): resources are keyed by stable type hash; session-order slot ids broke loading a save from another session once values moved into the world.
 - `Entity ==/Equals` ignored the world while `GetHashCode` included it. Fix: equality and hashing include `WorldToken` (slot + incarnation) and `Generation`; hashes remain stable after removal and relocation.
 - Async `World.LoadAsync` returns `Task<World>`: assign `world = await World.LoadAsync(path, world)` because loading can relocate the arena. A forced-relocation regression pins the former stale-pointer/ECB-disposal failure.
 - Reactive check/dispatch systems retain a world ID and resolve `World.Get(id)` instead of caching an arena pointer or World copy across loads. Deserialization also refreshes the active `Systems.State.World` (load can occur inside a main-thread update), and struct runner deserialization callbacks are unboxed back into the stored system. `ReactiveLoadRegressionTests` covers relocated loads inside updates with all four graph modes and without a graph.
@@ -264,7 +264,7 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 
 - Up to `World.MAX_WORLD_COUNT` (8) simultaneous live worlds; exceeding it throws.
 - Entity-level state (entities, archetypes, queries, events, ECB, reactive registries) is fully per world.
-- `ComponentType` registry and resource slot ids are domain-global; `Res<T>` VALUES live in each world's arena (see §10) and are isolated per world.
+- `ComponentType` registry and session Local slot ids are domain-global; `Res<T>` VALUES live in each world's arena (see §10), keyed by a stable type hash, and are isolated per world.
 - `Save/Load` round-trips one world's arena; save files are not portable across different component registration orders (type indices are first-touch assigned) and carry a magic + int format version header.
 
 ## 6. Testing
@@ -367,12 +367,16 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
   registration and parameter, isolated across worlds and Systems containers.
   Generated runners call OnCreate once and OnUpdate once before each invocation,
   then restore the value after Save/Load. Parallel ranges share the local; writes
-  require synchronization. Use `local.Ref`, and keep registration order when loading.
+  require synchronization. Use `local.Ref`. Like `Res<T>`, `Local<T>` holds only a
+  `ptr<TData>` to an arena value block (blittable for Burst direct calls). Worlds store
+  locals by the stable key (generator owner hash, Systems scope, registration ordinal);
+  session slot ids from `LocalParamSlots` are translated to that key, so loads from
+  another session work as long as the same systems are registered.
 
-- `Res<TRes>` where `TRes : unmanaged, IRes` — holds the value in its `Ref` field; the param itself lives in the world's `ResStorage` arena slot and systems receive it by `ref` (always declare `ref Res<T>`; a by-value param is a copy). No `SharedStatic`, so changing the resource layout needs no editor restart. `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
+- `Res<TRes>` where `TRes : unmanaged, IRes` — holds only a `ptr<TRes>` (first field) to a value block in the world arena; `Ref` dereferences it. Res stays blittable, so `[System, BurstCompile]` direct calls accept resources with `bool`/`char` fields. Resource values are runtime state and are NOT restored from a save (they commonly own native containers): a load keeps the live world's resources (`ResStorage.CaptureLive`/`RestoreLive`), and resources only present in the save are recreated via `OnCreate` on first request. A detached `new Res<T>()` has no storage. No `SharedStatic`, so changing the resource layout needs no editor restart. `IRes` has `OnCreate(ref World)` and `OnUpdate(ref World)`
 - `ResManaged<TRes>` — for class-type resources; uses `ManagedResRef<T>` (GCHandle-like wrapper)
 - `IResourceGetSet` — boxing/unboxing interface for reflection-based access (used by debug tools)
-- `ResStorage` — unmanaged storage registry for resources. Resource SLOT IDs are globally stable per domain (`res_type.AcquireSlot`); each world keeps its own padded slot list, so several worlds can coexist (world B without resource X leaves X's slot null). Values are per world, are saved/loaded with the arena, and are read outside systems via `world.GetRes<T>()` / `world.HasRes<T>()`.
+- `ResStorage` — per-world storage. `Res<T>`/`ResManaged<T>` params are entries keyed by `StableTypeHash<TParam>` (own FNV-1a over the type name without assembly info, stable across sessions, managed-only), `Local<T>` entries are keyed by `LocalParamSlots.Key` and ARE saved/loaded with the arena (a save from another session resolves them by key). Resources are read outside systems via `world.GetRes<T>()` / `world.HasRes<T>()`.
 
 ## 11. Chunk Iteration
 

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
 using Allocator = Unity.Collections.Allocator;
 
@@ -52,13 +54,28 @@ namespace Wargon.Nukecs
         }
     }
     /// <summary>Resource owned by one system registration. Parallel ranges share it.</summary>
-    public struct Local<TData> : ISystemParam where TData : unmanaged, IRes
+    /// <remarks>
+    /// Holds only a ptr to a value block in the world arena, so the param stays blittable for
+    /// Burst direct calls even when TData has bool/char fields, and a TData layout change
+    /// needs no editor restart.
+    /// </remarks>
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Local<TData> : ISystemParam where TData : unmanaged, IRes
     {
-        public TData Ref;
+        // Must stay the first field: ResStorage rebases it as an untyped ptr after load.
+        internal ptr<TData> value;
+
+        public ref TData Ref
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => ref *value.cached;
+        }
+
         public SystemParamMetaType MetaType => SystemParamMetaType.Local;
         public void Init(ref ptr<World.WorldUnsafe> world)
         {
-            Ref = default;
+            value = world.Ref._allocate_ptr<TData>(1, AllocatorTags.WorldMisc);
+            *value.cached = default;
             Ref.OnCreate(ref world.Ref.ManagedWorld.Ref);
         }
 

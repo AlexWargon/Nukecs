@@ -806,8 +806,10 @@ main thread before each system invocation, including an empty query. Parallel
 work ranges share the same local value: synchronize writes, for example with
 `Interlocked`, or register the system as `Single` for ordinary mutable state.
 
-Local values are stored in the world arena and restored by Save/Load. Keep the
-same system registration order when loading into a new `Systems` container.
+Local values are stored in the world arena and restored by Save/Load, also in
+another editor session. A local is identified by its system method and parameter,
+the index of its `Systems` container in the world, and the ordinal of repeated
+registrations of the same method; the order of unrelated systems does not matter.
 A local absent from the snapshot is initialized normally. External native
 allocations referenced by a local are not serialized automatically.
 
