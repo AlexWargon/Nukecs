@@ -54,9 +54,26 @@ namespace Wargon.Nukecs
                 if (values[slot] < epoch) values[slot] = epoch;
         }
 
-        private static readonly SharedStatic<World> dummyWorld = SharedStatic<World>.GetOrCreate<DummyWorld>();
+        // SharedStatic<World> / SharedStatic<MemoryList<World>> must not be static fields of World itself:
+        // CoreCLR (Unity 7+) cannot load a struct whose static field is a generic struct instantiated over
+        // that same struct (TypeLoadException). They live in WorldStatics and are exposed here unchanged.
+        private static class WorldStatics
+        {
+            internal static readonly SharedStatic<World> DummyWorld = SharedStatic<World>.GetOrCreate<DummyWorld>();
+            internal static readonly SharedStatic<MemoryList<World>> Worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
+        }
+
+        private static SharedStatic<World> dummyWorld
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => WorldStatics.DummyWorld;
+        }
         internal static readonly SharedStatic<MemAllocator> domainAllocator = SharedStatic<MemAllocator>.GetOrCreate<KeyDomainAllocator>();
-        internal static readonly SharedStatic<MemoryList<World>> worlds = SharedStatic<MemoryList<World>>.GetOrCreate<KeyWorldsList>();
+        internal static SharedStatic<MemoryList<World>> worlds
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => WorldStatics.Worlds;
+        }
         private static byte lastFreeSlot;
         private static int worldCount;
         private static int lastWorldID;
@@ -255,7 +272,7 @@ namespace Wargon.Nukecs
 
         internal static void FixManagedWorld(int id) {
             ref var world = ref Get(id);
-            world.UnsafeWorld->ManagedWorld.OnDeserialize(ref domainAllocator.Data);
+            world.UnsafeWorld->managedWorldPtr.OnDeserialize(ref domainAllocator.Data);
             world.UnsafeWorld->ManagedWorld.Ref = world;
         }
     }

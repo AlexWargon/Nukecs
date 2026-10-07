@@ -53,6 +53,10 @@ The tested environment is **Unity 6000.0.63f1**, Burst **1.8.29**, Collections
 requirements. Windows player builds with both Mono and IL2CPP have been run and
 behaved as in the Editor; other player platforms have not been checked.
 
+Unity **7000.0.0a7** (alpha, CoreCLR scripting runtime) has also been tried: the
+Editor and a CoreCLR player build work. Alpha releases change often, so treat
+this as a smoke test rather than full support.
+
 ## Quick start
 
 This example moves one entity along the X axis at two units per second.

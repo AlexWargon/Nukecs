@@ -18,7 +18,16 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS",
+        "NUKECS_PERFORMANCE_TESTING"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.test-framework.performance",
+            "expression": "",
+            "define": "NUKECS_PERFORMANCE_TESTING"
+        }
+    ],
     "noEngineReferences": false
 }
