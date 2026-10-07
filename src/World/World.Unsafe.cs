@@ -798,9 +798,8 @@ namespace Wargon.Nukecs
             public void AddRes<TRes>(TRes res) where TRes : unmanaged, IRes
             {
                 if (resStorage.HasRes<Res<TRes>>()) return;
-                var resRef = new Res<TRes>(res);
-                if (resStorage.AddRes(in resRef, Self))
-                    resStorage.GetRes<Res<TRes>>().Ref.Init(ref selfPtr);
+                if (resStorage.AddRes(default(Res<TRes>), Self))
+                    resStorage.GetRes<Res<TRes>>().Ref.Create(ref selfPtr, in res);
             }
 
             public ref TRes GetRes<TRes>() where TRes : unmanaged, IRes

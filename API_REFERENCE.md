@@ -806,8 +806,10 @@ main thread before each system invocation, including an empty query. Parallel
 work ranges share the same local value: synchronize writes, for example with
 `Interlocked`, or register the system as `Single` for ordinary mutable state.
 
-Local values are stored in the world arena and restored by Save/Load. Keep the
-same system registration order when loading into a new `Systems` container.
+Local values are stored in the world arena and restored by Save/Load, also in
+another editor session. A local is identified by its system method and parameter,
+the index of its `Systems` container in the world, and the ordinal of repeated
+registrations of the same method; the order of unrelated systems does not matter.
 A local absent from the snapshot is initialized normally. External native
 allocations referenced by a local are not serialized automatically.
 
@@ -1040,7 +1042,7 @@ ensure that pool slot exists. Use `Res<T>` for resource state. Aspects implement
 update a cached per-type aspect for that entity. Do not retain its mutable
 reference across another aspect access or share it across parallel work.
 
-Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/02faa088d944f312dde742a2f042c255e7ef39b1/Demos/README.md).
+Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/65218d9e1d891f619cb70efc283a8dcc21dc7f7b/Demos/README.md).
 
 ## World Serialization
 

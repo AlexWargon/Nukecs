@@ -213,7 +213,7 @@ namespace Wargon.Nukecs
                 // managed wrapper instead of interpreting a saved domain-allocator offset.
                 world.UnsafeWorld->ManagedWorld = managedWorld;
                 if (targetId != temporaryId) Get(temporaryId) = default;
-                world.CompleteDeserialization(ref allocator, ref allocatorHandler, ecb, targetId);
+                world.CompleteDeserialization(ref allocator, ref allocatorHandler, ecb, targetId, null); // a new world has no live resources
                 lastWorldID = (byte)targetId;
                 return world;
             }

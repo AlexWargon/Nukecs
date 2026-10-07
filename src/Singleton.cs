@@ -11,18 +11,29 @@ using UnityEngine;
 
 namespace Wargon.Nukecs.Tests {
 
+    /// <summary>
+    /// Burst-compatible global singleton.
+    /// The SharedStatic holds only a pointer + size (fixed layout), the value itself lives in
+    /// a Persistent Malloc block. SharedStatic memory survives domain reloads and its size is
+    /// fixed on first creation, so storing T inline would require an editor restart after
+    /// every change of T's layout. Values are disposed on <see cref="SingletonRegistry.ResetAll"/>
+    /// (World.DisposeStatic and before every assembly reload in the editor).
+    /// </summary>
     [BurstCompile] 
-    public struct Singleton<T> where T : unmanaged, IInit, IDisposable
+    public unsafe struct Singleton<T> where T : unmanaged, IInit, IDisposable
     {
         [BurstCompile]
         [AOT.MonoPInvokeCallback(typeof(SingletonRegistry.ResetDelegate))]
         private static void Reset()
         {
-            if (instance.Data.IsCreated)
-            {
-                instance.Data.Value.Dispose();
-                instance.Data = default;
-            }
+            ref var data = ref instance.Data;
+            if (data.Value == null) return;
+            // a block allocated for an older layout of T is freed without Dispose:
+            // its fields cannot be interpreted with the current layout
+            if (data.IsCreated != 0 && data.Size == sizeof(T) && data.OwnsValue != 0)
+                data.Value->Dispose();
+            UnsafeUtility.Free(data.Value, Allocator.Persistent);
+            data = default;
         }
         
         private static readonly SharedStatic<Reference> instance = SharedStatic<Reference>.GetOrCreate<Singleton<T>>();
@@ -31,28 +42,59 @@ namespace Wargon.Nukecs.Tests {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                if (instance.Data.IsCreated == false)
-                {
-                    instance.Data.Value = new T();
-                    instance.Data.Value.Init();
-                    instance.Data.IsCreated = true;
-                    var fnPtr = BurstCompiler.CompileFunctionPointer<SingletonRegistry.ResetDelegate>(Reset);
-                    SingletonRegistry.Register(fnPtr.Value);
-                }
-
-                return ref instance.Data.Value;
+                ref var data = ref instance.Data;
+                if (data.IsCreated == 0 || data.Size != sizeof(T))
+                    Create();
+                return ref *data.Value;
             }
         }
 
+        public static bool IsCreated => instance.Data.IsCreated != 0 && instance.Data.Size == sizeof(T);
+
         public static void Set(ref T reference) {
-            instance.Data.Value = reference;
-            instance.Data.IsCreated = true;
+            ref var data = ref Allocate();
+            *data.Value = reference;
+            data.IsCreated = 1;
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void Create()
+        {
+            ref var data = ref Allocate();
+            *data.Value = new T();
+            data.Value->Init();
+            data.OwnsValue = 1;
+            data.IsCreated = 1;
+        }
+
+        private static ref Reference Allocate()
+        {
+            ref var data = ref instance.Data;
+            if (data.Value != null && data.Size == sizeof(T)) return ref data;
+            if (data.Value != null)
+                UnsafeUtility.Free(data.Value, Allocator.Persistent); // stale block from an older layout
+            data = default;
+            data.Value = (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
+            UnsafeUtility.MemClear(data.Value, sizeof(T));
+            data.Size = sizeof(T);
+            RegisterReset();
+            return ref data;
+        }
+
+        [BurstDiscard]
+        private static void RegisterReset()
+        {
+            var fnPtr = BurstCompiler.CompileFunctionPointer<SingletonRegistry.ResetDelegate>(Reset);
+            SingletonRegistry.Register(fnPtr.Value);
+        }
+
+        // Layout must not depend on T: SharedStatic size is fixed for the editor session.
         private struct Reference
         {
-            internal T Value;
-            internal bool IsCreated;
+            internal T* Value;
+            internal int Size;
+            internal byte IsCreated;
+            internal byte OwnsValue; // created through Instance (Init called) -> Dispose on reset
         }
     }
 

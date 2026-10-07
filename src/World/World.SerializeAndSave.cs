@@ -21,12 +21,14 @@ namespace Wargon.Nukecs {
             var managedWorld = UnsafeWorld->ManagedWorld;
             var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
             var allocatorOld = allocatorHandler.AllocatorWrapper.Allocator;
+            // resources are runtime state: keep the live ones, ignore the saved values
+            var liveResources = UnsafeWorld->resStorage.CaptureLive();
             allocatorOld.FastDeserialize(data);
             allocatorHandler.AllocatorWrapper.Allocator = allocatorOld;
             // Domain wrappers are owned by this live world, not by the saved arena.
             unsafeWorldPtr.OnDeserialize(ref allocatorOld);
             UnsafeWorld->ManagedWorld = managedWorld;
-            CompleteDeserialization(ref allocatorOld, ref allocatorHandler, ecb, id);
+            CompleteDeserialization(ref allocatorOld, ref allocatorHandler, ecb, id, liveResources);
         }
 
         public void LoadFromFile(string path) {
@@ -47,7 +49,7 @@ namespace Wargon.Nukecs {
             foreach (var systems in WorldSystems.GetAll(id)) systems.Complete();
         }
 
-        private void CompleteDeserialization(ref MemAllocator allocator, ref UnityAllocatorHandler allocatorHandler, EntityCommandBuffer savedEcb, int id) {
+        private void CompleteDeserialization(ref MemAllocator allocator, ref UnityAllocatorHandler allocatorHandler, EntityCommandBuffer savedEcb, int id, LiveResources liveResources) {
             ComponentTypeMap.ReRegisterFunctionPointers();
             unsafeWorldPtr.OnDeserialize(ref allocator);
             UnsafeWorld->OnDeserialize(ref allocator);
@@ -57,6 +59,9 @@ namespace Wargon.Nukecs {
             ECB.FixAfterDeserialize(UnsafeWorld, ref allocator);
             Get(id) = this;
             FixManagedWorld(id);
+            // Allocates through AllocatorRef (the local allocator copy above is stale from
+            // here on); must run before systems re-resolve their params.
+            UnsafeWorld->resStorage.RestoreLive(liveResources, UnsafeWorld);
             ReinitAllSystems();
         }
 

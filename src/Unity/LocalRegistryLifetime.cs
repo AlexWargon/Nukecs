@@ -10,6 +10,11 @@ namespace Wargon.Nukecs
         {
             AssemblyReloadEvents.beforeAssemblyReload += LocalParamSlots.Dispose;
             EditorApplication.quitting += LocalParamSlots.Dispose;
+            // Singleton<T> values live in Malloc blocks referenced from SharedStatic, which
+            // survives domain reloads. Reset them while the registered function pointers are
+            // still valid, like ordinary statics are reset by the reload.
+            AssemblyReloadEvents.beforeAssemblyReload += Tests.SingletonRegistry.ResetAll;
+            EditorApplication.quitting += Tests.SingletonRegistry.ResetAll;
         }
     }
 }
