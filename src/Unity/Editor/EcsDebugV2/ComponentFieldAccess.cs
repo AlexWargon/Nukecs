@@ -124,7 +124,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         fields.Add((fa.Name, ReadEnum(fieldPtr, fa)));
                         break;
                     case FieldAccessorKind.ObjectRef:
-                        fields.Add((fa.Name, FieldValue.FromObjectRef(fa.GenericArgType?.Name ?? fa.FieldType?.Name ?? "Object", "null", 0, true)));
+                        fields.Add((fa.Name, FieldValue.FromObjectRef(fa.GenericArgType?.Name ?? fa.FieldType?.Name ?? "Object", "null", default, true)));
                         break;
                 }
             }

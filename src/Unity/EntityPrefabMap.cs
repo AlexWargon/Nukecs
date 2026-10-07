@@ -2,6 +2,11 @@
 using UnityEngine;
 using System;
 using Object = UnityEngine.Object;
+#if UNITY_6000_4_OR_NEWER
+using ObjectId = UnityEngine.EntityId;
+#else
+using ObjectId = System.Int32;
+#endif
 
 namespace Wargon.Nukecs.Tests {
     public static class EntityPrefabMap {
@@ -10,17 +15,17 @@ namespace Wargon.Nukecs.Tests {
             internal int WorldId;
             internal string Name;
         }
-        private static Dictionary<int, Entry> Map = new ();
+        private static Dictionary<ObjectId, Entry> Map = new ();
 
         public static void Dispose() {
             Map.Clear();
         }
-        public static void Add(int id, Entity entity) {
+        public static void Add(ObjectId id, Entity entity) {
             Map[id] = new Entry { Prefab = entity, WorldId = entity.world.Id,
                 Name = entity.Has<Name>() ? entity.Get<Name>().value.Value : null };
         }
 
-        public static Entity Spawn(int id) {
+        public static Entity Spawn(ObjectId id) {
             var prefab = GetPrefab(id);
             return prefab.world.SpawnPrefab(in prefab);
         }
@@ -28,7 +33,7 @@ namespace Wargon.Nukecs.Tests {
             var prefab = GetOrCreatePrefab(obj, ref world);
             return world.SpawnPrefab(in prefab);
         }
-        public static Entity GetPrefab(int id) {
+        public static Entity GetPrefab(ObjectId id) {
             var entry = Map[id];
             ref var world = ref World.Get(entry.WorldId);
             if (!TryResolve(id, ref world, ref entry, out var prefab))
@@ -37,7 +42,7 @@ namespace Wargon.Nukecs.Tests {
         }
         public static Entity GetOrCreatePrefab<T>(T obj, ref World world) where T : Object, ICustomConvertor {
             if (obj == null) throw new ArgumentNullException(nameof(obj));
-            var id = obj.GetInstanceID();
+            var id = UnityObjectId.Of(obj);
             if (!Map.TryGetValue(id, out var entry))
                 entry = new Entry { WorldId = world.Id, Name = obj.name };
             else if (entry.Name == null) entry.Name = obj.name;
@@ -56,7 +61,7 @@ namespace Wargon.Nukecs.Tests {
 
             return prefab;
         }
-        public static bool TryGet(int id, out Entity entity) {
+        public static bool TryGet(ObjectId id, out Entity entity) {
             if (Map.TryGetValue(id, out var entry)) {
                 ref var world = ref World.Get(entry.WorldId);
                 if (TryResolve(id, ref world, ref entry, out var prefab)) {
@@ -68,7 +73,7 @@ namespace Wargon.Nukecs.Tests {
             return false;
         }
 
-        private static bool TryResolve(int id, ref World world, ref Entry entry, out Entity prefab) {
+        private static bool TryResolve(ObjectId id, ref World world, ref Entry entry, out Entity prefab) {
             prefab = Entity.Null;
             if (!world.IsAlive) return false;
             if (entry.WorldId == world.Id && entry.Prefab.IsValid()) {

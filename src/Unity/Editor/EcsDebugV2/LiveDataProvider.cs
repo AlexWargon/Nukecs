@@ -792,9 +792,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             {
                 var uObj = val as UnityEngine.Object;
                 if (uObj != null)
-                    fields.Add((fi.Name, FieldValue.FromObjectRef(ft.Name, uObj.name, uObj.GetInstanceID(), true)));
+                    fields.Add((fi.Name, FieldValue.FromObjectRef(ft.Name, uObj.name, UnityObjectId.Of(uObj), true)));
                 else
-                    fields.Add((fi.Name, FieldValue.FromObjectRef(ft.Name, "null", 0, true)));
+                    fields.Add((fi.Name, FieldValue.FromObjectRef(ft.Name, "null", default, true)));
             }
             else if (ft.IsEnum)
             {
@@ -855,9 +855,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     if (typeof(UnityEngine.Object).IsAssignableFrom(innerType))
                     {
                         if (resolvedObj is UnityEngine.Object uObj2)
-                            fields.Add((fi.Name, FieldValue.FromObjectRef(innerType.Name, uObj2.name, uObj2.GetInstanceID(), true)));
+                            fields.Add((fi.Name, FieldValue.FromObjectRef(innerType.Name, uObj2.name, UnityObjectId.Of(uObj2), true)));
                         else
-                            fields.Add((fi.Name, FieldValue.FromObjectRef(innerType.Name, "null", 0, true)));
+                            fields.Add((fi.Name, FieldValue.FromObjectRef(innerType.Name, "null", default, true)));
                     }
                     else
                     {
@@ -935,7 +935,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     fi.SetValue(obj, Enum.ToObject(ft, value.Type == FieldValueType.Enum ? value.EnumRawValue : (long)value.NumberVal));
                 else if (typeof(UnityEngine.Object).IsAssignableFrom(ft))
                 {
-                    var newObj = EditorUtility.InstanceIDToObject(value.ObjectInstanceId);
+                    var newObj = UnityObjectId.EditorToObject(value.ObjectInstanceId);
                     fi.SetValue(obj, newObj);
                 }
                 else if (ft.IsGenericType && ft.GetGenericTypeDefinition() == typeof(ObjectRef<>))
@@ -947,7 +947,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
 
                     if (typeof(UnityEngine.Object).IsAssignableFrom(innerType))
                     {
-                        var newObj = EditorUtility.InstanceIDToObject(value.ObjectInstanceId);
+                        var newObj = UnityObjectId.EditorToObject(value.ObjectInstanceId);
                         valueProp.SetValue(boxedRef, newObj);
                     }
                     else

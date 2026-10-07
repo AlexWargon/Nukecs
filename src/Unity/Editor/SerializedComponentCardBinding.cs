@@ -78,11 +78,11 @@ namespace Wargon.Nukecs.Editor
                     case SerializedPropertyType.ObjectReference:
                         var obj = child.objectReferenceValue;
                         value = FieldValue.FromObjectRef(ResolveFieldType(key)?.Name ?? "Object",
-                            obj ? obj.name : "null", obj ? obj.GetInstanceID() : 0, true);
+                            obj ? obj.name : "null", UnityObjectId.Of(obj), true);
                         break;
                     default:
                         if (child.hasVisibleChildren) { ReadChildren(child, key + ".", info); continue; }
-                        value = FieldValue.FromObjectRef(child.type, "read-only", 0);
+                        value = FieldValue.FromObjectRef(child.type, "read-only", default);
                         break;
                 }
                 info.Fields.Add((key, value));
@@ -116,7 +116,7 @@ namespace Wargon.Nukecs.Editor
                 case SerializedPropertyType.Float: field.doubleValue = value.NumberVal; break;
                 case SerializedPropertyType.Enum: field.intValue = unchecked((int)value.EnumRawValue); break;
                 case SerializedPropertyType.ObjectReference:
-                    field.objectReferenceValue = EditorUtility.InstanceIDToObject(value.ObjectInstanceId); break;
+                    field.objectReferenceValue = UnityObjectId.EditorToObject(value.ObjectInstanceId); break;
                 case SerializedPropertyType.Integer:
                 case SerializedPropertyType.Character:
                 case SerializedPropertyType.LayerMask: field.longValue = checked((long)value.NumberVal); break;
