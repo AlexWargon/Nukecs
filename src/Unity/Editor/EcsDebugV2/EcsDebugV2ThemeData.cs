@@ -14,45 +14,44 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         // Schema marker for migration: bump when the built-in palette/metrics change
         // so that stale theme JSON on disk gets regenerated.
         public int SchemaVersion = CurrentSchemaVersion;
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
-        // ── Graphite + Amber palette ──────────────────────────────────────────────
-        public Color Background = new (0x12 / 255f, 0x14 / 255f, 0x19 / 255f);
-        public Color Panel = new (0x1A / 255f, 0x1D / 255f, 0x24 / 255f);
-        public Color PanelElevated = new (0x22 / 255f, 0x26 / 255f, 0x2F / 255f);
-        // Glass border = translucent white, not a solid color.
-        public Color PanelBorder = new Color(1f, 1f, 1f, 0.06f);
-        // Amber = primary accent (active tab, selection, primary actions).
-        public Color Lime = new (0xE8 / 255f, 0xB2 / 255f, 0x66 / 255f);
-        public Color Orange = new (0xE0 / 255f, 0x7A / 255f, 0x4F / 255f);
-        public Color Red = new (0xE0 / 255f, 0x55 / 255f, 0x55 / 255f);
-        public Color Yellow = new (0xF5 / 255f, 0xD5 / 255f, 0x47 / 255f);
-        // Secondary muted lime used for the TypeEntity color only.
-        public Color TypeEntitySecondary = new (0x9C / 255f, 0xC7 / 255f, 0x6E / 255f);
-        public Color TypeNumber = new (0x6F / 255f, 0xB8 / 255f, 0xD6 / 255f);
-        public Color TypeString = new (0xE8 / 255f, 0xB2 / 255f, 0x66 / 255f);
-        public Color TypeBool = new (0xB9 / 255f, 0x8F / 255f, 0xD9 / 255f);
-        public Color TypeEntity = new (0x9C / 255f, 0xC7 / 255f, 0x6E / 255f);
-        public Color MutedText = new (0x7A / 255f, 0x7E / 255f, 0x88 / 255f);
-        public Color Foreground = new (0xE4 / 255f, 0xE6 / 255f, 0xEB / 255f);
+        // ── Graphite + Lime palette (Default theme) ───────────────────────────────
+        public Color Background = new (0x1A / 255f, 0x1C / 255f, 0x24 / 255f);
+        public Color Panel = new (0x1F / 255f, 0x21 / 255f, 0x29 / 255f);
+        public Color PanelElevated = new (0x26 / 255f, 0x27 / 255f, 0x2E / 255f);
+        public Color PanelBorder = new (0x32 / 255f, 0x34 / 255f, 0x3D / 255f);
+        // Lime = primary accent (active tab, selection, primary actions).
+        public Color Lime = new (0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
+        public Color Orange = new (0xF5 / 255f, 0x80 / 255f, 0x0A / 255f);
+        public Color Red = new (0xD9 / 255f, 0x26 / 255f, 0x26 / 255f);
+        public Color Yellow = new (0xF5 / 255f, 0xD8 / 255f, 0x04 / 255f);
+        // Secondary lime used for the TypeEntity color only.
+        public Color TypeEntitySecondary = new (0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
+        public Color TypeNumber = new (0x5C / 255f, 0xC8 / 255f, 0xE6 / 255f);
+        public Color TypeString = new (0xF5 / 255f, 0x9E / 255f, 0x38 / 255f);
+        public Color TypeBool = new (0xC0 / 255f, 0x5E / 255f, 0xDB / 255f);
+        public Color TypeEntity = new (0x8F / 255f, 0xD8 / 255f, 0x30 / 255f);
+        public Color MutedText = new (0x8A / 255f, 0x8D / 255f, 0x9A / 255f);
+        public Color Foreground = new (0xDD / 255f, 0xDE / 255f, 0xE3 / 255f);
 
-        // ── Glass metrics ─────────────────────────────────────────────────────────
-        public int BorderRadius = 6;
-        public int CardRadius = 10;
-        public int PaddingH = 10;
-        public int PaddingV = 6;
-        public int HeaderPaddingH = 12;
-        public int HeaderPaddingV = 9;
+        // ── Metrics ───────────────────────────────────────────────────────────────
+        public int BorderRadius = 4;
+        public int CardRadius = 6;
+        public int PaddingH = 8;
+        public int PaddingV = 4;
+        public int HeaderPaddingH = 10;
+        public int HeaderPaddingV = 8;
         public int FontBody = 13;
         public int FontSmall = 11;
         public int FieldName = 12;
         public int FontMicro = 10;
-        public int FontMini = 9;
-        public int ComponentHeaderHeight = 26;
+        public int FontMini = 10;
+        public int ComponentHeaderHeight = 22;
         public bool AdaptiveSkin;
         public Color ForegroundDark = new (0.88f, 0.88f, 0.88f, 1f);
         public Color ForegroundLight = new (0f, 0f, 0f, 0.85f);
-        public Color MutedTextDark = new (0.55f, 0x55 / 255f, 0.6f, 1f);
+        public Color MutedTextDark = new (0.55f, 0.55f, 0.6f, 1f);
         public Color MutedTextLight = new (0.4f, 0.4f, 0.4f, 0.7f);
 
         private static string ThemesDir => Path.Combine(Application.dataPath, "Nukecs", "EcsDebugV2Themes");
@@ -171,6 +170,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 FontSmall = 11,
                 FontMicro = 10,
                 FontMini = 9,
+                ComponentHeaderHeight = 26,
                 Background = new Color(0f, 0f, 0f, 0.12f),
                 Panel = new Color(1f, 1f, 1f, 0.04f),
                 PanelElevated = new Color(1f, 1f, 1f, 0.06f),
@@ -208,6 +208,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 FontSmall = 11,
                 FontMicro = 10,
                 FontMini = 9,
+                ComponentHeaderHeight = 26,
                 Background = new Color(0.153f, 0.157f, 0.133f),
                 Panel = new Color(0.243f, 0.239f, 0.196f),
                 PanelElevated = new Color(0.286f, 0.282f, 0.243f),
