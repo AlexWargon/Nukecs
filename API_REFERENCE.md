@@ -1322,7 +1322,7 @@ For an ordinary component query, the current generator requires:
   Local functions, nested loops in the selected loop, multiple loops over the
   primary query, and `return`/`break`/`goto`/`yield` inside it cause fallback.
   Ref locals, constants captured from outside the loop, anonymous types, and
-  captured names beginning with `_` or named `state`/`range` are unsupported.
+  captured names beginning with `_` are unsupported.
 - Recognizable iteration variables and component types, with **no iterated
   `IPoolComponent` types**. Explicit `.iter()` / `.par_iter()` calls always use
   runtime iterators, including inside generated systems.

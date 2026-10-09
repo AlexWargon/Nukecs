@@ -17,5 +17,6 @@ reference assemblies without running gameplay or importing invalid scripts into
 Unity. Verifies contextual Single/Parallel generation compiles, RequireBatch
 errors for unsupported bodies, class-scope binding of system bodies (nested
 partial jobs, private helpers, constants, nested types, user types shadowing
-framework names, non-partial fallback, NUKECS010/013) and Any<> generation and
-diagnostics (NUKECS020/021). Unity ignores the Tests~ directory.
+framework names, non-partial fallback, NUKECS010/013), Any<> generation and
+diagnostics (NUKECS020/021), locals named state/range, custom State parameter
+names, and SystemDependencyInfo component access modes. Unity ignores the Tests~ directory.

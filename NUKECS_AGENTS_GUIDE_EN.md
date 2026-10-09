@@ -254,7 +254,7 @@ deferred and must not invalidate the active traversal's data.
 Multiple loops over the primary query, loops nested inside the selected loop,
 local functions, and return/break/goto/yield inside it cause fallback.
 Captured ref locals, constants, anonymous types, and names starting with `_`
-or named `state`/`range` are unsupported. Explicit `.iter()` and `.par_iter()`
+are unsupported. Explicit `.iter()` and `.par_iter()`
 retain runtime iteration and are not rewritten.
 
 Use `[System, BurstCompile, RequireBatch]` when batching is required: fallback

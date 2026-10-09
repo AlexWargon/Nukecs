@@ -259,4 +259,88 @@ ExpectError("AnyRedundantWith", "NUKECS021", "using Wargon.Nukecs; namespace Pro
     "public static partial class ProbeSystems { [System] public static void Pick(ref Query<ProbeA, (With<ProbeB>, Any<ProbeB, ProbeC>)> query) { foreach (ref var a in query) a.V++; } } }",
     "ProbeB");
 
+// ---------------- reserved generated names ----------------
+// User locals named state/range (no State parameter) must not collide with the generated
+// OnUpdateBatched/OnUpdateBatchedParallel parameters; captured ones are forwarded.
+ScopeCase("LocalStateAndRange", "using Wargon.Nukecs; using Unity.Burst; namespace Probe { " + Components +
+    "public static partial class ProbeSystems { " +
+    "  [System, BurstCompile, RequireBatch] public static void Tick(ref Query<ProbeValue> query) { " +
+    "    var state = 2f; var range = 3f; foreach (ref var value in query) value.Value += state * range; } } }",
+    (output, diagnostics) =>
+    {
+        ExpectClean("LocalStateAndRange", (output, diagnostics));
+        ExpectPointerBatch("LocalStateAndRange", output);
+    });
+// A State parameter with a custom name is visible by that name inside the walkers.
+ScopeCase("CustomStateName", "using Wargon.Nukecs; using Unity.Burst; namespace Probe { " + Components +
+    "public static partial class ProbeSystems { " +
+    "  [System, BurstCompile, RequireBatch] public static void Tick(ref Query<ProbeValue> query, ref State st) { " +
+    "    foreach (ref var value in query) value.Value += st.Time.DeltaTime; } } }",
+    (output, diagnostics) =>
+    {
+        ExpectClean("CustomStateName", (output, diagnostics));
+        ExpectPointerBatch("CustomStateName", output);
+    });
+
+// ---------------- SystemDependencyInfo component access ----------------
+string Access(string generated, string component)
+{
+    var marker = $"ComponentType<global::Probe.{component}>.Index, SystemAccessMode.";
+    var at = generated.IndexOf(marker, StringComparison.Ordinal);
+    if (at < 0) return "None";
+    var start = at + marker.Length;
+    var end = generated.IndexOf(')', start);
+    return generated.Substring(start, end - start);
+}
+
+void AccessCase(string name, string parameters, string body, params (string Component, string Mode)[] expected)
+{
+    ScopeCase(name, "using Wargon.Nukecs; using Unity.Burst; namespace Probe { " + Components +
+        "public struct ProbeEvent { public int V; } " +
+        "public static partial class ProbeSystems { " +
+        "  static void Bump(ref int v) => v++; static void Take(Query<ProbeA, ProbeB> q) { } " +
+        "  [System] public static unsafe void Tick(" + parameters + ") { " + body + " } } }",
+        (output, diagnostics) =>
+        {
+            ExpectClean(name, (output, diagnostics));
+            var generated = Generated(output);
+            foreach (var (component, mode) in expected)
+            {
+                var actual = Access(generated, component);
+                if (actual != mode) throw new Exception($"{name}: {component} expected {mode}, got {actual}");
+            }
+        });
+}
+
+AccessCase("AccessViaIter", "ref Query<ProbeA, ProbeB> query",
+    "foreach (var (a, b) in query.iter()) a.Get.V += b.Read.V;",
+    ("ProbeA", "ReadWrite"), ("ProbeB", "Read"));
+AccessCase("AccessViaParIter", "ref Query<ProbeA, ProbeB> query",
+    "foreach (var (a, b) in query.par_iter()) a.Get.V = b.Read.V;",
+    ("ProbeA", "ReadWrite"), ("ProbeB", "Read"));
+AccessCase("AccessAfterEventLoop", "ref Query<ProbeA, ProbeB> query, ref Events<ProbeEvent> events",
+    "var n = 0; foreach (ref var ev in events) n += ev.V; foreach (var (a, b) in query) a.Get.V += n + b.Read.V;",
+    ("ProbeA", "ReadWrite"), ("ProbeB", "Read"));
+AccessCase("AccessPointerLoop", "ref Query<ProbeA, ProbeB> query",
+    "foreach (var (a, b) in query.iter_unsafe()) a->V = b->V;",
+    ("ProbeA", "ReadWrite"), ("ProbeB", "Read"));
+AccessCase("AccessIncrement", "ref Query<ProbeA, ProbeB> query",
+    "foreach (var (a, b) in query) { a.Get.V++; var x = b.Get.V; }",
+    ("ProbeA", "ReadWrite"), ("ProbeB", "Read"));
+AccessCase("AccessRefArgument", "ref Query<ProbeA, ProbeB> query",
+    "foreach (var (a, b) in query) Bump(ref b.Get.V);",
+    ("ProbeA", "Read"), ("ProbeB", "ReadWrite"));
+AccessCase("AccessSecondQuery", "ref Query<ProbeA, ProbeB> query, ref Query<ProbeC> other",
+    "foreach (var (a, b) in query) { var x = a.Read.V; } foreach (ref var c in other) c.V = 1;",
+    ("ProbeA", "Read"), ("ProbeB", "Read"), ("ProbeC", "ReadWrite"));
+AccessCase("AccessOtherEntity", "ref Query<ProbeA, ProbeB> query, ref State state",
+    "foreach (var (a, b) in query) { } state.World.GetEntity(1).Get<ProbeD>().V = 3;",
+    ("ProbeD", "ReadWrite"));
+AccessCase("AccessUntrackedQuery", "ref Query<ProbeA, ProbeB> query",
+    "Take(query);",
+    ("ProbeA", "ReadWrite"), ("ProbeB", "ReadWrite"));
+AccessCase("AccessTagFilter", "ref Query<ProbeA, ProbeTag> query",
+    "foreach (var (a, t) in query) a.Get.V = 1;",
+    ("ProbeA", "ReadWrite"), ("ProbeTag", "Read"));
+
 Console.WriteLine($"{passed}/{passed} generator regressions passed.");

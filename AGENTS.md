@@ -330,7 +330,9 @@ Parallel envelopes execute per work range, including an empty query's scheduled
 range. Shared side effects require thread-safe operations. Multiple primary-query
 loops, nested loops in the selected body, local functions and loop-local
 return/break/goto/yield fall back conservatively. Captured ref locals, constants,
-anonymous types, and names starting with `_` or named `state`/`range` are unsupported.
+anonymous types, and captured names starting with `_` are unsupported. Generated
+State/range parameters are named `__state`/`__range` (or the user's State parameter
+name), so locals named `state`/`range` are fine.
 
 Generated runners implement `ISystemCompilationInfoProvider`: `CompilationInfo`
 exposes `Kind`, `FallbackReason`, and `HasSurroundingCode`. `[RequireBatch]` turns
@@ -1269,6 +1271,14 @@ source. Born from the 2026-08-25 crash-hunt (phantom types via CopyUnion OOB).
 
 - Opt-in: `systems.UseDependencyGraph()`; disable with `UseDependencyGraph(false)`.
   The graph is built from onUpdate runners and invalidated when systems change.
+- Generated component access is resolved from symbols (`SrcGen.QueryComponentAccess`):
+  every data component of every Query parameter is recorded; loop variables of
+  `foreach` over `query`, `iter()`, `par_iter()` and `*_unsafe()` are classified, and any
+  use not provably a read (assignment, `++`, `->` write, `ref`/`out`, method call,
+  escaping `Ref<T>`/pointer) is a write. A query used any other way (passed on,
+  `iter_chunk`) marks all its data components ReadWrite; tags are always Read.
+  `entity.Get<T>()`/`Set`/`Has` on any entity are recorded too. Any/None/With are filters,
+  not accesses.
 - `ISystemDependencyInfoProvider.DependencyInfo` reports component, resource,
   event and ECB accesses; `IThreadModeProvider.Mode` reports the execution mode.
   Conflicting nodes are ordered by registration index; independent nodes can
