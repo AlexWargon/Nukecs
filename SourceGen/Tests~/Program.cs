@@ -282,6 +282,35 @@ ScopeCase("CustomStateName", "using Wargon.Nukecs; using Unity.Burst; namespace 
         ExpectPointerBatch("CustomStateName", output);
     });
 
+// Errors in the copied body (envelope and loop, in every generated walker/dispatcher copy)
+// must point at the user's file and line, not at the generated sources.
+ScopeCase("LineMapping", "using Wargon.Nukecs; using Unity.Burst; namespace Probe { " + Components + "\n" +
+    "public static partial class ProbeSystems {\n" +                                          // line 2
+    "  [System, BurstCompile] public static void Tick(ref Query<ProbeValue> query, ref State state) {\n" + // 3
+    "    float dt = MissingBefore();\n" +                                                       // 4
+    "    foreach (ref var value in query)\n" +                                                 // 5
+    "    {\n" +                                                                                // 6
+    "      value.Value += MissingInLoop(dt);\n" +                                              // 7
+    "    }\n" +                                                                                // 8
+    "    MissingAfter();\n" +                                                                  // 9
+    "  } } }",
+    (output, diagnostics) =>
+    {
+        var errors = diagnostics.Where(d => d.Id == "CS0103").ToArray();
+        if (errors.Length == 0) throw new Exception("LineMapping: expected CS0103 errors");
+        foreach (var error in errors)
+        {
+            var span = error.Location.GetMappedLineSpan();
+            var name = error.GetMessage();
+            var expectedLine = name.Contains("MissingBefore") ? 4 : name.Contains("MissingInLoop") ? 7 : name.Contains("MissingAfter") ? 9 : -1;
+            if (span.Path != "BatchProbe.cs" || span.StartLinePosition.Line + 1 != expectedLine)
+                throw new Exception($"LineMapping: {name} mapped to {span.Path}:{span.StartLinePosition.Line + 1}, expected BatchProbe.cs:{expectedLine}");
+        }
+        // the loop body must be reported from the batched walkers too, not only from OnUpdate
+        if (errors.Count(e => e.GetMessage().Contains("MissingInLoop")) < 3)
+            throw new Exception("LineMapping: walker copies of the loop body were not compiled/mapped");
+    });
+
 // ---------------- SystemDependencyInfo component access ----------------
 string Access(string generated, string component)
 {

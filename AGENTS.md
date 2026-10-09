@@ -332,7 +332,11 @@ loops, nested loops in the selected body, local functions and loop-local
 return/break/goto/yield fall back conservatively. Captured ref locals, constants,
 anonymous types, and captured names starting with `_` are unsupported. Generated
 State/range parameters are named `__state`/`__range` (or the user's State parameter
-name), so locals named `state`/`range` are fine.
+name), so locals named `state`/`range` are fine. Every copy of user code carries
+`#line` mapping: the contextual envelope keeps the original body layout (the
+dispatch call is padded with the loop's line count) and each rewritten loop-body
+statement in the walkers gets its source line, so errors and debugger steps land in
+the user's file. Keep that layout when changing body emission.
 
 Generated runners implement `ISystemCompilationInfoProvider`: `CompilationInfo`
 exposes `Kind`, `FallbackReason`, and `HasSurroundingCode`. `[RequireBatch]` turns
