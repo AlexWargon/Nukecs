@@ -32,7 +32,7 @@ namespace Wargon.Nukecs.Tests
         public void OnUpdate(ref World world) { }
     }
 
-    public static class TmPoolSystems
+    public static partial class TmPoolSystems
     {
         [System]
         public static unsafe void SumPoolSystem(

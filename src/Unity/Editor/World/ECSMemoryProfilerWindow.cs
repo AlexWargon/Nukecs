@@ -218,6 +218,7 @@ namespace Wargon.Nukecs.Editor
                 var q = w->queries.Ptr[i].Ptr;
                 total += q->with.GetMemorySizeUsed();
                 total += q->none.GetMemorySizeUsed();
+                total += q->any.GetMemorySizeUsed();
             }
             return total;
         }

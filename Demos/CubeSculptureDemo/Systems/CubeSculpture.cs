@@ -7,7 +7,7 @@ using Wargon.Nukecs.Transforms;
 namespace Wargon.Nukecs.Demos.CubeSculpture
 {
     [BurstCompile]
-    public class CubeSculpture : ISystemsGroup
+    public partial class CubeSculpture : ISystemsGroup
     {
         public void Build(Systems systems, ref World world)
         {

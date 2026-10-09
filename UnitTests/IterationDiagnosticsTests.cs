@@ -13,7 +13,7 @@ namespace Wargon.Nukecs.Tests
     public struct DbgC3 : IComponent { public Unity.Mathematics.float3 val; }
     public struct DbgC4 : IComponent { public Unity.Mathematics.float3 val; }
 
-    public static class DbgIterSystems
+    public static partial class DbgIterSystems
     {
         [System]
         public static void ManagedIterSystem(ref Query<DbgPos, DbgVel> query, ref State state)

@@ -687,6 +687,29 @@ namespace Wargon.Nukecs.Editor
                 AddComponentChip(typeName, Theme.RemoveBtn);
             }
 
+            // Any group (at least one required)
+            var anyLabel = new Label("Any (At Least One)")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 12,
+                    color = Theme.TextPrimary,
+                    marginTop = 12,
+                    marginBottom = 4
+                }
+            };
+            _inspectorView.Add(anyLabel);
+
+            foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
+            {
+                // Contains: type registry grows via lazy registration past query mask capacity
+                if (!q.any.IsCreated || !q.any.Contains(typeIdx)) continue;
+                var t = ComponentTypeMap.GetType(typeIdx);
+                var typeName = t != null ? t.Name : $"Type {typeIdx}";
+                AddComponentChip(typeName, Theme.Accent);
+            }
+
             // Matching Archetypes
             var matchLabel = new Label($"Matching Archetypes ({q.matchingArchetypes.length})")
             {

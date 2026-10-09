@@ -401,6 +401,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                     ref var q = ref uw->queries.Ptr[i].Ref;
                     var withList = new List<string>();
                     var withoutList = new List<string>();
+                    var anyList = new List<string>();
 
                     foreach (var typeIdx in ComponentTypeMap.TypesIndexes)
                     {
@@ -419,6 +420,12 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                             var t = ComponentTypeMap.GetType(typeIdx);
                             withoutList.Add(t?.Name ?? $"Type_{typeIdx}");
                         }
+
+                        if (q.any.Contains(typeIdx))
+                        {
+                            var t = ComponentTypeMap.GetType(typeIdx);
+                            anyList.Add(t?.Name ?? $"Type_{typeIdx}");
+                        }
                     }
 
                     _queryList.Add(new QueryInfo
@@ -427,6 +434,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         name = withList.Count > 0 ? string.Join("+", withList) : $"Query_{q.Id}",
                         with = withList,
                         without = withoutList,
+                        any = anyList,
                         matched = q.count,
                         lastRunMs = 0
                     });

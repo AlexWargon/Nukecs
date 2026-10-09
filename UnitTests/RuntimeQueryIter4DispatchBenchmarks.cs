@@ -51,7 +51,7 @@ namespace Wargon.Nukecs.Tests.RuntimeDispatch
 }
 namespace Wargon.Nukecs.Tests
 {
-    public static class RuntimeDispatchHarness
+    public static partial class RuntimeDispatchHarness
     {
         [System]
         public static void InlineControl(ref Query<RuntimeQi4A,RuntimeQi4B,RuntimeQi4C,RuntimeQi4D> query)

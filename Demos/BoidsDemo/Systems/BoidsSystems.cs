@@ -7,7 +7,7 @@ using Random = Unity.Mathematics.Random;
 
 namespace Wargon.Nukecs.Demos.Boids
 {
-    public static class BoidsDemo
+    public static partial class BoidsDemo
     {
         [System]
         public static void SpawnBoids(ref State state, ref Res<BoidCount> boidCount)

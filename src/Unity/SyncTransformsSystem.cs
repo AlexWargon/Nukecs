@@ -2,7 +2,7 @@
 
 namespace Wargon.Nukecs.Transforms
 {
-    public static class Systems
+    public static partial class Systems
     {
         public struct SyncTransformsSystem : ISystem, IOnCreate
         {

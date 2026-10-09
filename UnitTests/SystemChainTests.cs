@@ -75,7 +75,7 @@ namespace Wargon.Nukecs.Tests
         public byte _;
     }
 
-    public static class ChainSystems
+    public static partial class ChainSystems
     {
         [System]
         public static void AccelerationToVelocity(

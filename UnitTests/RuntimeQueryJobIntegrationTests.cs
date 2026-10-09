@@ -226,7 +226,7 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    public static class RuntimeQueryIntegrationSystems
+    public static partial class RuntimeQueryIntegrationSystems
     {
         [System, BurstCompile]
         public static void UpdateRange(ref Query<IntegrationA1, IntegrationP2, IntegrationA3, IntegrationP4> query)

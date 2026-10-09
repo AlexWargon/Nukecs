@@ -9,7 +9,7 @@ namespace Wargon.Nukecs.Tests
     public struct RuntimeQi4C : IComponent { public float3 Value; }
     public struct RuntimeQi4D : IComponent { public float3 Value; }
 
-    public static class RuntimeQueryIter4GeneratedHarness
+    public static partial class RuntimeQueryIter4GeneratedHarness
     {
         [System]
         public static void PagedPointerIteration(

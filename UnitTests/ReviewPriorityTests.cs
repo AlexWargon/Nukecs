@@ -7,7 +7,7 @@ namespace Wargon.Nukecs.Tests
     public struct ReviewPoolValue : IComponent, IPoolComponent { public int Visits; }
     public struct ReviewInlineValue : IComponent { public int Visits; }
     public struct ReviewSparseTag : IComponent { }
-    public static class ReviewPoolSystems
+    public static partial class ReviewPoolSystems
     {
         [System, BurstCompile] public static void Boundary(ref State state) { }
         [System, BurstCompile]

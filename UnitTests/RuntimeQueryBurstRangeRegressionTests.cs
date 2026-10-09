@@ -104,7 +104,7 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    public static class BurstRangeSystems
+    public static partial class BurstRangeSystems
     {
         [System, BurstCompile]
         public static void Update(ref Query<BurstRange1, BurstRange2, BurstRange3, BurstRange4> query)

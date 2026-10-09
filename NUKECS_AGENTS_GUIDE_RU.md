@@ -78,7 +78,7 @@ namespace Game.Ecs
         }
     }
 
-    public static class GameSystems
+    public static partial class GameSystems
     {
         [System]
         public static void Initialize(ref State state)
@@ -105,6 +105,12 @@ namespace Game.Ecs
 - Регистрируй новые системы как статические методы с `[System]` через
   `.Add(GameSystems.Method, Threads.Parallel)`; для lifecycle используй
   `path: SystemPath.Start / Update / FixedUpdate / Destroy`.
+- Каждый класс с системами (и все внешние классы) объявляй `partial`,
+  не-generic и не ниже `internal`. Тело системы компилируется внутри этого
+  класса: хелперы, константы и вложенные типы, включая private, вызывай по
+  короткому имени (`RouteBlocked(...)`, `GateWait`), без префикса имени класса.
+  Предупреждение `NUKECS012` (нет `partial`) считай дефектом. Не объявляй
+  члены с именами, начинающимися с `__`.
 - Не создавай новые `ISystem`/`IEntityJobSystem` реализации с регистрацией
   `.Add<MySystem>()`. Это поддерживаемый API существующего кода; новый код использует метод-системы.
 - `Update()` содержит получение `dt` и `updateSystems.OnUpdate(dt, Time.time)`.
@@ -236,6 +242,16 @@ public static void Move(ref Query<Position, Velocity> query, ref State state)
 на несколько сущностей. Для sparse/tag-фильтров генератор выбирает подходящий
 archetype-проход; pool-компоненты отключают обычный batch rewrite.
 
+Фильтры идут последним generic-параметром, несколько фильтров объединяются в
+кортеж: `Query<A, B, (With<C>, Any<D, E>, None<F>)>`. `Any<...>` означает «хотя бы
+один из»; все Any одного запроса образуют одну группу. Типы фильтров не попадают
+в кортеж цикла и не считаются доступом к компонентам. Предпочитай `Any` двум
+системам или ручной ветке `Has<T>()`. Для плотного быстрого прохода держи в `Any`
+обычные inline-компоненты; tag/pool в `Any` работают точно, но могут переключить
+запрос на archetype-проход, когда в одном хранилище смешаны подходящие и
+неподходящие сущности. Не указывай тип одновременно в `Any` и `None`/обязательных
+компонентах (`NUKECS020`/`NUKECS021`).
+
 Один foreach — необходимая форма для этой оптимизации, но не гарантия:
 тело и типы должны поддерживаться анализатором. Метод должен выполняться
 через сгенерированный runner, зарегистрированный в `Systems`; прямой вызов
@@ -291,7 +307,7 @@ public struct DamageRequest : IPoolComponent
     public float Amount;
 }
 
-public static class DamageSystems
+public static partial class DamageSystems
 {
     [System, BurstCompile]
     public static void ApplyDamage(ref Query<Entity, Health, DamageRequest> query)
@@ -329,7 +345,7 @@ public struct MovedEvent
     public float3 Position;
 }
 
-public static class MovementEvents
+public static partial class MovementEvents
 {
     [System, BurstCompile]
     public static void Produce(
@@ -480,6 +496,7 @@ Fluent query создавай один раз в setup и сохраняй. Не
   вызывает `OnStart()`; `Update()` только передаёт время в `OnUpdate()`.
 - В `OnDestroy()` есть `world.Dispose()` и общий reset владельца сессии.
 - Нет новых регистраций `.Add<MySystem>()` и managed-кода внутри Burst-систем.
+- Каждый класс с `[System]`-методами `partial`; в сборке нет `NUKECS012`.
 - Parallel-системы соблюдают владение данными; явный обход использует `par_iter()`.
 - У событий есть потребитель и cleanup; повторные события не теряются из-за
   выбора одного payload-компонента вместо потока.

@@ -5,7 +5,7 @@ using Transform = Wargon.Nukecs.Transforms.Transform;
 
 namespace Wargon.Nukecs.Demos.HotReload
 {
-    public class CubeDemo
+    public partial class CubeDemo
     {
         [System, BurstCompile]
         public static unsafe void RotateCubeSystem(

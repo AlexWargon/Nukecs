@@ -27,7 +27,7 @@ namespace Wargon.Nukecs.Tests
             pos.Y += vel.Y * state.Time.DeltaTime;
         }
     }
-    public static class TestSystems
+    public static partial class TestSystems
     {
         [System][BurstCompile]
         public static void Movement2(ref Query<PositionTest, VelocityTest> query, ref State state)
@@ -620,7 +620,7 @@ namespace Wargon.Nukecs.Tests
         }
     }
 
-    public static class QueryT1TOptionTestSystems
+    public static partial class QueryT1TOptionTestSystems
     {
         [System]
         public static void WriteThroughVal(ref Query<PositionTest, AdvancedTests.TagTest> query)

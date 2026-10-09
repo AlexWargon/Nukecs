@@ -29,7 +29,7 @@ namespace Wargon.Nukecs.Tests
         public Entity value;
         public float SpawnDelay;
     }
-    public static class BulletSystems
+    public static partial class BulletSystems
     {
         [System]
         public static void SpawnPrefab(ref Query<PrefabRef> query, ref State state)

@@ -199,7 +199,9 @@ namespace Wargon.Nukecs.HotReload
                                                            BindingFlags.Static))
                         if (method.GetCustomAttributes(typeof(SystemAttribute), false).Length > 0)
                         {
-                            var key = $"{type.Name}_{method.Name}Job";
+                            // generated runners report the stable "Class_Method" name
+                            // (the job struct is nested in the system class now)
+                            var key = $"{type.Name}_{method.Name}";
                             _runnerNameCache.TryAdd(key, method);
                         }
                 }

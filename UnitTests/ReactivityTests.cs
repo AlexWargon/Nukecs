@@ -38,7 +38,7 @@ namespace Wargon.Nukecs.Tests
         public float Intensity;
     }
 
-    public static class ChangedQueryTestSystems
+    public static partial class ChangedQueryTestSystems
     {
         [System, BurstCompile]
         public static void ProcessChangedHealth(ref Query<ReactiveHealth, Changed<ReactiveHealth>> query, ref State state)

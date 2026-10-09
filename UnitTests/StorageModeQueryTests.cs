@@ -31,7 +31,7 @@ namespace Wargon.Nukecs.Tests
         public void OnUpdate(ref World world) { }
     }
 
-    public static class SmStorageModeSystems
+    public static partial class SmStorageModeSystems
     {
         // inline-only query → generated batch path takes the storage loop
         [System]

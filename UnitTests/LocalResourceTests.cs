@@ -16,7 +16,7 @@ namespace Wargon.Nukecs.Tests
     }
     public struct LocalVisited : IComponent { public int Value; }
 
-    public static class LocalSystems
+    public static partial class LocalSystems
     {
         [System, BurstCompile]
         public static void Increment(ref Local<LocalCounter> local) { local.Ref.Value++; }

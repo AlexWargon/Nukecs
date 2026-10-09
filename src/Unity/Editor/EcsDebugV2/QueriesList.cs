@@ -173,6 +173,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 tagRow.Add(EcsDebugV2Theme.CreateFilterTag("+" + w, true));
             foreach (var w in query.without)
                 tagRow.Add(EcsDebugV2Theme.CreateFilterTag("\u2212" + w, false));
+            foreach (var w in query.any)
+                tagRow.Add(EcsDebugV2Theme.CreateFilterTag("\u2228" + w, true));
             card.Add(tagRow);
 
             var timeLabel = new Label($"last {query.lastRunMs:F2} ms")

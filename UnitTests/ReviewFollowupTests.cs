@@ -6,7 +6,7 @@ namespace Wargon.Nukecs.Tests
 {
     public struct ReviewStartValue : IComponent { public int Value; }
     public struct ReviewStarted : IComponent { }
-    public static class ReviewStartupSystems
+    public static partial class ReviewStartupSystems
     {
         [System]
         public static void Start(ref Query<Entity, ReviewStartValue> query)

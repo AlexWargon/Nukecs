@@ -17,7 +17,7 @@ namespace Wargon.Nukecs.Tests
         public void OnUpdate(ref World world) { }
     }
 
-    public static class QueryIter4Systems
+    public static partial class QueryIter4Systems
     {
         [System]
         public static void Dense(ref Query<Qi4A, Qi4B, Qi4C, Qi4D> query, ref Res<Qi4Result> result)

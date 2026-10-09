@@ -38,7 +38,7 @@ namespace Wargon.Nukecs.Tests
     }
 
     [BurstCompile]
-    public static class BenchTestSystems
+    public static partial class BenchTestSystems
     {
         [System]
         [BurstCompile]

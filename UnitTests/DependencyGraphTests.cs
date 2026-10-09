@@ -54,7 +54,7 @@ namespace Wargon.Nukecs.Tests
         public float Value;
     }
 
-    public static class GraphDependencySystems
+    public static partial class GraphDependencySystems
     {
         [System]
         public static void MovementSystem(

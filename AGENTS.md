@@ -225,7 +225,8 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 - **Query iteration**: dense storage traversal or matching logical archetypes with gather via `rows[listPos]`; `LA.count == rows.length`, storage.count includes all its logical archetypes.
 - **Component access**: `data.Ptr + componentOffset + row * componentSize`
 - **Storage types/categories**: `StorageType.Archetype` / `StorageType.Pool`; `ComponentCategory.Inline` / `Tag` / `Pool`. Tags have no payload, only a mask bit.
-- **`TOption` in queries**: `None<T>`, `With<T>`, a regular component, or a supported `IFilter`. There is no checked-in `Any<T>` implementation. `Reactivity.Changed<T>` needs the generated batch path, not explicit runtime iter/par_iter.
+- **`TOption` in queries**: `None<T>`, `With<T>`, `Any<T1..T5>`, a regular component, a supported `IFilter`, or a tuple of filters (`(With<C>, Any<D, E>, None<F>)`). Filters are always the last type parameter. `Reactivity.Changed<T>` needs the generated batch path, not explicit runtime iter/par_iter.
+- **`Any` group**: `QueryUnsafe.any` mask; every `Any<>`/`Any(int)` of one query joins ONE group (at least one bit present). Matching: `Archetype.CheckQuery`/`PopulateQueries` call `AnySatisfiedBy(types)` after the none check, including zero-with queries. Pair edges, destroy edges and serialization follow the attached-query lists, so they need no Any logic. Storage mode: an inline Any bit in `inlineMask` satisfies the whole storage; tag/pool Any bits are checked per non-empty logical archetype (`AnyStateOfLogicalArchetypes`): all/none satisfied → dense, mixed → `storageDegraded = 1`. Any types are never iterated and never recorded as accesses. Generator errors: `NUKECS020` (Any∩None), `NUKECS021` (Any∩required).
 - **Component type index**: `ComponentType<T>.Index` — per-type `SharedStatic<ComponentTypeData>` with lazy registration
 - **Alive entity set**: `AliveEntitiesSet` (SparseSet-based) tracks living entity IDs
 - **Events range**: `Events<TEvent>.Range` set per-thread for parallel iteration; `RangeEnumerator` walks `start..end`
@@ -284,6 +285,8 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 - Generates system runners (`ISystemRunner`), query system job runners, and component type registrations
 - Generated output in `NUKECSGEN/` directory at solution root
 - `[System]` attribute marks static methods as ECS systems; source gen creates runner classes
+- The declaring class (and all enclosing types) should be `partial`: the job struct is emitted NESTED in it (`Class.__Method_Job`, file `Class_Method.Job.g.cs`) with the source file's usings and namespace declarations, so the body binds like class code (short/private helpers, constants, nested types, user namespace first). Everything the generator writes there is `global::`-qualified. Non-partial → warning `NUKECS012` and fallback job `__Class_Method_Job` in the user's namespace with `using static`. Errors: `NUKECS010` generic declaring type, `NUKECS011` private/protected declaring type, `NUKECS013` `__` name conflict. External (other-assembly) systems resolve the job via `ResolveExternalJobTypeName`.
+- Runner `Name` is the stable `"Class_Method"` string (hot reload maps runners to methods with it), not the job type name.
 
 ### Generated System Structure
 
@@ -291,7 +294,7 @@ For each `[System]` method, the generator produces:
 - `IXxxSystemJob` interface with `OnUpdate` + `OnUpdateBatched`
 - `IXxxSystemJobExtensions` static class with `QuerySystemJobWrapper<TJob>` struct (Execute dispatch)
 - `IXxxQuerySystemJobRunner<TJob>` runner class (Schedule/Run for Main/Single/Parallel modes)
-- `XxxJob` struct implementing `IXxxSystemJob` (copies user's method body)
+- `Class.__Method_Job` struct implementing `IXxxSystemJob` (copies user's method body; nested in the partial class), and `Xxx_Generated` with `GetDependencyInfo()` and the `SystemActionXxx` delegate in `Wargon.Nukecs`
 
 ### OnUpdateBatched Design
 
@@ -505,7 +508,8 @@ public class MeshData : IRes
 
 ```csharp
 // Thread modes: Main, MainRun, Single, Parallel (default)
-public class GameSystems
+// partial: the system body compiles inside this class (short/private helper calls)
+public partial class GameSystems
 {
     // Query + State
     [System, BurstCompile]
@@ -873,7 +877,7 @@ for (int i = 0; i < reader.Length; i++)
 
 ```csharp
 [BurstCompile]
-public class GameSystemsGroup : ISystemsGroup
+public partial class GameSystemsGroup : ISystemsGroup
 {
     public void Build(Systems systems, ref World world)
     {

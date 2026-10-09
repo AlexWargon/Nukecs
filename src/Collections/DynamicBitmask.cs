@@ -224,6 +224,13 @@ namespace Wargon.Nukecs
             return true;
         }
 
+        /// <summary>True when at least one bit set in <paramref name="other"/> is also set in this mask.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Intersects(ref DynamicBitmask other)
+        {
+            return !ContainsNone(ref other);
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool SequenceEqual(ref DynamicBitmask other)
         {

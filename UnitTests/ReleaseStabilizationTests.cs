@@ -56,7 +56,7 @@ namespace Wargon.Nukecs.Tests
         public void OnUpdate(ref World world) { }
     }
 
-    public static class StabChunkSystems
+    public static partial class StabChunkSystems
     {
         [System, Unity.Burst.BurstCompile, RequireBatch]
         public static void ExpireEntities(ref Query<Entity, Stab1, Stab2> query)

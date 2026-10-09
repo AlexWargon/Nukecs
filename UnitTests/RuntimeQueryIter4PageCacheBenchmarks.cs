@@ -9,7 +9,7 @@ namespace Wargon.Nukecs.Tests
     public struct CacheQi4P2 : IPoolComponent { public float3 Value; }
     public struct CacheQi4P3 : IPoolComponent { public float3 Value; }
     public struct CacheQi4P4 : IPoolComponent { public float3 Value; }
-    public static class RuntimeQueryIter4PageCacheHarness
+    public static partial class RuntimeQueryIter4PageCacheHarness
     {
         [System]
         public static void OneSpecialized(ref Query<RuntimeQi4A,RuntimeQi4B,RuntimeQi4C,CacheQi4P4> query)

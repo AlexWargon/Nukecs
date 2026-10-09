@@ -15,7 +15,7 @@ namespace Wargon.Nukecs.Tests
         public void OnUpdate(ref World world) { }
     }
 
-    public static class BatchRewriteSystems
+    public static partial class BatchRewriteSystems
     {
         [System, BurstCompile, RequireBatch]
         public static void Envelope(ref Query<Entity, BatchValue, None<BatchExcluded>> query,
@@ -108,7 +108,7 @@ namespace Wargon.Nukecs.Tests
         {
             var native = true;
             MarkManaged(ref native);
-            var job = new BatchRewriteSystems_Guarded_Generated.BatchRewriteSystems_GuardedJob();
+            var job = new BatchRewriteSystems.__Guarded_Job();
             if (parallel == 0) job.OnUpdateBatched(ref *query, ref *state);
             else job.OnUpdateBatchedParallel(ref *query, ref *state, new Range(0, query->Count));
             *nativeResult = native ? 1 : -1;

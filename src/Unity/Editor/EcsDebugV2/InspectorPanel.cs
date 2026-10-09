@@ -551,6 +551,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             };
             filterSection.Add(CreateFilterRow("With", query.with, true));
             filterSection.Add(CreateFilterRow("Without", query.without, false));
+            filterSection.Add(CreateFilterRow("Any", query.any, true, "∨"));
             panel.Add(filterSection);
 
             var matchingLabel = new Label("Matching archetypes")
@@ -599,6 +600,18 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                         if (_queryMatchSet.Contains(query.without[wi]))
                         {
                             match = false;
+                            break;
+                        }
+                    }
+                }
+                if (match && query.any.Count > 0)
+                {
+                    match = false;
+                    for (int ai = 0; ai < query.any.Count; ai++)
+                    {
+                        if (_queryMatchSet.Contains(query.any[ai]))
+                        {
+                            match = true;
                             break;
                         }
                     }
@@ -849,7 +862,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
         }
 
-        private static VisualElement CreateFilterRow(string label, List<string> items, bool positive)
+        private static VisualElement CreateFilterRow(string label, List<string> items, bool positive, string prefixOverride = null)
         {
             var row = new VisualElement
             {
@@ -889,7 +902,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
             }
             foreach (var item in items)
             {
-                var prefix = positive ? "+" : "\u2212";
+                var prefix = prefixOverride ?? (positive ? "+" : "\u2212");
                 tags.Add(EcsDebugV2Theme.CreateFilterTag(prefix + item, positive));
             }
             row.Add(tags);

@@ -117,7 +117,7 @@ namespace Wargon.Nukecs.Tests
     // ========== Static [System] methods ==========
 
     [BurstCompile]
-    public struct ResizeStaticSystems
+    public partial struct ResizeStaticSystems
     {
         [BurstCompile, System]
         public static void Increment(ref Query<ResizeTestValue> query)

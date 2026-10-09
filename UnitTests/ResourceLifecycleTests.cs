@@ -41,7 +41,7 @@ namespace Wargon.Nukecs.Tests
         public void Init() { Inits++; Value = 7; }
         public void Dispose() { disposed.Data++; }
     }
-    public static class ResourceLifecycleSystems
+    public static partial class ResourceLifecycleSystems
     {
         [System] public static void Value(ref Res<ResourceLifecycleValue> resource) { }
         [System] public static void Managed(ref ResManaged<ManagedLifecycleValue> resource) { }

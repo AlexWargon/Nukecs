@@ -39,9 +39,15 @@ namespace Wargon.Nukecs
             {
                 ref var q = ref w->queries.Ptr[i].Ref;
                 var withNames = new System.Text.StringBuilder();
+                var noneNames = new System.Text.StringBuilder();
+                var anyNames = new System.Text.StringBuilder();
                 foreach (var t in ComponentTypeMap.TypesIndexes)
+                {
                     if (q.HasWith(t)) withNames.Append(ComponentTypeMap.GetType(t)?.Name).Append(' ');
-                sb.AppendLine($"  query[{i}] with=[{withNames}] matching={q.matchingArchetypes.length} count={q.count}");
+                    if (q.HasNone(t)) noneNames.Append(ComponentTypeMap.GetType(t)?.Name).Append(' ');
+                    if (q.HasAny(t)) anyNames.Append(ComponentTypeMap.GetType(t)?.Name).Append(' ');
+                }
+                sb.AppendLine($"  query[{i}] with=[{withNames}] none=[{noneNames}] any=[{anyNames}] matching={q.matchingArchetypes.length} count={q.count}");
             }
             return sb.ToString();
         }

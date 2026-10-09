@@ -19,7 +19,7 @@ namespace Wargon.Nukecs.Tests
         public int Count;
     }
 
-    public static class EventTestSystems
+    public static partial class EventTestSystems
     {
         [System]
         public static void ProduceEvents(
