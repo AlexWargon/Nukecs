@@ -260,6 +260,41 @@ Nukecs uses a **source-generated** approach. Mark static methods with `[System]`
 [System] // marks the method for source generation
 ```
 
+Declare the containing class and every enclosing class `partial`:
+
+```csharp
+public static partial class MySystems
+{
+    const float Speed = 2f;
+    static float Scale(float v) => v * Speed;      // private helper
+
+    [System, BurstCompile]
+    public static void Update(ref Query<Velocity> query)
+    {
+        foreach (ref var v in query) v.Value = Scale(v.Value); // short name
+    }
+}
+```
+
+The generator emits the job struct nested in that class (`MySystems.__Update_Job`),
+so the body binds exactly as written in the class: short calls to public,
+internal and private static members, constants, nested types, and type names
+resolved in your namespace before `Wargon.Nukecs`. The `#line` mapping keeps
+compile errors and the debugger on your source file. The framework part of the
+generated code (job interface, runner, dependency metadata) stays in
+`Wargon.Nukecs`; a runner's `Name` is `"MySystems_Update"`.
+
+| Diagnostic | Meaning |
+|---|---|
+| `NUKECS010` (error) | The system is declared in a generic type. Move it to a non-generic class. |
+| `NUKECS011` (error) | A containing type is private or protected; generated runners need at least `internal`. |
+| `NUKECS012` (warning) | A containing type is not `partial`. The body compiles in your namespace with `using static` for the class: public static members work by short name, private/internal-only helpers do not. |
+| `NUKECS013` (error) | The class already declares the generated `__<Method>_Job` name. Names starting with `__` are reserved. |
+
+Hot reload recompiles a body in a separate assembly. It sees public members by
+short name through `using static`, but not private helpers; such an edit fails
+to compile and the previous runner stays active.
+
 Thread mode is selected when registering the method:
 `systems.Add(MySystems.Update, Threads.MainRun)`. The attribute takes no thread-mode
 argument. `MainRun` uses synchronous `job.Run()` on the calling thread, without a
@@ -516,8 +551,33 @@ ref Query<LocalTransform, Velocity, None<StaticTag>> query
 ref Query<LocalTransform, With<CubeStateTag>> query
 ```
 
-`None<T1, T2>` and `With<T1, T2>` support multiple components. Filter/tag tuple slots contain no
-entity payload; omit the trailing filter when deconstructing:
+`None<T1, T2>` and `With<T1, T2>` support multiple components.
+
+`Any<T1..T5>` requires **at least one** of its components. Combine filters in a
+tuple in the last type parameter; the result is an AND of all groups:
+
+```csharp
+// has Health, has Burning or Frozen (or both), and is not Dead
+ref Query<Health, (Any<Burning, Frozen>, None<Dead>)> query
+
+// several filters: every With, no None, at least one Any
+ref Query<A, B, (With<C, D>, Any<E, F, G>)> query
+```
+
+All `Any<>` of one query form a single group (`(Any<A>, Any<B>)` equals
+`Any<A, B>`). Any types are filters only: they never appear in the loop tuple and
+are not recorded in `SystemDependencyInfo`. The generator reports `NUKECS020` when
+a type is in both `Any` and `None` (it can never satisfy the group) and
+`NUKECS021` when it is also a queried component or `With` (the group is always
+satisfied). Batched systems with `Any` stay `PointerBatch`/`RequireBatch`-compatible.
+
+Iteration cost: an `Any` group of regular inline components is decided per
+storage and keeps the dense storage walk. Tag or pool components in `Any` are
+decided per logical archetype: a storage whose non-empty rows all match (or all
+fail) stays dense; a storage that mixes them switches the query to the
+archetype walk until the mix disappears.
+
+Filter/tag tuple slots contain no entity payload; omit the trailing filter when deconstructing:
 
 ```csharp
 // query: Query<Entity, LocalTransform, Speed, None<StaticTag>>
@@ -591,7 +651,15 @@ var query = world.Query()
     .With<LocalTransform>()
     .With<Speed>()
     .None<StaticTag>();
+
+// at least one of Burning / Frozen
+var affected = world.Query().With<Health>().Any<Burning>().Any<Frozen>();
 ```
+
+`Any<T>()` / `Any(int typeIndex)` add to the query's single Any group. An
+explicit `Any` of a default none type (`IsPrefab`, `DestroyEntity`) removes it
+from the none mask, like `With`. A type explicitly in both `None` and `Any` logs
+a warning and never satisfies the group.
 
 Create and retain manual queries during setup. Each `world.Query()` registers
 a new query; identical fluent chains are not deduplicated. Queries created or
@@ -618,7 +686,7 @@ Query<T1, T2, T3, T4, T5, T6, T7, T8, TOption>
 ```
 
 The trailing slot can be a regular component or a filter such as `None<T>`,
-`With<T>`. Runtime iteration supports up to eight data components
+`With<T>`, `Any<T...>`, or a tuple of filters. Runtime iteration supports up to eight data components
 within nine total generic slots: eight components plus a filter, or Entity plus
 eight components. Entity plus eight components plus a filter exceeds that limit.
 
@@ -1042,7 +1110,7 @@ ensure that pool slot exists. Use `Res<T>` for resource state. Aspects implement
 update a cached per-type aspect for that entity. Do not retain its mutable
 reference across another aspect access or share it across parallel work.
 
-Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/cfd6416414a1c833adb9fb84cbae13ba41603991/Demos/README.md).
+Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/1a7ea78ae206dbecd59765e3178f857ca20c1967/Demos/README.md).
 
 ## World Serialization
 
@@ -1254,7 +1322,7 @@ For an ordinary component query, the current generator requires:
   Local functions, nested loops in the selected loop, multiple loops over the
   primary query, and `return`/`break`/`goto`/`yield` inside it cause fallback.
   Ref locals, constants captured from outside the loop, anonymous types, and
-  captured names beginning with `_` or named `state`/`range` are unsupported.
+  captured names beginning with `_` are unsupported.
 - Recognizable iteration variables and component types, with **no iterated
   `IPoolComponent` types**. Explicit `.iter()` / `.par_iter()` calls always use
   runtime iterators, including inside generated systems.

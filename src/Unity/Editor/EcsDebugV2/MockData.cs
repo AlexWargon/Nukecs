@@ -142,6 +142,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public string name;
         public List<string> with = new ();
         public List<string> without = new ();
+        /// <summary>Any group: at least one of these components is required.</summary>
+        public List<string> any = new ();
         public int matched;
         public double lastRunMs;
     }
@@ -391,7 +393,8 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
                 foreach (var e in entities)
                 {
                     var names = new HashSet<string>(e.components.Select(c => c.Name));
-                    bool match = q.with.All(w => names.Contains(w)) && q.without.All(w => !names.Contains(w));
+                    bool match = q.with.All(w => names.Contains(w)) && q.without.All(w => !names.Contains(w))
+                                 && (q.any.Count == 0 || q.any.Any(a => names.Contains(a)));
                     if (match) q.matched++;
                 }
             }

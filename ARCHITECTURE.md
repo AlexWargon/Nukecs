@@ -34,7 +34,7 @@ the ID is retired instead of wrapping. WorldToken packs the 3-bit slot index and
 a 13-bit incarnation. Per-slot incarnation counters are retained in SharedStatic
 across DisposeStatic and fail on exhaustion rather than reviving old handles.
 Save/load preserves identity and advances the world-token high-water mark.
-Save format 2 reflects the changed identity/world metadata; old-format arenas are rejected.
+Save format 3 adds the `QueryUnsafe.any` mask (format 2 changed identity/world metadata); old-format arenas are rejected.
 
 ECB commands capture the generation of their entity and, for Copy, the destination.
 Normal playback drops expired commands before batching and disposes their pending
@@ -69,7 +69,7 @@ data through a lazy storage scan. Typed `Query<T...>.Init`, in contrast, calls
 | Path | When | Mechanics |
 |---|---|---|
 | **batch storage-loop** | An eligible single `foreach (var (a,b) in query)` in a [System] method | Generated pointer walk over storages (`base++` up to the `end` sentinel, bodies use `->`), with walkers in separate methods. See AGENTS.md, "Generated Batch Loops - Performance Contract". Managed 1.63 / Burst 0.164 ms (100k×4×float3). |
-| **storage-mode** | Queries with inline-only with-filters, runtime `iter()`/iterator factories | Dense traversal through `GetMatchingStorages()`; falls back to LAs when none-tag filters conflict (prefab/dead). None-filter benchmarks: degradation with 10% tagged entities adds 3–4% to total time; gather costs 16% more per entity (16.3→18.7 ns, constant and independent of row distribution); iteration scales with matching entities (50% → 0.93 ms from 1.63). |
+| **storage-mode** | Queries with inline-only with-filters, runtime `iter()`/iterator factories | Dense traversal through `GetMatchingStorages()`; falls back to LAs when none-tag filters conflict (prefab/dead) or a storage mixes rows that do and do not satisfy a tag/pool `Any` group (inline `Any` bits are decided per storage and never degrade). None-filter benchmarks: degradation with 10% tagged entities adds 3–4% to total time; gather costs 16% more per entity (16.3→18.7 ns, constant and independent of row distribution); iteration scales with matching entities (50% → 0.93 ms from 1.63). |
 | **enumerator** | Manual entity queries / generic iterators | Existing QueryEnumerator2 / QueryIter and new QueryRuntimeIterN: dense traversal or gathering through logical-archetype rows; ranged runtime traversal preserves matchingArchetypes order. |
 
 **Managed iteration cost model (Mono, 100k×4 components)** — established through measurements:

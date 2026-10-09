@@ -3,7 +3,7 @@ using Unity.Mathematics;
 
 namespace Wargon.Nukecs.Transforms
 {
-    public class TransformsGroup : ISystemsGroup
+    public partial class TransformsGroup : ISystemsGroup
     {
         public void Build(Nukecs.Systems systems, ref World world)
         {

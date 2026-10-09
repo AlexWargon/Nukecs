@@ -104,7 +104,7 @@ namespace NukecsQuickStart
         }
     }
 
-    public static class MySystems
+    public static partial class MySystems
     {
         [System, BurstCompile]
         public static void MoveSystem(ref Query<Position, Velocity> query, ref State state)
@@ -131,7 +131,7 @@ read-only access. `State.Time.DeltaTime` is the frame duration passed to
 **Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
 value increases by approximately 2 each second of simulation time. This example
 updates ECS data only. To see moving GameObjects, follow the
-[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/cfd6416414a1c833adb9fb84cbae13ba41603991/Demos/README.md).
+[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/1a7ea78ae206dbecd59765e3178f857ca20c1967/Demos/README.md).
 
 The snippets below build on the same `Position` and `Velocity` components.
 
@@ -212,6 +212,7 @@ queries passed to `[System]` methods automatically.
 | `Query<Position, Velocity, With<Frozen>>` | Only those that also have `Frozen`. |
 | `Query<Position, Velocity, None<Frozen>>` | Only those without `Frozen`. |
 | `Query<Position, Velocity, (With<Frozen>, None<Fire>)>` | Only those with `Frozen` and without `Fire`. |
+| `Query<Position, Velocity, Any<Frozen, Fire>>` | Only those with `Frozen`, `Fire` or both. |
 | `Query<Entity, Position, Velocity>` | The same data, plus the entity handle. |
 | `Query<Health, Changed<Health>>` | Entities whose health changed. See the [reactivity example](API_REFERENCE.md#reactivity). |
 
@@ -249,6 +250,20 @@ Both conditions must match. The tuple is a filter: the loop still returns only
 `position` and `velocity`. Add this method to `MySystems` and register it before
 `MoveSystem` with `Threads.Parallel` to stop matching entities before movement.
 
+`Any<T1..T5>` requires at least one of its components. Filters always go in the
+last type parameter; combine them in a tuple, for example
+`Query<Position, Velocity, (With<Frozen>, Any<Fire, Ice>, None<Dead>)>`: every
+`With`, no `None` and at least one `Any`. All `Any<>` of one query form a single
+group. `Any` types are filters only: they do not appear in the loop and are not
+recorded as accesses for dependency scheduling. A type listed in both `Any` and
+`None`, or in `Any` and the required components, is a compile error
+(`NUKECS020` / `NUKECS021`). Manual queries use `world.Query().Any<Fire>().Any<Ice>()`.
+
+An `Any` made only of regular (inline) components keeps the fastest dense
+traversal. With tag or pool components in `Any`, the query stays dense while
+each storage is uniform and falls back to the archetype walk only when a storage
+mixes matching and non-matching entities.
+
 To remove entities that leave an area, add this method to `MySystems` and
 register it after `MoveSystem` with `Threads.Parallel`:
 
@@ -281,6 +296,33 @@ creating new ones every frame.
 A system is a static method marked with `[System]`. Add `[BurstCompile]` when
 its code is Burst-compatible, then register the method in `OnWorldCreated`.
 The generated runner provides its parameters and schedules its work.
+
+Declare the class that contains systems (and every enclosing class) as
+`partial`. The generator then compiles the system body inside that class, so it
+reads like ordinary class code: call public, internal and private helpers,
+constants and nested types by their short names (`Search(...)`, not
+`MySystems.Search(...)`), and type names resolve in your namespace first.
+
+```csharp
+public static partial class NavigationSystems
+{
+    const byte GateWait = 2;
+    static bool RouteBlocked(in Navigation nav) => nav.Wait == GateWait;
+
+    [System, BurstCompile]
+    public static void Plan(ref Query<Navigation> query)
+    {
+        foreach (ref var nav in query)
+            if (RouteBlocked(in nav)) nav.Wait = 0;
+    }
+}
+```
+
+Without `partial` the code still compiles with warning `NUKECS012`: only
+public static members resolve by short name, and private helpers are not
+available. Systems in generic classes (`NUKECS010`) and in private/protected
+nested classes (`NUKECS011`) are not supported. The generator adds a nested
+`__<Method>_Job` type; names starting with `__` are reserved (`NUKECS013`).
 
 ### Choose an execution mode
 
@@ -359,7 +401,7 @@ show how to choose between tags, temporary payload components, and event buffers
 |---|---|
 | Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
 | Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
-| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/cfd6416414a1c833adb9fb84cbae13ba41603991/Demos/README.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/1a7ea78ae206dbecd59765e3178f857ca20c1967/Demos/README.md) |
 | React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
 | Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
 | Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |

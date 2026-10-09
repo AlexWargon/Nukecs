@@ -301,6 +301,17 @@ namespace Wargon.Nukecs.HotReload
                 if (!string.IsNullOrEmpty(ns) && addedNamespaces.Add(ns))
                     sb.AppendLine($"using {ns};");
             }
+            // The reloaded body lives in another assembly, so it cannot join the partial
+            // system class: short names of accessible static members (public helpers,
+            // constants, nested types) resolve through using static; private/internal-only
+            // helpers fail to compile here and the previous runner stays active.
+            var addedStatics = new HashSet<Type>();
+            foreach (var method in methods)
+            {
+                for (var type = method.DeclaringType; type != null; type = type.DeclaringType)
+                    if (addedStatics.Add(type))
+                        sb.AppendLine($"using static global::{GetFullTypeName(type)};");
+            }
             sb.AppendLine();
 
             sb.AppendLine("namespace Wargon.Nukecs.HotReload.Wrappers");

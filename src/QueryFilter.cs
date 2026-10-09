@@ -212,6 +212,73 @@ namespace Wargon.Nukecs
         }
     }
 
+    // Any<...>: the entity must have at least one of the listed components. All Any<> filters
+    // of one query form a single group (several Any<> in a tuple merge into one "at least one
+    // of all" set). Filter-only: Any types never appear in the iteration tuple.
+    public struct Any<T1> : IFilter where T1 : unmanaged, IComponent
+    {
+        public unsafe void Setup(QueryUnsafe* query)
+        {
+            query->Any(ComponentType<T1>.Index);
+        }
+    }
+
+    public struct Any<T1, T2> : IFilter
+        where T1 : unmanaged, IComponent
+        where T2 : unmanaged, IComponent
+    {
+        public unsafe void Setup(QueryUnsafe* query)
+        {
+            query->Any(ComponentType<T1>.Index);
+            query->Any(ComponentType<T2>.Index);
+        }
+    }
+
+    public struct Any<T1, T2, T3> : IFilter
+        where T1 : unmanaged, IComponent
+        where T2 : unmanaged, IComponent
+        where T3 : unmanaged, IComponent
+    {
+        public unsafe void Setup(QueryUnsafe* query)
+        {
+            query->Any(ComponentType<T1>.Index);
+            query->Any(ComponentType<T2>.Index);
+            query->Any(ComponentType<T3>.Index);
+        }
+    }
+
+    public struct Any<T1, T2, T3, T4> : IFilter
+        where T1 : unmanaged, IComponent
+        where T2 : unmanaged, IComponent
+        where T3 : unmanaged, IComponent
+        where T4 : unmanaged, IComponent
+    {
+        public unsafe void Setup(QueryUnsafe* query)
+        {
+            query->Any(ComponentType<T1>.Index);
+            query->Any(ComponentType<T2>.Index);
+            query->Any(ComponentType<T3>.Index);
+            query->Any(ComponentType<T4>.Index);
+        }
+    }
+
+    public struct Any<T1, T2, T3, T4, T5> : IFilter
+        where T1 : unmanaged, IComponent
+        where T2 : unmanaged, IComponent
+        where T3 : unmanaged, IComponent
+        where T4 : unmanaged, IComponent
+        where T5 : unmanaged, IComponent
+    {
+        public unsafe void Setup(QueryUnsafe* query)
+        {
+            query->Any(ComponentType<T1>.Index);
+            query->Any(ComponentType<T2>.Index);
+            query->Any(ComponentType<T3>.Index);
+            query->Any(ComponentType<T4>.Index);
+            query->Any(ComponentType<T5>.Index);
+        }
+    }
+
     public struct Empty : IFilter, IComponent {
         public unsafe void Setup(QueryUnsafe* query) {
             

@@ -88,6 +88,13 @@ namespace Wargon.Nukecs
             return this;
         }
 
+        /// <summary>Requires at least one component of the query's Any group (see <see cref="Any{T1}"/>).</summary>
+        public Query Any<T>() where T : unmanaged, IComponent
+        {
+            queryUnsafe->Any(ComponentType<T>.Index);
+            return this;
+        }
+
         public Query With(int componentIndex)
         {
             queryUnsafe->With(componentIndex);
@@ -97,6 +104,12 @@ namespace Wargon.Nukecs
         public Query None(int componentIndex)
         {
             queryUnsafe->None(componentIndex);
+            return this;
+        }
+
+        public Query Any(int componentIndex)
+        {
+            queryUnsafe->Any(componentIndex);
             return this;
         }
 
@@ -196,6 +209,9 @@ namespace Wargon.Nukecs
     {
         internal DynamicBitmask with;
         internal DynamicBitmask none;
+        /// <summary>Any group: a matching archetype must contain at least one of these bits
+        /// (ignored while empty). Filter-only — never part of the iteration tuple.</summary>
+        internal DynamicBitmask any;
 
         public MemoryList<int> matchingArchetypes;
         public int matchingArchetypesCount;
@@ -206,14 +222,17 @@ namespace Wargon.Nukecs
         // A query qualifies when every `with` bit is inline-category. `none` bits of any category
         // are allowed: non-inline none-bits disqualify individual storages at match time when one
         // of their sharing logical archetypes is non-empty (prefab/dead variants live in separate
-        // logical archetypes of the same storage).
+        // logical archetypes of the same storage). `any` bits of any category are allowed too: an
+        // inline Any bit is decided per storage; tag/pool Any bits are decided per logical
+        // archetype and degrade the query only when a storage mixes satisfied/unsatisfied rows.
         /// <summary>0 = unknown, 1 = not storage mode, 2 = storage mode.</summary>
         internal byte storageModeState;
         /// <summary>1 when at least one inline-matching storage is disqualified by a non-empty
-        /// tag/pool none-bit logical archetype — the query falls back to the archetype path.</summary>
+        /// tag/pool none-bit logical archetype, or mixes rows that do and do not satisfy a tag/pool
+        /// Any group — the query falls back to the archetype path.</summary>
         public byte storageDegraded;
         internal bool storageMasksDirty;
-        /// <summary>1 when with/none masks changed (or the query was created) after the last
+        /// <summary>1 when with/none/any masks changed (or the query was created) after the last
         /// archetype scan — the lazy rescan re-runs CheckQuery over existing archetypes on next
         /// use, so a query built after entities/archetypes exist still matches them.</summary>
         internal byte archetypeMasksDirty;
@@ -267,6 +286,7 @@ namespace Wargon.Nukecs
         {
             with.OnDeserialize(ref allocator);
             none.OnDeserialize(ref allocator);
+            any.OnDeserialize(ref allocator);
             matchingArchetypes.OnDeserialize(ref allocator);
             matchingStorages.OnDeserialize(ref allocator);
             storageFilterBits.OnDeserialize(ref allocator);
@@ -291,6 +311,7 @@ namespace Wargon.Nukecs
         {
             with.Dispose();
             none.Dispose();
+            any.Dispose();
         }
 
         internal static ptr<QueryUnsafe> CreatePtrRef(ptr<World.WorldUnsafe> world, bool withDefaultNoneTypes = true)
@@ -306,6 +327,7 @@ namespace Wargon.Nukecs
             this.worldPtr = world.UntypedPointer;
             this.with = DynamicBitmask.CreateForComponents(world.Ptr);
             this.none = DynamicBitmask.CreateForComponents(world.Ptr);
+            this.any = DynamicBitmask.CreateForComponents(world.Ptr);
             this.entityCount = 0;
             this.matchingArchetypes = new MemoryList<int>(16, ref world.Ptr->AllocatorRef);
             this.matchingArchetypesCount = 0;
@@ -506,10 +528,62 @@ namespace Wargon.Nukecs
         public QueryUnsafe* None(int type)
         {
             none.Add(type);
+            if (any.Contains(type)) WarnAnyNoneConflict(type);
             storageModeState = 0;
             storageMasksDirty = true;
             archetypeMasksDirty = 1;
             return self.Ptr;
+        }
+
+        public bool HasAny(int type)
+        {
+            return any.Contains(type);
+        }
+
+        /// <summary>
+        /// Adds <paramref name="type"/> to the Any group: the query matches archetypes holding at
+        /// least one Any type (all Any calls of one query form a single group).
+        /// </summary>
+        public QueryUnsafe* Any(int type)
+        {
+            any.Add(type);
+            // like With: an explicit Any overrides a default none (IsPrefab, DestroyEntity) of the
+            // same type. A type that is in both masks can never satisfy the group.
+            if (none.Contains(type))
+            {
+                if (IsDefaultNoneType(type)) none.Remove(type);
+                else WarnAnyNoneConflict(type);
+            }
+            storageModeState = 0;
+            storageMasksDirty = true;
+            archetypeMasksDirty = 1;
+            return self.Ptr;
+        }
+
+        private bool IsDefaultNoneType(int type)
+        {
+            foreach (var t in world->DefaultNoneTypes)
+                if (t == type) return true;
+            return false;
+        }
+
+        [BurstDiscard]
+        private static void WarnAnyNoneConflict(int type)
+        {
+            dbug.warn($"[Nukecs] Query: {ComponentTypeMap.GetType(type)?.Name} is both in Any and None; " +
+                      "it can never satisfy the Any group. Remove it from one of the filters.");
+        }
+
+        /// <summary>
+        /// True when the Any group is empty or <paramref name="types"/> contains one of its bits.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal bool AnySatisfiedBy(ref MemoryList<int> types)
+        {
+            if (any.Count == 0) return true;
+            for (var i = 0; i < types.length; i++)
+                if (any.Contains(types.Ptr[i])) return true;
+            return false;
         }
 
         // ---------------- storage-mode ----------------
@@ -637,6 +711,8 @@ namespace Wargon.Nukecs
             }
             else
             {
+                var hasAny = any.Count > 0;
+                var anyHasNonInline = hasAny && AnyHasNonInlineBits();
                 none.ExtractSetBits(ref storageFilterBits, ref w->AllocatorRef);
                 var noneBits = storageFilterBits;
                 for (var si = 0; si < w->storagesList.length; si++)
@@ -645,6 +721,21 @@ namespace Wargon.Nukecs
                     if (!st.IsCreated) continue;
                     if (!st.inlineMask.ContainsAll(ref with)) continue;
                     if (!st.inlineMask.ContainsNone(ref none)) continue;
+                    // Any: an inline Any bit in the storage mask satisfies every row. Otherwise
+                    // only tag/pool Any bits can, and those live in the logical archetypes.
+                    if (hasAny && !st.inlineMask.Intersects(ref any))
+                    {
+                        if (!anyHasNonInline) continue;
+                        var anyState = AnyStateOfLogicalArchetypes(w, si);
+                        if (anyState == 0) continue; // no non-empty row satisfies Any
+                        if (anyState == 2)
+                        {
+                            // satisfied and unsatisfied rows share this storage: per-row
+                            // filtering is impossible in dense mode → degrade the whole query
+                            degraded = 1;
+                            continue;
+                        }
+                    }
                     if (!NoneBitsClearInLogicalArchetypes(w, si, ref noneBits))
                     {
                         // a non-empty tag/pool none-archetype lives in this storage:
@@ -659,6 +750,35 @@ namespace Wargon.Nukecs
             storagesBuiltForLen = w->storagesList.length;
             storagesBuiltAtVersion = w->version;
             storageMasksDirty = false;
+        }
+
+        private bool AnyHasNonInlineBits()
+        {
+            any.ExtractSetBits(ref storageFilterBits, ref world->AllocatorRef);
+            for (var i = 0; i < storageFilterBits.length; i++)
+                if (ComponentTypeMap.GetCategory(storageFilterBits.Ptr[i]) != ComponentCategory.Inline)
+                    return true;
+            return false;
+        }
+
+        /// <summary>
+        /// For a storage whose inline mask has no Any bit: 0 = no non-empty logical archetype
+        /// satisfies Any through tag/pool bits, 1 = all non-empty ones do, 2 = mixed.
+        /// </summary>
+        private byte AnyStateOfLogicalArchetypes(World.WorldUnsafe* w, int storageIndex)
+        {
+            ref var st = ref w->storagesList.Ptr[storageIndex].Ref;
+            var satisfied = false;
+            var unsatisfied = false;
+            for (var ai = 0; ai < st.logicalArchetypes.length; ai++)
+            {
+                ref var la = ref w->archetypesList.Ptr[st.logicalArchetypes.Ptr[ai]].Ref;
+                if (la.count == 0) continue;
+                if (la.tagMask.Intersects(ref any) || la.poolMask.Intersects(ref any)) satisfied = true;
+                else unsatisfied = true;
+                if (satisfied && unsatisfied) return 2;
+            }
+            return (byte)(satisfied ? 1 : 0);
         }
 
         private static bool NoneBitsClearInLogicalArchetypes(World.WorldUnsafe* w, int storageIndex, ref MemoryList<int> noneBits)
@@ -707,6 +827,11 @@ namespace Wargon.Nukecs
                 if (HasNone(typesIndex))
                 {
                     sb.Append($".None<{ComponentTypeMap.GetType(typesIndex).Name}>()");
+                }
+
+                if (HasAny(typesIndex))
+                {
+                    sb.Append($".Any<{ComponentTypeMap.GetType(typesIndex).Name}>()");
                 }
             }
 

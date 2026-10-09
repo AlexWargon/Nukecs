@@ -810,6 +810,8 @@ namespace Wargon.Nukecs
             }
 
             if (hasNone) return;
+            // Any group: at least one of its types must be in this archetype
+            if (!q.AnySatisfiedBy(ref types)) return;
             // dup-attach guard: lazy rescans (late query creation / late With/None) re-run this
             // over all existing archetypes — already-attached archetypes must be skipped
             for (var i = 0; i < queries.length; i++)
@@ -818,7 +820,8 @@ namespace Wargon.Nukecs
             }
             if (q.with.Count == 0)
             {
-                // zero-with query (world.Query(), Query<Entity>): matches every archetype
+                // zero-with query (world.Query(), Query<Entity>, Any-only): matches every
+                // archetype that passed the none and Any checks above
                 q.AddArchetype(index);
                 queries.Add(q.Id, ref world->AllocatorRef);
                 queriesVersion++;
@@ -860,9 +863,11 @@ namespace Wargon.Nukecs
                 }
 
                 if (hasNone) continue;
+                if (!q.Ptr->AnySatisfiedBy(ref types)) continue;
                 if (q.Ptr->with.Count == 0)
                 {
-                    // zero-with query (world.Query(), Query<Entity>): matches every archetype
+                    // zero-with query (world.Query(), Query<Entity>, Any-only): matches every
+                    // archetype that passed the none and Any checks above
                     q.Ref.AddArchetype(index);
                     queries.Add(q.Ptr->Id, ref worldPtr->AllocatorRef);
                     queriesVersion++;

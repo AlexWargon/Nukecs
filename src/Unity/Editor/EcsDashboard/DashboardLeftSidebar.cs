@@ -91,6 +91,12 @@ namespace Wargon.Nukecs.Editor
                     sb.Append('-');
                     sb.Append(t != null ? t.Name : $"T{typeIndex}");
                 }
+                if (q->HasAny(typeIndex))
+                {
+                    var t = ComponentTypeMap.GetType(typeIndex);
+                    sb.Append('|');
+                    sb.Append(t != null ? t.Name : $"T{typeIndex}");
+                }
             }
             if (sb.Length == 0) return "Query";
             var result = sb.ToString();

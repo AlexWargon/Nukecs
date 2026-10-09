@@ -79,7 +79,7 @@ namespace Game.Ecs
         }
     }
 
-    public static class GameSystems
+    public static partial class GameSystems
     {
         [System]
         public static void Initialize(ref State state)
@@ -106,6 +106,12 @@ Rules for the agent:
 - Implement new systems as static methods marked with `[System]` and register
   them through `.Add(GameSystems.Method, Threads.Parallel)`. Select lifecycle
   with `path: SystemPath.Start / Update / FixedUpdate / Destroy`.
+- Declare every class that contains systems (and its enclosing classes) as
+  `partial`, non-generic and at least `internal`. The body is compiled inside
+  that class: call helpers, constants and nested types by short name
+  (`RouteBlocked(...)`, `GateWait`), including private ones; do not prefix them
+  with the class name. Treat warning `NUKECS012` (missing `partial`) as a
+  defect. Do not declare members whose names start with `__`.
 - Do not introduce new `ISystem`/`IEntityJobSystem` implementations registered
   through `.Add<MySystem>()`. These remain supported for existing code; new gameplay uses method systems.
 - `Update()` obtains `dt` and calls `updateSystems.OnUpdate(dt, Time.time)`.
@@ -248,7 +254,7 @@ deferred and must not invalidate the active traversal's data.
 Multiple loops over the primary query, loops nested inside the selected loop,
 local functions, and return/break/goto/yield inside it cause fallback.
 Captured ref locals, constants, anonymous types, and names starting with `_`
-or named `state`/`range` are unsupported. Explicit `.iter()` and `.par_iter()`
+are unsupported. Explicit `.iter()` and `.par_iter()`
 retain runtime iteration and are not rewritten.
 
 Use `[System, BurstCompile, RequireBatch]` when batching is required: fallback
@@ -294,7 +300,7 @@ public struct DamageRequest : IPoolComponent
     public float Amount;
 }
 
-public static class DamageSystems
+public static partial class DamageSystems
 {
     [System, BurstCompile]
     public static void ApplyDamage(ref Query<Entity, Health, DamageRequest> query)
@@ -332,7 +338,7 @@ public struct MovedEvent
     public float3 Position;
 }
 
-public static class MovementEvents
+public static partial class MovementEvents
 {
     [System, BurstCompile]
     public static void Produce(
@@ -485,6 +491,15 @@ and check `Length` when dropping an element is unacceptable. Do not use
 Create and cache fluent queries once during setup. Do not build `world.Query()`
 every frame: each query is registered and lives until world disposal.
 
+Filters go in the last type parameter; several filters form a tuple:
+`Query<A, B, (With<C>, Any<D, E>, None<F>)>`. `Any<...>` means "at least one of";
+all Any in one query are one group. Filter types are not in the loop tuple and do
+not count as component accesses. Prefer `Any` over two systems or a manual
+`Has<T>()` branch. For the dense fast path keep `Any` to regular inline
+components; tag/pool `Any` is exact but may switch to the archetype walk when a
+storage mixes matching and non-matching entities. Never list a type in both
+`Any` and `None`/required components (`NUKECS020`/`NUKECS021`).
+
 ## 5. Checks before delivering gameplay code
 
 - `Init()` creates the world, registers method systems, initializes resources/
@@ -492,6 +507,7 @@ every frame: each query is registered and lives until world disposal.
 - `OnDestroy()` calls `world.Dispose()` and performs the session owner's shared
   reset.
 - No new `.Add<MySystem>()` registrations or managed code inside Burst systems.
+- Every class with `[System]` methods is `partial`; the build has no `NUKECS012`.
 - Parallel systems respect data ownership; explicit traversal uses `par_iter()`.
 - Events have consumers and cleanup; repeated events are not lost by choosing
   a single payload component instead of an event stream.

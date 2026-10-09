@@ -13,7 +13,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static string _currentThemeName;
 
         private static bool _alphaCacheInit;
-        // Primary accent (amber) alpha variants.
+        // Primary accent alpha variants (field names are historical: the accent is the theme's Lime).
         private static Color _amberA01;
         private static Color _amberA03;
         private static Color _amberA05;
@@ -37,7 +37,7 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         private static Color _panelElevatedA04;
 
         // Legacy lime-alpha fields retained for callers that still reference them;
-        // they now alias the amber accent since amber is the primary accent.
+        // they alias the primary accent.
         private static Color _limeA01;
         private static Color _limeA03;
         private static Color _limeA05;
@@ -69,9 +69,9 @@ namespace Wargon.Nukecs.Editor.EcsDebugV2
         public static Color Panel => _data.Panel;
         public static Color PanelElevated => _data.PanelElevated;
         public static Color PanelBorder => _data.PanelBorder;
-        // "Lime" exposes the amber primary accent to legacy callers.
+        // Primary accent of the current theme (lime in the Default theme).
         public static Color Lime => _data.Lime;
-        // Canonical alias for the primary amber accent.
+        // Historical alias of the primary accent; follows the theme, not a fixed amber color.
         public static Color Amber => _data.Lime;
         public static Color Orange => _data.Orange;
         public static Color Red => _data.Red;

@@ -58,7 +58,7 @@ namespace Wargon.Nukecs{
             }
         }
     }
-    public static class DefaultSystems
+    public static partial class DefaultSystems
     {
         [BurstCompile, System]
         public static void OnPrefabSpawn(ref World world)
