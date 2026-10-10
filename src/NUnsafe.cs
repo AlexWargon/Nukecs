@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
     public static unsafe class NUnsafe {
@@ -71,7 +70,7 @@ namespace Wargon.Nukecs {
         [BurstCompile]
         public float NextFloat(float min, float max)
         {
-            return math.lerp(min, max, NextFloat());
+            return NMath.Lerp(min, max, NextFloat());
         }
     }
 

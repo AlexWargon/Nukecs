@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
 using Wargon.Nukecs.Collections;
 using static Wargon.Nukecs.UnsafeStatic;
 
@@ -28,7 +27,7 @@ namespace Wargon.Nukecs
 
         internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world)
         {
-            return new DynamicBitmask(math.max(ComponentAmount.Value.Data, 256), world);
+            return new DynamicBitmask(NMath.Max(ComponentAmount.Value.Data, 256), world);
         }
         
         public DynamicBitmask(int maxBits, World.WorldUnsafe* world)
@@ -192,7 +191,7 @@ namespace Wargon.Nukecs
                 if (i < tag.arraySize) word |= tag.bitmaskArray.Ptr[i];
                 if (i < pool.arraySize) word |= pool.bitmaskArray.Ptr[i];
                 words[i] = word;
-                newCount += math.countbits(word);
+                newCount += NMath.CountBits(word);
             }
             Count = newCount;
         }
@@ -325,7 +324,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int ComputeHash(int* types, int count)
         {
-            var maxBits = math.max(ComponentAmount.Value.Data, 256);
+            var maxBits = NMath.Max(ComponentAmount.Value.Data, 256);
             var sz = (maxBits + 63) / 64;
             var bits = stackalloc ulong[sz];
             Mem.MemClear(bits, sz * sizeof(ulong));
@@ -428,7 +427,7 @@ namespace Wargon.Nukecs
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int TrailingZeroCount(ulong x)
-            => math.tzcnt(x);
+            => NMath.Tzcnt(x);
         // [MethodImpl(MethodImplOptions.AggressiveInlining)]
         // public static int TrailingZeroCount(ulong value)
         // {
@@ -444,7 +443,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int PopCount(ulong value)
         {
-            return math.countbits(value);
+            return NMath.CountBits(value);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int PopCount2(ulong x)

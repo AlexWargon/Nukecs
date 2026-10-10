@@ -7,7 +7,6 @@ namespace Wargon.Nukecs.Collections
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Mathematics;
     
     public readonly struct ReadOnlyList<T> where T : unmanaged
     {
@@ -214,8 +213,8 @@ namespace Wargon.Nukecs.Collections
             Utils.CheckCapacityInRange(capacity, length);
 
             var sizeOf = sizeof(T);
-            var newCapacity = math.max(size, CACHE_LINE_SIZE / sizeOf);
-            newCapacity = math.ceilpow2(newCapacity);
+            var newCapacity = NMath.Max(size, CACHE_LINE_SIZE / sizeOf);
+            newCapacity = NMath.CeilPow2(newCapacity);
 
             if (newCapacity == capacity)
             {
@@ -227,7 +226,7 @@ namespace Wargon.Nukecs.Collections
         
         private void ResizeExact(ref MemAllocator allocator, int newCapacity)
         {
-            newCapacity = math.max(0, newCapacity);
+            newCapacity = NMath.Max(0, newCapacity);
 
             T* newPointer = null;
             var newOffset = ptr_offset.NULL;
@@ -240,7 +239,7 @@ namespace Wargon.Nukecs.Collections
                 newPointer = newOffset.AsPtr<T>(ref allocator);
                 if (Ptr != null && oldCapacity > 0)
                 {
-                    var itemsToCopy = math.min(newCapacity, oldCapacity);
+                    var itemsToCopy = NMath.Min(newCapacity, oldCapacity);
                     var bytesToCopy = itemsToCopy * sizeOf;
                     memcpy(newPointer, Ptr, bytesToCopy);
                 }
@@ -252,7 +251,7 @@ namespace Wargon.Nukecs.Collections
             Ptr = newPointer;
             PtrOffset = newOffset;
             capacity = newCapacity;
-            length = math.min(length, newCapacity);
+            length = NMath.Min(length, newCapacity);
         }
         
         public void RemoveAt(int index)

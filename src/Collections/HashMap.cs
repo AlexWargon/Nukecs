@@ -5,7 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
 
 namespace Wargon.Nukecs.Collections
 {
@@ -221,9 +220,9 @@ namespace Wargon.Nukecs.Collections
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int CalcCapacityCeilPow2(int capacity)
         {
-            capacity = math.max(math.max(1, Count), capacity);
-            var newCapacity = math.max(capacity, 1 << Log2MinGrowth);
-            var result = math.ceilpow2(newCapacity);
+            capacity = NMath.Max(NMath.Max(1, Count), capacity);
+            var newCapacity = NMath.Max(capacity, 1 << Log2MinGrowth);
+            var result = NMath.CeilPow2(newCapacity);
 
             return result;
         }
@@ -268,7 +267,7 @@ namespace Wargon.Nukecs.Collections
         internal void Init(int capacity, int sizeOfValueT, int minGrowth, ref MemAllocator arena)
         {
             Count = 0;
-            Log2MinGrowth = (byte)(32 - math.lzcnt(math.max(1, minGrowth) - 1));
+            Log2MinGrowth = (byte)(32 - NMath.Lzcnt(NMath.Max(1, minGrowth) - 1));
 
             capacity = CalcCapacityCeilPow2(capacity);
             Capacity = capacity;
@@ -289,7 +288,7 @@ namespace Wargon.Nukecs.Collections
         internal void Init(int capacity, int sizeOfValueT, int minGrowth, AllocatorHandle allocator)
         {
             Count = 0;
-            Log2MinGrowth = (byte)(32 - math.lzcnt(math.max(1, minGrowth) - 1));
+            Log2MinGrowth = (byte)(32 - NMath.Lzcnt(NMath.Max(1, minGrowth) - 1));
 
             capacity = CalcCapacityCeilPow2(capacity);
             Capacity = capacity;
@@ -343,8 +342,8 @@ namespace Wargon.Nukecs.Collections
 
         internal void Resize(int newCapacity)
         {
-            newCapacity = math.max(newCapacity, Count);
-            var newBucketCapacity = math.ceilpow2(GetBucketSize(newCapacity));
+            newCapacity = NMath.Max(newCapacity, Count);
+            var newBucketCapacity = NMath.CeilPow2(GetBucketSize(newCapacity));
 
             if (Capacity == newCapacity && BucketCapacity == newBucketCapacity)
             {
@@ -426,7 +425,7 @@ namespace Wargon.Nukecs.Collections
                 ++numFree;
             }
 
-            return math.min(Capacity, AllocatedIndex) - numFree;
+            return NMath.Min(Capacity, AllocatedIndex) - numFree;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

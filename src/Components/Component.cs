@@ -85,18 +85,6 @@ namespace Wargon.Nukecs
             return Value == other.Value;
         }
     }
-    public struct Input : IComponent {
-        public float h;
-        public float v;
-        public bool fire;
-        public bool use;
-
-        public Unity.Mathematics.float2 Axis
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get=> new (h, v);
-        }
-    }
     internal static partial class ComponentList
     {
         public static readonly IReadOnlyList<Type> DefaultComponents = new System.Collections.Generic.List<Type>()
