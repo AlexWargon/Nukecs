@@ -532,7 +532,7 @@ namespace Wargon.Nukecs.HotReload
             sb.AppendLine("        public ECBJob EcbJob;");
             sb.AppendLine($"        public string Name => typeof({jobName}).Name;");
             sb.AppendLine();
-            sb.AppendLine("        public JobHandle Schedule(UpdateContext updateContext, ref State state) {");
+            sb.AppendLine("        public NJobHandle Schedule(UpdateContext updateContext, ref State state) {");
             sb.AppendLine("            ref var world = ref state.World;");
             sb.AppendLine("            if (Mode == Threads.Main) {");
 

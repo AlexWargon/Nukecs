@@ -9,7 +9,6 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 
 
 namespace Wargon.Nukecs
@@ -83,8 +82,8 @@ namespace Wargon.Nukecs
             get => UnsafeWorld->CurrentContext;
         }
 
-        public ref JobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
-        public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsFixedUpdateJobDependencies;
+        public ref NJobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
+        public ref NJobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsFixedUpdateJobDependencies;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref GenericPool GetPool<T>() where T : unmanaged, IComponent

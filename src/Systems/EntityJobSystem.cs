@@ -67,7 +67,7 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
         Marker _marker;
 #endif
-        public JobHandle Schedule(UpdateContext updateContext, ref State state)
+        public NJobHandle Schedule(UpdateContext updateContext, ref State state)
         {
 #if NUKECS_DEBUG
             _marker.Autostart(System);
@@ -177,7 +177,7 @@ namespace Wargon.Nukecs
             return EntityJobWrapper<T>.JobReflectionData.Data;
         }
 
-        internal static unsafe JobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
+        internal static unsafe NJobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
             Threads mode, UpdateContext updateContext, ref State state)
             where TJob : struct, IEntityJobSystem {
             var fullData = new EntityJobWrapper<TJob> {
@@ -186,21 +186,16 @@ namespace Wargon.Nukecs
                 updateContext = updateContext,
                 State = state
             };
-            
-            var scheduleParams = new JobsUtility.JobScheduleParameters(Mem.AddressOf(ref fullData),
-                GetReflectionData<TJob>(), state.Dependencies,
-                mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
                 case Threads.Single:
-                    return JobsUtility.Schedule(ref scheduleParams);
+                    return NJobs.Schedule(ref fullData, GetReflectionData<TJob>(), state.Dependencies);
                 case Threads.Parallel:
-                    return JobsUtility.ScheduleParallelFor(ref scheduleParams, query->count, 1);
+                    return NJobs.ScheduleParallelFor(ref fullData, GetReflectionData<TJob>(), query->count, 1,
+                        state.Dependencies);
             }
-            //var workers = JobsUtility.JobWorkerCount;
-            //var batchCount = query.Count > workers ? query.Count / workers : 1;
             return state.Dependencies;
         }
-        
+
         public static unsafe void Run<TJob>(this TJob jobData, ref Query query, float deltaTime) where TJob : struct, IEntityJobSystem
         {
             var fullData = new EntityJobWrapper<TJob> {
@@ -208,12 +203,7 @@ namespace Wargon.Nukecs
                 //query = query,
                 //deltaTime = deltaTime
             };
-            JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(
-                Mem.AddressOf(ref fullData),
-                GetReflectionData<TJob>(),
-            new JobHandle(), 
-                ScheduleMode.Run);
-            JobsUtility.Schedule(ref parameters);
+            NJobs.Run(ref fullData, GetReflectionData<TJob>());
         }
     }
 }

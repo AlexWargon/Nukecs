@@ -3,8 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
 using Wargon.Nukecs.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using static Wargon.Nukecs.UnsafeStatic;
@@ -42,8 +40,8 @@ namespace Wargon.Nukecs
             internal MemoryList<ptr<QueryUnsafe>> queries;
             internal HashMap<int, int> queriesHashToIndex;
             internal EntityCommandBuffer EntityCommandBuffer;
-            internal JobHandle systemsUpdateJobDependencies;
-            internal JobHandle systemsFixedUpdateJobDependencies;
+            internal NJobHandle systemsUpdateJobDependencies;
+            internal NJobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
             internal MemoryList<int> DefaultNoneTypes;
             internal int entitiesAmount;
@@ -139,7 +137,7 @@ namespace Wargon.Nukecs
                 config = worldConfig;
                 systemsUpdateJobDependencies = default;
                 systemsFixedUpdateJobDependencies = default;
-                job_worker_count = JobsUtility.JobWorkerMaximumCount;
+                job_worker_count = NJobs.WorkerMaximumCount;
                 entitiesAmount = 0;
                 lastEntityIndex = FIRST_ENTITY_ID;
                 poolsCount = 0;

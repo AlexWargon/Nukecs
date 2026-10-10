@@ -7,7 +7,6 @@ namespace Wargon.Nukecs {
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Jobs.LowLevel.Unsafe;
     using static UnsafeStatic;
 
     public unsafe struct EntityCommandBuffer : IDisposable {
@@ -34,7 +33,7 @@ namespace Wargon.Nukecs {
             // tempMask is a fixed Bitmask1024 (inline value) — nothing to re-fix
         }
 
-        internal static int ThreadIndex => JobsUtility.ThreadIndex;
+        internal static int ThreadIndex => NJobs.ThreadIndex;
         internal readonly AllocatorHandle allocator;
 
         public EntityCommandBuffer(int startSize, AllocatorHandle allocator, World.WorldUnsafe* world) {
@@ -52,7 +51,7 @@ namespace Wargon.Nukecs {
 
         // One list per thread, each in its own allocation (writers never share a header).
         private HeapList<HeapList<ECBCommand>> CreateCommandBuffers(int startSize, AllocatorHandle alloc) {
-            var threads = JobsUtility.ThreadIndexCount + 2;
+            var threads = NJobs.ThreadIndexCount + 2;
             var lists = new HeapList<HeapList<ECBCommand>>(threads, alloc);
             for (var i = 0; i < threads; i++)
                 lists.Add(new HeapList<ECBCommand>(startSize, alloc));
@@ -60,7 +59,7 @@ namespace Wargon.Nukecs {
         }
 
         private HeapList<HeapList<byte>> CreateDataBuffers(int startBytes, AllocatorHandle alloc) {
-            var threads = JobsUtility.ThreadIndexCount + 2;
+            var threads = NJobs.ThreadIndexCount + 2;
             var lists = new HeapList<HeapList<byte>>(threads, alloc);
             for (var i = 0; i < threads; i++)
                 lists.Add(new HeapList<byte>(startBytes, alloc));
@@ -171,7 +170,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddObject(int entity, IComponent component, ComponentTypeData data) {
-                var thread = JobsUtility.ThreadIndex;
+                var thread = NJobs.ThreadIndex;
                 var buf = perThreadData.ElementAt(thread);
                 var dataOffset = buf.Length;
                 var size = data.size;
@@ -537,22 +536,22 @@ namespace Wargon.Nukecs {
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddPtr<T>(int entity, T* component) where T : unmanaged {
-            ecb->Add(entity, component, JobsUtility.ThreadIndex);
+            ecb->Add(entity, component, NJobs.ThreadIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add<T>(int entity, in T component) where T : unmanaged {
-            ecb->Add(entity, component, JobsUtility.ThreadIndex);
+            ecb->Add(entity, component, NJobs.ThreadIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add<T>(int entity) where T : unmanaged {
-            ecb->Add<T>(entity, JobsUtility.ThreadIndex);
+            ecb->Add<T>(entity, NJobs.ThreadIndex);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(int entity, int component) {
-            ecb->Add(entity, JobsUtility.ThreadIndex, component);
+            ecb->Add(entity, NJobs.ThreadIndex, component);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

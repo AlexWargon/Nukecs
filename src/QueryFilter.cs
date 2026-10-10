@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs
 {
@@ -300,7 +299,7 @@ namespace Wargon.Nukecs
             _query = q;
             Name = name;
         }
-        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
+        public NJobHandle Schedule(UpdateContext updateContext, ref State state) {
             new FunctionPointer<System1<TQuery>>(_fn).Invoke(ref _query);
             return state.Dependencies;
         }

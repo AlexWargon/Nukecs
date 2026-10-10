@@ -31,7 +31,7 @@ namespace Wargon.Nukecs.Tests
             public Action<World> Action;
             public Threads Mode => Threads.MainRun;
             public string Name => nameof(ActionRunner);
-            public JobHandle Schedule(UpdateContext context, ref State state)
+            public NJobHandle Schedule(UpdateContext context, ref State state)
             { Action(state.World); return state.Dependencies; }
             public void Run(ref State state) => Action(state.World);
         }
@@ -176,7 +176,7 @@ namespace Wargon.Nukecs.Tests
             public int Delay = 100;
             public Threads Mode => Threads.Single;
             public string Name => nameof(Writer);
-            public JobHandle Schedule(UpdateContext context, ref State state)
+            public NJobHandle Schedule(UpdateContext context, ref State state)
                 => new SlowWrite { Value = Value, Delay = Delay }.Schedule(Independent ? default : state.Dependencies);
             public void Run(ref State state) => new SlowWrite { Value = Value, Delay = Delay }.Execute();
         }
