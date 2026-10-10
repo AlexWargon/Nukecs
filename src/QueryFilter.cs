@@ -287,11 +287,8 @@ namespace Wargon.Nukecs
     public struct Nothing : IComponent{}
 
 
-    public interface IService { }
     public delegate void System1<TQuery>(ref TQuery q) where TQuery : unmanaged, IQuery;
     public delegate void System2<TQuery>(ref TQuery q1, ref TQuery q2) where TQuery : unmanaged, IQuery;
-    public delegate void System1AndService<TQuery, TService>(ref TQuery q1, ref TService service)
-        where TQuery : unmanaged, IQuery, IService;
 
     internal class DelegateSystem1Runner<TQuery> : ISystemRunner
         where TQuery : unmanaged, IQuery {

@@ -103,39 +103,6 @@ namespace Wargon.Nukecs {
         public SystemParamMetaType metaType;
         public int index;
     }
-    public struct Serv<TService> where TService : unmanaged, ISystemParam, IService
-    {
-        private ptr<ServiceStorage> _storage;
-        public ref TService Ref => ref _storage.Ref.Get<TService>();
-    }
-
-    internal struct ServicesCount
-    {
-        internal static readonly SharedStatic<int> Count = SharedStatic<int>.GetOrCreate<ServicesCount>();
-    }
-    internal struct ServiceID<TService> where TService : unmanaged, ISystemParam, IService
-    {
-        internal static readonly SharedStatic<int> StaticInstance = SharedStatic<int>.GetOrCreate<ServiceID<TService>>();
-        
-        static ServiceID()
-        {
-            StaticInstance.Data = ServicesCount.Count.Data++;
-        }
-    }
-    internal struct ServiceStorage
-    {
-        private HeapList<ptr> serviceList;
-
-        internal void Register<TService>(ref ptr<World.WorldUnsafe> world) where TService : unmanaged, ISystemParam, IService
-        {
-            serviceList[ServiceID<TService>.StaticInstance.Data] =
-                world.Ref.AllocatorRef.AllocatePtr<TService>().UntypedPointer;
-        }
-        internal ref TService Get<TService>() where TService : unmanaged, ISystemParam, IService
-        {
-            return ref serviceList[ServiceID<TService>.StaticInstance.Data].AsRef<TService>();
-        }
-    }
      
     public partial struct World : ISystemParam
     {
