@@ -55,5 +55,10 @@ namespace Wargon.Nukecs
         public static event Action StaticDisposed;
 
         internal static void RaiseStaticDisposed() => StaticDisposed?.Invoke();
+
+        /// <summary>Raised with the world id before a world releases its memory.</summary>
+        public static event Action<int> WorldDisposing;
+
+        internal static void RaiseWorldDisposing(int worldId) => WorldDisposing?.Invoke(worldId);
     }
 }

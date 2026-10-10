@@ -15,7 +15,7 @@ namespace Wargon.Nukecs
                 // Arena Guard: one cold walk — corruption planted during the session is
                 // reported HERE (clear error) instead of crashing the editor later when
                 // the damaged heap block is touched by unrelated code (e.g. TextCore).
-                AllocatorHandler.AllocatorWrapper.Allocator.ValidateAndReport($"world {Id} dispose");
+                AllocatorRef.ValidateAndReport($"world {Id} dispose");
                 ECB.Dispose();
                 selfPtr = default;
             }
@@ -23,12 +23,13 @@ namespace Wargon.Nukecs
         public void Dispose() {
             //if (UnsafeWorld == null) return;
             var id = UnsafeWorld->Id;
+            NukecsLifecycle.RaiseWorldDisposing(id);
             lastFreeSlot = id;
-            var allocator = UnsafeWorld->AllocatorHandler;
+            var allocatorBox = UnsafeWorld->allocatorBox;
             var managedWorld = UnsafeWorld->ManagedWorld;
             UnsafeWorld->Free();
             domainAllocator.Data.Free(managedWorld.UntypedPointer);
-            allocator.Dispose();
+            WorldUnsafe.DestroyAllocatorBox(allocatorBox);
             unsafeWorldPtr = ptr<WorldUnsafe>.NULL;
             worldCount--;
             Get(id) = this;

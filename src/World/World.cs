@@ -65,9 +65,9 @@ namespace Wargon.Nukecs
         public byte Id => UnsafeWorld->Id;
         public bool IsAlive => unsafeWorldPtr.cached != null;
         public WorldConfig Config => UnsafeWorld->config;
-        public Allocator Allocator => UnsafeWorld->Allocator;
-        public ref UnityAllocatorHandler AllocatorHandler => ref UnsafeWorld->AllocatorHandler;
         public ref MemAllocator AllocatorRef => ref UnsafeWorld->AllocatorRef;
+        /// <summary>The world allocator; its address is stable for the world's lifetime, including loads.</summary>
+        public MemAllocator* AllocatorPtr => UnsafeWorld->allocatorBox;
         public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
         internal ref EntityCommandBuffer ECB => ref UnsafeWorld->EntityCommandBuffer;
@@ -194,7 +194,7 @@ namespace Wargon.Nukecs
         public int StartEntitiesAmount;
         public int StartPoolSize;
         public int StartComponentsAmount;
-        public Allocator WorldAllocator => Allocator.Persistent;
+        public AllocatorHandle WorldAllocator => AllocatorHandle.Persistent;
 
         public static WorldConfig Default16 => new()
         {

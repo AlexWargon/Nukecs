@@ -25,8 +25,8 @@ namespace Wargon.Nukecs.Reactivity
 
         public void Initialize()
         {
-            TypeStates = new NativeList<ReactiveTypeState>(4, Allocator.Persistent);
-            TypeIndexToStateIdx = new NativeHashMap<int, int>(4, Allocator.Persistent);
+            TypeStates = new NativeList<ReactiveTypeState>(4, AllocatorHandle.Persistent);
+            TypeIndexToStateIdx = new NativeHashMap<int, int>(4, AllocatorHandle.Persistent);
         }
 
         public ref ReactiveTypeState GetOrCreate(int typeIndex, int componentSize)

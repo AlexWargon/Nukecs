@@ -11,7 +11,7 @@ namespace Wargon.Nukecs.Reactivity
     /// that changed this frame. Populated by auto-generated _Fetch systems,
     /// consumed by user [System] methods with Changed&lt;T&gt; query filters.
     ///
-    /// Allocator.Persistent — NOT through framework allocator. NOT serialized
+    /// AllocatorHandle.Persistent — NOT through framework allocator. NOT serialized
     /// (managed-side, outside WorldUnsafe).
     /// </summary>
     public sealed class ChangedQueryStorage : IDisposable
@@ -29,9 +29,9 @@ namespace Wargon.Nukecs.Reactivity
             WorldId = worldId;
             TypeIndex = typeIndex;
             ComponentSize = componentSize;
-            ChangedList = new NativeList<int>(64, Allocator.Persistent);
-            Offsets = new NativeHashMap<int, int>(64, Allocator.Persistent);
-            Values = new NativeList<byte>(256, Allocator.Persistent);
+            ChangedList = new NativeList<int>(64, AllocatorHandle.Persistent);
+            Offsets = new NativeHashMap<int, int>(64, AllocatorHandle.Persistent);
+            Values = new NativeList<byte>(256, AllocatorHandle.Persistent);
         }
 
         public void Dispose()

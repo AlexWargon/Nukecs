@@ -20,7 +20,7 @@ namespace Wargon.Nukecs.Reactivity
 
         public bool IsCreated => _created != 0;
 
-        public ChangedQueue(int capacity, Allocator allocator)
+        public ChangedQueue(int capacity, AllocatorHandle allocator)
         {
             _list = new NativeList<T>(capacity, allocator);
             _spinner = default;

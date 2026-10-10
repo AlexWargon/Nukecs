@@ -471,7 +471,7 @@ namespace Wargon.Nukecs
                             _handleBuffer.Dispose();
                         _handleBuffer =
                             new Unity.Collections.NativeArray<Unity.Jobs.JobHandle>(count,
-                                Unity.Collections.Allocator.Persistent);
+                                AllocatorHandle.Persistent);
                     }
 
                     _state.SkipECBSchedule = 1;
@@ -546,7 +546,7 @@ namespace Wargon.Nukecs
                             _handleBuffer.Dispose();
                         _handleBuffer =
                             new Unity.Collections.NativeArray<Unity.Jobs.JobHandle>(count,
-                                Unity.Collections.Allocator.Persistent);
+                                AllocatorHandle.Persistent);
                     }
 
                     _state.SkipECBSchedule = 1;
@@ -634,7 +634,7 @@ namespace Wargon.Nukecs
                 {
                     if (_handleBuffer.IsCreated)
                         _handleBuffer.Dispose();
-                    _handleBuffer = new NativeArray<JobHandle>(handleCount, Allocator.Persistent);
+                    _handleBuffer = new NativeArray<JobHandle>(handleCount, AllocatorHandle.Persistent);
                 }
                 int idx = 0;
                 for (int i = 0; i < n; i++)
@@ -674,7 +674,7 @@ namespace Wargon.Nukecs
             {
                 if (_handleBuffer.IsCreated)
                     _handleBuffer.Dispose();
-                _handleBuffer = new NativeArray<JobHandle>(count, Allocator.Persistent);
+                _handleBuffer = new NativeArray<JobHandle>(count, AllocatorHandle.Persistent);
             }
 
             int idx = 0;
@@ -774,7 +774,7 @@ namespace Wargon.Nukecs
                 {
                     if (_handleBuffer.IsCreated)
                         _handleBuffer.Dispose();
-                    _handleBuffer = new NativeArray<JobHandle>(handleCount, Allocator.Persistent);
+                    _handleBuffer = new NativeArray<JobHandle>(handleCount, AllocatorHandle.Persistent);
                 }
                 int idx = 0;
                 for (int i = 0; i < n; i++)

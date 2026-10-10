@@ -31,7 +31,7 @@ namespace Wargon.Nukecs.Tests {
             // its fields cannot be interpreted with the current layout
             if (data.IsCreated != 0 && data.Size == sizeof(T) && data.OwnsValue != 0)
                 data.Value->Dispose();
-            UnsafeUtility.Free(data.Value, Allocator.Persistent);
+            Mem.Free(data.Value, AllocatorHandle.Persistent);
             data = default;
         }
         
@@ -71,9 +71,9 @@ namespace Wargon.Nukecs.Tests {
             ref var data = ref instance.Data;
             if (data.Value != null && data.Size == sizeof(T)) return ref data;
             if (data.Value != null)
-                UnsafeUtility.Free(data.Value, Allocator.Persistent); // stale block from an older layout
+                Mem.Free(data.Value, AllocatorHandle.Persistent); // stale block from an older layout
             data = default;
-            data.Value = (T*)UnsafeUtility.Malloc(sizeof(T), Mem.AlignOf<T>(), Allocator.Persistent);
+            data.Value = (T*)Mem.Malloc(sizeof(T), Mem.AlignOf<T>(), AllocatorHandle.Persistent);
             Mem.MemClear(data.Value, sizeof(T));
             data.Size = sizeof(T);
             RegisterReset();
@@ -127,7 +127,7 @@ namespace Wargon.Nukecs.Tests {
         {
             if (!resetFunctions.Data.IsCreated)
             {
-                resetFunctions.Data = new UnsafeList<IntPtr>(4, Allocator.Persistent);
+                resetFunctions.Data = new UnsafeList<IntPtr>(4, AllocatorHandle.Persistent);
             }
             resetFunctions.Data.Add(resetPtr);
         }

@@ -8,7 +8,7 @@ namespace Wargon.Nukecs
         public static StartFixedECBSystem Instance;
         public void OnCreate(ref World world)
         {
-            ecb = new EntityCommandBuffer(512, Allocator.Persistent, world.UnsafeWorld);
+            ecb = new EntityCommandBuffer(512, AllocatorHandle.Persistent, world.UnsafeWorld);
             Instance = this;
         }
 

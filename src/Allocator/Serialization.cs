@@ -116,7 +116,7 @@ namespace Wargon.Nukecs
                 for (int i = 0; i < regionCount; i++)
                 {
                     if (regions[i].basePtr != null)
-                        UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
+                        Mem.Free(regions[i].basePtr, AllocatorHandle.Persistent);
                 }
 
                 regionCount = savedRegionCount;
@@ -127,7 +127,7 @@ namespace Wargon.Nukecs
                 {
                     long size = *(long*)p; p += sizeof(long);
                     long cursor = *(long*)p; p += sizeof(long);
-                    regions[i].basePtr = (byte*)UnsafeUtility.Malloc(size, ALIGN, Allocator.Persistent);
+                    regions[i].basePtr = (byte*)Mem.Malloc(size, ALIGN, AllocatorHandle.Persistent);
                     regions[i].size = size;
                     regions[i].cursor = cursor;
                     regions[i].freeHead = NPOS;

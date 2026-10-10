@@ -166,9 +166,9 @@ namespace Wargon.Nukecs.Editor
             var info = new WorldMemoryInfo
             {
                 worldId = _worldId,
-                allocatorTotal = w.UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.TotalSize,
-                allocatorUsed = w.UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.MemoryUsed,
-                allocatorFree = w.UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.MemoryLeft,
+                allocatorTotal = w.UnsafeWorld->AllocatorRef.TotalSize,
+                allocatorUsed = w.UnsafeWorld->AllocatorRef.MemoryUsed,
+                allocatorFree = w.UnsafeWorld->AllocatorRef.MemoryLeft,
                 entitiesCount = w.UnsafeWorld->entitiesAmount,
                 archetypesCount = w.UnsafeWorld->archetypesList.Length,
                 queriesCount = w.UnsafeWorld->queries.Length,

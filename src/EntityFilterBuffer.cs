@@ -17,11 +17,11 @@ namespace Wargon.Nukecs {
         [NativeSetThreadIndex] internal int ThreadIndex;
 
         public EntityFilterBuffer(int startSize) {
-            efbPtr = (EFBInternal*) UnsafeUtility.Malloc(sizeof(EFBInternal), Mem.AlignOf<EFBInternal>(),
-                Allocator.Persistent);
+            efbPtr = (EFBInternal*) Mem.Malloc(sizeof(EFBInternal), Mem.AlignOf<EFBInternal>(),
+                AllocatorHandle.Persistent);
             *efbPtr = new EFBInternal();
             ThreadIndex = 0;
-            //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, Allocator.Persistent);
+            //ecb->internalBuffer = UnsafeList<ECBCommand>.Create(startSize, AllocatorHandle.Persistent);
             efbPtr->perThreadBuffer = Chains(startSize);
             efbPtr->isCreated = 1;
         }
@@ -29,9 +29,9 @@ namespace Wargon.Nukecs {
         private static UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>* Chains(int startSize) {
             var threads = JobsUtility.JobWorkerCount + 1;
             var ptrList =
-                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>.Create(threads, Allocator.Persistent);
+                UnsafePtrList<Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>>.Create(threads, AllocatorHandle.Persistent);
             for (var i = 0; i < threads; i++) {
-                var list = Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>.Create(startSize, Allocator.Persistent);
+                var list = Unity.Collections.LowLevel.Unsafe.UnsafeList<EFBCommand>.Create(startSize, AllocatorHandle.Persistent);
                 ptrList->Add(list);
             }
 
@@ -140,7 +140,7 @@ namespace Wargon.Nukecs {
 
         public void Dispose() {
             efbPtr->Dispose();
-            UnsafeUtility.Free(efbPtr, Allocator.Persistent);
+            Mem.Free(efbPtr, AllocatorHandle.Persistent);
         }
     }
 }

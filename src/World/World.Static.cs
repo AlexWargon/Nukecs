@@ -212,14 +212,12 @@ namespace Wargon.Nukecs
             var world = Create(config);
             var temporaryId = world.Id;
             var targetId = temporaryId;
-            var allocatorHandler = world.UnsafeWorld->AllocatorHandler;
-            var allocator = allocatorHandler.AllocatorWrapper.Allocator;
+            var allocatorBox = world.UnsafeWorld->allocatorBox;
             var managedWorld = world.UnsafeWorld->ManagedWorld;
             var ecb = world.ECB;
             try {
-                allocator.FastDeserialize(data);
-                allocatorHandler.AllocatorWrapper.Allocator = allocator;
-                world.unsafeWorldPtr.OnDeserialize(ref allocator);
+                allocatorBox->FastDeserialize(data);
+                world.unsafeWorldPtr.OnDeserialize(ref *allocatorBox);
                 targetId = world.UnsafeWorld->Id;
                 if (targetId >= MAX_WORLD_COUNT)
                     throw new InvalidOperationException("The saved world slot is invalid.");
@@ -229,7 +227,7 @@ namespace Wargon.Nukecs
                 // managed wrapper instead of interpreting a saved domain-allocator offset.
                 world.UnsafeWorld->ManagedWorld = managedWorld;
                 if (targetId != temporaryId) Get(temporaryId) = default;
-                world.CompleteDeserialization(ref allocator, ref allocatorHandler, ecb, targetId, null); // a new world has no live resources
+                world.CompleteDeserialization(allocatorBox, ecb, targetId, null); // a new world has no live resources
                 lastWorldID = (byte)targetId;
                 return world;
             }
@@ -238,8 +236,7 @@ namespace Wargon.Nukecs
                 // allocator/ECB directly rather than dereferencing its former world pointer.
                 ecb.Dispose();
                 domainAllocator.Data.Free(managedWorld.UntypedPointer);
-                allocatorHandler.AllocatorWrapper.Allocator = allocator;
-                allocatorHandler.Dispose();
+                WorldUnsafe.DestroyAllocatorBox(allocatorBox);
                 Get(temporaryId) = default;
                 if (targetId != temporaryId && targetId < MAX_WORLD_COUNT
                     && Get(targetId).unsafeWorldPtr.cached == world.unsafeWorldPtr.cached)

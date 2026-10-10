@@ -37,9 +37,9 @@ namespace Wargon.Nukecs {
         internal static int ThreadIndex => JobsUtility.ThreadIndex;
         internal readonly Allocator allocator;
 
-        public EntityCommandBuffer(int startSize, Allocator allocator, World.WorldUnsafe* world) {
+        public EntityCommandBuffer(int startSize, AllocatorHandle allocator, World.WorldUnsafe* world) {
             this.allocator = allocator;
-            ecb = (ECBInternal*)UnsafeUtility.MallocTracked(sizeof(ECBInternal),
+            ecb = (ECBInternal*)Mem.MallocTracked(sizeof(ECBInternal),
                 Mem.AlignOf<ECBInternal>(), allocator, 0);
             *ecb = new ECBInternal();
             ecb->perThreadCommands = CreateCommandBuffers(startSize, this.allocator);
@@ -50,7 +50,7 @@ namespace Wargon.Nukecs {
             ecb->isCreated = 1;
         }
 
-        private UnsafePtrList<UnsafeList<ECBCommand>>* CreateCommandBuffers(int startSize, Allocator alloc) {
+        private UnsafePtrList<UnsafeList<ECBCommand>>* CreateCommandBuffers(int startSize, AllocatorHandle alloc) {
             var threads = JobsUtility.ThreadIndexCount + 2;
             var ptrList = UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, alloc);
             for (var i = 0; i < threads; i++) {
@@ -60,7 +60,7 @@ namespace Wargon.Nukecs {
             return ptrList;
         }
 
-        private UnsafePtrList<UnsafeList<byte>>* CreateDataBuffers(int startBytes, Allocator alloc) {
+        private UnsafePtrList<UnsafeList<byte>>* CreateDataBuffers(int startBytes, AllocatorHandle alloc) {
             var threads = JobsUtility.ThreadIndexCount + 2;
             var ptrList = UnsafePtrList<UnsafeList<byte>>.Create(threads, alloc);
             for (var i = 0; i < threads; i++) {
@@ -471,13 +471,13 @@ namespace Wargon.Nukecs {
             var totalCount = Count;
             if (totalCount == 0) return;
 
-            var flat = UnsafeList<ECBCommand>.Create(totalCount, Allocator.Temp);
+            var flat = UnsafeList<ECBCommand>.Create(totalCount, AllocatorHandle.Temp);
 
             int totalDataBytes = 0;
             for (var i = 0; i < ecb->perThreadData->Length; i++)
                 totalDataBytes += ecb->perThreadData->ElementAt(i)->m_length;
 
-            var flatData = UnsafeList<byte>.Create(totalDataBytes, Allocator.Temp);
+            var flatData = UnsafeList<byte>.Create(totalDataBytes, AllocatorHandle.Temp);
 
             for (var i = 0; i < ecb->perThreadCommands->Length; i++) {
                 var threadCmds = ecb->perThreadCommands->ElementAt(i);
@@ -638,7 +638,7 @@ namespace Wargon.Nukecs {
 
         public void Dispose() {
             ecb->Dispose();
-            UnsafeUtility.FreeTracked(ecb, allocator);
+            Mem.FreeTracked(ecb, allocator);
         }
     }
 }

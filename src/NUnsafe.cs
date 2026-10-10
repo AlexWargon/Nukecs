@@ -8,17 +8,17 @@ using Unity.Mathematics;
 
 namespace Wargon.Nukecs {
     public static unsafe class NUnsafe {
-        public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged
+        public static T* MallocTracked<T>(AllocatorHandle allocator) where T : unmanaged
         {
-            return (T*) UnsafeUtility.MallocTracked(sizeof(T), Mem.AlignOf<T>(), allocator, 0);
+            return (T*) Mem.MallocTracked(sizeof(T), Mem.AlignOf<T>(), allocator, 0);
         }
 
-        public static T* MallocTracked<T>(int items, Allocator allocator) where T : unmanaged {
-            return (T*)UnsafeUtility.MallocTracked(sizeof(T) * items, Mem.AlignOf<T>(), allocator, 0);
+        public static T* MallocTracked<T>(int items, AllocatorHandle allocator) where T : unmanaged {
+            return (T*)Mem.MallocTracked(sizeof(T) * items, Mem.AlignOf<T>(), allocator, 0);
         }
 
-        public static void FreeTracked(void* ptr, Allocator allocator) {
-            UnsafeUtility.FreeTracked(ptr, allocator);
+        public static void FreeTracked(void* ptr, AllocatorHandle allocator) {
+            Mem.FreeTracked(ptr, allocator);
         }
 
         public static void Copy<T>(ref Unity.Collections.LowLevel.Unsafe.UnsafeList<T> dst, ref T[] source, int len) where T : unmanaged
@@ -41,14 +41,14 @@ namespace Wargon.Nukecs {
         }
     }
     public static class UnsafeHelp {
-        public static Unity.Collections.LowLevel.Unsafe.UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, Allocator allocator,
+        public static Unity.Collections.LowLevel.Unsafe.UnsafeList<T> UnsafeListWithMaximumLenght<T>(int size, AllocatorHandle allocator,
             NativeArrayOptions options) where T : unmanaged {
             var list = new UnsafeList<T>(size, allocator, options);
             list.Length = size;
             return list;
         }
 
-        public static unsafe Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, Allocator allocator,
+        public static unsafe Unity.Collections.LowLevel.Unsafe.UnsafeList<T>* UnsafeListPtrWithMaximumLenght<T>(int size, AllocatorHandle allocator,
             NativeArrayOptions options) where T : unmanaged {
             var ptr = Unity.Collections.LowLevel.Unsafe.UnsafeList<T>.Create(size, allocator, options);
             ptr->m_length = size;
@@ -79,10 +79,10 @@ namespace Wargon.Nukecs {
 
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, ref T* buffer, Allocator allocator) where T : unmanaged
+        public static unsafe void Resize<T>(int oldCapacity, int newCapacity, ref T* buffer, AllocatorHandle allocator) where T : unmanaged
         {
             var typeSize = sizeof(T);
-            var newBuffer = (T*)UnsafeUtility.MallocTracked(
+            var newBuffer = (T*)Mem.MallocTracked(
                 newCapacity * typeSize,
                 Mem.AlignOf<T>(),
                 allocator, 0
@@ -96,19 +96,19 @@ namespace Wargon.Nukecs {
             Mem.MemClear(newBuffer, newCapacity * typeSize);
             Mem.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
 
-            UnsafeUtility.FreeTracked(buffer, allocator);
+            Mem.FreeTracked(buffer, allocator);
 
             buffer = newBuffer;
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void CheckResize<T>(int index, ref int capacity, ref T* buffer, Allocator allocator) where T : unmanaged
+        public static unsafe void CheckResize<T>(int index, ref int capacity, ref T* buffer, AllocatorHandle allocator) where T : unmanaged
         {
             if (index >= capacity)
             {
                 var newCapacity = math.max(capacity * 2, index + 1);
                 var typeSize = sizeof(T);
-                var newBuffer = (T*)UnsafeUtility.MallocTracked(
+                var newBuffer = (T*)Mem.MallocTracked(
                     newCapacity * sizeof(T),
                     Mem.AlignOf<T>(),
                     allocator, 0
@@ -122,7 +122,7 @@ namespace Wargon.Nukecs {
                 Mem.MemClear(newBuffer, newCapacity * typeSize);
                 Mem.MemCpy(newBuffer, buffer, capacity * typeSize);
 
-                UnsafeUtility.FreeTracked(buffer, allocator);
+                Mem.FreeTracked(buffer, allocator);
 
                 buffer = newBuffer;
                 capacity = newCapacity;
@@ -130,12 +130,12 @@ namespace Wargon.Nukecs {
         }
         [BurstDiscard]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static unsafe void CheckResize<T>(int index, ref int capacity, ref void* buffer, Allocator allocator, int typeSize, int align) where T : unmanaged
+        public static unsafe void CheckResize<T>(int index, ref int capacity, ref void* buffer, AllocatorHandle allocator, int typeSize, int align) where T : unmanaged
         {
             if (index >= capacity)
             {
                 int newCapacity = math.max(capacity * 2, index + 1);
-                void* newBuffer = UnsafeUtility.MallocTracked(
+                void* newBuffer = Mem.MallocTracked(
                     newCapacity * sizeof(T),
                     align,
                     allocator, 0
@@ -148,7 +148,7 @@ namespace Wargon.Nukecs {
                 Mem.MemClear(newBuffer, newCapacity * typeSize);
                 Mem.MemCpy(newBuffer, buffer, capacity * typeSize);
 
-                UnsafeUtility.FreeTracked(buffer, allocator);
+                Mem.FreeTracked(buffer, allocator);
 
                 buffer = newBuffer;
                 capacity = newCapacity;
@@ -158,7 +158,7 @@ namespace Wargon.Nukecs {
 
     public static class DictionaryExtensions
     {
-        public static NativeHashMap<TKey, TValue> ToNative<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, Allocator allocator)
+        public static NativeHashMap<TKey, TValue> ToNative<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, AllocatorHandle allocator)
             where TKey : unmanaged, IEquatable<TKey> where TValue : unmanaged
         {
             var map = new NativeHashMap<TKey, TValue>(dictionary.Count, allocator);
@@ -175,7 +175,7 @@ namespace Wargon.Nukecs {
         private uint state;
         public static unsafe random New()
         {
-            return new random(*UnsafeStatic.malloc_t_cast<uint>(Allocator.Temp));
+            return new random(*UnsafeStatic.malloc_t_cast<uint>(AllocatorHandle.Temp));
         }
         
         public random(uint seed)

@@ -524,7 +524,7 @@ namespace Wargon.Nukecs
                 AddTypeToMasks(ref arch.inlineMask, ref arch.tagMask, ref arch.poolMask, type);
             arch.hashId = ComputeIdentityHash(ref arch.inlineMask, ref arch.tagMask, ref arch.poolMask);
             arch.queries = new MemoryList<int>(8, ref world->AllocatorRef);
-            arch.pairEdges = new HashMap<long, ptr<Edge>>(8, ref world->AllocatorHandler);
+            arch.pairEdges = new HashMap<long, ptr<Edge>>(8, ref world->AllocatorRef);
             arch.queriesVersion = 0;
             arch.destroyEdge = default;
             arch.PopulateQueries(world);
@@ -570,7 +570,7 @@ namespace Wargon.Nukecs
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorHandler);
+            pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorRef);
             queriesVersion = 0;
             destroyEdge = default;
             PopulateQueries(world);
@@ -607,7 +607,7 @@ namespace Wargon.Nukecs
             }
 
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorHandler);
+            pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorRef);
             queriesVersion = 0;
             destroyEdge = default;
             PopulateQueries(world);
@@ -640,7 +640,7 @@ namespace Wargon.Nukecs
 
             hashId = ComputeIdentityHash(ref inlineMask, ref tagMask, ref poolMask);
             queries = new MemoryList<int>(8, ref this.world->AllocatorRef);
-            pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorHandler);
+            pairEdges = new HashMap<long, ptr<Edge>>(8, ref this.world->AllocatorRef);
             queriesVersion = 0;
             destroyEdge = default;
             PopulateQueries(world);

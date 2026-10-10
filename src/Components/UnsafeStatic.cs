@@ -85,51 +85,51 @@ namespace Wargon.Nukecs
             return Mem.As<TFrom, TTo>(ref u);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe T* malloc<T>(Unity.Collections.Allocator allocator, int amount) where T : unmanaged
+        public static unsafe T* malloc<T>(AllocatorHandle allocator, int amount) where T : unmanaged
         {
-            return (T*)UnsafeUtility.Malloc(sizeof(T) * amount, Mem.AlignOf<T>(), allocator);
+            return (T*)Mem.Malloc(sizeof(T) * amount, Mem.AlignOf<T>(), allocator);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe T* malloc<T>(Unity.Collections.Allocator allocator) where T : unmanaged
+        public static unsafe T* malloc<T>(AllocatorHandle allocator) where T : unmanaged
         {
-            return (T*)UnsafeUtility.Malloc(sizeof(T), Mem.AlignOf<T>(), allocator);
+            return (T*)Mem.Malloc(sizeof(T), Mem.AlignOf<T>(), allocator);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void* malloc_t<T>(Unity.Collections.Allocator allocator, int amount) where T : struct
+        public static unsafe void* malloc_t<T>(AllocatorHandle allocator, int amount) where T : struct
         {
-            return UnsafeUtility.MallocTracked(
+            return Mem.MallocTracked(
                 Mem.SizeOf<T>() * amount, 
                 Mem.AlignOf<T>(), 
                 allocator, 0);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void* malloc_t<T>(Unity.Collections.Allocator allocator) where T : struct
+        public static unsafe void* malloc_t<T>(AllocatorHandle allocator) where T : struct
         {
-            return UnsafeUtility.MallocTracked(Mem.SizeOf<T>(), Mem.AlignOf<T>(), allocator, 0);
+            return Mem.MallocTracked(Mem.SizeOf<T>(), Mem.AlignOf<T>(), allocator, 0);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void* malloc_t_value<T>(Unity.Collections.Allocator allocator, T value) where T : struct
+        public static unsafe void* malloc_t_value<T>(AllocatorHandle allocator, T value) where T : struct
         {
-            var ptr = UnsafeUtility.MallocTracked(Mem.SizeOf<T>(), Mem.AlignOf<T>(), allocator, 0);
+            var ptr = Mem.MallocTracked(Mem.SizeOf<T>(), Mem.AlignOf<T>(), allocator, 0);
             Mem.AsRef<T>(ptr) = value;
             return ptr;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe T* malloc_t_cast<T>(Unity.Collections.Allocator allocator) where T : unmanaged
+        public static unsafe T* malloc_t_cast<T>(AllocatorHandle allocator) where T : unmanaged
         {
-            return (T*)UnsafeUtility.MallocTracked(sizeof(T), Mem.AlignOf<T>(), allocator, 0);
+            return (T*)Mem.MallocTracked(sizeof(T), Mem.AlignOf<T>(), allocator, 0);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void free(void* ptr, Unity.Collections.Allocator allocator)
+        public static unsafe void free(void* ptr, AllocatorHandle allocator)
         {
-            UnsafeUtility.Free(ptr, allocator);
+            Mem.Free(ptr, allocator);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 
-        public static unsafe void free_t(void* ptr, Unity.Collections.Allocator allocator)
+        public static unsafe void free_t(void* ptr, AllocatorHandle allocator)
         {
-            UnsafeUtility.FreeTracked(ptr, allocator);
+            Mem.FreeTracked(ptr, allocator);
         }
         
         [MethodImpl(MethodImplOptions.AggressiveInlining)] 

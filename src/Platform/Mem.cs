@@ -2,6 +2,8 @@ using System;
 using System.Runtime.CompilerServices;
 #if UNITY_5_3_OR_NEWER
 using Unity.Collections.LowLevel.Unsafe;
+#else
+using System.Runtime.InteropServices;
 #endif
 
 namespace Wargon.Nukecs
@@ -9,12 +11,25 @@ namespace Wargon.Nukecs
     /// <summary>
     /// Raw memory primitives used by the core. In Unity every method forwards to
     /// <c>UnsafeUtility</c> (inlined, Burst-compatible); elsewhere it uses
-    /// System.Runtime.CompilerServices.Unsafe and Buffer.
-    /// Allocation stays with the allocator/collections layer.
+    /// System.Runtime.CompilerServices.Unsafe, Buffer and Marshal.
     /// </summary>
     public static unsafe class Mem
     {
 #if UNITY_5_3_OR_NEWER
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void* Malloc(long size, int alignment, AllocatorHandle allocator) =>
+            UnsafeUtility.Malloc(size, alignment, allocator);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void* MallocTracked(long size, int alignment, AllocatorHandle allocator, int callstacksToSkip = 0) =>
+            UnsafeUtility.MallocTracked(size, alignment, allocator, callstacksToSkip);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void Free(void* memory, AllocatorHandle allocator) => UnsafeUtility.Free(memory, allocator);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void FreeTracked(void* memory, AllocatorHandle allocator) => UnsafeUtility.FreeTracked(memory, allocator);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SizeOf<T>() where T : struct => UnsafeUtility.SizeOf<T>();
 
@@ -57,6 +72,30 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int MemCmp(void* ptr1, void* ptr2, long size) => UnsafeUtility.MemCmp(ptr1, ptr2, size);
 #else
+        // Every label maps to the process heap. The original block start is stored just
+        // before the aligned pointer so Free can release it.
+        public static void* Malloc(long size, int alignment, AllocatorHandle allocator)
+        {
+            if (alignment < sizeof(void*)) alignment = sizeof(void*);
+            var raw = (byte*)Marshal.AllocHGlobal((IntPtr)(size + alignment + sizeof(void*)));
+            var aligned = (byte*)(((ulong)(raw + sizeof(void*)) + (ulong)alignment - 1) & ~((ulong)alignment - 1));
+            ((void**)aligned)[-1] = raw;
+            return aligned;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void* MallocTracked(long size, int alignment, AllocatorHandle allocator, int callstacksToSkip = 0) =>
+            Malloc(size, alignment, allocator);
+
+        public static void Free(void* memory, AllocatorHandle allocator)
+        {
+            if (memory == null) return;
+            Marshal.FreeHGlobal((IntPtr)((void**)memory)[-1]);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void FreeTracked(void* memory, AllocatorHandle allocator) => Free(memory, allocator);
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int SizeOf<T>() where T : struct => Unsafe.SizeOf<T>();
 

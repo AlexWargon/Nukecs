@@ -383,7 +383,7 @@ namespace Wargon.Nukecs
         // Dispose method to release allocated memory
         public void Dispose()
         {
-            // UnsafeUtility.FreeTracked(bitmaskArray.Ptr, Allocator.Persistent);
+            // Mem.FreeTracked(bitmaskArray.Ptr, AllocatorHandle.Persistent);
             // bitmaskArray = null;
         }
 

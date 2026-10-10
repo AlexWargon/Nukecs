@@ -170,13 +170,13 @@ namespace Wargon.Nukecs {
     //     {
     //         var systemParams = new SystemParams
     //         {
-    //             list = new UnsafeList<SystemParam>(1, Allocator.Persistent),
+    //             list = new UnsafeList<SystemParam>(1, AllocatorHandle.Persistent),
     //             system = (IntPtr)systemAction
     //         };
     //         var param0 = new SystemParam
     //         {
     //             value = world->GetSystemParam<TParam0>(out var metaType),
-    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(AllocatorHandle.Persistent) : IntPtr.Zero,
     //         };
     //         
     //         systemParams.list.Add(param0);
@@ -191,19 +191,19 @@ namespace Wargon.Nukecs {
     //     {
     //         var systemParams = new SystemParams
     //         {
-    //             list = new UnsafeList<SystemParam>(1, Allocator.Persistent),
+    //             list = new UnsafeList<SystemParam>(1, AllocatorHandle.Persistent),
     //             system = (IntPtr)systemAction
     //         };
     //         var param0 = new SystemParam
     //         {
     //             value = world->GetSystemParam<TParam0>(out var metaType),
-    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(AllocatorHandle.Persistent) : IntPtr.Zero,
     //         };
     //         systemParams.list.Add(param0);
     //         var param1 = new SystemParam
     //         {
     //             value = world->GetSystemParam<TParam1>(out metaType),
-    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero,
+    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(AllocatorHandle.Persistent) : IntPtr.Zero,
     //         };
     //         systemParams.list.Add(param1);
     //         return systemParams;
@@ -217,25 +217,25 @@ namespace Wargon.Nukecs {
     //     {
     //         var systemParams = new SystemParams
     //         {
-    //             list = new UnsafeList<SystemParam>(2, Allocator.Persistent),
+    //             list = new UnsafeList<SystemParam>(2, AllocatorHandle.Persistent),
     //             system = (IntPtr)systemAction
     //         };
     //         var param0 = new SystemParam
     //         {
     //             value = world->GetSystemParam<TParam0>(out var metaType),
-    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero
+    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(AllocatorHandle.Persistent) : IntPtr.Zero
     //         };
     //         systemParams.list.Add(param0);
     //         var param1 = new SystemParam
     //         {
     //             value = world->GetSystemParam<TParam1>(out metaType),
-    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero
+    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(AllocatorHandle.Persistent) : IntPtr.Zero
     //         };
     //         systemParams.list.Add(param1);
     //         var param2 = new SystemParam
     //         {
     //             value = world->GetSystemParam<TParam2>(out metaType),
-    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(Allocator.Persistent) : IntPtr.Zero
+    //             data = metaType == SystemParamMetaType.Query ? (IntPtr)malloc_t<Range>(AllocatorHandle.Persistent) : IntPtr.Zero
     //         };
     //         systemParams.list.Add(param2);
     //         return systemParams;

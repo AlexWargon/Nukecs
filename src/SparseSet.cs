@@ -15,8 +15,8 @@ namespace Wargon.Nukecs
 
         public SparseSet(int initialCapacity, int sparseCapacity)
         {
-            _sparse = (int*)UnsafeUtility.Malloc(sparseCapacity * sizeof(int), Mem.AlignOf<int>(), Allocator.Persistent);
-            _dense = (Entity*)UnsafeUtility.Malloc(initialCapacity * sizeof(Entity), Mem.AlignOf<Entity>(), Allocator.Persistent);
+            _sparse = (int*)Mem.Malloc(sparseCapacity * sizeof(int), Mem.AlignOf<int>(), AllocatorHandle.Persistent);
+            _dense = (Entity*)Mem.Malloc(initialCapacity * sizeof(Entity), Mem.AlignOf<Entity>(), AllocatorHandle.Persistent);
             _count = 0;
             _capacity = initialCapacity;
             _sparseCapacity = sparseCapacity;
@@ -85,9 +85,9 @@ namespace Wargon.Nukecs
         }
         private void Resize(int newCapacity)
         {
-            var newDense = (Entity*)UnsafeUtility.Malloc(newCapacity * sizeof(Entity), Mem.AlignOf<Entity>(), Allocator.Persistent);
+            var newDense = (Entity*)Mem.Malloc(newCapacity * sizeof(Entity), Mem.AlignOf<Entity>(), AllocatorHandle.Persistent);
             Mem.MemCpy(newDense, _dense, _count * sizeof(Entity));
-            UnsafeUtility.Free(_dense, Allocator.Persistent);
+            Mem.Free(_dense, AllocatorHandle.Persistent);
             _dense = newDense;
             _capacity = newCapacity;
         }
@@ -96,12 +96,12 @@ namespace Wargon.Nukecs
         {
             if (_sparse != null)
             {
-                UnsafeUtility.Free(_sparse, Allocator.Persistent);
+                Mem.Free(_sparse, AllocatorHandle.Persistent);
                 _sparse = null;
             }
             if (_dense != null)
             {
-                UnsafeUtility.Free(_dense, Allocator.Persistent);
+                Mem.Free(_dense, AllocatorHandle.Persistent);
                 _dense = null;
             }
             _count = 0;

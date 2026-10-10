@@ -111,7 +111,7 @@ namespace Wargon.Nukecs
         public MemAllocator(long sizeInBytes)
         {
             initialRegionSize = Math.Max(sizeInBytes, 4096);
-            regions = (Region*)UnsafeUtility.Malloc(sizeof(Region) * MAX_REGIONS, ALIGN, Allocator.Persistent);
+            regions = (Region*)Mem.Malloc(sizeof(Region) * MAX_REGIONS, ALIGN, AllocatorHandle.Persistent);
             Mem.MemClear(regions, sizeof(Region) * MAX_REGIONS);
             regionCount = 0;
             totalCapacity = 0;
@@ -123,8 +123,8 @@ namespace Wargon.Nukecs
 
         public static MemAllocator* New(long sizeInBytes)
         {
-            var p = (MemAllocator*)UnsafeUtility.MallocTracked(
-                sizeof(MemAllocator), Mem.AlignOf<MemAllocator>(), Allocator.Persistent, 0);
+            var p = (MemAllocator*)Mem.MallocTracked(
+                sizeof(MemAllocator), Mem.AlignOf<MemAllocator>(), AllocatorHandle.Persistent, 0);
             *p = new MemAllocator(sizeInBytes);
             return p;
         }
@@ -132,7 +132,7 @@ namespace Wargon.Nukecs
         public static void Destroy(MemAllocator* a)
         {
             a->Dispose();
-            UnsafeUtility.FreeTracked(a, Allocator.Persistent);
+            Mem.FreeTracked(a, AllocatorHandle.Persistent);
         }
 
         public byte* GetRegionPtr(int i) => regions[i].basePtr;
@@ -153,7 +153,7 @@ namespace Wargon.Nukecs
             for (int i = regionCount - 1; i > m.RegionIndex; i--)
             {
                 totalAllocated -= regions[i].cursor;
-                UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
+                Mem.Free(regions[i].basePtr, AllocatorHandle.Persistent);
                 totalCapacity -= regions[i].size;
             }
             regionCount = m.RegionIndex + 1;
@@ -172,7 +172,7 @@ namespace Wargon.Nukecs
         {
             if (regionCount >= MAX_REGIONS)
                 throw new InvalidOperationException($"Max regions ({MAX_REGIONS})");
-            var bp = (byte*)UnsafeUtility.Malloc(sz, ALIGN, Allocator.Persistent);
+            var bp = (byte*)Mem.Malloc(sz, ALIGN, AllocatorHandle.Persistent);
             regions[regionCount] = new Region
             {
                 basePtr = bp, size = sz, cursor = 0, freeHead = NPOS, freeCount = 0
@@ -699,8 +699,8 @@ namespace Wargon.Nukecs
             lock_.Acquire();
             for (int i = 0; i < regionCount; i++)
                 if (regions[i].basePtr != null)
-                    UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
-            if (regions != null) { UnsafeUtility.Free(regions, Allocator.Persistent); regions = null; }
+                    Mem.Free(regions[i].basePtr, AllocatorHandle.Persistent);
+            if (regions != null) { Mem.Free(regions, AllocatorHandle.Persistent); regions = null; }
             regionCount = 0;
             totalCapacity = 0;
             totalAllocated = 0;

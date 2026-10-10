@@ -1133,7 +1133,7 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_HashMap_1023_GET()
         {
             _world  = World.Create(BenchConfig);
-            var map = new HashMap<int,int>(1023, ref _world.AllocatorHandler);
+            var map = new HashMap<int,int>(1023, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
 
             for (int i = 0; i < 1023; i++)
@@ -1168,11 +1168,11 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_BitMap1024_64_GET()
         {
             _world  = World.Create(BenchConfig);
-            var map = new BitMap1024<int>(64, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            var map = new BitMap1024<int>(64, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
             for (int i = 0; i < 63; i++)
             {
-                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+                map.Add(i, i, ref _world.AllocatorRef);
             }
             
             Measure.Method(() => 
@@ -1270,7 +1270,7 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_HashMap_64_GET()
         {
             _world  = World.Create(BenchConfig);
-            var map = new HashMap<int,int>(64, ref _world.AllocatorHandler);
+            var map = new HashMap<int,int>(64, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
 
             for (int i = 0; i < 63; i++)
@@ -1307,11 +1307,11 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_BitMap1024_16_GET()
         {
             _world  = World.Create(BenchConfig);
-            var map = new BitMap1024<int>(16, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            var map = new BitMap1024<int>(16, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
             for (int i = 0; i < 15; i++)
             {
-                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+                map.Add(i, i, ref _world.AllocatorRef);
             }
             
             Measure.Method(() => 
@@ -1409,7 +1409,7 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_HashMap_16_GET()
         {
             _world  = World.Create(BenchConfig);
-            var map = new HashMap<int,int>(16, ref _world.AllocatorHandler);
+            var map = new HashMap<int,int>(16, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.GetMemorySizeUsed())}KB/{map.GetMemorySizeUsed()}B");
 
             for (int i = 0; i < 15; i++)
@@ -1449,11 +1449,11 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_BitMap1024_1023_GET_Burst()
         {
             _world  = World.Create(BenchConfig);
-            var map = new BitMap1024<int>(1023, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            var map = new BitMap1024<int>(1023, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
             for (int i = 0; i < 1023; i++)
             {
-                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+                map.Add(i, i, ref _world.AllocatorRef);
             }
             
             Measure.Method(() => 
@@ -1486,11 +1486,11 @@ namespace Wargon.Nukecs.Tests
         public void GET_FAST_BitMap1024_1023_GET()
         {
             _world  = World.Create(BenchConfig);
-            var map = new BitMap1024<int>(1023, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+            var map = new BitMap1024<int>(1023, ref _world.AllocatorRef);
             dbug.log($"SIZE:{Memory.BytesToKilobytes(map.Size())}KB/{map.Size()}B");
             for (int i = 0; i < 1023; i++)
             {
-                map.Add(i, i, ref _world.AllocatorHandler.AllocatorWrapper.Allocator);
+                map.Add(i, i, ref _world.AllocatorRef);
             }
             
             Measure.Method(() => 

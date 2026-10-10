@@ -65,23 +65,23 @@ namespace Wargon.Nukecs.Collections
             }
         }
 
-        public static ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
+        public static ptr<MemoryList<T>> Create(int capacity, ref MemAllocator allocator,
             bool lenAsCapacity = false)
         {
             //new list value
             var list = new MemoryList<T>
             {
-                PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity),
+                PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity),
                 capacity = capacity
             };
             //buffer in list
-            list.Ptr = list.PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
+            list.Ptr = list.PtrOffset.AsPtr<T>(ref allocator);
             if (lenAsCapacity)
             {
                 list.length = capacity;
             }
             //list ptr
-            var ptr = allocatorHandler.Allocator.AllocatePtr<MemoryList<T>>(sizeof(MemoryList<T>));
+            var ptr = allocator.AllocatePtr<MemoryList<T>>(sizeof(MemoryList<T>));
             *ptr.Ptr = list;
             return ptr;
         }
@@ -94,11 +94,11 @@ namespace Wargon.Nukecs.Collections
             get => length;
         }
 
-        public static void Destroy(ptr<MemoryList<T>> list, ref UnityAllocatorWrapper allocatorHandler)
+        public static void Destroy(ptr<MemoryList<T>> list, ref MemAllocator allocator)
         {
             ref var l = ref list.Ref;
             l.Dispose();
-            allocatorHandler.Allocator.Free(list);
+            allocator.Free(list);
         }
 
         /// <summary>

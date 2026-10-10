@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections.LowLevel.Unsafe;
-using Allocator = Unity.Collections.Allocator;
 
 namespace Wargon.Nukecs
 {
@@ -41,16 +40,16 @@ namespace Wargon.Nukecs
         public static Data<T> New()
         {
             Data<T> data = default;
-            data._data = (T*)UnsafeUtility.MallocTracked(
+            data._data = (T*)Mem.MallocTracked(
                 sizeof(T),
                 Mem.AlignOf<T>(),
-                Allocator.Persistent, 0);
+                AllocatorHandle.Persistent, 0);
             return data;
         }
 
         public static void Dispose(Data<T> data)
         {
-            UnsafeUtility.FreeTracked(data._data, Allocator.Persistent);
+            Mem.FreeTracked(data._data, AllocatorHandle.Persistent);
         }
     }
     /// <summary>Resource owned by one system registration. Parallel ranges share it.</summary>

@@ -169,7 +169,7 @@ namespace Wargon.Nukecs
     {
         private readonly T* _value;
         private readonly Allocator _allocator;
-        public PerThreadValue(int threadCount, Allocator allocator)
+        public PerThreadValue(int threadCount, AllocatorHandle allocator)
         {
             _value = (T*)malloc_t<T>(allocator, threadCount);
             _allocator = allocator;

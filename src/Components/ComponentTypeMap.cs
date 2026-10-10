@@ -23,8 +23,8 @@ namespace Wargon.Nukecs
         private static void EnsureInitialized() {
             if (_initialized) return;
             _cache = new ComponentsMapCache();
-            ComponentTypes.Data = new NativeHashMap<int, ComponentTypeData>(256, Allocator.Persistent);
-            ElementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, Allocator.Persistent);
+            ComponentTypes.Data = new NativeHashMap<int, ComponentTypeData>(256, AllocatorHandle.Persistent);
+            ElementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, AllocatorHandle.Persistent);
             try {
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             }

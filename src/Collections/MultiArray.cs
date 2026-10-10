@@ -30,14 +30,14 @@ namespace Wargon.Nukecs.Collections
         public int SegmentCount => _count;
         public int Length => _totalLength;
 
-        public MultiArray(int segmentCapacity, Allocator allocator)
+        public MultiArray(int segmentCapacity, AllocatorHandle allocator)
         {
             _capacity = segmentCapacity;
             _count = 0;
             _totalLength = 0;
 
             _segments = (Segment<T>*)
-                UnsafeUtility.MallocTracked(
+                Mem.MallocTracked(
                     (uint)segmentCapacity * sizeof(Segment<T>),
                     Mem.AlignOf<Segment<T>>(),
                     allocator,
@@ -46,8 +46,8 @@ namespace Wargon.Nukecs.Collections
         }
 
         /// <summary>Adds a segment built from gathered rows: src[rowIndices[i]] for i in [0, count).</summary>
-        public void AddGathered(T* src, int* rowIndices, int count, Allocator allocator) {
-            var buffer = (T*)UnsafeUtility.MallocTracked(
+        public void AddGathered(T* src, int* rowIndices, int count, AllocatorHandle allocator) {
+            var buffer = (T*)Mem.MallocTracked(
                 (uint)count * sizeof(T), Mem.AlignOf<T>(), allocator, 0);
             for (var i = 0; i < count; i++)
                 buffer[i] = src[rowIndices[i]];
@@ -94,7 +94,7 @@ namespace Wargon.Nukecs.Collections
         {
             if (_segments != null)
             {
-                UnsafeUtility.FreeTracked(_segments, _allocator);
+                Mem.FreeTracked(_segments, _allocator);
                 _segments = null;
             }
 

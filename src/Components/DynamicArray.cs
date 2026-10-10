@@ -12,17 +12,17 @@ namespace Wargon.Nukecs
         private int len;
         private Allocator allocator;
         internal static int maximumElementSize;
-        public DynamicArray(int size, Allocator allocator)
+        public DynamicArray(int size, AllocatorHandle allocator)
         {
-            this.buffer = (byte*)UnsafeUtility.MallocTracked(size * maximumElementSize, Mem.AlignOf<byte>(), allocator, 0);
+            this.buffer = (byte*)Mem.MallocTracked(size * maximumElementSize, Mem.AlignOf<byte>(), allocator, 0);
             this.maxElementSize = maximumElementSize;
             this.size = size;
             this.len = 0;
             this.allocator = allocator;
         }
-        public DynamicArray(int size, int maxElementSize, Allocator allocator)
+        public DynamicArray(int size, int maxElementSize, AllocatorHandle allocator)
         {
-            this.buffer = (byte*)UnsafeUtility.MallocTracked(size * maxElementSize, Mem.AlignOf<byte>(), allocator, 0);
+            this.buffer = (byte*)Mem.MallocTracked(size * maxElementSize, Mem.AlignOf<byte>(), allocator, 0);
             this.maxElementSize = maxElementSize;
             this.size = size;
             this.len = 0;
@@ -42,7 +42,7 @@ namespace Wargon.Nukecs
 
         public void Dispose()
         {
-            UnsafeUtility.FreeTracked(buffer, allocator);
+            Mem.FreeTracked(buffer, allocator);
         }
 
     }

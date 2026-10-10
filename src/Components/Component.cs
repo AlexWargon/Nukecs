@@ -310,7 +310,7 @@ namespace Wargon.Nukecs
 
         public static unsafe UntypedUnmanagedDelegate* CreatePointer<T>(T function) where T : Delegate
         {
-            UntypedUnmanagedDelegate* ptr = (UntypedUnmanagedDelegate*)UnsafeUtility.MallocTracked(sizeof(UntypedUnmanagedDelegate), Mem.AlignOf<UntypedUnmanagedDelegate>(), Allocator.Persistent, 0);
+            UntypedUnmanagedDelegate* ptr = (UntypedUnmanagedDelegate*)Mem.MallocTracked(sizeof(UntypedUnmanagedDelegate), Mem.AlignOf<UntypedUnmanagedDelegate>(), AllocatorHandle.Persistent, 0);
             *ptr = Create(function);
             return ptr;
         }
@@ -318,7 +318,7 @@ namespace Wargon.Nukecs
         public static unsafe void Destroy(UntypedUnmanagedDelegate* untypedUnmanagedDelegate)
         {
             untypedUnmanagedDelegate->Dispose();
-            UnsafeUtility.FreeTracked(untypedUnmanagedDelegate, Allocator.Persistent);
+            Mem.FreeTracked(untypedUnmanagedDelegate, AllocatorHandle.Persistent);
         }
         public void Dispose()
         {

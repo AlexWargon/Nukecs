@@ -360,7 +360,7 @@ namespace Wargon.Nukecs
             oldVersion = byte.MinValue;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public MultiArray<int> GetEntities(Allocator allocator)
+        public MultiArray<int> GetEntities(AllocatorHandle allocator)
         {
             if (UseStorageIteration())
             {

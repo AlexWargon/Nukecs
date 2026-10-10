@@ -37,11 +37,11 @@ namespace Wargon.Nukecs.Reactivity
         {
             TypeIndex = typeIndex;
             ComponentSize = componentSize;
-            Offsets = new NativeHashMap<int, int>(initialCapacity, Allocator.Persistent);
-            Values = new NativeList<byte>(initialCapacity * componentSize, Allocator.Persistent);
-            Alive = new NativeList<int>(initialCapacity, Allocator.Persistent);
-            Changed = new ChangedQueue<int>(initialCapacity, Allocator.Persistent);
-            PendingTriggers = new NativeHashMap<int, byte>(4, Allocator.Persistent);
+            Offsets = new NativeHashMap<int, int>(initialCapacity, AllocatorHandle.Persistent);
+            Values = new NativeList<byte>(initialCapacity * componentSize, AllocatorHandle.Persistent);
+            Alive = new NativeList<int>(initialCapacity, AllocatorHandle.Persistent);
+            Changed = new ChangedQueue<int>(initialCapacity, AllocatorHandle.Persistent);
+            PendingTriggers = new NativeHashMap<int, byte>(4, AllocatorHandle.Persistent);
         }
 
         /// <summary>Append a raw byte block to <see cref="Values"/> and return its offset.</summary>

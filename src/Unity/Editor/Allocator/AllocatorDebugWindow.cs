@@ -279,7 +279,7 @@ namespace Wargon.Nukecs
 
             ref var world = ref World.Default;
             if(!world.IsAlive) return;
-            var allocatorPtr = world.AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
+            var allocatorPtr = world.AllocatorPtr;
             if (allocatorPtr == null)
             {
                 _noDataLabel.style.display = DisplayStyle.Flex;
@@ -316,7 +316,7 @@ namespace Wargon.Nukecs
             {
                 if ((AllocatorDebugState.Mode & AllocatorDebugMode.PoisonFree) == 0) return;
                 if (!World.HasActiveWorlds()) return;
-                var ap = World.Default.AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
+                var ap = World.Default.AllocatorPtr;
                 if (ap != null) ap->PoisonAllFree();
             });
             _guardCard.Add(poison);
@@ -333,7 +333,7 @@ namespace Wargon.Nukecs
             var validateBtn = new Button(() =>
             {
                 if (!World.HasActiveWorlds()) return;
-                var ap = World.Default.AllocatorHandler.AllocatorWrapper.GetAllocatorPtr();
+                var ap = World.Default.AllocatorPtr;
                 if (ap == null) return;
                 SetGuardStatus(ap->Validate(out _));
             }) { text = "Validate now" };
