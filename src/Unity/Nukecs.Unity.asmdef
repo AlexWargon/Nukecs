@@ -1,9 +1,11 @@
 {
-    "name": "AllocatorEditor",
-    "rootNamespace": "",
+    "name": "Nukecs.Unity",
+    "rootNamespace": "Wargon.Nukecs",
     "references": [
-        "GUID:fdb13d7553561e54997a99cbefc75a25",
-        "GUID:37e69478e48344f89f34424dcf46f743"
+        "Nukecs",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Burst"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
-using UnityEngine;
 using Wargon.Nukecs.Collections;
 using Wargon.Nukecs.Tests;
 // ReSharper disable InconsistentNaming
@@ -137,7 +136,7 @@ namespace Wargon.Nukecs
                 if (!w.IsAlive)
                 {
                     w = Create();
-                    Debug.Log("Created Default World");
+                    dbug.log("Created Default World");
                 }
 
                 return ref w;
@@ -265,7 +264,7 @@ namespace Wargon.Nukecs
             WorldSystems.Dispose();
             if (domainAllocator.Data.IsActive)
                 domainAllocator.Data.Dispose();
-            EntityPrefabMap.Dispose();
+            NukecsLifecycle.RaiseStaticDisposed();
             ComponentTypeMap.Dispose();
             Component._initialized = false;
         }

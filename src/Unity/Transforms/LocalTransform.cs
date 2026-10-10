@@ -6,6 +6,7 @@ namespace Wargon.Nukecs.Transforms {
     using Unity.Mathematics;
     
     [StructLayout(LayoutKind.Sequential)]
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct LocalTransform : IComponent{
         public float3 Position;
         public quaternion Rotation;

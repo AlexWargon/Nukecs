@@ -8,7 +8,6 @@ namespace Wargon.Nukecs
     using System.Runtime.InteropServices;
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
-    using UnityEngine;
     using System.Collections.Generic;
     using System.Linq;
     using System.Reflection;
@@ -47,9 +46,6 @@ namespace Wargon.Nukecs
         T Copy(int to);
     }
 
-    public abstract class Convertor : ScriptableObject, ICustomConvertor {
-        public abstract void Convert(ref World world, ref Entity entity);
-    }
     public struct Name : IComponent, IDisposable
     {
         public ObjectRef<string> value;
@@ -143,7 +139,7 @@ namespace Wargon.Nukecs
         {
             if (NukecsDebugData.Instance.showInitedComponents)
             {
-                Debug.Log(typeData.ToString());
+                dbug.log(typeData.ToString());
             }
         }
         public static IEnumerable<Type> FindGenericUsages(Type genericTypeDefinition, Assembly assembly)
@@ -188,7 +184,7 @@ namespace Wargon.Nukecs
         public static void LogMemoryStatus(string label = "")
         {
             long totalMemory = GC.GetTotalMemory(false);
-            Debug.Log($"{label} - Total Memory: {totalMemory} bytes");
+            dbug.log($"{label} - Total Memory: {totalMemory} bytes");
         }
 
         public static unsafe void CheckAndLogBuffer(byte* buffer, int size, string label = "")
@@ -197,7 +193,7 @@ namespace Wargon.Nukecs
             {
                 if (buffer[i] != 0)
                 {
-                    Debug.Log($"{label} - Buffer at index {i} has value: {buffer[i]}");
+                    dbug.log($"{label} - Buffer at index {i} has value: {buffer[i]}");
                 }
             }
         }

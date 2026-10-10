@@ -7,7 +7,6 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 
 namespace Wargon.Nukecs
 {
@@ -34,7 +33,7 @@ namespace Wargon.Nukecs
                 // ignored
             }
 
-            Application.quitting += Dispose;
+            NukecsLifecycle.Quitting += Dispose;
             _initialized = true;
         }
 
@@ -46,7 +45,7 @@ namespace Wargon.Nukecs
             TypeToComponentType.Map.Clear();
             _cache = default;
             _nextIndex = 0;
-            Application.quitting -= Dispose;
+            NukecsLifecycle.Quitting -= Dispose;
             _initialized = false;
         }
         [BurstDiscard]
@@ -61,7 +60,7 @@ namespace Wargon.Nukecs
             }
             catch
             {
-                dbug.log($"Failed to register component type {type.Name}", Color.red);
+                dbug.log($"Failed to register component type {type.Name}", "red");
             }
 
         }

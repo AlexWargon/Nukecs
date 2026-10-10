@@ -4,6 +4,7 @@
     using System.Runtime.InteropServices;
     using Unity.Mathematics;
     [Serializable][StructLayout(LayoutKind.Sequential)]
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct Transform : IComponent {
         public float3 Position;
         public quaternion Rotation;
@@ -21,7 +22,7 @@
         }
     }
 
-    public struct OnAddChildWithTransformEvent : IComponent { }
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct StaticTag : IComponent { }
     public static class TransformsUtility {
         public static void Convert(UnityEngine.Transform transform, ref World world, ref Entity entity) {
@@ -72,6 +73,7 @@
     //         entityToIndex.Remove(entity);
     //     }
     // }
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct TransformRef : IComponent, ICopyable<TransformRef>
     {
         public ObjectRef<UnityEngine.Transform> Value;
@@ -84,6 +86,7 @@
             };
         }
     }
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct NoneSyncTransform : IComponent { }
     /// <summary>Compatibility cleanup for explicitly tagged DestroyEntity views.
     /// Register on the main thread. This destroys GameObjects only, not ECS entities;

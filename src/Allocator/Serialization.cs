@@ -4,7 +4,6 @@ using System.IO.Compression;
 using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Wargon.Nukecs
@@ -189,7 +188,7 @@ namespace Wargon.Nukecs
         {
             lock_.Acquire();
             if (!File.Exists(filePath))
-                Debug.LogError($"File not found: {filePath}");
+                dbug.error($"File not found: {filePath}");
             await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             var buffer = new byte[fs.Length];
             var read = await fs.ReadAsync(buffer, 0, buffer.Length);
@@ -245,7 +244,7 @@ namespace Wargon.Nukecs
         {
             lock_.Acquire();
             if (!File.Exists(filePath))
-                Debug.LogError($"File not found: {filePath}");
+                dbug.error($"File not found: {filePath}");
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             var buffer = new byte[fs.Length];
             var read = fs.Read(buffer, 0, buffer.Length);

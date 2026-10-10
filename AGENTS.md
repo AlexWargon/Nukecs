@@ -13,7 +13,8 @@ Nukecs is a **Burst-compiled ECS framework for Unity**. It uses `unsafe` code an
 
 - **Runtime**: .NET Framework 4.7.1 (Unity legacy)
 - **Dependencies**: Unity.Burst, Unity.Collections, Unity.Jobs, Unity.Mathematics
-- **Assembly defs**: `Nukecs.asmdef` (runtime), `Nukecs.Tests.asmdef` (tests), `AllocatorEditor.asmdef` (debug)
+- **Assembly defs**: `Nukecs.asmdef` (engine-independent runtime core), `Nukecs.Unity.asmdef` (`src/Unity/`: Unity integration, transforms, bakers, debuggers, hot reload), `Nukecs.Tests.asmdef` (tests), `AllocatorEditor.asmdef` (debug). Assemblies using Unity-side types reference both.
+- **Core boundary**: nothing outside `src/Unity/` may use the `UnityEngine`/`UnityEditor` namespaces. Log through `dbug`, take host events from `NukecsLifecycle`, and put Unity code in `src/Unity/` (core internals are visible to `Nukecs.Unity`). Types moved from core to `Nukecs.Unity` that can be `[SerializeReference]`-serialized need `[MovedFrom(false, sourceAssembly: "Nukecs")]`. Unity.Collections/Jobs/Burst/Profiling and `AOT` still come from UnityEngine.CoreModule; they are later steps of the engine-independence work.
 - **`[BurstCompile]`** used on hot paths
 
 ## 2. Architecture
@@ -146,7 +147,7 @@ World → Archetype[] → Entity (8-byte generational handle)
 
 | File | Description |
 |------|-------------|
-| `src/Systems/HotReload/HotReloadSystems.cs` | `HotReloadSystems` class: wraps `Systems`, tracks source files, swaps runners on recompile |
+| `src/Unity/HotReload/HotReloadSystems.cs` | `HotReloadSystems` class: wraps `Systems`, tracks source files, swaps runners on recompile |
 
 ### Reactive
 
@@ -189,11 +190,13 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 
 | File | Description |
 |------|-------------|
-| `src/dbug.cs` | Debug logging utility |
+| `src/dbug.cs` | Logging facade over a replaceable `INukecsLogger` (console by default; Nukecs.Unity installs the `UnityEngine.Debug` one) |
+| `src/NukecsLifecycle.cs` | Host signals for the core: `Quitting` (forwarded to the host's event once connected) and `StaticDisposed` |
+| `src/ObjectRef.cs` | `ObjectRef<T>` managed-object handle and its static storage |
+| `src/NukecsDebugData.cs` | Debug settings; the ScriptableObject wrapper is `src/Unity/NukecsDebugDataSO.cs` |
 | `src/NUnsafe.cs` | Additional unsafe utilities |
 | `src/Singleton.cs` | `Singleton<T>` (Burst-compatible; SharedStatic holds only pointer+size, value in a Malloc block, reset before assembly reload) and `SingletonRegistry` |
 | `src/SparseSet.cs` | Sparse set data structure |
-| `src/StaticAllocations.cs` | Static allocation helpers |
 | `src/SystemsGroup.cs` | `SystemsGroup` — named group of system runners |
 | `src/rng.cs` | Random number generation utilities |
 | `src/EntityFilterBuffer.cs` | Entity filtering buffer |
@@ -202,8 +205,15 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 
 ### Unity Integration
 
+Everything under `src/Unity/` compiles into `Nukecs.Unity.asmdef` (editor tools there stay
+behind `#if UNITY_EDITOR`, except `Editor/Allocator/` with its own asmdef).
+
 | File | Description |
 |------|-------------|
+| `src/Unity/NukecsUnityHost.cs` | Installs the Unity logger, `Application.quitting` source and `EntityPrefabMap` cleanup into the core |
+| `src/Unity/UnityObjectRef.cs` | `UnityObjectRef<T>` instance-id references for baking |
+| `src/Unity/Convertor.cs` | `Convertor` ScriptableObject base for `ICustomConvertor` |
+| `src/Unity/StaticAllocations.cs` | Editor play-mode exit cleanup list |
 | `src/Unity/WorldInstaller.cs` | World lifecycle management MonoBehaviour |
 | `src/Unity/WorldBaker.cs` | Baker for sub-scene conversion |
 | `src/Unity/EntityBaker.cs` | Entity prefab baking |

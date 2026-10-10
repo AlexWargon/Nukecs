@@ -3,6 +3,7 @@
     "rootNamespace": "Wargon.Nukecs.Tests",
     "references": [
         "Nukecs",
+        "Nukecs.Unity",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.Burst",

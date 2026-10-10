@@ -3,6 +3,7 @@
     "rootNamespace": "Wargon.Nukecs.Benhes",
     "references": [
         "Nukecs",
+        "Nukecs.Unity",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.Burst",

@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 // ReSharper disable Unity.SharedStaticUnmanagedType
 // ReSharper disable InconsistentNaming
 
