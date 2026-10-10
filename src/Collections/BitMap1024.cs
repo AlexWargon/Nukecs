@@ -168,7 +168,7 @@ namespace Wargon.Nukecs
     public readonly unsafe struct PerThreadValue<T> : IDisposable where T : unmanaged
     {
         private readonly T* _value;
-        private readonly Allocator _allocator;
+        private readonly AllocatorHandle _allocator;
         public PerThreadValue(int threadCount, AllocatorHandle allocator)
         {
             _value = (T*)malloc_t<T>(allocator, threadCount);

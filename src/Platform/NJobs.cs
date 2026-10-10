@@ -10,7 +10,8 @@ namespace Wargon.Nukecs
     /// Job scheduling for the core. In Unity every member forwards to <c>JobsUtility</c> exactly as
     /// the core called it before: job data is passed by address with its reflection data, Single and
     /// ParallelFor wait for the dependency, Run executes synchronously and ignores dependencies.
-    /// Stateless in Unity, so Burst code may read the thread members.
+    /// Stateless in Unity, so Burst code may read the thread members. Outside Unity job data must
+    /// implement <see cref="INJobData"/>.
     /// </summary>
     public static unsafe class NJobs
     {
@@ -70,23 +71,31 @@ namespace Wargon.Nukecs
             JobsUtility.Schedule(ref parameters);
         }
 #else
-        // The Nukecs scheduler for builds without Unity is not implemented yet: no workers,
-        // every thread is the main thread.
+        // Synchronous scheduler: a job runs inside Schedule after its dependency, so every
+        // handle is complete. No workers; every thread is the main thread.
         public static int WorkerCount => 0;
         public static int WorkerMaximumCount => 0;
         public static int ThreadIndex => 0;
         public static int ThreadIndexCount => 1;
 
         public static NJobHandle Schedule<T>(ref T jobData, IntPtr reflectionData, NJobHandle dependsOn)
-            where T : struct => throw NotImplemented();
+            where T : struct, INJobData
+        {
+            dependsOn.Complete();
+            jobData.Execute(0, 1);
+            return default;
+        }
 
         public static NJobHandle ScheduleParallelFor<T>(ref T jobData, IntPtr reflectionData, int length,
-            int batchSize, NJobHandle dependsOn) where T : struct => throw NotImplemented();
+            int batchSize, NJobHandle dependsOn) where T : struct, INJobData
+        {
+            dependsOn.Complete();
+            if (length > 0) jobData.Execute(0, length);
+            return default;
+        }
 
-        public static void Run<T>(ref T jobData, IntPtr reflectionData) where T : struct => throw NotImplemented();
-
-        private static Exception NotImplemented() =>
-            new NotSupportedException("The Nukecs job scheduler without Unity is not implemented yet.");
+        public static void Run<T>(ref T jobData, IntPtr reflectionData) where T : struct, INJobData =>
+            jobData.Execute(0, 1);
 #endif
     }
 }

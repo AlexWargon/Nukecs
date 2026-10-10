@@ -2,12 +2,16 @@
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
+#if UNITY_5_3_OR_NEWER
 using Unity.Jobs.LowLevel.Unsafe;
+#endif
 #pragma warning disable CS0612 // Type or member is obsolete
 
 namespace Wargon.Nukecs
 {
+#if UNITY_5_3_OR_NEWER
     [JobProducerType(typeof(IEntityJobSystemExtensions.EntityJobWrapper<>))]//[Obsolete]
+#endif
     public interface IEntityJobSystem {
         Threads Mode { get; }
         Query GetQuery(ref World world);
@@ -117,12 +121,17 @@ namespace Wargon.Nukecs
     // ReSharper disable once InconsistentNaming
     public static class IEntityJobSystemExtensions {
         [StructLayout(LayoutKind.Sequential)]
-        internal unsafe struct EntityJobWrapper<TJob> where TJob : struct, IEntityJobSystem {
+        internal unsafe struct EntityJobWrapper<TJob>
+#if !UNITY_5_3_OR_NEWER
+            : INJobData
+#endif
+            where TJob : struct, IEntityJobSystem {
             public TJob JobData;
             [NativeDisableUnsafePtrRestriction]
             public QueryUnsafe* query;
             public UpdateContext updateContext;
             public State State;
+#if UNITY_5_3_OR_NEWER
             internal static readonly SharedStatic<IntPtr> JobReflectionData =
                 SharedStatic<IntPtr>.GetOrCreate<EntityJobWrapper<TJob>>();
 
@@ -164,9 +173,25 @@ namespace Wargon.Nukecs
                         break;
                 }
             }
+#else
+            // Outside Unity the scheduler hands out the ranges.
+            public void Execute(int begin, int end) {
+                if (query->count == 0) return;
+                if (JobData.Mode != Threads.Parallel) {
+                    begin = 0;
+                    end = query->count;
+                }
+                for (var i = begin; i < end; i++) {
+                    ref var e = ref query->GetEntity(i);
+                    if (e.IsValid()) {
+                        JobData.OnUpdate(ref e, ref State);
+                    }
+                }
+            }
+#endif
         }
 
-
+#if UNITY_5_3_OR_NEWER
         public static void EarlyJobInit<T>() where T : struct, IEntityJobSystem {
             EntityJobWrapper<T>.Initialize();
         }
@@ -175,6 +200,9 @@ namespace Wargon.Nukecs
             EntityJobWrapper<T>.Initialize();
             return EntityJobWrapper<T>.JobReflectionData.Data;
         }
+#else
+        private static IntPtr GetReflectionData<T>() where T : struct, IEntityJobSystem => IntPtr.Zero;
+#endif
 
         internal static unsafe NJobHandle Schedule<TJob>(this TJob jobData, QueryUnsafe* query,
             Threads mode, UpdateContext updateContext, ref State state)

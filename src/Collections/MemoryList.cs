@@ -315,7 +315,10 @@ namespace Wargon.Nukecs.Collections
     {
         public static int IndexOf<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {
-            return NativeArrayExtensions.IndexOf<T, U>(list.Ptr, list.Length, value);
+            var ptr = list.Ptr;
+            for (var i = 0; i < list.Length; i++)
+                if (ptr[i].Equals(value)) return i;
+            return -1;
         }
         public static bool Contains<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {

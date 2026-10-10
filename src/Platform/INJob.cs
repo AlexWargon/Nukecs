@@ -30,6 +30,17 @@ namespace Wargon.Nukecs
         void Execute(int index);
     }
 
+    /// <summary>
+    /// Job data the Nukecs scheduler executes outside Unity: <see cref="NJobs.Schedule{T}"/> and
+    /// <see cref="NJobs.Run{T}"/> call <c>Execute(0, 1)</c> once, <see cref="NJobs.ScheduleParallelFor{T}"/>
+    /// calls it for ranges covering [0, length). In Unity jobs keep their Unity producers and this
+    /// interface is unused.
+    /// </summary>
+    public interface INJobData
+    {
+        void Execute(int begin, int end);
+    }
+
     public static class INJobExtensions
     {
 #if UNITY_5_3_OR_NEWER

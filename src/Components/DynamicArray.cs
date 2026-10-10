@@ -10,7 +10,7 @@ namespace Wargon.Nukecs
         private int maxElementSize;
         private int size;
         private int len;
-        private Allocator allocator;
+        private AllocatorHandle allocator;
         internal static int maximumElementSize;
         public DynamicArray(int size, AllocatorHandle allocator)
         {

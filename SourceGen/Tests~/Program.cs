@@ -2,6 +2,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Wargon.Nukecs.NUKECSGEN;
 
+// --no-unity compiles the generated code without UNITY_5_3_OR_NEWER, i.e. the branch used outside Unity.
+var noUnity = args.Contains("--no-unity");
+args = args.Where(a => a != "--no-unity").ToArray();
 if (args.Length < 2) throw new ArgumentException("Pass Unity Editor Data directory, Unity project directory and optionally a Nukecs.dll override.");
 // Optional third argument: a freshly built Nukecs.dll (e.g. obj/Debug/Nukecs.dll from
 // `dotnet build Nukecs.csproj`) when Unity has not recompiled the runtime yet.
@@ -12,7 +15,8 @@ var references = Directory.GetFiles(Path.Combine(args[0], "NetStandard", "ref", 
         .Where(p => (nukecsOverride == null && Path.GetFileName(p) == "Nukecs.dll") || Path.GetFileName(p).StartsWith("Unity.")))
     .Concat(nukecsOverride != null ? new[] { nukecsOverride } : Array.Empty<string>())
     .Distinct().Select(p => MetadataReference.CreateFromFile(p)).ToArray();
-var parse = new CSharpParseOptions(LanguageVersion.CSharp9);
+var parse = new CSharpParseOptions(LanguageVersion.CSharp9,
+    preprocessorSymbols: noUnity ? Array.Empty<string>() : new[] { "UNITY_5_3_OR_NEWER" });
 
 (Compilation Output, Diagnostic[] Diagnostics) Run(string source)
 {

@@ -26,7 +26,7 @@ namespace Wargon.Nukecs.Collections
         private int _capacity;
         private int _count;
         private int _totalLength;
-        private Allocator _allocator;
+        private AllocatorHandle _allocator;
         public int SegmentCount => _count;
         public int Length => _totalLength;
 
