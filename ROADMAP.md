@@ -49,11 +49,39 @@ value within each section.
     dispose+clear, but `RemoveAndDispose` for pool components has no tests
     (only the inline column case is covered).
 
+## Simplification audit
+
+Noted 2026-10-10 while moving the core off Unity: the API surface is larger than
+what the game, tests and demos use, and three long-standing bugs were found in
+rarely exercised paths (arena `HashMap` offsets after a resize, Arena Guard on
+split free blocks, the `Changed<T>` old-values pointer). Do this before the Jobs
+step of the engine-independence work: every system/runner kind is scheduling
+code that would otherwise have to be ported.
+
+15. **Audit and consolidate.** Build a table "feature -> users in Game /
+    NukecsTests / UnitTests / Demos -> keep / merge / `[Obsolete]` / delete",
+    then pick one canonical path per group. Candidates seen so far:
+    - Query iteration: plain `foreach`, `iter()`, `par_iter()`, `iter_unsafe()`,
+      `par_iter_unsafe()`, `Chunk<T1..T8>`, `iter_chunk2()` (see 1, 2), and five
+      tuple families (`Ref`/`Ptr`/`EntityRef`/`EntityPtr`/`Object`) per arity.
+    - System kinds: `[System]` functions, `ISystem` struct and class,
+      `IEntityJobSystem`, `ISystemsGroup`, delegate runners
+      (`DelegateSystem1Runner`, `System1`/`System2` delegates).
+    - Dependency graph: four group schedule modes (`LegacyGroupComplete`,
+      `ChainedGroupComplete`, `FlattenedSchedule`, `FlattenedSchedule2`).
+    - Change tracking: `OnChange` subscriptions and the `Changed<T>` filter keep
+      separate snapshots of the same data.
+    - Unsafe helpers: `UnsafeStatic`, `NUnsafe` and `Mem` overlap.
+    - Dead code: `DelegateSystemsExtensions.cs` (fully commented out),
+      `StaticAllocations` (`AddDisposable` has no callers), `ComponentsMapCache`,
+      large commented blocks. Already removed: `DynamicBuffer`,
+      `EntityFilterBuffer`, the `Serv<T>` service parameter.
+
 ## Packaging / infra
 
-13. **Player builds on other platforms.** Windows Mono and IL2CPP player builds
+16. **Player builds on other platforms.** Windows Mono and IL2CPP player builds
     behave as in the Editor. Android, other IL2CPP targets and consoles have
     not been checked.
-14. **SourceGen source lives outside the package** (`../../../NUKECSGEN`) — the
+17. **SourceGen source lives outside the package** (`../../../NUKECSGEN`) — the
     package ships only the analyzer dll. Ship sources or a versioned artifact
     alongside releases.
