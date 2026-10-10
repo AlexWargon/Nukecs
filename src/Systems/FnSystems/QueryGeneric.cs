@@ -124,7 +124,7 @@ namespace Wargon.Nukecs {
     }
     internal struct ServiceStorage
     {
-        private UnsafeList<ptr> serviceList;
+        private HeapList<ptr> serviceList;
 
         internal void Register<TService>(ref ptr<World.WorldUnsafe> world) where TService : unmanaged, ISystemParam, IService
         {

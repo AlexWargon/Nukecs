@@ -7,7 +7,6 @@ namespace Wargon.Nukecs
     /// <summary>
     /// Copy of unity internal spinner
     /// </summary>
-    [GenerateTestsForBurstCompatibility]
     public struct Spinner
     {
         int @lock;

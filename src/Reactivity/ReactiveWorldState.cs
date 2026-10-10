@@ -1,3 +1,4 @@
+using Wargon.Nukecs.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 
@@ -8,25 +9,21 @@ namespace Wargon.Nukecs.Reactivity
     /// <see cref="ReactiveWorldRegistry"/> and addressed by the non-generic
     /// <see cref="ReactiveCheckSystem"/> when scheduling the check job.
     ///
-    /// This is a CLASS (not struct) intentionally — modern Unity.Collections
-    /// stores <see cref="NativeList{T}.Length"/> as an inline field of the
-    /// NativeList struct, so a struct containing a NativeList would copy the
-    /// Length field on assignment and mutations made through the copy wouldn't
-    /// be visible to other holders of the original.
+    /// A class so every holder shares one instance (it is registered once per world).
     /// </summary>
     public sealed class ReactiveWorldState : System.IDisposable
     {
         // Flat list of type states — the Burst job iterates this via raw pointer.
-        public NativeList<ReactiveTypeState> TypeStates;
+        public HeapList<ReactiveTypeState> TypeStates;
         // typeIndex → index in TypeStates.
-        public NativeHashMap<int, int> TypeIndexToStateIdx;
+        public HeapHashMap<int, int> TypeIndexToStateIdx;
 
         public bool IsCreated => TypeStates.IsCreated;
 
         public void Initialize()
         {
-            TypeStates = new NativeList<ReactiveTypeState>(4, AllocatorHandle.Persistent);
-            TypeIndexToStateIdx = new NativeHashMap<int, int>(4, AllocatorHandle.Persistent);
+            TypeStates = new HeapList<ReactiveTypeState>(4, AllocatorHandle.Persistent);
+            TypeIndexToStateIdx = new HeapHashMap<int, int>(4, AllocatorHandle.Persistent);
         }
 
         public ref ReactiveTypeState GetOrCreate(int typeIndex, int componentSize)

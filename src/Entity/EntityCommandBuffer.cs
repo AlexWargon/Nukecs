@@ -35,7 +35,7 @@ namespace Wargon.Nukecs {
         }
 
         internal static int ThreadIndex => JobsUtility.ThreadIndex;
-        internal readonly Allocator allocator;
+        internal readonly AllocatorHandle allocator;
 
         public EntityCommandBuffer(int startSize, AllocatorHandle allocator, World.WorldUnsafe* world) {
             this.allocator = allocator;
@@ -50,24 +50,21 @@ namespace Wargon.Nukecs {
             ecb->isCreated = 1;
         }
 
-        private UnsafePtrList<UnsafeList<ECBCommand>>* CreateCommandBuffers(int startSize, AllocatorHandle alloc) {
+        // One list per thread, each in its own allocation (writers never share a header).
+        private HeapList<HeapList<ECBCommand>> CreateCommandBuffers(int startSize, AllocatorHandle alloc) {
             var threads = JobsUtility.ThreadIndexCount + 2;
-            var ptrList = UnsafePtrList<UnsafeList<ECBCommand>>.Create(threads, alloc);
-            for (var i = 0; i < threads; i++) {
-                var list = UnsafeList<ECBCommand>.Create(startSize, alloc);
-                ptrList->Add(list);
-            }
-            return ptrList;
+            var lists = new HeapList<HeapList<ECBCommand>>(threads, alloc);
+            for (var i = 0; i < threads; i++)
+                lists.Add(new HeapList<ECBCommand>(startSize, alloc));
+            return lists;
         }
 
-        private UnsafePtrList<UnsafeList<byte>>* CreateDataBuffers(int startBytes, AllocatorHandle alloc) {
+        private HeapList<HeapList<byte>> CreateDataBuffers(int startBytes, AllocatorHandle alloc) {
             var threads = JobsUtility.ThreadIndexCount + 2;
-            var ptrList = UnsafePtrList<UnsafeList<byte>>.Create(threads, alloc);
-            for (var i = 0; i < threads; i++) {
-                var buf = UnsafeList<byte>.Create(startBytes, alloc);
-                ptrList->Add(buf);
-            }
-            return ptrList;
+            var lists = new HeapList<HeapList<byte>>(threads, alloc);
+            for (var i = 0; i < threads; i++)
+                lists.Add(new HeapList<byte>(startBytes, alloc));
+            return lists;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -100,10 +97,8 @@ namespace Wargon.Nukecs {
         internal struct ECBInternal {
             internal byte isCreated;
             internal int totalCount;
-            [NativeDisableUnsafePtrRestriction]
-            internal UnsafePtrList<UnsafeList<ECBCommand>>* perThreadCommands;
-            [NativeDisableUnsafePtrRestriction]
-            internal UnsafePtrList<UnsafeList<byte>>* perThreadData;
+            internal HeapList<HeapList<ECBCommand>> perThreadCommands;
+            internal HeapList<HeapList<byte>> perThreadData;
             [NativeDisableUnsafePtrRestriction]
             internal World.WorldUnsafe* world;
             /// <summary>Fixed-size scratch mask for batch type-set rebuild — deliberately NOT
@@ -115,13 +110,13 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Clear() {
                 totalCount = 0;
-                for (var i = 0; i < perThreadCommands->Length; i++) {
-                    var commands = perThreadCommands->ElementAt(i);
-                    var data = perThreadData->ElementAt(i);
-                    for (var j = 0; j < commands->m_length; j++)
-                        DisposePending(ref commands->Ptr[j], data->Ptr);
-                    perThreadCommands->ElementAt(i)->Clear();
-                    perThreadData->ElementAt(i)->Clear();
+                for (var i = 0; i < perThreadCommands.Length; i++) {
+                    var commands = perThreadCommands.ElementAt(i);
+                    var data = perThreadData.ElementAt(i);
+                    for (var j = 0; j < commands.Length; j++)
+                        DisposePending(ref commands.Ptr[j], data.Ptr);
+                    perThreadCommands.ElementAt(i).Clear();
+                    perThreadData.ElementAt(i).Clear();
                 }
             }
 
@@ -145,10 +140,10 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T* componentPtr, int thread) where T : unmanaged {
                 ref var data = ref ComponentType<T>.Data;
-                var buf = perThreadData->ElementAt(thread);
-                var dataOffset = buf->m_length;
-                buf->AddRange((byte*)componentPtr, data.size);
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                var buf = perThreadData.ElementAt(thread);
+                var dataOffset = buf.Length;
+                buf.AddRange((byte*)componentPtr, data.size);
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.AddComponent,
                     ComponentType = data.index,
@@ -161,10 +156,10 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, T component, int thread) where T : unmanaged {
                 ref var data = ref ComponentType<T>.Data;
-                var buf = perThreadData->ElementAt(thread);
-                var dataOffset = buf->m_length;
-                buf->AddRange((byte*)&component, data.size);
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                var buf = perThreadData.ElementAt(thread);
+                var dataOffset = buf.Length;
+                buf.AddRange((byte*)&component, data.size);
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.AddComponent,
                     ComponentType = data.index,
@@ -177,16 +172,16 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddObject(int entity, IComponent component, ComponentTypeData data) {
                 var thread = JobsUtility.ThreadIndex;
-                var buf = perThreadData->ElementAt(thread);
-                var dataOffset = buf->m_length;
+                var buf = perThreadData.ElementAt(thread);
+                var dataOffset = buf.Length;
                 var size = data.size;
-                var newLen = buf->m_length + size;
-                if (newLen > buf->Capacity)
-                    buf->SetCapacity(Math.Max(buf->Capacity * 2, newLen));
-                ComponentHelpers.Write(buf->Ptr + dataOffset, 0, size, data.index, component);
-                buf->m_length = newLen;
+                var newLen = buf.Length + size;
+                if (newLen > buf.Capacity)
+                    buf.Capacity = Math.Max(buf.Capacity * 2, newLen);
+                ComponentHelpers.Write(buf.Ptr + dataOffset, 0, size, data.index, component);
+                buf.ResizeUninitialized(newLen);
                 
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.AddComponent,
                     ComponentType = data.index,
@@ -197,7 +192,7 @@ namespace Wargon.Nukecs {
             }
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add<T>(int entity, int thread) where T : unmanaged {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
                     ComponentType = ComponentType<T>.Index
@@ -207,7 +202,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Add(int entity, int thread, int componentType) {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.AddComponentNoData,
                     ComponentType = componentType
@@ -218,7 +213,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Remove<T>(int entity, int thread) where T : unmanaged {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.RemoveComponent,
                     ComponentType = ComponentType<T>.Index
@@ -228,7 +223,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Remove(int entity, int component, int thread) {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.RemoveComponent,
                     ComponentType = component
@@ -238,7 +233,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void RemoveAndDispose<T>(int entity, int thread) where T : unmanaged {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.RemoveAndDispose,
                     ComponentType = ComponentType<T>.Index
@@ -248,14 +243,14 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Destroy(int entity, int thread) {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand { Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken, EcbCommandType = ECBCommand.Type.DestroyEntity });
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand { Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken, EcbCommandType = ECBCommand.Type.DestroyEntity });
                 totalCount++;
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void EnableGameObject(int entity, bool value, int thread) {
                 byte v = value ? (byte)1 : (byte)0;
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken, EcbCommandType = ECBCommand.Type.SetActiveGameObject, active = v
                 });
                 totalCount++;
@@ -269,7 +264,7 @@ namespace Wargon.Nukecs {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void PlayParticleReference(int entity, bool value, int thread) {
                 var v = value ? (byte)1 : (byte)0;
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken, EcbCommandType = ECBCommand.Type.PlayParticleReference, active = v
                 });
                 totalCount++;
@@ -277,7 +272,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Copy(int entity, int thread) {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = entity, Generation = world->entities.Ptr[entity].Generation, WorldToken = world->entityWorldToken,
                     EcbCommandType = ECBCommand.Type.CreateCopy
                 });
@@ -286,7 +281,7 @@ namespace Wargon.Nukecs {
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void Copy(int from, int to, int thread) {
-                perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+                perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                     Entity = from,
                     Generation = world->entities.Ptr[from].Generation, WorldToken = world->entityWorldToken,
                     TargetGeneration = world->entities.Ptr[to].Generation,
@@ -457,12 +452,12 @@ namespace Wargon.Nukecs {
 
             public void Dispose() {
                 Clear();
-                for (var i = 0; i < perThreadCommands->Length; i++) {
-                    UnsafeList<ECBCommand>.Destroy(perThreadCommands->ElementAt(i));
-                    UnsafeList<byte>.Destroy(perThreadData->ElementAt(i));
+                for (var i = 0; i < perThreadCommands.Length; i++) {
+                    perThreadCommands.ElementAt(i).Dispose();
+                    perThreadData.ElementAt(i).Dispose();
                 }
-                UnsafePtrList<UnsafeList<ECBCommand>>.Destroy(perThreadCommands);
-                UnsafePtrList<UnsafeList<byte>>.Destroy(perThreadData);
+                perThreadCommands.Dispose();
+                perThreadData.Dispose();
                 isCreated = 0;
             }
         }
@@ -471,64 +466,63 @@ namespace Wargon.Nukecs {
             var totalCount = Count;
             if (totalCount == 0) return;
 
-            var flat = UnsafeList<ECBCommand>.Create(totalCount, AllocatorHandle.Temp);
+            var flat = new HeapList<ECBCommand>(totalCount, AllocatorHandle.Temp);
 
             int totalDataBytes = 0;
-            for (var i = 0; i < ecb->perThreadData->Length; i++)
-                totalDataBytes += ecb->perThreadData->ElementAt(i)->m_length;
+            for (var i = 0; i < ecb->perThreadData.Length; i++)
+                totalDataBytes += ecb->perThreadData.ElementAt(i).Length;
 
-            var flatData = UnsafeList<byte>.Create(totalDataBytes, AllocatorHandle.Temp);
+            var flatData = new HeapList<byte>(totalDataBytes, AllocatorHandle.Temp);
 
-            for (var i = 0; i < ecb->perThreadCommands->Length; i++) {
-                var threadCmds = ecb->perThreadCommands->ElementAt(i);
-                if (threadCmds->IsEmpty) continue;
+            for (var i = 0; i < ecb->perThreadCommands.Length; i++) {
+                var threadCmds = ecb->perThreadCommands.ElementAt(i);
+                if (threadCmds.IsEmpty) continue;
 
-                var threadData = ecb->perThreadData->ElementAt(i);
-                var dataBase = flatData->m_length;
+                var threadData = ecb->perThreadData.ElementAt(i);
+                var dataBase = flatData.Length;
 
-                if (threadData->m_length > 0) {
-                    Mem.MemCpy(flatData->Ptr + dataBase, threadData->Ptr, threadData->m_length);
-                    flatData->m_length += threadData->m_length;
+                if (threadData.Length > 0) {
+                    flatData.AddRange(threadData.Ptr, threadData.Length);
                 }
 
-                for (int j = 0; j < threadCmds->m_length; j++) {
-                    var cmd = threadCmds->Ptr[j];
+                for (int j = 0; j < threadCmds.Length; j++) {
+                    var cmd = threadCmds.Ptr[j];
                     if (cmd.WorldToken != ecb->world->entityWorldToken || !ecb->world->EntityIsValid(cmd.Entity, cmd.Generation)
                         || (cmd.EcbCommandType == ECBCommand.Type.Copy
                             && !ecb->world->EntityIsValid(cmd.AdditionalData, cmd.TargetGeneration))) {
-                        ECBInternal.DisposePending(ref threadCmds->Ptr[j], threadData->Ptr);
+                        ECBInternal.DisposePending(ref threadCmds.Ptr[j], threadData.Ptr);
                         continue;
                     }
                     // Live payload ownership moves into the playback array.
-                    threadCmds->Ptr[j].isDisposable = 0;
+                    threadCmds.Ptr[j].isDisposable = 0;
                     if (cmd.EcbCommandType == ECBCommand.Type.AddComponent)
                         cmd.AdditionalData += dataBase;
-                    flat->Add(cmd);
+                    flat.Add(cmd);
                 }
             }
 
-            if (flat->m_length == 0) {
+            if (flat.Length == 0) {
                 ecb->Clear();
-                flat->Dispose();
-                flatData->Dispose();
+                flat.Dispose();
+                flatData.Dispose();
                 return;
             }
 
-            ECBInternal.QuickSort(flat->Ptr, 0, flat->m_length - 1);
+            ECBInternal.QuickSort(flat.Ptr, 0, flat.Length - 1);
 
             var cmdIdx = 0;
-            while (cmdIdx < flat->m_length) {
-                var entityId = flat->Ptr[cmdIdx].Entity;
+            while (cmdIdx < flat.Length) {
+                var entityId = flat.Ptr[cmdIdx].Entity;
                 var groupStart = cmdIdx;
-                while (cmdIdx < flat->m_length && flat->Ptr[cmdIdx].Entity == entityId)
+                while (cmdIdx < flat.Length && flat.Ptr[cmdIdx].Entity == entityId)
                     cmdIdx++;
 
-                ecb->ProcessEntityBatch(ref world, entityId, flat->Ptr + groupStart, cmdIdx - groupStart, flatData->Ptr);
+                ecb->ProcessEntityBatch(ref world, entityId, flat.Ptr + groupStart, cmdIdx - groupStart, flatData.Ptr);
             }
 
             ecb->Clear();
-            flat->Dispose();
-            flatData->Dispose();
+            flat.Dispose();
+            flatData.Dispose();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -569,10 +563,10 @@ namespace Wargon.Nukecs {
         internal void AddBytes(int entity, byte* component, int componentType) {
             var type = ComponentTypeMap.GetComponentType(componentType);
             var thread = ThreadIndex;
-            var data = ecb->perThreadData->ElementAt(thread);
-            var offset = data->m_length;
-            data->AddRange(component, type.size);
-            ecb->perThreadCommands->ElementAt(thread)->Add(new ECBCommand {
+            var data = ecb->perThreadData.ElementAt(thread);
+            var offset = data.Length;
+            data.AddRange(component, type.size);
+            ecb->perThreadCommands.ElementAt(thread).Add(new ECBCommand {
                 Entity = entity,
                 Generation = ecb->world->entities.Ptr[entity].Generation,
                 WorldToken = ecb->world->entityWorldToken,

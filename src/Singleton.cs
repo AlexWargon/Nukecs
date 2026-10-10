@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Wargon.Nukecs.Collections;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -104,7 +105,7 @@ namespace Wargon.Nukecs.Tests {
     [BurstCompile] 
     public struct SingletonRegistry
     {
-        private static readonly SharedStatic<UnsafeList<IntPtr>> resetFunctions = SharedStatic<UnsafeList<IntPtr>>.GetOrCreate<SingletonRegistry>();
+        private static readonly SharedStatic<HeapList<IntPtr>> resetFunctions = SharedStatic<HeapList<IntPtr>>.GetOrCreate<SingletonRegistry>();
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void ResetDelegate();
@@ -127,7 +128,7 @@ namespace Wargon.Nukecs.Tests {
         {
             if (!resetFunctions.Data.IsCreated)
             {
-                resetFunctions.Data = new UnsafeList<IntPtr>(4, AllocatorHandle.Persistent);
+                resetFunctions.Data = new HeapList<IntPtr>(4, AllocatorHandle.Persistent);
             }
             resetFunctions.Data.Add(resetPtr);
         }

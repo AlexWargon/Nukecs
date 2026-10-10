@@ -186,7 +186,6 @@ namespace Wargon.Nukecs.Collections
     }
     
     [StructLayout(LayoutKind.Sequential)]
-    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     internal unsafe struct HashMapHelper<TKey> where TKey : unmanaged, IEquatable<TKey>
     {
         internal ptr_offset PtrOffset;
@@ -504,7 +503,6 @@ namespace Wargon.Nukecs.Collections
             return -1;
         }
 
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal bool TryGetValue<TValue>(TKey key, out TValue item)
             where TValue : unmanaged
         {
@@ -519,7 +517,6 @@ namespace Wargon.Nukecs.Collections
             item = default;
             return false;
         }
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal TValue* TryGetPtr<TValue>(TKey key, out bool contain) where TValue : unmanaged
         {
             var idx = Find(key);
@@ -532,7 +529,6 @@ namespace Wargon.Nukecs.Collections
             contain = false;
             return null;
         }
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal bool TryGetPtr<TValue>(TKey key, byte* basePtr, out ptr<TValue> valuePtr) where TValue : unmanaged
         {
             var idx = Find(key);
@@ -694,7 +690,6 @@ namespace Wargon.Nukecs.Collections
     }
     
     [DebuggerDisplay("Key = {Key}, Value = {Value}")]
-    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int), typeof(int) })]
     public unsafe struct KVPair<TKey, TValue> where TKey : unmanaged, IEquatable<TKey> where TValue : unmanaged
     {
         internal HashMapHelper<TKey>* m_Data;

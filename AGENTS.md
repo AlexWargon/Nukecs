@@ -15,7 +15,7 @@ Nukecs is a **Burst-compiled ECS framework for Unity**. It uses `unsafe` code an
 - **Dependencies**: Unity.Burst, Unity.Collections, Unity.Jobs, Unity.Mathematics
 - **Assembly defs**: `Nukecs.asmdef` (engine-independent runtime core), `Nukecs.Unity.asmdef` (`src/Unity/`: Unity integration, transforms, bakers, debuggers, hot reload), `Nukecs.Tests.asmdef` (tests), `AllocatorEditor.asmdef` (debug). Assemblies using Unity-side types reference both.
 - **Core boundary**: nothing outside `src/Unity/` may use the `UnityEngine`/`UnityEditor` namespaces. Log through `dbug`, take host events from `NukecsLifecycle`, and put Unity code in `src/Unity/` (core internals are visible to `Nukecs.Unity`). Types moved from core to `Nukecs.Unity` that can be `[SerializeReference]`-serialized need `[MovedFrom(false, sourceAssembly: "Nukecs")]`.
-- **Platform layer** (`src/Platform/`): use `Mem` instead of `UnsafeUtility` for size/alignment/address/copy/compare (it forwards to `UnsafeUtility` in Unity). Burst API (`SharedStatic`, `FunctionPointer`, `BurstCompiler.CompileFunctionPointer`, `[BurstCompile]`, `[BurstDiscard]`, `[NoAlias]`, `AOT.MonoPInvokeCallback`) stays as-is in core code; `BurstShim.cs` emulates it only when `UNITY_5_3_OR_NEWER` is undefined. If core code starts using another Burst API member, add it to the shim. Heap allocation goes through `Mem.Malloc/Free` with an `AllocatorHandle` (Persistent/Temp/TempJob; numerically equal to Unity's `Allocator`, implicitly convertible both ways in Unity, so public APIs still accept `Allocator.Persistent`). Still Unity-only in core: Unity.Collections containers, Jobs.
+- **Platform layer** (`src/Platform/`): use `Mem` instead of `UnsafeUtility` for size/alignment/address/copy/compare (it forwards to `UnsafeUtility` in Unity). Burst API (`SharedStatic`, `FunctionPointer`, `BurstCompiler.CompileFunctionPointer`, `[BurstCompile]`, `[BurstDiscard]`, `[NoAlias]`, `AOT.MonoPInvokeCallback`) stays as-is in core code; `BurstShim.cs` emulates it only when `UNITY_5_3_OR_NEWER` is undefined. If core code starts using another Burst API member, add it to the shim. Heap allocation goes through `Mem.Malloc/Free` with an `AllocatorHandle` (Persistent/Temp/TempJob; numerically equal to Unity's `Allocator`, implicitly convertible both ways in Unity, so public APIs still accept `Allocator.Persistent`). Core heap containers are `HeapList<T>` / `HeapHashMap<K,V>` (handle semantics like NativeList/NativeHashMap: copies share data); Unity.Collections containers belong in `src/Unity/` (`UnsafeHelp`, `UnsafeListExtensions`, `ToNative` live there). Job-safety attributes (`[NativeDisableUnsafePtrRestriction]`) stay and are declared by `JobsSafetyShim.cs` outside Unity. Still Unity-only in core: Jobs (incl. `NativeArray<JobHandle>` in Systems) and Unity.Mathematics.
 - **World allocator**: `WorldUnsafe.allocatorBox` is a heap-allocated `MemAllocator` outside the arena (`World.AllocatorRef` / `World.AllocatorPtr`); loads deserialize into it in place and re-set the box pointer, so every `OnDeserialize(ref MemAllocator)` must receive that live allocator, never a copy. Arena `HashMap`s (`new HashMap<K,V>(n, ref MemAllocator)`) keep its address for resizes; heap maps take an `AllocatorHandle`. Unity containers over a world arena: `world.GetUnityAllocator()` in Nukecs.Unity (`UnityAllocatorHandler` lives there too). `HashMap` is stored in `SharedStatic`s (`LocalParamSlots`): changing its layout needs an editor restart, otherwise SharedStatic creation and Burst static init fail (Burst probes fall back to managed).
 - **`[BurstCompile]`** used on hot paths
 
@@ -175,6 +175,8 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 | `src/Collections/Bitmask4096.cs` | Bitmask for 4096 elements |
 | `src/Collections/BitMap1024.cs` | Fast hashmap for 1024 elements |
 | `src/Collections/MultiArray.cs` | MultiArray collection |
+| `src/Collections/HeapList.cs` | `HeapList<T>`: heap list handle (Length/Capacity/Add/AddRange/ResizeUninitialized/RemoveAtSwapBack) |
+| `src/Collections/HeapHashMap.cs` | `HeapHashMap<K,V>`: heap `HashMap` handle |
 
 ### Allocator
 
@@ -192,6 +194,7 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 |------|-------------|
 | `src/Platform/Mem.cs` | `Mem`: Malloc/Free(Tracked), SizeOf/AlignOf/AddressOf/AsRef/As/array element access/MemCpy/MemMove/MemSet/MemClear/MemCmp; `UnsafeUtility` in Unity, `Unsafe`/`Marshal` elsewhere |
 | `src/Platform/AllocatorHandle.cs` | Heap allocator label for `Mem` and core APIs; converts to/from Unity `Allocator` in Unity |
+| `src/Platform/JobsSafetyShim.cs` | Non-Unity declaration of `NativeDisableUnsafePtrRestriction` |
 | `src/Platform/BurstShim.cs` | Non-Unity emulation of the Burst API used by the core (`SharedStatic`, `FunctionPointer` returning the original delegate, attributes, `AOT.MonoPInvokeCallback`) |
 | `src/Systems/Marker.cs` | `Marker`: `ProfilerMarker` in Unity, no-op elsewhere |
 
@@ -208,7 +211,6 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 | `src/SparseSet.cs` | Sparse set data structure |
 | `src/SystemsGroup.cs` | `SystemsGroup` — named group of system runners |
 | `src/rng.cs` | Random number generation utilities |
-| `src/EntityFilterBuffer.cs` | Entity filtering buffer |
 | `src/QueryFilter.cs` | Query filtering logic |
 | `src/Usings.cs` | Global using directives |
 
@@ -449,7 +451,7 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 - `src/Unity/UnityAllocatorHandler.cs` / `UnityAllocatorWrapper.cs` register a `MemAllocator` (owned, or a world arena via `world.GetUnityAllocator()`) as a Unity custom allocator
 - `World.SerializeAndSave.cs` handles world serialization
 - `World.Aspects.cs` provides aspect (group-of-components) support
-- `EntityFilterBuffer.cs` and `QueryFilter.cs` handle entity filtering
+- `QueryFilter.cs` handles query filter parameters
 - `src/Unity/Transforms/` — Transform hierarchy: `Transform`, `LocalTransform` components + child/parent systems
 - `src/Unity/Utils/Reflect.cs` — Reflection utilities for editor tooling
 - `src/Unity/Editor/HotReload/` — Editor-side hot reload: `HotReloadCompiler`, `HotReloadRoslynCompiler`, `HotReloadWatcher`

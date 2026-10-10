@@ -42,6 +42,7 @@ namespace Wargon.Nukecs.Collections
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct MemoryList<T> where T : unmanaged 
     {
+        private const int CACHE_LINE_SIZE = 64;
         public bool IsCreated => Ptr != null;
         public ptr_offset PtrOffset;
         public int capacity;
@@ -213,7 +214,7 @@ namespace Wargon.Nukecs.Collections
             Utils.CheckCapacityInRange(capacity, length);
 
             var sizeOf = sizeof(T);
-            var newCapacity = math.max(size, CollectionHelper.CacheLineSize / sizeOf);
+            var newCapacity = math.max(size, CACHE_LINE_SIZE / sizeOf);
             newCapacity = math.ceilpow2(newCapacity);
 
             if (newCapacity == capacity)
@@ -313,12 +314,10 @@ namespace Wargon.Nukecs.Collections
 
     public static unsafe class Extensions
     {
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] { typeof(int), typeof(int) })]
         public static int IndexOf<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {
             return NativeArrayExtensions.IndexOf<T, U>(list.Ptr, list.Length, value);
         }
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] { typeof(int), typeof(int) })]
         public static bool Contains<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {
             return list.IndexOf(value) != -1;

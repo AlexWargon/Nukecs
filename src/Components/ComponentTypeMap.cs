@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Wargon.Nukecs.Collections;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -12,10 +13,10 @@ namespace Wargon.Nukecs
 {
 
     public struct ComponentTypeMap {
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ComponentTypes
-            = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ElementTypes
-            = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
+        internal static readonly SharedStatic<HeapHashMap<int, ComponentTypeData>> ComponentTypes
+            = SharedStatic<HeapHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
+        internal static readonly SharedStatic<HeapHashMap<int, ComponentTypeData>> ElementTypes
+            = SharedStatic<HeapHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
         private static int _nextIndex;
         private static ComponentsMapCache _cache;
         private static bool _initialized;
@@ -23,8 +24,8 @@ namespace Wargon.Nukecs
         private static void EnsureInitialized() {
             if (_initialized) return;
             _cache = new ComponentsMapCache();
-            ComponentTypes.Data = new NativeHashMap<int, ComponentTypeData>(256, AllocatorHandle.Persistent);
-            ElementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, AllocatorHandle.Persistent);
+            ComponentTypes.Data = new HeapHashMap<int, ComponentTypeData>(256, AllocatorHandle.Persistent);
+            ElementTypes.Data = new HeapHashMap<int, ComponentTypeData>(32, AllocatorHandle.Persistent);
             try {
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             }

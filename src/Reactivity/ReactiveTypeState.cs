@@ -1,3 +1,4 @@
+using Wargon.Nukecs.Collections;
 using System;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -7,7 +8,7 @@ namespace Wargon.Nukecs.Reactivity
 {
     /// <summary>
     /// Per-(world, type) unmanaged state for the Burst-compiled check pipeline.
-    /// All fields are blittable — the struct can live in a <see cref="NativeList{T}"/>
+    /// All fields are blittable — the struct can live in a <see cref="HeapList{T}"/>
     /// and be addressed through a raw pointer from a Burst job.
     ///
     /// Old component values are stored in a flat <see cref="Values"/> byte buffer,
@@ -21,15 +22,15 @@ namespace Wargon.Nukecs.Reactivity
         public int ComponentSize;
 
         // entityId → byte offset within Values where the oldValue snapshot lives.
-        public NativeHashMap<int, int> Offsets;
+        public HeapHashMap<int, int> Offsets;
         // Flat byte buffer of oldValues, tightly packed per ComponentSize.
-        public NativeList<byte> Values;
+        public HeapList<byte> Values;
         // EntityIds that have at least one per-entity subscription. Scanned by the job.
-        public NativeList<int> Alive;
+        public HeapList<int> Alive;
         // Spinlock queue filled by the check job (parallel-safe) and drained by dispatch.
         public ChangedQueue<int> Changed;
         // Burst-readable mirror of TriggerPending (deferred TriggerImmediately).
-        public NativeHashMap<int, byte> PendingTriggers;
+        public HeapHashMap<int, byte> PendingTriggers;
 
         public bool IsCreated => Values.IsCreated;
 
@@ -37,11 +38,11 @@ namespace Wargon.Nukecs.Reactivity
         {
             TypeIndex = typeIndex;
             ComponentSize = componentSize;
-            Offsets = new NativeHashMap<int, int>(initialCapacity, AllocatorHandle.Persistent);
-            Values = new NativeList<byte>(initialCapacity * componentSize, AllocatorHandle.Persistent);
-            Alive = new NativeList<int>(initialCapacity, AllocatorHandle.Persistent);
+            Offsets = new HeapHashMap<int, int>(initialCapacity, AllocatorHandle.Persistent);
+            Values = new HeapList<byte>(initialCapacity * componentSize, AllocatorHandle.Persistent);
+            Alive = new HeapList<int>(initialCapacity, AllocatorHandle.Persistent);
             Changed = new ChangedQueue<int>(initialCapacity, AllocatorHandle.Persistent);
-            PendingTriggers = new NativeHashMap<int, byte>(4, AllocatorHandle.Persistent);
+            PendingTriggers = new HeapHashMap<int, byte>(4, AllocatorHandle.Persistent);
         }
 
         /// <summary>Append a raw byte block to <see cref="Values"/> and return its offset.</summary>
