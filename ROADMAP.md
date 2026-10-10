@@ -72,10 +72,11 @@ code that would otherwise have to be ported.
     - Change tracking: `OnChange` subscriptions and the `Changed<T>` filter keep
       separate snapshots of the same data.
     - Unsafe helpers: `UnsafeStatic`, `NUnsafe` and `Mem` overlap.
-    - Dead code: `DelegateSystemsExtensions.cs` (fully commented out),
-      `StaticAllocations` (`AddDisposable` has no callers), `ComponentsMapCache`,
-      large commented blocks. Already removed: `DynamicBuffer`,
-      `EntityFilterBuffer`, the `Serv<T>` service parameter.
+    - Dead code: `StaticAllocations` (`AddDisposable` has no callers),
+      `ComponentsMapCache`, large commented blocks. Already removed:
+      `DynamicBuffer`, `EntityFilterBuffer`, the `Serv<T>` service parameter,
+      `IJobSystem`, `GenericSystemMainThreadRunner`, `QueryUnsafe.CountMulti`,
+      the commented-out `DelegateSystemsExtensions.cs` and `ISystemFnParallelJob.cs`.
 
 ## Packaging / infra
 

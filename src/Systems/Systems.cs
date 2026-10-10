@@ -847,27 +847,6 @@ namespace Wargon.Nukecs
         SystemDependencyInfo DependencyInfo { get; }
     }
 
-
-    internal class GenericSystemMainThreadRunner<TSystem> : ISystemRunner where TSystem : struct, ISystem
-    {
-        internal ECBJob EcbJob;
-        internal TSystem System;
-        public string Name => System.GetType().Name;
-        public JobHandle Schedule(UpdateContext updateContext, ref State state)
-        {
-            System.OnUpdate(ref state);
-            EcbJob.ECB = state.World.ECB;
-            EcbJob.world = state.World;
-            return EcbJob.Schedule(state.Dependencies);
-        }
-
-        public void Run(ref State state)
-        {
-            System.OnUpdate(ref state);
-            state.World.ECB.Playback(ref state.World);
-        }
-    }
-
     public static class SystemPath
     {
         public const int Start       = 0;

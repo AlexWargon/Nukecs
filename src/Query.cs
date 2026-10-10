@@ -39,15 +39,6 @@ namespace Wargon.Nukecs
             }
         }
 
-        internal int CountMulti
-        {
-            get
-            {
-                RestoreIfNeed();
-                return queryUnsafe->count / queryUnsafe->world->job_worker_count;
-            }
-        }
-
         public bool IsValid
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

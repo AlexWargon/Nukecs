@@ -102,7 +102,6 @@ World → Archetype[] → Entity (8-byte generational handle)
 | `src/Systems/EntityJobSystem.cs` | `IEntityJobSystem` interface + `EntityJobSystemRunner<T>` runner |
 | `src/Systems/ECBJob.cs` | ECB processing job |
 | `src/Systems/StartFixedECBSystem.cs` | Start/fixed-update ECB processing |
-| `src/Systems/JobSystem.cs` | Job system base |
 | `src/Systems/IQueryJobSystem.cs` | Query-based job system interface |
 | `src/BuiltInSystems.cs` | Built-in system registrations |
 | `src/Systems/DependencyGraph/` | Access metadata, conflict detection, system nodes and execution groups |
