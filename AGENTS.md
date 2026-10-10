@@ -48,7 +48,6 @@ World → Archetype[] → Entity (8-byte generational handle)
 - **Chunk Iteration** — `Chunk<T1..T8>` archetype chunk iterators; `IChunk` interface; direct pointer iteration over archetype component arrays (`src/Systems/FnSystems/Chunk.cs`)
 - **Reactivity** — `OnChange<T>` / `OffChange<T>` subscriptions, snapshots and main-thread dispatch; `Reactivity.Changed<T>` is a generated-query filter (`src/Reactivity/`). The historical companion/tag implementation was removed.
 - **Hot Reload** — `HotReloadSystems` wraps `Systems`; file watching + Roslyn compilation + runner swapping at runtime (`src/Systems/HotReload/`, `src/Unity/Editor/HotReload/`)
-- **DynamicBuffer** — `DynamicBuffer<T>` Unity-style dynamic buffer component (`src/Components/DynamicBuffer.cs`)
 - **IEntityJobSystem** — per-entity job system interface; `EntityJobSystemRunner<T>` dispatches (`src/Systems/EntityJobSystem.cs`)
 
 ## 3. Key Files Map
@@ -83,7 +82,6 @@ World → Archetype[] → Entity (8-byte generational handle)
 | `src/Components/ComponentType.cs` | Per-type `SharedStatic<ComponentTypeData>` with lazy registration |
 | `src/Components/Component.cs` | Core interfaces IComponent/IArrayComponent/IPoolComponent, Name and built-in tags/hierarchy components; Changed<T> is now in Reactivity/ReactDelegate.cs |
 | `src/Components/GenericPool.cs` | `GenericPool` for Pool-stored components (SparseSet-based) |
-| `src/Components/DynamicBuffer.cs` | `DynamicBuffer<T>` — Unity-style dynamic buffer component |
 | `src/Components/ComponentArray.cs` | `ComponentArray<T>` — array-as-component type |
 | `src/Components/ComponentData.cs` | Serialization helper (byte[] representation of components) |
 | `src/Components/UnsafeStatic.cs` | `UnsafeStatic` utility (memcpy, as_ref, etc.) |

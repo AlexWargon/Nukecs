@@ -399,7 +399,7 @@ producer → consumers → cleanup явно; не вставляй очистк�
 Массовые компоненты должны быть маленькими unmanaged struct: числа, `float2/3`,
 enum, флаги, `Entity`, ID/индекс общих данных. Не добавляй в них коллекции на
 каждую сущность: `List`, массивы, `Dictionary`, `NativeList`, `MemoryList`,
-`DynamicBuffer`, `ComponentArray` или отдельные allocation-backed containers.
+`ComponentArray` или отдельные allocation-backed containers.
 Даже unmanaged контейнер несёт стоимость capacity, allocation и disposal.
 
 Практическое правило владельца проекта: если компонент ожидается более чем на
