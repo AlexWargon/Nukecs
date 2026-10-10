@@ -46,6 +46,40 @@ namespace Wargon.Nukecs.Tests
             Assert.IsTrue(_allocator->Validate(out _), "churned arena with Canary+PoisonFree must validate clean");
         }
 
+        // Freeing a block in the middle of the arena and allocating a smaller one splits it;
+        // the remainder's data size is A16 - OVR (a multiple of 8), which is a valid header.
+        [TestCase(AllocatorDebugMode.None)]
+        [TestCase(AllocatorDebugMode.All)]
+        public void SplitFreeBlock_RemainderPassesValidation(AllocatorDebugMode mode)
+        {
+            AllocatorDebugState.Mode = mode;
+            var big = _allocator->Allocate(1024, AllocatorTags.HashMap);
+            var pin = _allocator->Allocate(64, AllocatorTags.Archetype); // keeps `big` off the cursor
+            _allocator->Free(big);
+            var small = _allocator->Allocate(64, AllocatorTags.Query);
+            Assert.IsTrue(_allocator->Validate(out var v), $"split remainder reported as {v.Kind}, data size {v.DataSize}");
+            _allocator->Free(small);
+            _allocator->Free(pin);
+            Assert.IsTrue(_allocator->Validate(out v), $"after coalescing: {v.Kind}, data size {v.DataSize}");
+        }
+
+        // A free block too small to split is handed out whole; its canary must sit at the end
+        // of the whole block, where Validate checks it.
+        [Test]
+        public void Canary_WholeFreeBlockReuse_PassesValidation()
+        {
+            AllocatorDebugState.Mode = AllocatorDebugMode.Canary;
+            var a = _allocator->Allocate(64, AllocatorTags.Archetype); // 80-byte slot with guard
+            var pin = _allocator->Allocate(16, AllocatorTags.Archetype);
+            _allocator->Free(a);
+            var reused = (byte*)_allocator->Allocate(40, AllocatorTags.Query); // 64-byte slot, remainder 16 < split minimum
+            Assert.IsTrue(reused == (byte*)a, "the freed block must be reused whole");
+            for (var i = 0; i < 40; i++) reused[i] = 0xAB;
+            Assert.IsTrue(_allocator->Validate(out var v), $"whole reuse reported as {v.Kind}");
+            _allocator->Free(reused);
+            _allocator->Free(pin);
+        }
+
         [Test]
         public void Canary_WritePastAllocation_Detected()
         {

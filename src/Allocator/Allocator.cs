@@ -300,7 +300,9 @@ namespace Wargon.Nukecs
                         }
 
                         var dataPtr = bp + curOff + HDR;
-                        if (guard) WriteGuard(dataPtr + size - 16, i, curOff);
+                        // The guard sits at the end of the block's data, which is larger than
+                        // the request when a whole free block is reused (Validate looks there).
+                        if (guard) WriteGuard(dataPtr + h->Size - 16, i, curOff);
                         lock_.Release();
                         return dataPtr;
                     }
@@ -539,7 +541,7 @@ namespace Wargon.Nukecs
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Walks every region's block chain and checks: header sanity (size aligned,
+        /// Walks every region's block chain and checks: header sanity (size a multiple of 8,
         /// chain within cursor), canary guards of canary-allocated blocks (OOB writes past
         /// live allocations) and poison of freed blocks (use-after-free writes).
         /// Limitation: freeing the LAST block of a region rewinds its cursor (Dealloc) —
@@ -563,7 +565,9 @@ namespace Wargon.Nukecs
                 {
                     var h = (Header*)(bp + hOff);
                     long data = h->Size < 0 ? -h->Size : h->Size;
-                    if (data < ALIGN || (data & 15) != 0)
+                    // Requests are A16, but a split remainder holds remain - OVR (OVR = 24)
+                    // bytes, so valid data sizes are multiples of 8, not 16.
+                    if (data < ALIGN || (data & 7) != 0)
                     {
                         violation = NewViolation(ri, hOff, data, h, AllocatorDebugState.ViolationKind.BadHeaderSize);
                         return false;
@@ -634,7 +638,7 @@ namespace Wargon.Nukecs
                 {
                     var h = (Header*)(bp + hOff);
                     long data = h->Size < 0 ? -h->Size : h->Size;
-                    if (data < ALIGN || (data & 15) != 0) break;
+                    if (data < ALIGN || (data & 7) != 0) break;
                     if (h->Size < 0 && data >= 16)
                         PoisonFirst16(bp + hOff + HDR);
                     hOff += data + OVR;
@@ -665,7 +669,7 @@ namespace Wargon.Nukecs
                 {
                     var h = (Header*)(bp + hOff);
                     long data = h->Size < 0 ? -h->Size : h->Size;
-                    if (data < ALIGN || (data & 15) != 0) break;
+                    if (data < ALIGN || (data & 7) != 0) break;
                     if (h->Size >= 0)
                     {
                         var tag = (int)(h->NextFree & 0xFFFFFFFF);
