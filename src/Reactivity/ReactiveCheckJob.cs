@@ -1,6 +1,5 @@
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs.Reactivity
 {
@@ -14,7 +13,7 @@ namespace Wargon.Nukecs.Reactivity
     /// makes Burst compilation stable — no generic specialization is needed.
     /// </summary>
     [BurstCompile]
-    public unsafe struct ReactiveCheckJob : IJobParallelFor
+    public unsafe struct ReactiveCheckJob : INJobParallelFor
     {
         [NativeDisableUnsafePtrRestriction]
         public World.WorldUnsafe* WorldPtr;

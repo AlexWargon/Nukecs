@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 #pragma warning disable CS0612 // Type or member is obsolete
 
