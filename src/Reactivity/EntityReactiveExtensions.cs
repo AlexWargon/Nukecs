@@ -66,7 +66,7 @@ namespace Wargon.Nukecs.Reactivity
                     ref var current = ref entity.Get<T>();
                     unsafe
                     {
-                        var newOffset = ts.AppendBytes((byte*)UnsafeUtility.AddressOf(ref current));
+                        var newOffset = ts.AppendBytes((byte*)Mem.AddressOf(ref current));
                         ts.Offsets.TryAdd(entity.id, newOffset);
                     }
                 }

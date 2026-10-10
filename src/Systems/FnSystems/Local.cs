@@ -43,7 +43,7 @@ namespace Wargon.Nukecs
             Data<T> data = default;
             data._data = (T*)UnsafeUtility.MallocTracked(
                 sizeof(T),
-                UnsafeUtility.AlignOf<T>(),
+                Mem.AlignOf<T>(),
                 Allocator.Persistent, 0);
             return data;
         }

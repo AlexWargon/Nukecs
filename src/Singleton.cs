@@ -73,8 +73,8 @@ namespace Wargon.Nukecs.Tests {
             if (data.Value != null)
                 UnsafeUtility.Free(data.Value, Allocator.Persistent); // stale block from an older layout
             data = default;
-            data.Value = (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
-            UnsafeUtility.MemClear(data.Value, sizeof(T));
+            data.Value = (T*)UnsafeUtility.Malloc(sizeof(T), Mem.AlignOf<T>(), Allocator.Persistent);
+            Mem.MemClear(data.Value, sizeof(T));
             data.Size = sizeof(T);
             RegisterReset();
             return ref data;

@@ -56,7 +56,7 @@ namespace Wargon.Nukecs.Reactivity
                 Values.Capacity = newCap;
             }
             Values.ResizeUninitialized(newLen);
-            UnsafeUtility.MemCpy((byte*)Values.GetUnsafePtr() + start, src, ComponentSize);
+            Mem.MemCpy((byte*)Values.GetUnsafePtr() + start, src, ComponentSize);
             return start;
         }
 

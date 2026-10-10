@@ -135,7 +135,7 @@ namespace Wargon.Nukecs
 
             if (moveCount > 0)
             {
-                UnsafeUtility.MemMove(
+                Mem.MemMove(
                     _values.Ptr + index + 1,
                     _values.Ptr + index,
                     sizeof(T) * moveCount);
@@ -157,7 +157,7 @@ namespace Wargon.Nukecs
 
             if (moveCount > 0)
             {
-                UnsafeUtility.MemMove(
+                Mem.MemMove(
                     _values.Ptr + index,
                     _values.Ptr + index + 1,
                     sizeof(T) * moveCount);

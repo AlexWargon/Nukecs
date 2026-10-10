@@ -1,28 +1,43 @@
-﻿namespace Wargon.Nukecs {
+#if UNITY_5_3_OR_NEWER
+using ProfilerMarker = Unity.Profiling.ProfilerMarker;
+#else
+using ProfilerMarker = Wargon.Nukecs.NullProfilerMarker;
+#endif
+
+namespace Wargon.Nukecs {
     public struct Marker {
-        private Unity.Profiling.ProfilerMarker _marker;
+        private ProfilerMarker _marker;
         public bool isCreated;
         public Marker(string name) {
-            _marker = new Unity.Profiling.ProfilerMarker($"☢️NUKECS.{name}");
+            _marker = new ProfilerMarker($"☢️NUKECS.{name}");
             isCreated = true;
         }
         public void Autostart(string ctx) {
             if (isCreated == false) {
-                _marker = new Unity.Profiling.ProfilerMarker($"☢️NUKECS.{ctx}");
+                _marker = new ProfilerMarker($"☢️NUKECS.{ctx}");
                 isCreated = true;
             }
             _marker.Begin();
         }
         public void Autostart<TContext>(TContext ctx) {
             if (isCreated == false) {
-                _marker = new Unity.Profiling.ProfilerMarker($"☢️NUKECS.{ctx.GetType().Name}");
+                _marker = new ProfilerMarker($"☢️NUKECS.{ctx.GetType().Name}");
                 isCreated = true;
             }
             _marker.Begin();
         }
         public void Start() => _marker.Begin();
-        
+
         public void End() => _marker.End();
 
     }
+
+#if !UNITY_5_3_OR_NEWER
+    // No profiler outside Unity.
+    internal struct NullProfilerMarker {
+        public NullProfilerMarker(string name) { }
+        public void Begin() { }
+        public void End() { }
+    }
+#endif
 }

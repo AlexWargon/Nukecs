@@ -618,11 +618,11 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal Archetype GetOrCreateArchetype(ref Span<int> types) {
-                var hash = DynamicBitmask.ComputeHash((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length);
+                var hash = DynamicBitmask.ComputeHash((int*)Mem.AddressOf(ref types[0]), types.Length);
                 // Linear probing with equality re-check: a 32-bit hash collision between
                 // different type sets must not silently alias two archetypes.
                 while (archetypesMap.TryGetValue(hash, out var archetype)) {
-                    if (archetype.Unsafe->MatchesTypes((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length))
+                    if (archetype.Unsafe->MatchesTypes((int*)Mem.AddressOf(ref types[0]), types.Length))
                         return archetype;
                     hash++;
                 }

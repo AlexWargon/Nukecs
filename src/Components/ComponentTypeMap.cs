@@ -134,7 +134,7 @@ namespace Wargon.Nukecs
             var size = sizeof(T);
             var data = new ComponentTypeData
             {
-                align = UnsafeUtility.AlignOf<T>(),
+                align = Mem.AlignOf<T>(),
                 size = size,
                 index = index,
                 isTag = false,
@@ -150,14 +150,14 @@ namespace Wargon.Nukecs
         internal static ComponentTypeData AddComponentType<T>(int index) where T : unmanaged
         {
             if (ComponentTypes.Data.ContainsKey(index)) return ComponentTypes.Data[index];
-            var size = UnsafeUtility.SizeOf<T>();
+            var size = Mem.SizeOf<T>();
             var isPool = typeof(IPoolComponent).IsAssignableFrom(typeof(T));
             // A tag is a field-less component: empty structs report SizeOf == 1 in C#,
             // but a struct with a real 1-byte field (e.g. `bool IsDead`) is inline data, not a tag.
             var isTagType = !isPool && size == 1 && typeof(T).GetFields().Length == 0;
             var data = new ComponentTypeData
             {
-                align = UnsafeUtility.AlignOf<T>(),
+                align = Mem.AlignOf<T>(),
                 size = size,
                 index = index,
                 isTag = size == 1,
@@ -266,7 +266,7 @@ namespace Wargon.Nukecs
 
             fixed (ComponentTypeData* ptr = data)
             {
-                UnsafeUtility.MemCpy(_data, ptr, data.Length * sizeof(ComponentTypeData));
+                Mem.MemCpy(_data, ptr, data.Length * sizeof(ComponentTypeData));
             }
         }
 

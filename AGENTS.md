@@ -14,7 +14,8 @@ Nukecs is a **Burst-compiled ECS framework for Unity**. It uses `unsafe` code an
 - **Runtime**: .NET Framework 4.7.1 (Unity legacy)
 - **Dependencies**: Unity.Burst, Unity.Collections, Unity.Jobs, Unity.Mathematics
 - **Assembly defs**: `Nukecs.asmdef` (engine-independent runtime core), `Nukecs.Unity.asmdef` (`src/Unity/`: Unity integration, transforms, bakers, debuggers, hot reload), `Nukecs.Tests.asmdef` (tests), `AllocatorEditor.asmdef` (debug). Assemblies using Unity-side types reference both.
-- **Core boundary**: nothing outside `src/Unity/` may use the `UnityEngine`/`UnityEditor` namespaces. Log through `dbug`, take host events from `NukecsLifecycle`, and put Unity code in `src/Unity/` (core internals are visible to `Nukecs.Unity`). Types moved from core to `Nukecs.Unity` that can be `[SerializeReference]`-serialized need `[MovedFrom(false, sourceAssembly: "Nukecs")]`. Unity.Collections/Jobs/Burst/Profiling and `AOT` still come from UnityEngine.CoreModule; they are later steps of the engine-independence work.
+- **Core boundary**: nothing outside `src/Unity/` may use the `UnityEngine`/`UnityEditor` namespaces. Log through `dbug`, take host events from `NukecsLifecycle`, and put Unity code in `src/Unity/` (core internals are visible to `Nukecs.Unity`). Types moved from core to `Nukecs.Unity` that can be `[SerializeReference]`-serialized need `[MovedFrom(false, sourceAssembly: "Nukecs")]`.
+- **Platform layer** (`src/Platform/`): use `Mem` instead of `UnsafeUtility` for size/alignment/address/copy/compare (it forwards to `UnsafeUtility` in Unity). Burst API (`SharedStatic`, `FunctionPointer`, `BurstCompiler.CompileFunctionPointer`, `[BurstCompile]`, `[BurstDiscard]`, `[NoAlias]`, `AOT.MonoPInvokeCallback`) stays as-is in core code; `BurstShim.cs` emulates it only when `UNITY_5_3_OR_NEWER` is undefined. If core code starts using another Burst API member, add it to the shim. Still Unity-only in core: `UnsafeUtility` allocation and `Allocator`, Unity.Collections containers, Jobs.
 - **`[BurstCompile]`** used on hot paths
 
 ## 2. Architecture
@@ -185,6 +186,14 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 | `src/Allocator/ptr.cs` | `ptr<T>` — safe pointer wrapper |
 | `src/Allocator/Serialization.cs` | Allocator serialization (+ free-list rebuild after load, post-load validation) |
 | `src/Allocator/Spinner.cs` | Spinlock implementation (copy of Unity internal Spinner) |
+
+### Platform
+
+| File | Description |
+|------|-------------|
+| `src/Platform/Mem.cs` | `Mem`: SizeOf/AlignOf/AddressOf/AsRef/As/array element access/MemCpy/MemMove/MemSet/MemClear/MemCmp; `UnsafeUtility` in Unity, `System.Runtime.CompilerServices.Unsafe` elsewhere |
+| `src/Platform/BurstShim.cs` | Non-Unity emulation of the Burst API used by the core (`SharedStatic`, `FunctionPointer` returning the original delegate, attributes, `AOT.MonoPInvokeCallback`) |
+| `src/Systems/Marker.cs` | `Marker`: `ProfilerMarker` in Unity, no-op elsewhere |
 
 ### Misc Root Files
 

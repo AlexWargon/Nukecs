@@ -146,7 +146,7 @@ namespace Wargon.Nukecs
                         while (true) {
                             if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out var begin, out var end))
                                 break;
-                            //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
+                            //JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, Mem.AddressOf<TJob>(ref fullData.JobData), begin, end - begin);
                             for (var i = begin; i < end; i++) {
                                 ref var e = ref fullData.query->GetEntity(i);
                                 if (e.IsValid()) {
@@ -187,7 +187,7 @@ namespace Wargon.Nukecs
                 State = state
             };
             
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+            var scheduleParams = new JobsUtility.JobScheduleParameters(Mem.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), state.Dependencies,
                 mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
@@ -209,7 +209,7 @@ namespace Wargon.Nukecs
                 //deltaTime = deltaTime
             };
             JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(
-                UnsafeUtility.AddressOf(ref fullData),
+                Mem.AddressOf(ref fullData),
                 GetReflectionData<TJob>(),
             new JobHandle(), 
                 ScheduleMode.Run);

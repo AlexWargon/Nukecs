@@ -31,7 +31,7 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get {
                 EnsureRegistered();
-                return ref UnsafeUtility.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
+                return ref Mem.AsRef<ComponentTypeData>(ID.UnsafeDataPointer);
             }
         }
 

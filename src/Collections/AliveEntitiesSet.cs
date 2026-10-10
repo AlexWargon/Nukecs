@@ -21,7 +21,7 @@ namespace Wargon.Nukecs.Collections
         {
             dense = new MemoryList<int>(maxEntities, ref allocator);
             sparse = new MemoryList<int>(maxEntities, ref allocator, lenAsCapacity: true);
-            UnsafeUtility.MemSet(sparse.Ptr, 0xFF, sizeof(int) * maxEntities);
+            Mem.MemSet(sparse.Ptr, 0xFF, sizeof(int) * maxEntities);
         }
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Contains(int entityId)

@@ -129,7 +129,7 @@ namespace Wargon.Nukecs
             data.EnsureData();
             if (data.length <= index + count - 1) return;
 
-            int elemSize = UnsafeUtility.SizeOf<T>();
+            int elemSize = Mem.SizeOf<T>();
 
             mem_move(data.data + index * elemSize, data.data + (index + count) * elemSize, (long)elemSize * (Length - count - index));
             data.length -= count;

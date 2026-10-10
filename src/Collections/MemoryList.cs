@@ -187,7 +187,7 @@ namespace Wargon.Nukecs.Collections
         public void CopyFrom(ref MemoryList<T> other, ref MemAllocator allocatorHandler)
         {
             Resize(other.Length, ref allocatorHandler);
-            memcpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
+            memcpy(Ptr, other.Ptr, Mem.SizeOf<T>() * other.Length);
         }
         
         public void Resize(int len, ref MemAllocator allocatorHandler)

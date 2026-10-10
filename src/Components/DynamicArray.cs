@@ -14,7 +14,7 @@ namespace Wargon.Nukecs
         internal static int maximumElementSize;
         public DynamicArray(int size, Allocator allocator)
         {
-            this.buffer = (byte*)UnsafeUtility.MallocTracked(size * maximumElementSize, UnsafeUtility.AlignOf<byte>(), allocator, 0);
+            this.buffer = (byte*)UnsafeUtility.MallocTracked(size * maximumElementSize, Mem.AlignOf<byte>(), allocator, 0);
             this.maxElementSize = maximumElementSize;
             this.size = size;
             this.len = 0;
@@ -22,7 +22,7 @@ namespace Wargon.Nukecs
         }
         public DynamicArray(int size, int maxElementSize, Allocator allocator)
         {
-            this.buffer = (byte*)UnsafeUtility.MallocTracked(size * maxElementSize, UnsafeUtility.AlignOf<byte>(), allocator, 0);
+            this.buffer = (byte*)UnsafeUtility.MallocTracked(size * maxElementSize, Mem.AlignOf<byte>(), allocator, 0);
             this.maxElementSize = maxElementSize;
             this.size = size;
             this.len = 0;

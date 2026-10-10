@@ -17,7 +17,7 @@ namespace Wargon.Nukecs {
         [NativeSetThreadIndex] internal int ThreadIndex;
 
         public EntityFilterBuffer(int startSize) {
-            efbPtr = (EFBInternal*) UnsafeUtility.Malloc(sizeof(EFBInternal), UnsafeUtility.AlignOf<EFBInternal>(),
+            efbPtr = (EFBInternal*) UnsafeUtility.Malloc(sizeof(EFBInternal), Mem.AlignOf<EFBInternal>(),
                 Allocator.Persistent);
             *efbPtr = new EFBInternal();
             ThreadIndex = 0;

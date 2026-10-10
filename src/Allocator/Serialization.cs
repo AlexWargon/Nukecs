@@ -67,7 +67,7 @@ namespace Wargon.Nukecs
                 }
                 for (int i = 0; i < regionCount; i++)
                 {
-                    UnsafeUtility.MemCpy(p, regions[i].basePtr, regions[i].size);
+                    Mem.MemCpy(p, regions[i].basePtr, regions[i].size);
                     p += regions[i].size;
                 }
             }
@@ -97,7 +97,7 @@ namespace Wargon.Nukecs
                 }
                 for (int i = 0; i < regionCount; i++)
                 {
-                    UnsafeUtility.MemCpy(p, regions[i].basePtr, regions[i].size);
+                    Mem.MemCpy(p, regions[i].basePtr, regions[i].size);
                     p += regions[i].size;
                 }
             }
@@ -138,7 +138,7 @@ namespace Wargon.Nukecs
 
                 for (int i = 0; i < regionCount; i++)
                 {
-                    UnsafeUtility.MemCpy(regions[i].basePtr, p, regions[i].size);
+                    Mem.MemCpy(regions[i].basePtr, p, regions[i].size);
                     p += regions[i].size;
                 }
 

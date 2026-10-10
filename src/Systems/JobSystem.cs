@@ -87,7 +87,7 @@ namespace Wargon.Nukecs
                 UpdateContext = updateContext
             };
 
-            var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+            var scheduleParams = new JobsUtility.JobScheduleParameters(Mem.AddressOf(ref fullData),
                 GetReflectionData<TJob>(), state.Dependencies,
                 mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
             switch (mode) {
@@ -107,7 +107,7 @@ namespace Wargon.Nukecs
         //         world = world,
         //         deltaTime = deltaTime
         //     };
-        //     JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+        //     JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(Mem.AddressOf(ref fullData),
         //         JobSystemExtensions.GetReflectionData<TJob>(),
         //         new JobHandle(), 
         //         ScheduleMode.Run);

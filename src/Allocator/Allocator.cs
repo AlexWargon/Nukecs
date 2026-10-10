@@ -112,7 +112,7 @@ namespace Wargon.Nukecs
         {
             initialRegionSize = Math.Max(sizeInBytes, 4096);
             regions = (Region*)UnsafeUtility.Malloc(sizeof(Region) * MAX_REGIONS, ALIGN, Allocator.Persistent);
-            UnsafeUtility.MemClear(regions, sizeof(Region) * MAX_REGIONS);
+            Mem.MemClear(regions, sizeof(Region) * MAX_REGIONS);
             regionCount = 0;
             totalCapacity = 0;
             totalAllocated = 0;
@@ -124,7 +124,7 @@ namespace Wargon.Nukecs
         public static MemAllocator* New(long sizeInBytes)
         {
             var p = (MemAllocator*)UnsafeUtility.MallocTracked(
-                sizeof(MemAllocator), UnsafeUtility.AlignOf<MemAllocator>(), Allocator.Persistent, 0);
+                sizeof(MemAllocator), Mem.AlignOf<MemAllocator>(), Allocator.Persistent, 0);
             *p = new MemAllocator(sizeInBytes);
             return p;
         }

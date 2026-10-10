@@ -166,7 +166,7 @@ using Unity.Jobs;
 //             public void OnUpdate(Range range)
 //             {
 //                 var copy = q.Ref;
-//                 copy.Update(ref world, (IntPtr)UnsafeUtility.AddressOf(ref range));
+//                 copy.Update(ref world, (IntPtr)Mem.AddressOf(ref range));
 //                 ((delegate* <TParam0, void>)fn)(copy);
 //             }
 //         }
@@ -302,7 +302,7 @@ using Unity.Jobs;
 // #if NUKECS_DEBUG
 //             _marker.Autostart(Name);
 // #endif
-//             job.systemParams = (SystemParams*)UnsafeUtility.AddressOf(ref systemParams);
+//             job.systemParams = (SystemParams*)Mem.AddressOf(ref systemParams);
 //             ref var handle = ref state.Dependencies;
 //             if (mode != Threads.Main)
 //             {

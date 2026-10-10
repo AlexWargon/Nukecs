@@ -94,7 +94,7 @@ namespace Wargon.Nukecs
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -305,7 +305,7 @@ namespace Wargon.Nukecs
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -472,7 +472,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -643,7 +643,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -815,7 +815,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -992,7 +992,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -1171,7 +1171,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -1353,7 +1353,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)
@@ -1538,7 +1538,7 @@ public ptr<QueryUnsafe> _query;
 
         public IntPtr GetData()
         {
-            return (IntPtr)UnsafeUtility.AddressOf(ref _range);
+            return (IntPtr)Mem.AddressOf(ref _range);
         }
 
         public bool TryGetQuery(out ptr<QueryUnsafe> query)

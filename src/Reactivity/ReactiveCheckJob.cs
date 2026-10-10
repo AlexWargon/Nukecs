@@ -57,7 +57,7 @@ namespace Wargon.Nukecs.Reactivity
                 if (offsets.TryGetValue(id, out var oldOffset))
                 {
                     byte* oldPtr = valuesBase + oldOffset;
-                    if (UnsafeUtility.MemCmp(currentPtr, oldPtr, sz) != 0)
+                    if (Mem.MemCmp(currentPtr, oldPtr, sz) != 0)
                     {
                         UnsafeStatic.memcpy(oldPtr, currentPtr, sz);
                         changed.EnqueuePar(id);

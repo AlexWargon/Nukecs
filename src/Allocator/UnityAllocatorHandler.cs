@@ -16,7 +16,7 @@ namespace Wargon.Nukecs
             get => ref allocatorHelper.Allocator;
         }
 
-        internal unsafe UnityAllocatorWrapper* AllocatorWrapperPtr => (UnityAllocatorWrapper*)UnsafeUtility.AddressOf(ref allocatorHelper.Allocator);
+        internal unsafe UnityAllocatorWrapper* AllocatorWrapperPtr => (UnityAllocatorWrapper*)Mem.AddressOf(ref allocatorHelper.Allocator);
         public AllocatorManager.AllocatorHandle AllocatorHandle => allocatorHelper.Allocator.Handle;
         private void CreateCustomAllocator(AllocatorManager.AllocatorHandle backgroundAllocator,
             long initialValue)

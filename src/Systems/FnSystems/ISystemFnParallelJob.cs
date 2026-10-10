@@ -33,7 +33,7 @@ namespace Wargon.Nukecs {
     //         {
     //             _fnFunctionPointer = new FunctionPointer<SystemActionPtr>(systemParams.system);
     //         }
-    //         _fnFunctionPointer.Invoke(UnsafeUtility.AddressOf(ref param0Copy));
+    //         _fnFunctionPointer.Invoke(Mem.AddressOf(ref param0Copy));
     //     }
     //     public static IntPtr Create()
     //     {
@@ -327,7 +327,7 @@ namespace Wargon.Nukecs {
     //             mode = mode
     //         };
     //         
-    //         var scheduleParams = new JobsUtility.JobScheduleParameters(UnsafeUtility.AddressOf(ref fullData),
+    //         var scheduleParams = new JobsUtility.JobScheduleParameters(Mem.AddressOf(ref fullData),
     //             GetReflectionData<TJob>(), state.Dependencies,
     //             mode == Threads.Parallel ? ScheduleMode.Parallel : ScheduleMode.Single);
     //         var workers = JobsUtility.JobWorkerCount;
@@ -350,7 +350,7 @@ namespace Wargon.Nukecs {
     //             //deltaTime = deltaTime
     //         };
     //         JobsUtility.JobScheduleParameters parameters = new JobsUtility.JobScheduleParameters(
-    //             UnsafeUtility.AddressOf(ref fullData),
+    //             Mem.AddressOf(ref fullData),
     //             GetReflectionData<TJob>(),
     //         new JobHandle(), 
     //             ScheduleMode.Run);

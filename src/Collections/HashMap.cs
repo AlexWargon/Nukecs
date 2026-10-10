@@ -69,7 +69,7 @@ namespace Wargon.Nukecs.Collections
             var idx = data.TryAdd(key);
             if (-1 != idx)
             {
-                UnsafeUtility.WriteArrayElement(data.Ptr, idx, item);
+                Mem.WriteArrayElement(data.Ptr, idx, item);
                 return true;
             }
 
@@ -122,7 +122,7 @@ namespace Wargon.Nukecs.Collections
                 var idx = data.Find(key);
                 if (-1 != idx)
                 {
-                    UnsafeUtility.WriteArrayElement(data.Ptr, idx, value);
+                    Mem.WriteArrayElement(data.Ptr, idx, value);
                     return;
                 }
 
@@ -243,8 +243,8 @@ namespace Wargon.Nukecs.Collections
 
         internal void Clear()
         {
-            UnsafeUtility.MemSet(Buckets, 0xff, BucketCapacity * sizeof(int));
-            UnsafeUtility.MemSet(Next, 0xff, Capacity * sizeof(int));
+            Mem.MemSet(Buckets, 0xff, BucketCapacity * sizeof(int));
+            Mem.MemSet(Next, 0xff, Capacity * sizeof(int));
 
             Count = 0;
             FirstFreeIdx = -1;
@@ -319,7 +319,7 @@ namespace Wargon.Nukecs.Collections
 
         internal static HashMapHelper<TKey>* Alloc(int capacity, int sizeOfValueT, int minGrowth, AllocatorManager.AllocatorHandle allocator)
         {
-            var data = (HashMapHelper<TKey>*)AllocatorManager.Allocate(allocator, sizeof(HashMapHelper<TKey>), UnsafeUtility.AlignOf<HashMapHelper<TKey>>());
+            var data = (HashMapHelper<TKey>*)AllocatorManager.Allocate(allocator, sizeof(HashMapHelper<TKey>), Mem.AlignOf<HashMapHelper<TKey>>());
             data->Init(capacity, sizeOfValueT, minGrowth, allocator);
 
             return data;
@@ -373,7 +373,7 @@ namespace Wargon.Nukecs.Collections
                 for (int idx = oldBuckets[i]; idx != -1; idx = oldNext[idx])
                 {
                     var newIdx = TryAdd(oldKeys[idx]);
-                    UnsafeUtility.MemCpy(Ptr + SizeOfTValue * newIdx, oldPtr + SizeOfTValue * idx, SizeOfTValue);
+                    Mem.MemCpy(Ptr + SizeOfTValue * newIdx, oldPtr + SizeOfTValue * idx, SizeOfTValue);
                 }
             }
 
@@ -455,7 +455,7 @@ namespace Wargon.Nukecs.Collections
 
                 CheckIndexOutOfBounds(idx);
 
-                UnsafeUtility.WriteArrayElement(Keys, idx, key);
+                Mem.WriteArrayElement(Keys, idx, key);
                 var bucket = GetBucket(key);
 
                 // Add the index to the hash-map
@@ -480,7 +480,7 @@ namespace Wargon.Nukecs.Collections
                 if ((uint)entryIdx < (uint)Capacity)
                 {
                     var nextPtrs = Next;
-                    while (!UnsafeUtility.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
+                    while (!Mem.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
                     {
                         entryIdx = nextPtrs[entryIdx];
                         if ((uint)entryIdx >= (uint)Capacity)
@@ -504,7 +504,7 @@ namespace Wargon.Nukecs.Collections
 
             if (-1 != idx)
             {
-                item = UnsafeUtility.ReadArrayElement<TValue>(Ptr, idx);
+                item = Mem.ReadArrayElement<TValue>(Ptr, idx);
                 return true;
             }
 
@@ -553,7 +553,7 @@ namespace Wargon.Nukecs.Collections
 
                 while (entryIdx >= 0 && entryIdx < Capacity)
                 {
-                    if (UnsafeUtility.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
+                    if (Mem.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
                     {
                         ++removed;
 
@@ -637,7 +637,7 @@ namespace Wargon.Nukecs.Collections
 
                 while (bucket != -1)
                 {
-                    result[count++] = UnsafeUtility.ReadArrayElement<TKey>(Keys, bucket);
+                    result[count++] = Mem.ReadArrayElement<TKey>(Keys, bucket);
                     bucket = Next[bucket];
                 }
             }
@@ -659,7 +659,7 @@ namespace Wargon.Nukecs.Collections
 
                 while (bucket != -1)
                 {
-                    result[count++] = UnsafeUtility.ReadArrayElement<TValue>(Ptr, bucket);
+                    result[count++] = Mem.ReadArrayElement<TValue>(Ptr, bucket);
                     bucket = Next[bucket];
                 }
             }
@@ -682,8 +682,8 @@ namespace Wargon.Nukecs.Collections
 
                 while (bucket != -1)
                 {
-                    result.Keys[count] = UnsafeUtility.ReadArrayElement<TKey>(Keys, bucket);
-                    result.Values[count] = UnsafeUtility.ReadArrayElement<TValue>(Ptr, bucket);
+                    result.Keys[count] = Mem.ReadArrayElement<TKey>(Keys, bucket);
+                    result.Values[count] = Mem.ReadArrayElement<TValue>(Ptr, bucket);
                     count++;
                     bucket = Next[bucket];
                 }
@@ -795,7 +795,7 @@ namespace Wargon.Nukecs.Collections
                     throw new ArgumentException("must be valid");
 #endif
 
-                return ref UnsafeUtility.AsRef<TValue>(m_Data->Ptr + sizeof(TValue) * m_Index);
+                return ref Mem.AsRef<TValue>(m_Data->Ptr + sizeof(TValue) * m_Index);
             }
         }
 
@@ -810,7 +810,7 @@ namespace Wargon.Nukecs.Collections
             if (m_Index != -1)
             {
                 key = m_Data->Keys[m_Index];
-                value = UnsafeUtility.ReadArrayElement<TValue>(m_Data->Ptr, m_Index);
+                value = Mem.ReadArrayElement<TValue>(m_Data->Ptr, m_Index);
                 return true;
             }
 

@@ -10,11 +10,11 @@ namespace Wargon.Nukecs {
     public static unsafe class NUnsafe {
         public static T* MallocTracked<T>(Allocator allocator) where T : unmanaged
         {
-            return (T*) UnsafeUtility.MallocTracked(sizeof(T), UnsafeUtility.AlignOf<T>(), allocator, 0);
+            return (T*) UnsafeUtility.MallocTracked(sizeof(T), Mem.AlignOf<T>(), allocator, 0);
         }
 
         public static T* MallocTracked<T>(int items, Allocator allocator) where T : unmanaged {
-            return (T*)UnsafeUtility.MallocTracked(sizeof(T) * items, UnsafeUtility.AlignOf<T>(), allocator, 0);
+            return (T*)UnsafeUtility.MallocTracked(sizeof(T) * items, Mem.AlignOf<T>(), allocator, 0);
         }
 
         public static void FreeTracked(void* ptr, Allocator allocator) {
@@ -25,7 +25,7 @@ namespace Wargon.Nukecs {
         {
             fixed (T* ptr = source)
             {
-                UnsafeUtility.MemCpy(dst.Ptr, ptr, UnsafeUtility.SizeOf<T>() * source.Length);
+                Mem.MemCpy(dst.Ptr, ptr, Mem.SizeOf<T>() * source.Length);
             }
             dst.m_length = len;
         }
@@ -74,7 +74,7 @@ namespace Wargon.Nukecs {
             return typeData.size + sizeof(byte) * 2 - typeData.size;
         }
         public static int AlignOf(Type type) {
-            return UnsafeUtility.SizeOf(type) + sizeof(byte) * 2 - UnsafeUtility.SizeOf(type);
+            return Mem.SizeOf(type) + sizeof(byte) * 2 - Mem.SizeOf(type);
         }
 
         [BurstDiscard]
@@ -84,7 +84,7 @@ namespace Wargon.Nukecs {
             var typeSize = sizeof(T);
             var newBuffer = (T*)UnsafeUtility.MallocTracked(
                 newCapacity * typeSize,
-                UnsafeUtility.AlignOf<T>(),
+                Mem.AlignOf<T>(),
                 allocator, 0
             );
 
@@ -93,8 +93,8 @@ namespace Wargon.Nukecs {
                 throw new OutOfMemoryException("Failed to allocate memory for resizing.");
             }
 
-            UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
-            UnsafeUtility.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
+            Mem.MemClear(newBuffer, newCapacity * typeSize);
+            Mem.MemCpy(newBuffer, buffer, oldCapacity * typeSize);
 
             UnsafeUtility.FreeTracked(buffer, allocator);
 
@@ -110,7 +110,7 @@ namespace Wargon.Nukecs {
                 var typeSize = sizeof(T);
                 var newBuffer = (T*)UnsafeUtility.MallocTracked(
                     newCapacity * sizeof(T),
-                    UnsafeUtility.AlignOf<T>(),
+                    Mem.AlignOf<T>(),
                     allocator, 0
                 );
 
@@ -119,8 +119,8 @@ namespace Wargon.Nukecs {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
 
-                UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
-                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
+                Mem.MemClear(newBuffer, newCapacity * typeSize);
+                Mem.MemCpy(newBuffer, buffer, capacity * typeSize);
 
                 UnsafeUtility.FreeTracked(buffer, allocator);
 
@@ -145,8 +145,8 @@ namespace Wargon.Nukecs {
                 {
                     throw new OutOfMemoryException("Failed to allocate memory for resizing.");
                 }
-                UnsafeUtility.MemClear(newBuffer, newCapacity * typeSize);
-                UnsafeUtility.MemCpy(newBuffer, buffer, capacity * typeSize);
+                Mem.MemClear(newBuffer, newCapacity * typeSize);
+                Mem.MemCpy(newBuffer, buffer, capacity * typeSize);
 
                 UnsafeUtility.FreeTracked(buffer, allocator);
 

@@ -40,7 +40,7 @@ namespace Wargon.Nukecs {
         public EntityCommandBuffer(int startSize, Allocator allocator, World.WorldUnsafe* world) {
             this.allocator = allocator;
             ecb = (ECBInternal*)UnsafeUtility.MallocTracked(sizeof(ECBInternal),
-                UnsafeUtility.AlignOf<ECBInternal>(), allocator, 0);
+                Mem.AlignOf<ECBInternal>(), allocator, 0);
             *ecb = new ECBInternal();
             ecb->perThreadCommands = CreateCommandBuffers(startSize, this.allocator);
             ecb->perThreadData = CreateDataBuffers(startSize * 64, this.allocator);
@@ -139,7 +139,7 @@ namespace Wargon.Nukecs {
                 ref var arch = ref world->archetypesList.Ptr[loc.archetypeIndex].Ref;
                 var ptr = arch.GetComponentDataPtr(ctData.index, loc.row);
                 if (ptr != null)
-                    UnsafeUtility.MemClear(ptr, ctData.size);
+                    Mem.MemClear(ptr, ctData.size);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -426,7 +426,7 @@ namespace Wargon.Nukecs {
                     var off = dstArch.componentOffsets.Ptr[localIdx];
                     if (off < 0) continue;
                     var dst = dstArch.data.Ptr + off + newRow * ctData.size;
-                    UnsafeUtility.MemCpy(dst, dataBuffer + cmd.AdditionalData, ctData.size);
+                    Mem.MemCpy(dst, dataBuffer + cmd.AdditionalData, ctData.size);
                     cmd.isDisposable = 0;
                 }
             }
@@ -487,7 +487,7 @@ namespace Wargon.Nukecs {
                 var dataBase = flatData->m_length;
 
                 if (threadData->m_length > 0) {
-                    UnsafeUtility.MemCpy(flatData->Ptr + dataBase, threadData->Ptr, threadData->m_length);
+                    Mem.MemCpy(flatData->Ptr + dataBase, threadData->Ptr, threadData->m_length);
                     flatData->m_length += threadData->m_length;
                 }
 

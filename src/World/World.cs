@@ -7,7 +7,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;

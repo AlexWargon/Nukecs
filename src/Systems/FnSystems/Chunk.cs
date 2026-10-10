@@ -133,9 +133,9 @@ namespace Wargon.Nukecs
             {
                 // dense: rows are contiguous
                 if (ComponentType<TU>.Index == ComponentType<T1>.Index)
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU>());
                 if (ComponentType<TU>.Index == ComponentType<T2>.Index)
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU>());
                 return;
             }
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])
@@ -248,11 +248,11 @@ namespace Wargon.Nukecs
             {
                 // dense: rows are contiguous — straight memcpy
                 if (ComponentType<TU1>.Index == ComponentType<T1>.Index)
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU1>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU1>());
                 if (ComponentType<TU1>.Index == ComponentType<T2>.Index)
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU1>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU1>());
                 if (ComponentType<TU1>.Index == ComponentType<T3>.Index)
-                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU1>());
+                    memcpy(destination, _components3, len * Mem.SizeOf<TU1>());
             }
             else
             {
@@ -365,21 +365,21 @@ namespace Wargon.Nukecs
             {
                 if (ComponentType<TU>.Index == ComponentType<T1>.Index)
                 {
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T2>.Index)
                 {
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T3>.Index)
                 {
-                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components3, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T4>.Index)
-                    memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components4, len * Mem.SizeOf<TU>());
                 return;
             }
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])
@@ -507,26 +507,26 @@ namespace Wargon.Nukecs
             {
                 if (ComponentType<TU>.Index == ComponentType<T1>.Index)
                 {
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T2>.Index)
                 {
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T3>.Index)
                 {
-                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components3, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T4>.Index)
                 {
-                    memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components4, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T5>.Index)
-                    memcpy(destination, _components5, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components5, len * Mem.SizeOf<TU>());
                 return;
             }
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])
@@ -667,31 +667,31 @@ namespace Wargon.Nukecs
             {
                 if (ComponentType<TU>.Index == ComponentType<T1>.Index)
                 {
-                    memcpy(destination, _components0, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components0, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T2>.Index)
                 {
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T3>.Index)
                 {
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T4>.Index)
                 {
-                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components3, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T5>.Index)
                 {
-                    memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components4, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T6>.Index)
-                    memcpy(destination, _components5, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components5, len * Mem.SizeOf<TU>());
                 return;
             }
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])
@@ -845,36 +845,36 @@ namespace Wargon.Nukecs
             {
                 if (ComponentType<TU>.Index == ComponentType<T1>.Index)
                 {
-                    memcpy(destination, _components0, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components0, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T2>.Index)
                 {
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T3>.Index)
                 {
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T4>.Index)
                 {
-                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components3, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T5>.Index)
                 {
-                    memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components4, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T6>.Index)
                 {
-                    memcpy(destination, _components5, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components5, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T7>.Index)
-                    memcpy(destination, _components6, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components6, len * Mem.SizeOf<TU>());
                 return;
             }
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])
@@ -1041,41 +1041,41 @@ namespace Wargon.Nukecs
             {
                 if (ComponentType<TU>.Index == ComponentType<T1>.Index)
                 {
-                    memcpy(destination, _components0, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components0, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T2>.Index)
                 {
-                    memcpy(destination, _components1, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components1, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T3>.Index)
                 {
-                    memcpy(destination, _components2, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components2, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T4>.Index)
                 {
-                    memcpy(destination, _components3, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components3, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T5>.Index)
                 {
-                    memcpy(destination, _components4, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components4, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T6>.Index)
                 {
-                    memcpy(destination, _components5, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components5, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T7>.Index)
                 {
-                    memcpy(destination, _components6, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components6, len * Mem.SizeOf<TU>());
                     return;
                 }
                 if (ComponentType<TU>.Index == ComponentType<T8>.Index)
-                    memcpy(destination, _components7, len * UnsafeUtility.SizeOf<TU>());
+                    memcpy(destination, _components7, len * Mem.SizeOf<TU>());
                 return;
             }
             // sparse storage: gather relative to the current position (pointer sits at rows[_rowIdx])

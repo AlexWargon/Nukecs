@@ -101,9 +101,9 @@ namespace Wargon.Nukecs
 #endif
                 CheckWriteAccessAndInvalidateArrayAliases();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern, m_InternalCapacity);
+                BufferHeader.SetCapacity(m_Buffer, value, Mem.SizeOf<T>(), Mem.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern, m_InternalCapacity);
 #else
-                BufferHeader.SetCapacity(m_Buffer, value, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0, m_InternalCapacity);
+                BufferHeader.SetCapacity(m_Buffer, value, Mem.SizeOf<T>(), Mem.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0, m_InternalCapacity);
 #endif
             }
         }
@@ -168,13 +168,13 @@ namespace Wargon.Nukecs
             {
                 CheckReadAccess();
                 CheckBounds(index);
-                return UnsafeUtility.ReadArrayElement<T>(BufferHeader.GetElementPointer(m_Buffer), index);
+                return Mem.ReadArrayElement<T>(BufferHeader.GetElementPointer(m_Buffer), index);
             }
             set
             {
                 CheckWriteAccess();
                 CheckBounds(index);
-                UnsafeUtility.WriteArrayElement<T>(BufferHeader.GetElementPointer(m_Buffer), index, value);
+                Mem.WriteArrayElement<T>(BufferHeader.GetElementPointer(m_Buffer), index, value);
             }
         }
 
@@ -210,9 +210,9 @@ namespace Wargon.Nukecs
         {
             CheckWriteAccessAndInvalidateArrayAliases();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern);
+            BufferHeader.EnsureCapacity(m_Buffer, length, Mem.SizeOf<T>(), Mem.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, m_useMemoryInitPattern, m_memoryInitPattern);
 #else
-            BufferHeader.EnsureCapacity(m_Buffer, length, UnsafeUtility.SizeOf<T>(), UnsafeUtility.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
+            BufferHeader.EnsureCapacity(m_Buffer, length, Mem.SizeOf<T>(), Mem.AlignOf<T>(), BufferHeader.TrashMode.RetainOldData, false, 0);
 #endif
         }
 
@@ -253,8 +253,8 @@ namespace Wargon.Nukecs
             if (length == Capacity || oldPtr == null)
                 return;
 
-            int elemSize = UnsafeUtility.SizeOf<T>();
-            int elemAlign = UnsafeUtility.AlignOf<T>();
+            int elemSize = Mem.SizeOf<T>();
+            int elemAlign = Mem.AlignOf<T>();
 
             bool isInternal;
             byte* newPtr;
@@ -271,7 +271,7 @@ namespace Wargon.Nukecs
                 isInternal = false;
             }
 
-            UnsafeUtility.MemCpy(newPtr, oldPtr, (long)elemSize * length);
+            Mem.MemCpy(newPtr, oldPtr, (long)elemSize * length);
 
             m_Buffer->Capacity = Math.Max(length, m_InternalCapacity);
             m_Buffer->Pointer = isInternal ? null : newPtr;
@@ -312,9 +312,9 @@ namespace Wargon.Nukecs
             int length = Length;
             ResizeUninitialized(length + 1);
             CheckBounds(index); //CheckBounds after ResizeUninitialized since index == length is allowed
-            int elemSize = UnsafeUtility.SizeOf<T>();
+            int elemSize = Mem.SizeOf<T>();
             byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
-            UnsafeUtility.MemMove(basePtr + (index + 1) * elemSize, basePtr + index * elemSize, (long)elemSize * (length - index));
+            Mem.MemMove(basePtr + (index + 1) * elemSize, basePtr + index * elemSize, (long)elemSize * (length - index));
             this[index] = elem;
         }
 
@@ -330,12 +330,12 @@ namespace Wargon.Nukecs
         public void AddRange(NativeArray<T> newElems)
         {
             CheckWriteAccess();
-            int elemSize = UnsafeUtility.SizeOf<T>();
+            int elemSize = Mem.SizeOf<T>();
             int oldLength = Length;
             ResizeUninitialized(oldLength + newElems.Length);
 
             byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
-            UnsafeUtility.MemCpy(basePtr + (long)oldLength * elemSize, newElems.GetUnsafeReadOnlyPtr<T>(), (long)elemSize * newElems.Length);
+            Mem.MemCpy(basePtr + (long)oldLength * elemSize, newElems.GetUnsafeReadOnlyPtr<T>(), (long)elemSize * newElems.Length);
         }
 
         /// <summary>
@@ -352,10 +352,10 @@ namespace Wargon.Nukecs
             CheckWriteAccess();
             CheckBounds(index + count - 1);
 
-            int elemSize = UnsafeUtility.SizeOf<T>();
+            int elemSize = Mem.SizeOf<T>();
             byte* basePtr = BufferHeader.GetElementPointer(m_Buffer);
 
-            UnsafeUtility.MemMove(basePtr + index * elemSize, basePtr + (index + count) * elemSize, (long)elemSize * (Length - count - index));
+            Mem.MemMove(basePtr + index * elemSize, basePtr + (index + count) * elemSize, (long)elemSize * (Length - count - index));
 
             m_Buffer->Length -= count;
         }
@@ -409,7 +409,7 @@ namespace Wargon.Nukecs
         public DynamicBuffer<U> Reinterpret<U>() where U : struct
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (UnsafeUtility.SizeOf<U>() != UnsafeUtility.SizeOf<T>())
+            if (Mem.SizeOf<U>() != Mem.SizeOf<T>())
                 throw new InvalidOperationException($"Types {typeof(U)} and {typeof(T)} are of different sizes; cannot reinterpret");
 #endif
             // NOTE: We're forwarding the internal capacity along to this aliased, type-punned buffer.
@@ -517,8 +517,8 @@ namespace Wargon.Nukecs
             v.CheckReadAccess();
             CheckWriteAccess();
 
-            UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
-                BufferHeader.GetElementPointer(v.m_Buffer), Length * UnsafeUtility.SizeOf<T>());
+            Mem.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
+                BufferHeader.GetElementPointer(v.m_Buffer), Length * Mem.SizeOf<T>());
         }
 
         /// <summary>
@@ -547,8 +547,8 @@ namespace Wargon.Nukecs
             GCHandle gcHandle = GCHandle.Alloc((object)v, GCHandleType.Pinned);
             IntPtr num = gcHandle.AddrOfPinnedObject();
 
-            UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
-                (void*)num, Length * UnsafeUtility.SizeOf<T>());
+            Mem.MemCpy(BufferHeader.GetElementPointer(m_Buffer),
+                (void*)num, Length * Mem.SizeOf<T>());
             gcHandle.Free();
 #endif
         }
@@ -623,19 +623,19 @@ namespace Wargon.Nukecs
                         var bytesToInitialize = newSizeInBytes - oldSizeInBytes;
                         if (bytesToInitialize > 0)
                         {
-                            UnsafeUtility.MemSet(newData + oldSizeInBytes, memoryInitPattern, bytesToInitialize);
+                            Mem.MemSet(newData + oldSizeInBytes, memoryInitPattern, bytesToInitialize);
                         }
                     }
                     else
                     {
-                        UnsafeUtility.MemSet(newData, memoryInitPattern, newSizeInBytes);
+                        Mem.MemSet(newData, memoryInitPattern, newSizeInBytes);
                     }
                 }
 #endif
                 if (trashMode == TrashMode.RetainOldData)
                 {
                     long bytesToCopy = Math.Min((long)header->Capacity, count) * typeSize;
-                    UnsafeUtility.MemCpy(newData, oldData, bytesToCopy);
+                    Mem.MemCpy(newData, oldData, bytesToCopy);
                 }
                 // Note we're freeing the old buffer only if it was not using the internal capacity. Don't change this to 'oldData', because that would be a bug.
                 if (header->Pointer != null)
@@ -655,7 +655,7 @@ namespace Wargon.Nukecs
             // Select between internal capacity buffer and heap buffer.
             byte* elementPtr = GetElementPointer(header);
 
-            UnsafeUtility.MemCpy(elementPtr, source, (long)typeSize * count);
+            Mem.MemCpy(elementPtr, source, (long)typeSize * count);
 
             header->Length = count;
         }
@@ -704,7 +704,7 @@ namespace Wargon.Nukecs
         //                 long bytesToAllocate = (long)header->Capacity * ti.ElementSize;
         //                 long bytesToCopy = (long)header->Length * ti.ElementSize;
         //                 newHeader.Pointer = (byte*)Memory.Unmanaged.Allocate(bytesToAllocate, TypeManager.MaximumSupportedAlignment, Allocator.Persistent);
-        //                 UnsafeUtility.MemCpy(newHeader.Pointer, header->Pointer, bytesToCopy);
+        //                 Mem.MemCpy(newHeader.Pointer, header->Pointer, bytesToCopy);
         //                 *header = newHeader;
         //             }
         //         }
@@ -718,14 +718,14 @@ namespace Wargon.Nukecs
             if (bufferHeader->Pointer != null)
             {
                 byte* internalBuffer = (byte*)(bufferHeader + 1);
-                UnsafeUtility.MemSet(internalBuffer, value, internalCapacity * elementSize);
+                Mem.MemSet(internalBuffer, value, internalCapacity * elementSize);
             }
 
             // Wipe out excess capacity
             var elementCountToClean = bufferHeader->Capacity - bufferHeader->Length;
             var firstElementToClean = bufferHeader->Length;
             var buffer = BufferHeader.GetElementPointer(bufferHeader);
-            UnsafeUtility.MemSet(buffer + (firstElementToClean * elementSize), value, elementCountToClean * elementSize);
+            Mem.MemSet(buffer + (firstElementToClean * elementSize), value, elementCountToClean * elementSize);
         }
     }
 }

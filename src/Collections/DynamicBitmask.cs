@@ -169,7 +169,7 @@ namespace Wargon.Nukecs
             // masks of different eras have different capacities: copy the common words,
             // zero the tail (this > source) so stale bits never survive a copy
             var n = arraySize < source.arraySize ? arraySize : source.arraySize;
-            UnsafeUtility.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, sizeof(ulong) * n);
+            Mem.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, sizeof(ulong) * n);
             for (var i = n; i < arraySize; i++) bitmaskArray.Ptr[i] = 0;
             Count = source.Count;
         }
@@ -328,7 +328,7 @@ namespace Wargon.Nukecs
             var maxBits = math.max(ComponentAmount.Value.Data, 256);
             var sz = (maxBits + 63) / 64;
             var bits = stackalloc ulong[sz];
-            UnsafeUtility.MemClear(bits, sz * sizeof(ulong));
+            Mem.MemClear(bits, sz * sizeof(ulong));
             for (var i = 0; i < count; i++)
             {
                 var t = types[i];
@@ -366,7 +366,7 @@ namespace Wargon.Nukecs
         {
             var copy = new DynamicBitmask(maxBits, world);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
+            Mem.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
             copy.Count = Count;
             return copy;
         }
@@ -375,7 +375,7 @@ namespace Wargon.Nukecs
         {
             var copy = new DynamicBitmask(maxBits + 1, world);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
+            Mem.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
             copy.Count = Count;
             return copy;
         }
@@ -396,7 +396,7 @@ namespace Wargon.Nukecs
         {
             fixed (ulong* ptr = array)
             {
-                UnsafeUtility.MemCpy(bitmaskArray.Ptr, ptr, size);
+                Mem.MemCpy(bitmaskArray.Ptr, ptr, size);
                 arraySize = size;
             }
         }
