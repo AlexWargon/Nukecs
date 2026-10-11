@@ -404,7 +404,7 @@ namespace Wargon.Nukecs
                 where T2 : unmanaged, IComponent
                 where T3 : unmanaged, IComponent
             {
-                Span<int> componentTypes = stackalloc int[2] { ComponentType<T1>.Index, ComponentType<T2>.Index };
+                Span<int> componentTypes = stackalloc int[3] { ComponentType<T1>.Index, ComponentType<T2>.Index, ComponentType<T3>.Index };
                 var arch = GetOrCreateArchetype(ref componentTypes);
                 ref var e = ref arch.CreateEntity();
                 e.Set(in c1);
