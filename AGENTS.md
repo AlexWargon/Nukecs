@@ -1306,6 +1306,10 @@ source. Born from the 2026-08-25 crash-hunt (phantom types via CopyUnion OOB).
   `iter_chunk`) marks all its data components ReadWrite; tags are always Read.
   `entity.Get<T>()`/`Set`/`Has` on any entity are recorded too. Any/None/With are filters,
   not accesses.
+- Resource/event ids are `DependencyIds.Of<T>()` (StableTypeHash folded to int), resolved at
+  runtime so systems from different assemblies agree; never emit compile-time symbol hashes.
+  Every `Res<T>`/`ResManaged<T>` parameter is ReadWrite; `Events<T>` uses are classified by
+  symbol (Add/AddPar/Clear write, ReadPar/foreach/Count read, other uses both).
 - `ISystemDependencyInfoProvider.DependencyInfo` reports component, resource,
   event and ECB accesses; `IThreadModeProvider.Mode` reports the execution mode.
   Conflicting nodes are ordered by registration index; independent nodes can

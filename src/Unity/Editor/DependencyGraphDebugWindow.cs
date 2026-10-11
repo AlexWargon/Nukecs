@@ -303,7 +303,7 @@ namespace Wargon.Nukecs.Editor
                 EditorGUILayout.LabelField("Read Resources:", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
                 foreach (var r in info.ReadResources)
-                    EditorGUILayout.LabelField($"idx: {r}");
+                    EditorGUILayout.LabelField(GetDependencyName(r));
                 EditorGUI.indentLevel--;
             }
             if (info.WriteResources != null && info.WriteResources.Length > 0)
@@ -311,7 +311,7 @@ namespace Wargon.Nukecs.Editor
                 EditorGUILayout.LabelField("Write Resources:", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
                 foreach (var r in info.WriteResources)
-                    EditorGUILayout.LabelField($"idx: {r}");
+                    EditorGUILayout.LabelField(GetDependencyName(r));
                 EditorGUI.indentLevel--;
             }
 
@@ -321,7 +321,7 @@ namespace Wargon.Nukecs.Editor
                 EditorGUILayout.LabelField("Read Events:", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
                 foreach (var e in info.ReadEvents)
-                    EditorGUILayout.LabelField($"idx: {e}");
+                    EditorGUILayout.LabelField(GetDependencyName(e));
                 EditorGUI.indentLevel--;
             }
             if (info.WriteEvents != null && info.WriteEvents.Length > 0)
@@ -329,7 +329,7 @@ namespace Wargon.Nukecs.Editor
                 EditorGUILayout.LabelField("Write Events:", EditorStyles.boldLabel);
                 EditorGUI.indentLevel++;
                 foreach (var e in info.WriteEvents)
-                    EditorGUILayout.LabelField($"idx: {e}");
+                    EditorGUILayout.LabelField(GetDependencyName(e));
                 EditorGUI.indentLevel--;
             }
 
@@ -486,13 +486,13 @@ namespace Wargon.Nukecs.Editor
                 }
 
                 if (info.ReadResources != null && info.ReadResources.Length > 0)
-                    sb.AppendLine($"    ReadResources: [{string.Join(", ", info.ReadResources)}]");
+                    sb.AppendLine($"    ReadResources: [{string.Join(", ", System.Linq.Enumerable.Select(info.ReadResources, GetDependencyName))}]");
                 if (info.WriteResources != null && info.WriteResources.Length > 0)
-                    sb.AppendLine($"    WriteResources: [{string.Join(", ", info.WriteResources)}]");
+                    sb.AppendLine($"    WriteResources: [{string.Join(", ", System.Linq.Enumerable.Select(info.WriteResources, GetDependencyName))}]");
                 if (info.ReadEvents != null && info.ReadEvents.Length > 0)
-                    sb.AppendLine($"    ReadEvents: [{string.Join(", ", info.ReadEvents)}]");
+                    sb.AppendLine($"    ReadEvents: [{string.Join(", ", System.Linq.Enumerable.Select(info.ReadEvents, GetDependencyName))}]");
                 if (info.WriteEvents != null && info.WriteEvents.Length > 0)
-                    sb.AppendLine($"    WriteEvents: [{string.Join(", ", info.WriteEvents)}]");
+                    sb.AppendLine($"    WriteEvents: [{string.Join(", ", System.Linq.Enumerable.Select(info.WriteEvents, GetDependencyName))}]");
 
                 // Predecessors
                 if (preds != null && i < preds.Length && preds[i] != null && preds[i].Length > 0)
@@ -555,6 +555,11 @@ namespace Wargon.Nukecs.Editor
             {
                 return $"Component_{index}";
             }
+        }
+
+        private static string GetDependencyName(int id)
+        {
+            return DependencyIds.TryGetType(id, out var type) ? type.Name : $"id: {id}";
         }
 
         private unsafe void RefreshWorldList()

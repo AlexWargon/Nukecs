@@ -23,6 +23,38 @@ namespace Wargon.Nukecs
         }
     }
 
+    /// <summary>
+    /// Resource/event ids for <see cref="SystemDependencyInfo"/>: the 64-bit StableTypeHash of the
+    /// type argument folded to 32 bits, equal in every assembly and session. Generated runners call
+    /// <see cref="Of{T}"/>; manual runners can use it too. Managed only: do not call from Burst.
+    /// </summary>
+    public static class DependencyIds
+    {
+        private static readonly System.Collections.Generic.Dictionary<int, Type> types =
+            new System.Collections.Generic.Dictionary<int, Type>();
+
+        public static int Of<T>() => Cache<T>.Value;
+
+        public static int Of(Type type)
+        {
+            var hash = StableTypeHash.Compute(type);
+            var id = unchecked((int)hash ^ (int)(hash >> 32));
+            lock (types) types[id] = type;
+            return id;
+        }
+
+        /// <summary>Type behind an id already produced by <see cref="Of{T}"/> (debug display).</summary>
+        public static bool TryGetType(int id, out Type type)
+        {
+            lock (types) return types.TryGetValue(id, out type);
+        }
+
+        private static class Cache<T>
+        {
+            internal static readonly int Value = Of(typeof(T));
+        }
+    }
+
     public struct SystemDependencyInfo
     {
         public string SystemName;

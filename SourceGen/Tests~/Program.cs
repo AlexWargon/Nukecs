@@ -376,4 +376,26 @@ AccessCase("AccessTagFilter", "ref Query<ProbeA, ProbeTag> query",
     "foreach (var (a, t) in query) a.Get.V = 1;",
     ("ProbeA", "ReadWrite"), ("ProbeTag", "Read"));
 
+// ---------------- SystemDependencyInfo resource/event ids ----------------
+// Ids must be resolved at runtime from the type (stable across assemblies), never emitted as
+// per-compilation symbol hash literals.
+ScopeCase("DependencyIds", "using Wargon.Nukecs; namespace Probe { " +
+    "public struct ProbeRes : IRes { public int V; public void OnCreate(ref World w) { } public void OnUpdate(ref World w) { } } " +
+    "public struct ProbeEvent { public int V; } " +
+    "public static partial class ProbeSystems { " +
+    "  [System] public static void Tick(ref Res<ProbeRes> res, ref Events<ProbeEvent> events) { res.Ref.V++; events.Add(new ProbeEvent()); var r = events.ReadPar(); } } }",
+    (output, diagnostics) =>
+    {
+        ExpectClean("DependencyIds", (output, diagnostics));
+        var generated = Generated(output);
+        foreach (var expected in new[] {
+            "ReadResources = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeRes>() }",
+            "WriteResources = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeRes>() }",
+            "ReadEvents = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeEvent>() }",
+            "WriteEvents = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeEvent>() }" })
+        {
+            if (!generated.Contains(expected)) throw new Exception("DependencyIds: missing `" + expected + "`");
+        }
+    });
+
 Console.WriteLine($"{passed}/{passed} generator regressions passed.");

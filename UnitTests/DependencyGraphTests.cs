@@ -54,8 +54,34 @@ namespace Wargon.Nukecs.Tests
         public float Value;
     }
 
+    public struct GraphCounterRes : IRes
+    {
+        public int Value;
+        public void OnCreate(ref World world) { }
+        public void OnUpdate(ref World world) { }
+    }
+
+    public struct GraphPingEvent
+    {
+        public int Value;
+    }
+
     public static partial class GraphDependencySystems
     {
+        [System]
+        public static void WriteCounterAndPing(ref Res<GraphCounterRes> counter, ref Events<GraphPingEvent> pings)
+        {
+            counter.Ref.Value += 1;
+            pings.Add(new GraphPingEvent { Value = counter.Ref.Value });
+        }
+
+        [System]
+        public static void ReadPings(ref Events<GraphPingEvent> pings)
+        {
+            var reader = pings.ReadPar();
+            for (int i = 0; i < reader.Length; i++) { }
+        }
+
         [System]
         public static void MovementSystem(
             ref Query<GraphPosition, GraphVelocity> query, ref State state)
@@ -477,6 +503,33 @@ namespace Wargon.Nukecs.Tests
             {
                 systems.OnUpdate(1f, i);
             }
+
+            world.Dispose();
+        }
+
+        [Test]
+        public void DependencyGraph_ResourceAndEventIds_AreStableTypeIds()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            var systems = new Systems(ref world);
+            systems.UseDependencyGraph();
+
+            systems.Add(GraphDependencySystems.WriteCounterAndPing, Threads.Main);
+            systems.Add(GraphDependencySystems.ReadPings, Threads.Main);
+            systems.OnUpdate(1f, 1f);
+
+            var nodes = systems.DependencyGraph.Nodes;
+            var writer = nodes[0].Info;
+            var reader = nodes[1].Info;
+            var resId = DependencyIds.Of<GraphCounterRes>();
+            var eventId = DependencyIds.Of<GraphPingEvent>();
+
+            CollectionAssert.Contains(writer.WriteResources, resId, "Generated resource id = DependencyIds.Of<T>");
+            CollectionAssert.Contains(writer.WriteEvents, eventId, "Generated event id = DependencyIds.Of<T>");
+            CollectionAssert.Contains(reader.ReadEvents, eventId, "Generated event id = DependencyIds.Of<T>");
+            Assert.IsTrue(writer.HasConflict(reader), "Event writer and reader conflict");
+            Assert.AreEqual(resId, DependencyIds.Of(typeof(GraphCounterRes)), "Generic and Type overloads agree");
+            Assert.IsTrue(DependencyIds.TryGetType(resId, out var type) && type == typeof(GraphCounterRes));
 
             world.Dispose();
         }
