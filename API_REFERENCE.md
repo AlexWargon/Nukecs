@@ -750,7 +750,7 @@ The ECB is **thread-safe** — it uses per-thread command buffers internally.
 ```csharp
 public struct State
 {
-    public JobHandle Dependencies;
+    public NJobHandle Dependencies;
     public World World;
     public TimeData Time;
 }
@@ -764,6 +764,10 @@ public struct TimeData
     public uint TickCount;
 }
 ```
+
+`NJobHandle` holds Unity's `JobHandle` and converts to and from it implicitly, so Unity
+jobs chain as before: `state.Dependencies = job.Schedule(count, 64, state.Dependencies);`.
+A custom `ISystemRunner.Schedule` returns `NJobHandle`.
 
 Usage in systems:
 
@@ -1110,7 +1114,7 @@ ensure that pool slot exists. Use `Res<T>` for resource state. Aspects implement
 update a cached per-type aspect for that entity. Do not retain its mutable
 reference across another aspect access or share it across parallel work.
 
-Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/db2acf673c2d0c834de802a327a7142ef9089dbc/Demos/README.md).
+Rendering samples and scene setup are in [Demos/README.md](https://github.com/AlexWargon/Nukecs/blob/e35bc316642460025b5139acf92a349056b111af/Demos/README.md).
 
 ## World Serialization
 

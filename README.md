@@ -39,7 +39,8 @@ and jobs.
 
 3. Enable **Allow 'unsafe' Code** in Player Settings, or **Allow Unsafe Code**
    on your gameplay assembly definition. If you use your own assembly definition,
-   add references to `Nukecs`, `Unity.Burst`, and the Unity packages your code uses.
+   add references to `Nukecs`, `Nukecs.Unity` (Unity integration: `WorldInstaller`,
+   transforms, bakers, debuggers), `Unity.Burst`, and the Unity packages your code uses.
 4. Let Unity compile, then follow the quick start below.
 
 For manual installation or the demos, copy the full `dev` checkout into
@@ -56,6 +57,12 @@ behaved as in the Editor; other player platforms have not been checked.
 Unity **7000.0.0a7** (alpha, CoreCLR scripting runtime) has also been tried: the
 Editor and a CoreCLR player build work. Alpha releases change often, so treat
 this as a smoke test rather than full support.
+
+The core assembly (`Nukecs`) does not depend on UnityEngine: it also builds for
+netstandard2.1 without Unity, with its own job scheduler in place of Unity Jobs and
+no Burst. `DotNet~/` contains that build and runs the engine-independent unit tests
+with `dotnet test`; see [its README](https://github.com/AlexWargon/Nukecs/blob/e35bc316642460025b5139acf92a349056b111af/DotNet~/README.md). In Unity nothing changes:
+jobs, Burst and the integration in `Nukecs.Unity` work as before.
 
 ## Quick start
 
@@ -131,7 +138,7 @@ read-only access. `State.Time.DeltaTime` is the frame duration passed to
 **Nuke.cs → ECS Debug V2** in Play Mode. Inspect the entity's `Position`: its X
 value increases by approximately 2 each second of simulation time. This example
 updates ECS data only. To see moving GameObjects, follow the
-[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/db2acf673c2d0c834de802a327a7142ef9089dbc/Demos/README.md).
+[rotate-cube demo setup](https://github.com/AlexWargon/Nukecs/blob/e35bc316642460025b5139acf92a349056b111af/Demos/README.md).
 
 The snippets below build on the same `Position` and `Velocity` components.
 
@@ -401,7 +408,7 @@ show how to choose between tags, temporary payload components, and event buffers
 |---|---|
 | Build gameplay with practical patterns | [Gameplay guide](NUKECS_AGENTS_GUIDE_EN.md) |
 | Look up an API or an advanced feature | [API reference](API_REFERENCE.md) |
-| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/db2acf673c2d0c834de802a327a7142ef9089dbc/Demos/README.md) |
+| Connect entities to visible GameObjects | [Transform integration](API_REFERENCE.md#transforms) and [demos](https://github.com/AlexWargon/Nukecs/blob/e35bc316642460025b5139acf92a349056b111af/Demos/README.md) |
 | React when component values change | [Reactivity](API_REFERENCE.md#reactivity) |
 | Save and restore a world | [Serialization](API_REFERENCE.md#world-serialization) |
 | Inspect entities or memory in the Editor | [Editor tools](API_REFERENCE.md#editor-tools) |
