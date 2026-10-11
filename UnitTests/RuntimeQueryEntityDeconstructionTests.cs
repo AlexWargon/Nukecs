@@ -25,7 +25,7 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -84,8 +84,8 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -146,9 +146,9 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -211,10 +211,10 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
+                    *(int*)Mem.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -279,11 +279,11 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
+                    *(int*)Mem.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
+                    *(int*)Mem.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -350,12 +350,12 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T6>()) = entity.id + 500;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
+                    *(int*)Mem.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
+                    *(int*)Mem.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
+                    *(int*)Mem.AddressOf(ref entity.Get<T6>()) = entity.id + 500;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -424,13 +424,13 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T6>()) = entity.id + 500;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T7>()) = entity.id + 600;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
+                    *(int*)Mem.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
+                    *(int*)Mem.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
+                    *(int*)Mem.AddressOf(ref entity.Get<T6>()) = entity.id + 500;
+                    *(int*)Mem.AddressOf(ref entity.Get<T7>()) = entity.id + 600;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();
@@ -501,14 +501,14 @@ namespace Wargon.Nukecs.Tests
                 for (var i = 0; i < 24; i++)
                 {
                     var entity = arch.CreateEntity();
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T6>()) = entity.id + 500;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T7>()) = entity.id + 600;
-                    *(int*)Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AddressOf(ref entity.Get<T8>()) = entity.id + 700;
+                    *(int*)Mem.AddressOf(ref entity.Get<T1>()) = entity.id + 0;
+                    *(int*)Mem.AddressOf(ref entity.Get<T2>()) = entity.id + 100;
+                    *(int*)Mem.AddressOf(ref entity.Get<T3>()) = entity.id + 200;
+                    *(int*)Mem.AddressOf(ref entity.Get<T4>()) = entity.id + 300;
+                    *(int*)Mem.AddressOf(ref entity.Get<T5>()) = entity.id + 400;
+                    *(int*)Mem.AddressOf(ref entity.Get<T6>()) = entity.id + 500;
+                    *(int*)Mem.AddressOf(ref entity.Get<T7>()) = entity.id + 600;
+                    *(int*)Mem.AddressOf(ref entity.Get<T8>()) = entity.id + 700;
                     if (i % 2 == 0) entity.Add<IntegrationExcluded>();
                 }
                 world.Update();

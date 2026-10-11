@@ -157,6 +157,7 @@ namespace NukecsScopeProbe
         [TestCase(1)]
         public void NativeBurst_CompilesNestedJobWithPrivateHelpers(int parallel)
         {
+            if (!BurstCompiler.Options.IsEnabled) Assert.Ignore("Native Burst is disabled in this Editor session.");
             var world = World.Create(WorldConfig.Default256);
             try
             {

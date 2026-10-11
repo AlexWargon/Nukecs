@@ -40,7 +40,7 @@ namespace Wargon.Nukecs.Tests
             var savedRegionSize = source.UnsafeWorld->AllocatorRef.GetRegion(0).size;
             var data = source.Serialize();
             source.Dispose();
-            var blocker = Unity.Collections.LowLevel.Unsafe.UnsafeUtility.Malloc(savedRegionSize, 16, Unity.Collections.Allocator.Persistent);
+            var blocker = Mem.Malloc(savedRegionSize, 16, AllocatorHandle.Persistent);
             try {
                 var world = World.Create(WorldConfig.Default16);
                 world.Deserialize(data);
@@ -68,7 +68,7 @@ namespace Wargon.Nukecs.Tests
                     Assert.AreEqual(1, world.EntitiesAmount);
                 }
             }
-            finally { Unity.Collections.LowLevel.Unsafe.UnsafeUtility.Free(blocker, Unity.Collections.Allocator.Persistent); }
+            finally { Mem.Free(blocker, AllocatorHandle.Persistent); }
         }
 
         [SetUp]

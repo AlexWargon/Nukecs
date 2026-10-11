@@ -32,7 +32,7 @@ namespace Wargon.Nukecs.Tests
         private static void Set<T>(Entity entity, int value) where T : unmanaged, IComponent
         {
             ref var c = ref entity.Get<T>();
-            *(int*)UnsafeUtility.AddressOf(ref c) = value;
+            *(int*)Mem.AddressOf(ref c) = value;
         }
         [Test] public void Arity1_Inline_FullAndRanges() => Check1<IntegrationA1>();
         [Test] public void Arity1_Pools_FullAndRanges() => Check1<IntegrationP1>();

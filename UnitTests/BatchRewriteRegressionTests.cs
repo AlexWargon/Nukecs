@@ -118,6 +118,7 @@ namespace Wargon.Nukecs.Tests
         [TestCase(1)]
         public void NativeBurst_ContextualWalker_PreservesEarlyReturnAndGuard(int parallel)
         {
+            if (!BurstCompiler.Options.IsEnabled) Assert.Ignore("Native Burst is disabled in this Editor session.");
             var world = World.Create(WorldConfig.Default256);
             try
             {

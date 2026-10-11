@@ -295,8 +295,9 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 ## 6. Testing
 
 - Unity Edit mode tests in `UnitTests/`
+- The same tests without Unity: `dotnet test "DotNet~/Nukecs.Tests/Nukecs.Tests.csproj"` builds the core for netstandard2.1 and runs the `UnitTests/` files that need nothing from Unity plus scheduler tests (`NUKECS_WORKERS=n` sets the worker count; see `DotNet~/README.md`). Keep core tests free of Unity types so they run there too.
 - Key test files: `SystemChainTests.cs`, `WorldTests.cs`, `AdvancedTests.cs`, `EventsTests.cs`, `SerializationTests.cs`, `PrefabSpawnTests.cs`, `ResizeTests.cs`, `AllocatorTests.cs`, `AddObjectTests.cs`, `SimpleTest.cs`
-- Tests run via Unity Editor (not `dotnet test`) — results in `UnitTests/TestResults_*.xml`
+- Unity tests run via the Unity Editor — results in `UnitTests/TestResults_*.xml`
 - SystemChainTests: 14 tests covering system chains (3+ systems in sequence), thread modes, batch creation
 - EventsTests: tests for `Events<TEvent>` add/read/clear and parallel safety
 - RuntimeQueryIntegrationTests / RuntimeQueryProductionRegressionTests: arities 1–8, inline/pool combinations, tags, sparse rows, page growth and snapshots.

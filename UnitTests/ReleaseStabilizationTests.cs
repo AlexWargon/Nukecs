@@ -81,7 +81,7 @@ namespace Wargon.Nukecs.Tests
         [System]
         public static unsafe void Chunk2(ref Query<Stab1, Stab2, None<StabTag>> q, ref Res<StabCounter> c)
         {
-            var dst = (Stab2*)UnsafeUtility.Malloc(64 * sizeof(Stab2), 4, Allocator.Temp);
+            var dst = (Stab2*)Mem.Malloc(64 * sizeof(Stab2), 4, AllocatorHandle.Temp);
             foreach (var chunk in q.iter_chunk())
             {
                 for (var i = 0; i < 64; i++) dst[i].V = -777;
@@ -98,13 +98,13 @@ namespace Wargon.Nukecs.Tests
                     chunk.MoveNext();
                 }
             }
-            UnsafeUtility.Free(dst, Allocator.Temp);
+            Mem.Free(dst, AllocatorHandle.Temp);
         }
 
         [System]
         public static unsafe void Chunk5(ref Query<Stab1, Stab2, Stab3, Stab4, Stab5, None<StabTag>> q, ref Res<StabCounter> c)
         {
-            var dst = (Stab4*)UnsafeUtility.Malloc(64 * sizeof(Stab4), 4, Allocator.Temp);
+            var dst = (Stab4*)Mem.Malloc(64 * sizeof(Stab4), 4, AllocatorHandle.Temp);
             foreach (var chunk in q.iter_chunk())
             {
                 for (var i = 0; i < 64; i++) dst[i].V = -777;
@@ -121,13 +121,13 @@ namespace Wargon.Nukecs.Tests
                     chunk.MoveNext();
                 }
             }
-            UnsafeUtility.Free(dst, Allocator.Temp);
+            Mem.Free(dst, AllocatorHandle.Temp);
         }
 
         [System]
         public static unsafe void Chunk8(ref Query<Stab1, Stab2, Stab3, Stab4, Stab5, Stab6, Stab7, Stab8, None<StabTag>> q, ref Res<StabCounter> c)
         {
-            var dst = (Stab8*)UnsafeUtility.Malloc(64 * sizeof(Stab8), 4, Allocator.Temp);
+            var dst = (Stab8*)Mem.Malloc(64 * sizeof(Stab8), 4, AllocatorHandle.Temp);
             foreach (var chunk in q.iter_chunk())
             {
                 for (var i = 0; i < 64; i++) dst[i].V = -777;
@@ -144,7 +144,7 @@ namespace Wargon.Nukecs.Tests
                     chunk.MoveNext();
                 }
             }
-            UnsafeUtility.Free(dst, Allocator.Temp);
+            Mem.Free(dst, AllocatorHandle.Temp);
         }
     }
 

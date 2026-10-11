@@ -124,9 +124,16 @@ namespace Unity.Burst
         }
     }
 
+    public sealed class BurstCompilerOptions
+    {
+        public bool IsEnabled => false;
+    }
+
     public static class BurstCompiler
     {
         public static bool IsEnabled => false;
+
+        public static BurstCompilerOptions Options { get; } = new BurstCompilerOptions();
 
         public static FunctionPointer<T> CompileFunctionPointer<T>(T delegateMethod) where T : class =>
             new FunctionPointer<T>(FunctionPointerRegistry.Register((Delegate)(object)delegateMethod));

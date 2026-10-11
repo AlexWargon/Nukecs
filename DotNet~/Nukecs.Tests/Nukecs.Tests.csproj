@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Unity NUnit tests that need nothing from Unity, plus tests of the scheduler used without
+       Unity. Named Nukecs.Tests like the Unity test assembly, which sees the core internals. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>Nukecs.Tests</AssemblyName>
+    <RootNamespace>Wargon.Nukecs.Tests</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>$(NoWarn);CS0162;CS0168;CS0169;CS0219;CS0414;CS0649;CS8632;NUnit2005;NUnit2006</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="*.cs" />
+    <!-- Excluded: tests that use UnityEngine, Unity.Mathematics, Unity.Collections containers,
+         Unity jobs, LogAssert or the performance testing package. -->
+    <Compile Include="..\..\UnitTests\*.cs" Exclude="
+      ..\..\UnitTests\ComponentAuthoringTests.cs;
+      ..\..\UnitTests\IterationDiagnosticsTests.cs;
+      ..\..\UnitTests\MigrationDiagnosticsTests.cs;
+      ..\..\UnitTests\PrefabMapLoadTests.cs;
+      ..\..\UnitTests\ReviewFollowupTests.cs;
+      ..\..\UnitTests\ReviewPriorityTests.cs;
+      ..\..\UnitTests\RuntimeOverloadQueryExtensions.cs;
+      ..\..\UnitTests\RuntimeQueryBurstRangeRegressionTests.cs;
+      ..\..\UnitTests\RuntimeQueryIter4DispatchBenchmarks.cs;
+      ..\..\UnitTests\RuntimeQueryIter4PageCacheBenchmarks.cs;
+      ..\..\UnitTests\RuntimeQueryIter4PagedBenchmarks.cs;
+      ..\..\UnitTests\RuntimeQueryIter4Tests.cs;
+      ..\..\UnitTests\RuntimeQueryJobIntegrationTests.cs;
+      ..\..\UnitTests\WorldIoRequestTests.cs" />
+    <ProjectReference Include="..\Nukecs\Nukecs.csproj" />
+    <Analyzer Include="..\..\SourceGen\NUKECSGEN.dll" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="NUnit" Version="3.14.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
+  </ItemGroup>
+</Project>
