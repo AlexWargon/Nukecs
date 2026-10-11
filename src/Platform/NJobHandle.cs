@@ -39,17 +39,18 @@ namespace Wargon.Nukecs
         public bool Equals(NJobHandle other) => value.Equals(other.value);
         public override int GetHashCode() => value.GetHashCode();
 #else
-        // Every job of the current scheduler finishes inside Schedule, so any handle is complete.
+        // Slot (1-based) and version of a job record of the Nukecs scheduler; 0 is no job.
         internal ulong id;
         internal int version;
 
-        public bool IsCompleted => true;
+        public bool IsCompleted => NJobScheduler.IsCompleted(this);
 
-        public void Complete() { }
+        public void Complete() => NJobScheduler.Complete(this);
 
-        public static NJobHandle Combine(NJobHandle a, NJobHandle b) => default;
+        public static NJobHandle Combine(NJobHandle a, NJobHandle b) => NJobScheduler.Combine(a, b);
 
-        public static NJobHandle Combine(NJobHandle a, NJobHandle b, NJobHandle c) => default;
+        public static NJobHandle Combine(NJobHandle a, NJobHandle b, NJobHandle c) =>
+            NJobScheduler.Combine(NJobScheduler.Combine(a, b), c);
 
         public bool Equals(NJobHandle other) => id == other.id && version == other.version;
         public override int GetHashCode() => id.GetHashCode() * 397 ^ version;

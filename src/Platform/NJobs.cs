@@ -71,28 +71,24 @@ namespace Wargon.Nukecs
             JobsUtility.Schedule(ref parameters);
         }
 #else
-        // Synchronous scheduler: a job runs inside Schedule after its dependency, so every
-        // handle is complete. No workers; every thread is the main thread.
-        public static int WorkerCount => 0;
-        public static int WorkerMaximumCount => 0;
-        public static int ThreadIndex => 0;
-        public static int ThreadIndexCount => 1;
+        public static int WorkerCount => NJobScheduler.WorkerCount;
+        public static int WorkerMaximumCount => NJobScheduler.WorkerCount;
+        public static int ThreadIndex => NJobScheduler.ThreadIndex;
+        public static int ThreadIndexCount => NJobScheduler.ThreadIndexCount;
+
+        /// <summary>
+        /// Sets the number of worker threads (default: processor count - 1). Call before the first
+        /// world or job: per-thread buffers are sized by <see cref="ThreadIndexCount"/>. 0 runs every
+        /// job on the thread that makes it ready.
+        /// </summary>
+        public static void SetWorkerCount(int workerCount) => NJobScheduler.SetWorkerCount(workerCount);
 
         public static NJobHandle Schedule<T>(ref T jobData, IntPtr reflectionData, NJobHandle dependsOn)
-            where T : struct, INJobData
-        {
-            dependsOn.Complete();
-            jobData.Execute(0, 1);
-            return default;
-        }
+            where T : struct, INJobData => NJobScheduler.Schedule(ref jobData, 1, 1, dependsOn);
 
         public static NJobHandle ScheduleParallelFor<T>(ref T jobData, IntPtr reflectionData, int length,
-            int batchSize, NJobHandle dependsOn) where T : struct, INJobData
-        {
-            dependsOn.Complete();
-            if (length > 0) jobData.Execute(0, length);
-            return default;
-        }
+            int batchSize, NJobHandle dependsOn) where T : struct, INJobData =>
+            NJobScheduler.Schedule(ref jobData, length, batchSize, dependsOn);
 
         public static void Run<T>(ref T jobData, IntPtr reflectionData) where T : struct, INJobData =>
             jobData.Execute(0, 1);

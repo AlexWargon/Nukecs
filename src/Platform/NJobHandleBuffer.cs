@@ -52,12 +52,7 @@ namespace Wargon.Nukecs
             set => _handles[index] = value;
         }
 
-        public NJobHandle Combine(int count)
-        {
-            var combined = default(NJobHandle);
-            for (var i = 0; i < count; i++) combined = NJobHandle.Combine(combined, _handles[i]);
-            return combined;
-        }
+        public NJobHandle Combine(int count) => NJobScheduler.Combine(_handles, count);
 
         public void Dispose() => _handles = null;
 #endif

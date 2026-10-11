@@ -79,12 +79,16 @@ namespace Wargon.Nukecs
         public static void Run<T>(this T jobData) where T : struct, INJob =>
             NJobs.Run(ref jobData, GetReflectionData<T>());
 #else
-        // Without a scheduler the job runs inside Schedule, after its dependency.
+        private struct Adapter<T> : INJobData where T : struct, INJob
+        {
+            public T Job;
+            public void Execute(int begin, int end) => Job.Execute();
+        }
+
         public static NJobHandle Schedule<T>(this T jobData, NJobHandle dependsOn = default) where T : struct, INJob
         {
-            dependsOn.Complete();
-            jobData.Execute();
-            return default;
+            var adapter = new Adapter<T> { Job = jobData };
+            return NJobs.Schedule(ref adapter, IntPtr.Zero, dependsOn);
         }
 
         public static void Run<T>(this T jobData) where T : struct, INJob => jobData.Execute();
@@ -134,12 +138,21 @@ namespace Wargon.Nukecs
             NJobHandle dependsOn = default) where T : struct, INJobParallelFor =>
             NJobs.ScheduleParallelFor(ref jobData, GetReflectionData<T>(), arrayLength, innerloopBatchCount, dependsOn);
 #else
+        private struct Adapter<T> : INJobData where T : struct, INJobParallelFor
+        {
+            public T Job;
+
+            public void Execute(int begin, int end)
+            {
+                for (var i = begin; i < end; i++) Job.Execute(i);
+            }
+        }
+
         public static NJobHandle Schedule<T>(this T jobData, int arrayLength, int innerloopBatchCount,
             NJobHandle dependsOn = default) where T : struct, INJobParallelFor
         {
-            dependsOn.Complete();
-            for (var i = 0; i < arrayLength; i++) jobData.Execute(i);
-            return default;
+            var adapter = new Adapter<T> { Job = jobData };
+            return NJobs.ScheduleParallelFor(ref adapter, IntPtr.Zero, arrayLength, innerloopBatchCount, dependsOn);
         }
 #endif
     }
