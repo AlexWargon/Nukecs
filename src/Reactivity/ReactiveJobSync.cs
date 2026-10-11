@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs.Reactivity
 {
@@ -9,10 +8,10 @@ namespace Wargon.Nukecs.Reactivity
     /// </summary>
     internal static class ReactiveJobSync
     {
-        private static readonly Dictionary<int, JobHandle> CheckHandles = new();
+        private static readonly Dictionary<int, NJobHandle> CheckHandles = new();
         private static readonly object Lock = new();
 
-        public static void SetCheckHandle(int worldId, JobHandle handle)
+        public static void SetCheckHandle(int worldId, NJobHandle handle)
         {
             lock (Lock) CheckHandles[worldId] = handle;
         }
@@ -20,7 +19,7 @@ namespace Wargon.Nukecs.Reactivity
         /// <summary>Complete ONLY the check job for this world (not all dependencies).</summary>
         public static void CompleteCheck(int worldId)
         {
-            JobHandle h;
+            NJobHandle h;
             lock (Lock)
             {
                 if (!CheckHandles.TryGetValue(worldId, out h)) return;

@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Collections;
 using Wargon.Nukecs.Collections;
-using Unity.Jobs;
-using UnityEngine;
 
 // ReSharper disable InconsistentNaming
 
@@ -23,8 +20,8 @@ namespace Wargon.Nukecs
     public unsafe class Systems
     {
         /// <summary>The current execution dependency, including jobs scheduled this update.</summary>
-        public ref JobHandle Dependencies => ref _state.Dependencies;
-        private readonly List<JobHandle> _scheduledJobs = new List<JobHandle>();
+        public ref NJobHandle Dependencies => ref _state.Dependencies;
+        private readonly List<NJobHandle> _scheduledJobs = new List<NJobHandle>();
         public World World;
         private State _state;
         internal ref State State => ref _state;
@@ -40,7 +37,7 @@ namespace Wargon.Nukecs
         private readonly List<SystemDependencyInfo> _dependencyInfos;
         private HashMap<ulong, int> _localRegistrations;
         private readonly int _localScope;
-        private Unity.Collections.NativeArray<Unity.Jobs.JobHandle> _handleBuffer;
+        private NJobHandleBuffer _handleBuffer;
 
         public SystemDependencyGraph DependencyGraph => _dependencyGraph;
         public bool UseDependencyGraphEnabled => _useDependencyGraph;
@@ -157,7 +154,7 @@ namespace Wargon.Nukecs
                 _timeSinceLastFixedUpdate = 0;
             }
 
-            if (!_state.Dependencies.Equals(default))
+            if (!_state.Dependencies.IsDefault)
                 _state.Dependencies.Complete();
             _allSystems.End();
         }
@@ -306,10 +303,10 @@ namespace Wargon.Nukecs
             _state.Dependencies.Complete();
         }
 
-        private JobHandle ScheduleTracked(ISystemRunner runner)
+        private NJobHandle ScheduleTracked(ISystemRunner runner)
         {
             var handle = runner.Schedule(UpdateContext.Update, ref _state);
-            if (!handle.Equals(default(JobHandle))) _scheduledJobs.Add(handle);
+            if (!handle.IsDefault) _scheduledJobs.Add(handle);
             return handle;
         }
 
@@ -348,7 +345,7 @@ namespace Wargon.Nukecs
             OnDestroy();
             onWorldDispose?.Invoke(ref World);
             foreach (var systemDestroyer in systemDestroyers) systemDestroyer.Destroy(ref World);
-            if (_handleBuffer.IsCreated) _handleBuffer.Dispose();
+            _handleBuffer.Dispose();
             if (_localRegistrations.IsCreated) _localRegistrations.Dispose();
         }
 
@@ -466,14 +463,7 @@ namespace Wargon.Nukecs
                 else if (group.ParallelIndices.Length > 1)
                 {
                     var count = group.ParallelIndices.Length;
-                    if (!_handleBuffer.IsCreated || _handleBuffer.Length != count)
-                    {
-                        if (_handleBuffer.IsCreated)
-                            _handleBuffer.Dispose();
-                        _handleBuffer =
-                            new Unity.Collections.NativeArray<Unity.Jobs.JobHandle>(count,
-                                Unity.Collections.Allocator.Persistent);
-                    }
+                    _handleBuffer.EnsureCapacity(count);
 
                     _state.SkipECBSchedule = 1;
                     for (int i = 0; i < count; i++)
@@ -482,7 +472,7 @@ namespace Wargon.Nukecs
                         _handleBuffer[i] = ScheduleTracked(onUpdate[group.ParallelIndices[i]]);
                     }
 
-                    var combined = Unity.Jobs.JobHandle.CombineDependencies(_handleBuffer);
+                    var combined = _handleBuffer.Combine(count);
                     combined.Complete();
                     _state.SkipECBSchedule = 0;
 
@@ -541,14 +531,7 @@ namespace Wargon.Nukecs
                 else if (group.ParallelIndices.Length > 1)
                 {
                     var count = group.ParallelIndices.Length;
-                    if (!_handleBuffer.IsCreated || _handleBuffer.Length != count)
-                    {
-                        if (_handleBuffer.IsCreated)
-                            _handleBuffer.Dispose();
-                        _handleBuffer =
-                            new Unity.Collections.NativeArray<Unity.Jobs.JobHandle>(count,
-                                Unity.Collections.Allocator.Persistent);
-                    }
+                    _handleBuffer.EnsureCapacity(count);
 
                     _state.SkipECBSchedule = 1;
                     for (int i = 0; i < count; i++)
@@ -557,7 +540,7 @@ namespace Wargon.Nukecs
                         _handleBuffer[i] = ScheduleTracked(onUpdate[group.ParallelIndices[i]]);
                     }
 
-                    var combined = Unity.Jobs.JobHandle.CombineDependencies(_handleBuffer);
+                    var combined = _handleBuffer.Combine(count);
 
                     if (group.HasECB)
                     {
@@ -597,7 +580,7 @@ namespace Wargon.Nukecs
             }
 
             var n = nodes.Length;
-            var handles = new JobHandle[n];
+            var handles = new NJobHandle[n];
 
             var savedDeps = _state.Dependencies;
             _state.SkipECBSchedule = 1;
@@ -626,22 +609,17 @@ namespace Wargon.Nukecs
             // ═══ Single combined Complete ═══
             int handleCount = 0;
             for (int i = 0; i < n; i++)
-                if (!handles[i].Equals(default))
+                if (!handles[i].IsDefault)
                     handleCount++;
 
             if (handleCount > 0)
             {
-                if (!_handleBuffer.IsCreated || _handleBuffer.Length < handleCount)
-                {
-                    if (_handleBuffer.IsCreated)
-                        _handleBuffer.Dispose();
-                    _handleBuffer = new NativeArray<JobHandle>(handleCount, Allocator.Persistent);
-                }
+                _handleBuffer.EnsureCapacity(handleCount);
                 int idx = 0;
                 for (int i = 0; i < n; i++)
-                    if (!handles[i].Equals(default))
+                    if (!handles[i].IsDefault)
                         _handleBuffer[idx++] = handles[i];
-                JobHandle.CombineDependencies(_handleBuffer.GetSubArray(0, handleCount)).Complete();
+                _handleBuffer.Combine(handleCount).Complete();
             }
 
             _state.SkipECBSchedule = 0;
@@ -653,39 +631,34 @@ namespace Wargon.Nukecs
         private static bool BlocksMainThread(Threads mode) =>
             mode == Threads.Main || mode == Threads.MainRun;
 
-        private JobHandle CombinePredHandles(int[] predIndices, JobHandle[] handles, JobHandle defaultHandle)
+        private NJobHandle CombinePredHandles(int[] predIndices, NJobHandle[] handles, NJobHandle defaultHandle)
         {
             if (predIndices == null || predIndices.Length == 0)
                 return defaultHandle;
 
             int count = 0;
             for (int p = 0; p < predIndices.Length; p++)
-                if (!handles[predIndices[p]].Equals(default))
+                if (!handles[predIndices[p]].IsDefault)
                     count++;
 
             if (count == 0) return defaultHandle;
             if (count == 1)
             {
                 for (int p = 0; p < predIndices.Length; p++)
-                    if (!handles[predIndices[p]].Equals(default))
+                    if (!handles[predIndices[p]].IsDefault)
                         return handles[predIndices[p]];
             }
 
-            if (!_handleBuffer.IsCreated || _handleBuffer.Length < count)
-            {
-                if (_handleBuffer.IsCreated)
-                    _handleBuffer.Dispose();
-                _handleBuffer = new NativeArray<JobHandle>(count, Allocator.Persistent);
-            }
+            _handleBuffer.EnsureCapacity(count);
 
             int idx = 0;
             for (int p = 0; p < predIndices.Length; p++)
             {
-                if (!handles[predIndices[p]].Equals(default))
+                if (!handles[predIndices[p]].IsDefault)
                     _handleBuffer[idx++] = handles[predIndices[p]];
             }
 
-            return JobHandle.CombineDependencies(_handleBuffer.GetSubArray(0, count));
+            return _handleBuffer.Combine(count);
         }
 
         private void ExecuteSequentialUpdate()
@@ -734,7 +707,7 @@ namespace Wargon.Nukecs
                 return;
             }
 
-            var handles = new JobHandle[n];
+            var handles = new NJobHandle[n];
             var savedDeps = _state.Dependencies;
             _state.SkipECBSchedule = 1;
 
@@ -766,22 +739,17 @@ namespace Wargon.Nukecs
             // ═══ Phase 3: Single combined Complete ═══
             int handleCount = 0;
             for (int i = 0; i < n; i++)
-                if (!handles[i].Equals(default))
+                if (!handles[i].IsDefault)
                     handleCount++;
 
             if (handleCount > 0)
             {
-                if (!_handleBuffer.IsCreated || _handleBuffer.Length < handleCount)
-                {
-                    if (_handleBuffer.IsCreated)
-                        _handleBuffer.Dispose();
-                    _handleBuffer = new NativeArray<JobHandle>(handleCount, Allocator.Persistent);
-                }
+                _handleBuffer.EnsureCapacity(handleCount);
                 int idx = 0;
                 for (int i = 0; i < n; i++)
-                    if (!handles[i].Equals(default))
+                    if (!handles[i].IsDefault)
                         _handleBuffer[idx++] = handles[i];
-                var h = JobHandle.CombineDependencies(_handleBuffer.GetSubArray(0, handleCount));
+                var h = _handleBuffer.Combine(handleCount);
                 _flatGraph2.End();
                 h.Complete();
             }
@@ -838,7 +806,7 @@ namespace Wargon.Nukecs
 
     public interface ISystemRunner
     {
-        JobHandle Schedule(UpdateContext updateContext, ref State state);
+        NJobHandle Schedule(UpdateContext updateContext, ref State state);
         void Run(ref State state);
         string Name { get; }
     }
@@ -846,27 +814,6 @@ namespace Wargon.Nukecs
     public interface ISystemDependencyInfoProvider
     {
         SystemDependencyInfo DependencyInfo { get; }
-    }
-
-
-    internal class GenericSystemMainThreadRunner<TSystem> : ISystemRunner where TSystem : struct, ISystem
-    {
-        internal ECBJob EcbJob;
-        internal TSystem System;
-        public string Name => System.GetType().Name;
-        public JobHandle Schedule(UpdateContext updateContext, ref State state)
-        {
-            System.OnUpdate(ref state);
-            EcbJob.ECB = state.World.ECB;
-            EcbJob.world = state.World;
-            return EcbJob.Schedule(state.Dependencies);
-        }
-
-        public void Run(ref State state)
-        {
-            System.OnUpdate(ref state);
-            state.World.ECB.Playback(ref state.World);
-        }
     }
 
     public static class SystemPath

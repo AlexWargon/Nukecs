@@ -2,7 +2,6 @@ namespace Wargon.Nukecs{
 
     using Unity.Burst;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Jobs;
     // public unsafe struct OnPrefabSpawnSystem : ISystem
     // {
     //     public void OnUpdate(ref State state)
@@ -34,7 +33,7 @@ namespace Wargon.Nukecs{
                 state.Dependencies = new OnPrefabSpawnJob{world = state.World.UnsafeWorld}.Schedule(state.Dependencies);
         }
         [BurstCompile]
-        private struct OnPrefabSpawnJob : IJob {
+        private struct OnPrefabSpawnJob : INJob {
             [NativeDisableUnsafePtrRestriction]
             public World.WorldUnsafe* world;
             public void Execute()

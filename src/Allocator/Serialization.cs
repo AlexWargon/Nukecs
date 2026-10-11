@@ -4,7 +4,6 @@ using System.IO.Compression;
 using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace Wargon.Nukecs
@@ -68,7 +67,7 @@ namespace Wargon.Nukecs
                 }
                 for (int i = 0; i < regionCount; i++)
                 {
-                    UnsafeUtility.MemCpy(p, regions[i].basePtr, regions[i].size);
+                    Mem.MemCpy(p, regions[i].basePtr, regions[i].size);
                     p += regions[i].size;
                 }
             }
@@ -98,7 +97,7 @@ namespace Wargon.Nukecs
                 }
                 for (int i = 0; i < regionCount; i++)
                 {
-                    UnsafeUtility.MemCpy(p, regions[i].basePtr, regions[i].size);
+                    Mem.MemCpy(p, regions[i].basePtr, regions[i].size);
                     p += regions[i].size;
                 }
             }
@@ -117,7 +116,7 @@ namespace Wargon.Nukecs
                 for (int i = 0; i < regionCount; i++)
                 {
                     if (regions[i].basePtr != null)
-                        UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
+                        Mem.Free(regions[i].basePtr, AllocatorHandle.Persistent);
                 }
 
                 regionCount = savedRegionCount;
@@ -128,7 +127,7 @@ namespace Wargon.Nukecs
                 {
                     long size = *(long*)p; p += sizeof(long);
                     long cursor = *(long*)p; p += sizeof(long);
-                    regions[i].basePtr = (byte*)UnsafeUtility.Malloc(size, ALIGN, Allocator.Persistent);
+                    regions[i].basePtr = (byte*)Mem.Malloc(size, ALIGN, AllocatorHandle.Persistent);
                     regions[i].size = size;
                     regions[i].cursor = cursor;
                     regions[i].freeHead = NPOS;
@@ -139,7 +138,7 @@ namespace Wargon.Nukecs
 
                 for (int i = 0; i < regionCount; i++)
                 {
-                    UnsafeUtility.MemCpy(regions[i].basePtr, p, regions[i].size);
+                    Mem.MemCpy(regions[i].basePtr, p, regions[i].size);
                     p += regions[i].size;
                 }
 
@@ -189,7 +188,7 @@ namespace Wargon.Nukecs
         {
             lock_.Acquire();
             if (!File.Exists(filePath))
-                Debug.LogError($"File not found: {filePath}");
+                dbug.error($"File not found: {filePath}");
             await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             var buffer = new byte[fs.Length];
             var read = await fs.ReadAsync(buffer, 0, buffer.Length);
@@ -245,7 +244,7 @@ namespace Wargon.Nukecs
         {
             lock_.Acquire();
             if (!File.Exists(filePath))
-                Debug.LogError($"File not found: {filePath}");
+                dbug.error($"File not found: {filePath}");
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             var buffer = new byte[fs.Length];
             var read = fs.Read(buffer, 0, buffer.Length);

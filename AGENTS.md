@@ -13,7 +13,10 @@ Nukecs is a **Burst-compiled ECS framework for Unity**. It uses `unsafe` code an
 
 - **Runtime**: .NET Framework 4.7.1 (Unity legacy)
 - **Dependencies**: Unity.Burst, Unity.Collections, Unity.Jobs, Unity.Mathematics
-- **Assembly defs**: `Nukecs.asmdef` (runtime), `Nukecs.Tests.asmdef` (tests), `AllocatorEditor.asmdef` (debug)
+- **Assembly defs**: `Nukecs.asmdef` (engine-independent runtime core), `Nukecs.Unity.asmdef` (`src/Unity/`: Unity integration, transforms, bakers, debuggers, hot reload), `Nukecs.Tests.asmdef` (tests), `AllocatorEditor.asmdef` (debug). Assemblies using Unity-side types reference both.
+- **Core boundary**: nothing outside `src/Unity/` may use the `UnityEngine`/`UnityEditor` namespaces. Log through `dbug`, take host events from `NukecsLifecycle`, and put Unity code in `src/Unity/` (core internals are visible to `Nukecs.Unity`). Types moved from core to `Nukecs.Unity` that can be `[SerializeReference]`-serialized need `[MovedFrom(false, sourceAssembly: "Nukecs")]`.
+- **Platform layer** (`src/Platform/`): use `Mem` instead of `UnsafeUtility` for size/alignment/address/copy/compare (it forwards to `UnsafeUtility` in Unity). Burst API (`SharedStatic`, `FunctionPointer`, `BurstCompiler.CompileFunctionPointer`, `[BurstCompile]`, `[BurstDiscard]`, `[NoAlias]`, `AOT.MonoPInvokeCallback`) stays as-is in core code; `BurstShim.cs` emulates it only when `UNITY_5_3_OR_NEWER` is undefined. If core code starts using another Burst API member, add it to the shim. Heap allocation goes through `Mem.Malloc/Free` with an `AllocatorHandle` (Persistent/Temp/TempJob; numerically equal to Unity's `Allocator`, implicitly convertible both ways in Unity, so public APIs still accept `Allocator.Persistent`). Core heap containers are `HeapList<T>` / `HeapHashMap<K,V>` (handle semantics like NativeList/NativeHashMap: copies share data); Unity.Collections containers belong in `src/Unity/` (`UnsafeHelp`, `UnsafeListExtensions`, `ToNative` live there). Job-safety attributes (`[NativeDisableUnsafePtrRestriction]`) stay and are declared by `JobsSafetyShim.cs` outside Unity. Use `NMath` instead of `math.*` (forwards to Unity.Mathematics in Unity; its license covers Unity-dependent projects only, so the core must not need it elsewhere). Components with Unity.Mathematics types live in Nukecs.Unity (e.g. `Transform`). Jobs go through `NJobHandle` (wraps Unity's `JobHandle` with the same layout, implicitly convertible both ways, so Unity jobs still take/return `State.Dependencies`), `NJobHandleBuffer` (handle combining) and `NJobs` (`Schedule`/`ScheduleParallelFor`/`Run` with job reflection data, worker counts, `ThreadIndex`/`ThreadIndexCount`), all forwarding to `JobsUtility` in Unity; outside Unity `NJobScheduler` runs job data implementing `INJobData.Execute(begin, end)` on fixed worker threads (`NJobs.SetWorkerCount`, default processor count - 1, set before the first world; workers are `ThreadIndex` 1..N, other threads 0; 0 workers runs each job when it becomes ready). Core jobs implement `INJob` / `INJobParallelFor` (`ECBJob`, `OnPrefabSpawnJob`, `ReactiveCheckJob`), never Unity's `IJob` / `IJobParallelFor`; in Unity they have the same producers as Unity's interfaces, so Burst compiles them as before. The Unity job producers (`[JobProducerType]`, `CreateJobReflectionData`, `Execute(..., ref JobRanges, int)`) of `IEntityJobSystem` and generated systems stay as they were under `#if UNITY_5_3_OR_NEWER` (Burst finds jobs through them); the `#else` branch makes the wrapper `INJobData`.
+- **World allocator**: `WorldUnsafe.allocatorBox` is a heap-allocated `MemAllocator` outside the arena (`World.AllocatorRef` / `World.AllocatorPtr`); loads deserialize into it in place and re-set the box pointer, so every `OnDeserialize(ref MemAllocator)` must receive that live allocator, never a copy. Arena `HashMap`s (`new HashMap<K,V>(n, ref MemAllocator)`) keep its address for resizes; heap maps take an `AllocatorHandle`. Unity containers over a world arena: `world.GetUnityAllocator()` in Nukecs.Unity (`UnityAllocatorHandler` lives there too). `HashMap` is stored in `SharedStatic`s (`LocalParamSlots`): changing its layout needs an editor restart, otherwise SharedStatic creation and Burst static init fail (Burst probes fall back to managed).
 - **`[BurstCompile]`** used on hot paths
 
 ## 2. Architecture
@@ -45,7 +48,6 @@ World → Archetype[] → Entity (8-byte generational handle)
 - **Chunk Iteration** — `Chunk<T1..T8>` archetype chunk iterators; `IChunk` interface; direct pointer iteration over archetype component arrays (`src/Systems/FnSystems/Chunk.cs`)
 - **Reactivity** — `OnChange<T>` / `OffChange<T>` subscriptions, snapshots and main-thread dispatch; `Reactivity.Changed<T>` is a generated-query filter (`src/Reactivity/`). The historical companion/tag implementation was removed.
 - **Hot Reload** — `HotReloadSystems` wraps `Systems`; file watching + Roslyn compilation + runner swapping at runtime (`src/Systems/HotReload/`, `src/Unity/Editor/HotReload/`)
-- **DynamicBuffer** — `DynamicBuffer<T>` Unity-style dynamic buffer component (`src/Components/DynamicBuffer.cs`)
 - **IEntityJobSystem** — per-entity job system interface; `EntityJobSystemRunner<T>` dispatches (`src/Systems/EntityJobSystem.cs`)
 
 ## 3. Key Files Map
@@ -80,7 +82,6 @@ World → Archetype[] → Entity (8-byte generational handle)
 | `src/Components/ComponentType.cs` | Per-type `SharedStatic<ComponentTypeData>` with lazy registration |
 | `src/Components/Component.cs` | Core interfaces IComponent/IArrayComponent/IPoolComponent, Name and built-in tags/hierarchy components; Changed<T> is now in Reactivity/ReactDelegate.cs |
 | `src/Components/GenericPool.cs` | `GenericPool` for Pool-stored components (SparseSet-based) |
-| `src/Components/DynamicBuffer.cs` | `DynamicBuffer<T>` — Unity-style dynamic buffer component |
 | `src/Components/ComponentArray.cs` | `ComponentArray<T>` — array-as-component type |
 | `src/Components/ComponentData.cs` | Serialization helper (byte[] representation of components) |
 | `src/Components/UnsafeStatic.cs` | `UnsafeStatic` utility (memcpy, as_ref, etc.) |
@@ -101,7 +102,6 @@ World → Archetype[] → Entity (8-byte generational handle)
 | `src/Systems/EntityJobSystem.cs` | `IEntityJobSystem` interface + `EntityJobSystemRunner<T>` runner |
 | `src/Systems/ECBJob.cs` | ECB processing job |
 | `src/Systems/StartFixedECBSystem.cs` | Start/fixed-update ECB processing |
-| `src/Systems/JobSystem.cs` | Job system base |
 | `src/Systems/IQueryJobSystem.cs` | Query-based job system interface |
 | `src/BuiltInSystems.cs` | Built-in system registrations |
 | `src/Systems/DependencyGraph/` | Access metadata, conflict detection, system nodes and execution groups |
@@ -146,7 +146,7 @@ World → Archetype[] → Entity (8-byte generational handle)
 
 | File | Description |
 |------|-------------|
-| `src/Systems/HotReload/HotReloadSystems.cs` | `HotReloadSystems` class: wraps `Systems`, tracks source files, swaps runners on recompile |
+| `src/Unity/HotReload/HotReloadSystems.cs` | `HotReloadSystems` class: wraps `Systems`, tracks source files, swaps runners on recompile |
 
 ### Reactive
 
@@ -174,6 +174,8 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 | `src/Collections/Bitmask4096.cs` | Bitmask for 4096 elements |
 | `src/Collections/BitMap1024.cs` | Fast hashmap for 1024 elements |
 | `src/Collections/MultiArray.cs` | MultiArray collection |
+| `src/Collections/HeapList.cs` | `HeapList<T>`: heap list handle (Length/Capacity/Add/AddRange/ResizeUninitialized/RemoveAtSwapBack) |
+| `src/Collections/HeapHashMap.cs` | `HeapHashMap<K,V>`: heap `HashMap` handle |
 
 ### Allocator
 
@@ -185,25 +187,47 @@ Current API is in `Wargon.Nukecs.Reactivity`; the older files below are historic
 | `src/Allocator/Serialization.cs` | Allocator serialization (+ free-list rebuild after load, post-load validation) |
 | `src/Allocator/Spinner.cs` | Spinlock implementation (copy of Unity internal Spinner) |
 
+### Platform
+
+| File | Description |
+|------|-------------|
+| `src/Platform/Mem.cs` | `Mem`: Malloc/Free(Tracked), SizeOf/AlignOf/AddressOf/AsRef/As/array element access/MemCpy/MemMove/MemSet/MemClear/MemCmp; `UnsafeUtility` in Unity, `Unsafe`/`Marshal` elsewhere |
+| `src/Platform/NMath.cs` | `NMath`: Max/Min/CeilPow2/Lzcnt/Tzcnt/CountBits/Lerp; `math.*` in Unity, own implementation elsewhere |
+| `src/Platform/AllocatorHandle.cs` | Heap allocator label for `Mem` and core APIs; converts to/from Unity `Allocator` in Unity |
+| `src/Platform/NJobHandle.cs` / `NJobHandleBuffer.cs` / `NJobs.cs` | Job handle, handle combining buffer and scheduling entry points; `JobHandle`/`JobsUtility` in Unity |
+| `src/Platform/NJobScheduler.cs` | Scheduler for builds without Unity: pooled typed job records, batches claimed by an atomic counter, `Complete` helps only the awaited job and its dependencies |
+| `src/Platform/INJob.cs` | `INJob` / `INJobParallelFor` with `Schedule`/`Run` extensions; Unity producers mirror `IJob` / `IJobParallelFor` |
+| `src/Platform/JobsSafetyShim.cs` | Non-Unity declaration of `NativeDisableUnsafePtrRestriction` |
+| `src/Platform/BurstShim.cs` | Non-Unity emulation of the Burst API used by the core (`SharedStatic`, `FunctionPointer` returning the original delegate, attributes, `AOT.MonoPInvokeCallback`) |
+| `src/Systems/Marker.cs` | `Marker`: `ProfilerMarker` in Unity, no-op elsewhere |
+
 ### Misc Root Files
 
 | File | Description |
 |------|-------------|
-| `src/dbug.cs` | Debug logging utility |
+| `src/dbug.cs` | Logging facade over a replaceable `INukecsLogger` (console by default; Nukecs.Unity installs the `UnityEngine.Debug` one) |
+| `src/NukecsLifecycle.cs` | Host signals for the core: `Quitting` (forwarded to the host's event once connected) and `StaticDisposed` |
+| `src/ObjectRef.cs` | `ObjectRef<T>` managed-object handle and its static storage |
+| `src/NukecsDebugData.cs` | Debug settings; the ScriptableObject wrapper is `src/Unity/NukecsDebugDataSO.cs` |
 | `src/NUnsafe.cs` | Additional unsafe utilities |
 | `src/Singleton.cs` | `Singleton<T>` (Burst-compatible; SharedStatic holds only pointer+size, value in a Malloc block, reset before assembly reload) and `SingletonRegistry` |
 | `src/SparseSet.cs` | Sparse set data structure |
-| `src/StaticAllocations.cs` | Static allocation helpers |
 | `src/SystemsGroup.cs` | `SystemsGroup` — named group of system runners |
 | `src/rng.cs` | Random number generation utilities |
-| `src/EntityFilterBuffer.cs` | Entity filtering buffer |
 | `src/QueryFilter.cs` | Query filtering logic |
 | `src/Usings.cs` | Global using directives |
 
 ### Unity Integration
 
+Everything under `src/Unity/` compiles into `Nukecs.Unity.asmdef` (editor tools there stay
+behind `#if UNITY_EDITOR`, except `Editor/Allocator/` with its own asmdef).
+
 | File | Description |
 |------|-------------|
+| `src/Unity/NukecsUnityHost.cs` | Installs the Unity logger, `Application.quitting` source and `EntityPrefabMap` cleanup into the core |
+| `src/Unity/UnityObjectRef.cs` | `UnityObjectRef<T>` instance-id references for baking |
+| `src/Unity/Convertor.cs` | `Convertor` ScriptableObject base for `ICustomConvertor` |
+| `src/Unity/StaticAllocations.cs` | Editor play-mode exit cleanup list |
 | `src/Unity/WorldInstaller.cs` | World lifecycle management MonoBehaviour |
 | `src/Unity/WorldBaker.cs` | Baker for sub-scene conversion |
 | `src/Unity/EntityBaker.cs` | Entity prefab baking |
@@ -271,8 +295,9 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 ## 6. Testing
 
 - Unity Edit mode tests in `UnitTests/`
+- The same tests without Unity: `dotnet test "DotNet~/Nukecs.Tests/Nukecs.Tests.csproj"` builds the core for netstandard2.1 and runs the `UnitTests/` files that need nothing from Unity plus scheduler tests (`NUKECS_WORKERS=n` sets the worker count; see `DotNet~/README.md`). Keep core tests free of Unity types so they run there too.
 - Key test files: `SystemChainTests.cs`, `WorldTests.cs`, `AdvancedTests.cs`, `EventsTests.cs`, `SerializationTests.cs`, `PrefabSpawnTests.cs`, `ResizeTests.cs`, `AllocatorTests.cs`, `AddObjectTests.cs`, `SimpleTest.cs`
-- Tests run via Unity Editor (not `dotnet test`) — results in `UnitTests/TestResults_*.xml`
+- Unity tests run via the Unity Editor — results in `UnitTests/TestResults_*.xml`
 - SystemChainTests: 14 tests covering system chains (3+ systems in sequence), thread modes, batch creation
 - EventsTests: tests for `Events<TEvent>` add/read/clear and parallel safety
 - RuntimeQueryIntegrationTests / RuntimeQueryProductionRegressionTests: arities 1–8, inline/pool combinations, tags, sparse rows, page growth and snapshots.
@@ -292,7 +317,7 @@ Fixed in the 1.0 stabilization pass (2026-10-02, regression tests in `UnitTests/
 
 For each `[System]` method, the generator produces:
 - `IXxxSystemJob` interface with `OnUpdate` + `OnUpdateBatched`
-- `IXxxSystemJobExtensions` static class with `QuerySystemJobWrapper<TJob>` struct (Execute dispatch)
+- `IXxxSystemJobExtensions` static class with `QuerySystemJobWrapper<TJob>` struct (Execute dispatch; Unity producer under `#if UNITY_5_3_OR_NEWER`, `INJobData.Execute(begin, end)` in `#else`; BatchDiagnostics checks both with and without `--no-unity`)
 - `IXxxQuerySystemJobRunner<TJob>` runner class (Schedule/Run for Main/Single/Parallel modes)
 - `Class.__Method_Job` struct implementing `IXxxSystemJob` (copies user's method body; nested in the partial class), and `Xxx_Generated` with `GetDependencyInfo()` and the `SystemActionXxx` delegate in `Wargon.Nukecs`
 
@@ -426,11 +451,11 @@ All system parameters implement `ISystemParam` with `Init(ref ptr<World.WorldUns
 
 - Uses `[BurstCompile]` on hot paths — avoid managed allocations in Burst-compiled code
 - `MemAllocator` is a custom arena allocator, not Unity's `Allocator`
-- Jobs use `IJobParallelFor` and `IJob` from Unity.Jobs
-- `UnityAllocatorHandler.cs` / `UnityAllocatorWrapper.cs` bridge to Unity's allocator for specific use cases
+- Core jobs use `INJob` / `INJobParallelFor` (`src/Platform/INJob.cs`); game code may keep Unity's `IJob` / `IJobParallelFor` with `State.Dependencies`
+- `src/Unity/UnityAllocatorHandler.cs` / `UnityAllocatorWrapper.cs` register a `MemAllocator` (owned, or a world arena via `world.GetUnityAllocator()`) as a Unity custom allocator
 - `World.SerializeAndSave.cs` handles world serialization
 - `World.Aspects.cs` provides aspect (group-of-components) support
-- `EntityFilterBuffer.cs` and `QueryFilter.cs` handle entity filtering
+- `QueryFilter.cs` handles query filter parameters
 - `src/Unity/Transforms/` — Transform hierarchy: `Transform`, `LocalTransform` components + child/parent systems
 - `src/Unity/Utils/Reflect.cs` — Reflection utilities for editor tooling
 - `src/Unity/Editor/HotReload/` — Editor-side hot reload: `HotReloadCompiler`, `HotReloadRoslynCompiler`, `HotReloadWatcher`
@@ -1283,6 +1308,10 @@ source. Born from the 2026-08-25 crash-hunt (phantom types via CopyUnion OOB).
   `iter_chunk`) marks all its data components ReadWrite; tags are always Read.
   `entity.Get<T>()`/`Set`/`Has` on any entity are recorded too. Any/None/With are filters,
   not accesses.
+- Resource/event ids are `DependencyIds.Of<T>()` (StableTypeHash folded to int), resolved at
+  runtime so systems from different assemblies agree; never emit compile-time symbol hashes.
+  Every `Res<T>`/`ResManaged<T>` parameter is ReadWrite; `Events<T>` uses are classified by
+  symbol (Add/AddPar/Clear write, ReadPar/foreach/Count read, other uses both).
 - `ISystemDependencyInfoProvider.DependencyInfo` reports component, resource,
   event and ECB accesses; `IThreadModeProvider.Mode` reports the execution mode.
   Conflicting nodes are ordered by registration index; independent nodes can

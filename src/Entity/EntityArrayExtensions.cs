@@ -16,7 +16,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
         public static ref ComponentArray<T> GetArray<T>(this ref Entity entity, int sizeToCreate = 6,
-            Allocator allocator = Allocator.Persistent) where T : unmanaged, IArrayComponent
+            AllocatorHandle allocator = default) where T : unmanaged, IArrayComponent
         {
             if (!entity.ArchetypeRef.Has<ComponentArray<T>>()) throw NoComponentException<T>();
             //ref var pool = ref entity.worldPointer->GetPool<ComponentArray<T>>();

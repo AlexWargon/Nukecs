@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
+using Wargon.Nukecs.Collections;
 
 namespace Wargon.Nukecs.Reactivity
 {
@@ -11,34 +10,49 @@ namespace Wargon.Nukecs.Reactivity
     /// that changed this frame. Populated by auto-generated _Fetch systems,
     /// consumed by user [System] methods with Changed&lt;T&gt; query filters.
     ///
-    /// Allocator.Persistent — NOT through framework allocator. NOT serialized
+    /// AllocatorHandle.Persistent — NOT through framework allocator. NOT serialized
     /// (managed-side, outside WorldUnsafe).
     /// </summary>
-    public sealed class ChangedQueryStorage : IDisposable
+    public sealed unsafe class ChangedQueryStorage : IDisposable
     {
         public readonly int WorldId;
         public readonly int TypeIndex;
         public readonly int ComponentSize;
 
-        public NativeList<int> ChangedList;
-        public NativeHashMap<int, int> Offsets;
-        public NativeList<byte> Values;
+        // The handles live in unmanaged memory: QueryUnsafe keeps their addresses for
+        // generated Burst code, and a managed object's fields may move with the GC.
+        public struct Buffers
+        {
+            public HeapList<int> ChangedList;
+            public HeapHashMap<int, int> Offsets;
+            public HeapList<byte> Values;
+        }
+
+        private Buffers* buffers;
+
+        public ref HeapList<int> ChangedList => ref buffers->ChangedList;
+        public ref HeapHashMap<int, int> Offsets => ref buffers->Offsets;
+        public ref HeapList<byte> Values => ref buffers->Values;
 
         public ChangedQueryStorage(int worldId, int typeIndex, int componentSize)
         {
             WorldId = worldId;
             TypeIndex = typeIndex;
             ComponentSize = componentSize;
-            ChangedList = new NativeList<int>(64, Allocator.Persistent);
-            Offsets = new NativeHashMap<int, int>(64, Allocator.Persistent);
-            Values = new NativeList<byte>(256, Allocator.Persistent);
+            buffers = (Buffers*)Mem.Malloc(sizeof(Buffers), Mem.AlignOf<Buffers>(), AllocatorHandle.Persistent);
+            buffers->ChangedList = new HeapList<int>(64, AllocatorHandle.Persistent);
+            buffers->Offsets = new HeapHashMap<int, int>(64, AllocatorHandle.Persistent);
+            buffers->Values = new HeapList<byte>(256, AllocatorHandle.Persistent);
         }
 
         public void Dispose()
         {
-            if (ChangedList.IsCreated) ChangedList.Dispose();
-            if (Offsets.IsCreated) Offsets.Dispose();
-            if (Values.IsCreated) Values.Dispose();
+            if (buffers == null) return;
+            buffers->ChangedList.Dispose();
+            buffers->Offsets.Dispose();
+            buffers->Values.Dispose();
+            Mem.Free(buffers, AllocatorHandle.Persistent);
+            buffers = null;
         }
 
         /// <summary>Append a component's raw bytes to the Values buffer, return its offset.</summary>
@@ -53,7 +67,7 @@ namespace Wargon.Nukecs.Reactivity
                 Values.Capacity = newCap;
             }
             Values.ResizeUninitialized(newLen);
-            UnsafeUtility.MemCpy((byte*)Values.GetUnsafePtr() + start, src, ComponentSize);
+            Mem.MemCpy((byte*)Values.GetUnsafePtr() + start, src, ComponentSize);
             return start;
         }
     }

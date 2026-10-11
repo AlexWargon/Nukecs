@@ -1,6 +1,12 @@
 ﻿using System.Runtime.CompilerServices;
 using Wargon.Nukecs.Transforms;
 
+namespace Wargon.Nukecs.Transforms
+{
+    // Raised by AddChild; consumed by the transform systems in Nukecs.Unity.
+    public struct OnAddChildWithTransformEvent : IComponent { }
+}
+
 namespace Wargon.Nukecs
 {
     public static class EntityChildrenExtensions

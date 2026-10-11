@@ -111,8 +111,8 @@ namespace Wargon.Nukecs
         public MemAllocator(long sizeInBytes)
         {
             initialRegionSize = Math.Max(sizeInBytes, 4096);
-            regions = (Region*)UnsafeUtility.Malloc(sizeof(Region) * MAX_REGIONS, ALIGN, Allocator.Persistent);
-            UnsafeUtility.MemClear(regions, sizeof(Region) * MAX_REGIONS);
+            regions = (Region*)Mem.Malloc(sizeof(Region) * MAX_REGIONS, ALIGN, AllocatorHandle.Persistent);
+            Mem.MemClear(regions, sizeof(Region) * MAX_REGIONS);
             regionCount = 0;
             totalCapacity = 0;
             totalAllocated = 0;
@@ -123,8 +123,8 @@ namespace Wargon.Nukecs
 
         public static MemAllocator* New(long sizeInBytes)
         {
-            var p = (MemAllocator*)UnsafeUtility.MallocTracked(
-                sizeof(MemAllocator), UnsafeUtility.AlignOf<MemAllocator>(), Allocator.Persistent, 0);
+            var p = (MemAllocator*)Mem.MallocTracked(
+                sizeof(MemAllocator), Mem.AlignOf<MemAllocator>(), AllocatorHandle.Persistent, 0);
             *p = new MemAllocator(sizeInBytes);
             return p;
         }
@@ -132,7 +132,7 @@ namespace Wargon.Nukecs
         public static void Destroy(MemAllocator* a)
         {
             a->Dispose();
-            UnsafeUtility.FreeTracked(a, Allocator.Persistent);
+            Mem.FreeTracked(a, AllocatorHandle.Persistent);
         }
 
         public byte* GetRegionPtr(int i) => regions[i].basePtr;
@@ -153,7 +153,7 @@ namespace Wargon.Nukecs
             for (int i = regionCount - 1; i > m.RegionIndex; i--)
             {
                 totalAllocated -= regions[i].cursor;
-                UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
+                Mem.Free(regions[i].basePtr, AllocatorHandle.Persistent);
                 totalCapacity -= regions[i].size;
             }
             regionCount = m.RegionIndex + 1;
@@ -172,7 +172,7 @@ namespace Wargon.Nukecs
         {
             if (regionCount >= MAX_REGIONS)
                 throw new InvalidOperationException($"Max regions ({MAX_REGIONS})");
-            var bp = (byte*)UnsafeUtility.Malloc(sz, ALIGN, Allocator.Persistent);
+            var bp = (byte*)Mem.Malloc(sz, ALIGN, AllocatorHandle.Persistent);
             regions[regionCount] = new Region
             {
                 basePtr = bp, size = sz, cursor = 0, freeHead = NPOS, freeCount = 0
@@ -300,7 +300,9 @@ namespace Wargon.Nukecs
                         }
 
                         var dataPtr = bp + curOff + HDR;
-                        if (guard) WriteGuard(dataPtr + size - 16, i, curOff);
+                        // The guard sits at the end of the block's data, which is larger than
+                        // the request when a whole free block is reused (Validate looks there).
+                        if (guard) WriteGuard(dataPtr + h->Size - 16, i, curOff);
                         lock_.Release();
                         return dataPtr;
                     }
@@ -539,7 +541,7 @@ namespace Wargon.Nukecs
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Walks every region's block chain and checks: header sanity (size aligned,
+        /// Walks every region's block chain and checks: header sanity (size a multiple of 8,
         /// chain within cursor), canary guards of canary-allocated blocks (OOB writes past
         /// live allocations) and poison of freed blocks (use-after-free writes).
         /// Limitation: freeing the LAST block of a region rewinds its cursor (Dealloc) —
@@ -563,7 +565,9 @@ namespace Wargon.Nukecs
                 {
                     var h = (Header*)(bp + hOff);
                     long data = h->Size < 0 ? -h->Size : h->Size;
-                    if (data < ALIGN || (data & 15) != 0)
+                    // Requests are A16, but a split remainder holds remain - OVR (OVR = 24)
+                    // bytes, so valid data sizes are multiples of 8, not 16.
+                    if (data < ALIGN || (data & 7) != 0)
                     {
                         violation = NewViolation(ri, hOff, data, h, AllocatorDebugState.ViolationKind.BadHeaderSize);
                         return false;
@@ -634,7 +638,7 @@ namespace Wargon.Nukecs
                 {
                     var h = (Header*)(bp + hOff);
                     long data = h->Size < 0 ? -h->Size : h->Size;
-                    if (data < ALIGN || (data & 15) != 0) break;
+                    if (data < ALIGN || (data & 7) != 0) break;
                     if (h->Size < 0 && data >= 16)
                         PoisonFirst16(bp + hOff + HDR);
                     hOff += data + OVR;
@@ -665,7 +669,7 @@ namespace Wargon.Nukecs
                 {
                     var h = (Header*)(bp + hOff);
                     long data = h->Size < 0 ? -h->Size : h->Size;
-                    if (data < ALIGN || (data & 15) != 0) break;
+                    if (data < ALIGN || (data & 7) != 0) break;
                     if (h->Size >= 0)
                     {
                         var tag = (int)(h->NextFree & 0xFFFFFFFF);
@@ -695,8 +699,8 @@ namespace Wargon.Nukecs
             lock_.Acquire();
             for (int i = 0; i < regionCount; i++)
                 if (regions[i].basePtr != null)
-                    UnsafeUtility.Free(regions[i].basePtr, Allocator.Persistent);
-            if (regions != null) { UnsafeUtility.Free(regions, Allocator.Persistent); regions = null; }
+                    Mem.Free(regions[i].basePtr, AllocatorHandle.Persistent);
+            if (regions != null) { Mem.Free(regions, AllocatorHandle.Persistent); regions = null; }
             regionCount = 0;
             totalCapacity = 0;
             totalAllocated = 0;

@@ -1,5 +1,4 @@
 ﻿using System;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs
 {
@@ -12,7 +11,7 @@ namespace Wargon.Nukecs
     /// </summary>
     public struct State : ISystemParam
     {
-        public JobHandle Dependencies;
+        public NJobHandle Dependencies;
         public World World;
         public TimeData Time;
         public byte SkipECBSchedule;

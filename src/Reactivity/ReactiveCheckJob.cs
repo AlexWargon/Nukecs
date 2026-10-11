@@ -1,6 +1,5 @@
 using Unity.Burst;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs.Reactivity
 {
@@ -14,7 +13,7 @@ namespace Wargon.Nukecs.Reactivity
     /// makes Burst compilation stable — no generic specialization is needed.
     /// </summary>
     [BurstCompile]
-    public unsafe struct ReactiveCheckJob : IJobParallelFor
+    public unsafe struct ReactiveCheckJob : INJobParallelFor
     {
         [NativeDisableUnsafePtrRestriction]
         public World.WorldUnsafe* WorldPtr;
@@ -57,7 +56,7 @@ namespace Wargon.Nukecs.Reactivity
                 if (offsets.TryGetValue(id, out var oldOffset))
                 {
                     byte* oldPtr = valuesBase + oldOffset;
-                    if (UnsafeUtility.MemCmp(currentPtr, oldPtr, sz) != 0)
+                    if (Mem.MemCmp(currentPtr, oldPtr, sz) != 0)
                     {
                         UnsafeStatic.memcpy(oldPtr, currentPtr, sz);
                         changed.EnqueuePar(id);

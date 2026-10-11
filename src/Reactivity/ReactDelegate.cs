@@ -37,9 +37,9 @@ namespace Wargon.Nukecs.Reactivity
             // access them without any managed calls.
             var world = World.Get(query->world->Id);
             var storage = ChangedQueryStorageRegistry.GetOrCreate(world, ComponentType<T>.Index, sizeof(T));
-            query->ChangedEntitiesPtr = UnsafeUtility.AddressOf(ref storage.ChangedList);
-            query->ChangedOffsetsPtr = UnsafeUtility.AddressOf(ref storage.Offsets);
-            query->ChangedValuesPtr = UnsafeUtility.AddressOf(ref storage.Values);
+            query->ChangedEntitiesPtr = Mem.AddressOf(ref storage.ChangedList);
+            query->ChangedOffsetsPtr = Mem.AddressOf(ref storage.Offsets);
+            query->ChangedValuesPtr = Mem.AddressOf(ref storage.Values);
             query->ChangedComponentSize = sizeof(T);
         }
     }

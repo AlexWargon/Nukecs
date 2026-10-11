@@ -3,9 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
-using UnityEngine;
 using Wargon.Nukecs.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using static Wargon.Nukecs.UnsafeStatic;
@@ -43,8 +40,8 @@ namespace Wargon.Nukecs
             internal MemoryList<ptr<QueryUnsafe>> queries;
             internal HashMap<int, int> queriesHashToIndex;
             internal EntityCommandBuffer EntityCommandBuffer;
-            internal JobHandle systemsUpdateJobDependencies;
-            internal JobHandle systemsFixedUpdateJobDependencies;
+            internal NJobHandle systemsUpdateJobDependencies;
+            internal NJobHandle systemsFixedUpdateJobDependencies;
             internal int job_worker_count;
             internal MemoryList<int> DefaultNoneTypes;
             internal int entitiesAmount;
@@ -57,10 +54,10 @@ namespace Wargon.Nukecs
             internal EventsStorage eventsStorage;
             internal ref WorldUnsafe SelfRef => ref selfPtr.Ref;
             internal WorldUnsafe* Self => selfPtr.Ptr;
-            internal Allocator Allocator => AllocatorHandler.AllocatorHandle.ToAllocator;
-            internal UnityAllocatorHandler AllocatorHandler;
-            internal ref MemAllocator AllocatorRef => ref AllocatorHandler.AllocatorWrapper.Allocator;
-            internal ref UnityAllocatorWrapper AllocatorWrapperRef => ref AllocatorHandler.AllocatorWrapper;
+            // Heap block outside the arena: stays at the same address while a load replaces the
+            // arena contents. Restored after deserialization (the saved value is stale).
+            internal MemAllocator* allocatorBox;
+            internal ref MemAllocator AllocatorRef => ref *allocatorBox;
             // Stored untyped: World holds ptr<WorldUnsafe>, so a ptr<World> field here is a
             // generic layout cycle that CoreCLR (Unity 7+) rejects with TypeLoadException.
             internal ptr managedWorldPtr;
@@ -86,10 +83,10 @@ namespace Wargon.Nukecs
                 var cSize = 0;
                 var minSize = (long)config.StartPoolSize * 512;
                 var allocatorSize = Math.Max(cSize, minSize);
-                var allocator = new UnityAllocatorHandler(allocatorSize);
-                var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
+                var box = CreateAllocatorBox(allocatorSize);
+                var ptr = box->AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
-                ptr.Ptr->AllocatorHandler = allocator;
+                ptr.Ptr->allocatorBox = box;
                 ptr.Ptr->Initialize(id, config, ptr);
                 return ptr.Ptr;
             }
@@ -100,12 +97,25 @@ namespace Wargon.Nukecs
                 var minSize = (long)config.StartPoolSize * 512;
                 var allocatorSize = Math.Max(cSize, minSize);
                 //dbug.log($"Allocator initial size {Memory.BytesToMegabytes(allocatorSize)} MB");
-                var allocator = new UnityAllocatorHandler(allocatorSize);
-                var ptr = allocator.AllocatorWrapper.Allocator.AllocatePtr<WorldUnsafe>();
+                var box = CreateAllocatorBox(allocatorSize);
+                var ptr = box->AllocatePtr<WorldUnsafe>();
                 ptr.Ref = new WorldUnsafe();
-                ptr.Ref.AllocatorHandler = allocator;
+                ptr.Ref.allocatorBox = box;
                 ptr.Ref.Initialize(id, config, ptr);
                 return ptr;
+            }
+
+            private static MemAllocator* CreateAllocatorBox(long sizeInBytes)
+            {
+                var box = (MemAllocator*)Mem.Malloc(sizeof(MemAllocator), Mem.AlignOf<MemAllocator>(), AllocatorHandle.Persistent);
+                *box = new MemAllocator(sizeInBytes);
+                return box;
+            }
+
+            internal static void DestroyAllocatorBox(MemAllocator* box)
+            {
+                box->Dispose();
+                Mem.Free(box, AllocatorHandle.Persistent);
             }
             private void Initialize(byte id, WorldConfig worldConfig, ptr<WorldUnsafe> worldSelf) {
                 Id = id;
@@ -118,21 +128,21 @@ namespace Wargon.Nukecs
                 pools = new MemoryList<GenericPool>(200, ref AllocatorRef, clear:true, lenAsCapacity:true);
                 queries = new MemoryList<ptr<QueryUnsafe>>(64, ref AllocatorRef, clear:true);
                 archetypesList = new MemoryList<ptr<ArchetypeUnsafe>>(32, ref AllocatorRef, clear:true);
-                archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorHandler);
+                archetypesMap = new HashMap<int, Archetype>(32, ref AllocatorRef);
                 storagesList = new MemoryList<ptr<StorageArchetype>>(32, ref AllocatorRef, clear:true);
-                storagesMap = new HashMap<int, ptr<StorageArchetype>>(32, ref AllocatorHandler);
-                queriesHashToIndex = new HashMap<int, int>(64, ref AllocatorHandler);
+                storagesMap = new HashMap<int, ptr<StorageArchetype>>(32, ref AllocatorRef);
+                queriesHashToIndex = new HashMap<int, int>(64, ref AllocatorRef);
                 
                 DefaultNoneTypes = new MemoryList<int>(12, ref AllocatorRef, clear:true);
                 config = worldConfig;
                 systemsUpdateJobDependencies = default;
                 systemsFixedUpdateJobDependencies = default;
-                job_worker_count = JobsUtility.JobWorkerMaximumCount;
+                job_worker_count = NJobs.WorkerMaximumCount;
                 entitiesAmount = 0;
                 lastEntityIndex = FIRST_ENTITY_ID;
                 poolsCount = 0;
                 lastDestroyedEntity = 0;
-                EntityCommandBuffer = new EntityCommandBuffer(256, Allocator.Persistent, worldSelf.Ptr);
+                EntityCommandBuffer = new EntityCommandBuffer(256, AllocatorHandle.Persistent, worldSelf.Ptr);
                 spinner = new Spinner();
                 aspects = new Aspects(ref AllocatorRef, id);
                 
@@ -144,7 +154,7 @@ namespace Wargon.Nukecs
                 //CreatePools();
                rootArchetype = CreateRootArchetype();
                resStorage = new ResStorage(ref AllocatorRef);
-               eventsStorage = new EventsStorage(ref AllocatorHandler);
+               eventsStorage = new EventsStorage(ref AllocatorRef);
 #if NUKECS_DEBUG
                 CreateStoryLogList(1024);
                 entitiesDens = new AliveEntitiesSet(config.StartEntitiesAmount, ref AllocatorRef);
@@ -394,7 +404,7 @@ namespace Wargon.Nukecs
                 where T2 : unmanaged, IComponent
                 where T3 : unmanaged, IComponent
             {
-                Span<int> componentTypes = stackalloc int[2] { ComponentType<T1>.Index, ComponentType<T2>.Index };
+                Span<int> componentTypes = stackalloc int[3] { ComponentType<T1>.Index, ComponentType<T2>.Index, ComponentType<T3>.Index };
                 var arch = GetOrCreateArchetype(ref componentTypes);
                 ref var e = ref arch.CreateEntity();
                 e.Set(in c1);
@@ -619,11 +629,11 @@ namespace Wargon.Nukecs
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
             internal Archetype GetOrCreateArchetype(ref Span<int> types) {
-                var hash = DynamicBitmask.ComputeHash((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length);
+                var hash = DynamicBitmask.ComputeHash((int*)Mem.AddressOf(ref types[0]), types.Length);
                 // Linear probing with equality re-check: a 32-bit hash collision between
                 // different type sets must not silently alias two archetypes.
                 while (archetypesMap.TryGetValue(hash, out var archetype)) {
-                    if (archetype.Unsafe->MatchesTypes((int*)UnsafeUtility.AddressOf(ref types[0]), types.Length))
+                    if (archetype.Unsafe->MatchesTypes((int*)Mem.AddressOf(ref types[0]), types.Length))
                         return archetype;
                     hash++;
                 }

@@ -7,10 +7,8 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 
 
 namespace Wargon.Nukecs
@@ -66,9 +64,9 @@ namespace Wargon.Nukecs
         public byte Id => UnsafeWorld->Id;
         public bool IsAlive => unsafeWorldPtr.cached != null;
         public WorldConfig Config => UnsafeWorld->config;
-        public Allocator Allocator => UnsafeWorld->Allocator;
-        public ref UnityAllocatorHandler AllocatorHandler => ref UnsafeWorld->AllocatorHandler;
         public ref MemAllocator AllocatorRef => ref UnsafeWorld->AllocatorRef;
+        /// <summary>The world allocator; its address is stable for the world's lifetime, including loads.</summary>
+        public MemAllocator* AllocatorPtr => UnsafeWorld->allocatorBox;
         public int LastDestroyedEntity => UnsafeWorld->lastDestroyedEntity;
         public int EntitiesAmount => UnsafeWorld->entitiesAmount;
         internal ref EntityCommandBuffer ECB => ref UnsafeWorld->EntityCommandBuffer;
@@ -84,8 +82,8 @@ namespace Wargon.Nukecs
             get => UnsafeWorld->CurrentContext;
         }
 
-        public ref JobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
-        public ref JobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsFixedUpdateJobDependencies;
+        public ref NJobHandle DependenciesUpdate => ref UnsafeWorld->systemsUpdateJobDependencies;
+        public ref NJobHandle DependenciesFixedUpdate => ref UnsafeWorld->systemsFixedUpdateJobDependencies;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref GenericPool GetPool<T>() where T : unmanaged, IComponent
@@ -134,6 +132,26 @@ namespace Wargon.Nukecs
             where T2 : unmanaged, IComponent
         {
             return UnsafeWorld->CreateEntity(in c1, in c2);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Entity Entity<T1, T2, T3>(in T1 c1 = default(T1), in T2 c2 = default(T2), in T3 c3 = default(T3))
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+        {
+            return UnsafeWorld->CreateEntity(in c1, in c2, in c3);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Entity Entity<T1, T2, T3, T4>(in T1 c1 = default(T1), in T2 c2 = default(T2), in T3 c3 = default(T3),
+            in T4 c4 = default(T4))
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+        {
+            return UnsafeWorld->CreateEntity(in c1, in c2, in c3, in c4);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -195,7 +213,7 @@ namespace Wargon.Nukecs
         public int StartEntitiesAmount;
         public int StartPoolSize;
         public int StartComponentsAmount;
-        public Allocator WorldAllocator => Allocator.Persistent;
+        public AllocatorHandle WorldAllocator => AllocatorHandle.Persistent;
 
         public static WorldConfig Default16 => new()
         {

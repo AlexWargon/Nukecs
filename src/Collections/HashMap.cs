@@ -5,8 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs.LowLevel.Unsafe;
-using Unity.Mathematics;
 
 namespace Wargon.Nukecs.Collections
 {
@@ -14,12 +12,14 @@ namespace Wargon.Nukecs.Collections
     {
         internal HashMapHelper<TKey> data;
 
-        public HashMap(int initialCapacity, ref UnityAllocatorHandler allocatorHandler)
+        /// <summary>Map stored in a world arena (saved with the world).</summary>
+        public HashMap(int initialCapacity, ref MemAllocator arena)
         {
             data = default;
-            data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, ref allocatorHandler);
+            data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, ref arena);
         }
-        public HashMap(int initialCapacity, AllocatorManager.AllocatorHandle allocator)
+        /// <summary>Map on the heap.</summary>
+        public HashMap(int initialCapacity, AllocatorHandle allocator)
         {
             data = default;
             data.Init(initialCapacity, sizeof(TValue), HashMapHelper<TKey>.K_MINIMUM_CAPACITY, allocator);
@@ -69,7 +69,7 @@ namespace Wargon.Nukecs.Collections
             var idx = data.TryAdd(key);
             if (-1 != idx)
             {
-                UnsafeUtility.WriteArrayElement(data.Ptr, idx, item);
+                Mem.WriteArrayElement(data.Ptr, idx, item);
                 return true;
             }
 
@@ -122,7 +122,7 @@ namespace Wargon.Nukecs.Collections
                 var idx = data.Find(key);
                 if (-1 != idx)
                 {
-                    UnsafeUtility.WriteArrayElement(data.Ptr, idx, value);
+                    Mem.WriteArrayElement(data.Ptr, idx, value);
                     return;
                 }
 
@@ -185,7 +185,6 @@ namespace Wargon.Nukecs.Collections
     }
     
     [StructLayout(LayoutKind.Sequential)]
-    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
     internal unsafe struct HashMapHelper<TKey> where TKey : unmanaged, IEquatable<TKey>
     {
         internal ptr_offset PtrOffset;
@@ -210,16 +209,20 @@ namespace Wargon.Nukecs.Collections
         internal int FirstFreeIdx;
         internal int SizeOfTValue;
         private int keyOffset, nextOffset, bucketOffset;
-        internal AllocatorManager.AllocatorHandle Allocator;
+        // Arena maps allocate from the owning world's allocator (null for heap maps).
+        [NativeDisableUnsafePtrRestriction]
+        internal MemAllocator* Arena;
+        internal AllocatorHandle Allocator;
 
         internal const int K_MINIMUM_CAPACITY = 8;
+        private const int HEAP_ALIGNMENT = 64;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal int CalcCapacityCeilPow2(int capacity)
         {
-            capacity = math.max(math.max(1, Count), capacity);
-            var newCapacity = math.max(capacity, 1 << Log2MinGrowth);
-            var result = math.ceilpow2(newCapacity);
+            capacity = NMath.Max(NMath.Max(1, Count), capacity);
+            var newCapacity = NMath.Max(capacity, 1 << Log2MinGrowth);
+            var result = NMath.CeilPow2(newCapacity);
 
             return result;
         }
@@ -243,37 +246,38 @@ namespace Wargon.Nukecs.Collections
 
         internal void Clear()
         {
-            UnsafeUtility.MemSet(Buckets, 0xff, BucketCapacity * sizeof(int));
-            UnsafeUtility.MemSet(Next, 0xff, Capacity * sizeof(int));
+            Mem.MemSet(Buckets, 0xff, BucketCapacity * sizeof(int));
+            Mem.MemSet(Next, 0xff, Capacity * sizeof(int));
 
             Count = 0;
             FirstFreeIdx = -1;
             AllocatedIndex = 0;
         }
 
+        /// <param name="allocator">The live world allocator (not a copy): resizes allocate through it.</param>
         internal void OnDeserialize(ref MemAllocator allocator)
         {
-            //Allocator = unityAllocator;
+            Arena = (MemAllocator*)Mem.AddressOf(ref allocator);
             Ptr = PtrOffset.AsPtr<byte>(ref allocator);
             Keys = (TKey*)(Ptr + keyOffset);
             Next = (int*)(Ptr + nextOffset);
             Buckets = (int*)(Ptr + bucketOffset);
         }
         
-        internal void Init(int capacity, int sizeOfValueT, int minGrowth, ref UnityAllocatorHandler allocator)
+        internal void Init(int capacity, int sizeOfValueT, int minGrowth, ref MemAllocator arena)
         {
             Count = 0;
-            Log2MinGrowth = (byte)(32 - math.lzcnt(math.max(1, minGrowth) - 1));
+            Log2MinGrowth = (byte)(32 - NMath.Lzcnt(NMath.Max(1, minGrowth) - 1));
 
             capacity = CalcCapacityCeilPow2(capacity);
             Capacity = capacity;
             BucketCapacity = GetBucketSize(capacity);
-            Allocator = allocator.AllocatorWrapper.Handle;
+            Arena = (MemAllocator*)Mem.AddressOf(ref arena);
+            Allocator = AllocatorHandle.Invalid;
             SizeOfTValue = sizeOfValueT;
 
             int totalSize = CalculateDataSize(capacity, BucketCapacity, sizeOfValueT, out keyOffset, out nextOffset, out bucketOffset);
-            PtrOffset = allocator.AllocatorWrapper.Allocator.AllocateRaw(totalSize);
-            Ptr = PtrOffset.AsPtr<byte>(ref allocator.AllocatorWrapper.Allocator);
+            Ptr = AllocateBlock(totalSize, out PtrOffset);
             Keys = (TKey*)(Ptr + keyOffset);
             Next = (int*)(Ptr + nextOffset);
             Buckets = (int*)(Ptr + bucketOffset);
@@ -281,20 +285,21 @@ namespace Wargon.Nukecs.Collections
             Clear();       
         }
 
-        internal void Init(int capacity, int sizeOfValueT, int minGrowth, AllocatorManager.AllocatorHandle allocator)
+        internal void Init(int capacity, int sizeOfValueT, int minGrowth, AllocatorHandle allocator)
         {
             Count = 0;
-            Log2MinGrowth = (byte)(32 - math.lzcnt(math.max(1, minGrowth) - 1));
+            Log2MinGrowth = (byte)(32 - NMath.Lzcnt(NMath.Max(1, minGrowth) - 1));
 
             capacity = CalcCapacityCeilPow2(capacity);
             Capacity = capacity;
             BucketCapacity = GetBucketSize(capacity);
+            Arena = null;
             Allocator = allocator;
             SizeOfTValue = sizeOfValueT;
 
             int totalSize = CalculateDataSize(capacity, BucketCapacity, sizeOfValueT, out keyOffset, out nextOffset, out bucketOffset);
 
-            Ptr = (byte*)AllocatorManager.Allocate(allocator, totalSize, JobsUtility.CacheLineSize);
+            Ptr = AllocateBlock(totalSize, out PtrOffset);
             Keys = (TKey*)(Ptr + keyOffset);
             Next = (int*)(Ptr + nextOffset);
             Buckets = (int*)(Ptr + bucketOffset);
@@ -306,9 +311,26 @@ namespace Wargon.Nukecs.Collections
         {
             return CalculateDataSize(Capacity, BucketCapacity, SizeOfTValue, out _, out _, out _);
         }
+        private byte* AllocateBlock(int size, out ptr_offset offset)
+        {
+            if (Arena != null)
+            {
+                offset = Arena->AllocateRaw(size, AllocatorTags.HashMap);
+                return offset.AsPtr<byte>(ref *Arena);
+            }
+            offset = default;
+            return (byte*)Mem.Malloc(size, HEAP_ALIGNMENT, Allocator);
+        }
+
+        private void FreeBlock(byte* ptr, ptr_offset offset)
+        {
+            if (Arena != null) Arena->Free(offset);
+            else Mem.Free(ptr, Allocator);
+        }
+
         internal void Dispose()
         {
-            AllocatorManager.Free(Allocator, Ptr);
+            FreeBlock(Ptr, PtrOffset);
             Ptr = null;
             Keys = null;
             Next = null;
@@ -317,28 +339,11 @@ namespace Wargon.Nukecs.Collections
             BucketCapacity = 0;
         }
 
-        internal static HashMapHelper<TKey>* Alloc(int capacity, int sizeOfValueT, int minGrowth, AllocatorManager.AllocatorHandle allocator)
-        {
-            var data = (HashMapHelper<TKey>*)AllocatorManager.Allocate(allocator, sizeof(HashMapHelper<TKey>), UnsafeUtility.AlignOf<HashMapHelper<TKey>>());
-            data->Init(capacity, sizeOfValueT, minGrowth, allocator);
-
-            return data;
-        }
-
-        internal static void Free(HashMapHelper<TKey>* data)
-        {
-            if (data == null)
-            {
-                throw new InvalidOperationException("Hash based container has yet to be created or has been destroyed!");
-            }
-            data->Dispose();
-            AllocatorManager.Free(data->Allocator, data);
-        }
 
         internal void Resize(int newCapacity)
         {
-            newCapacity = math.max(newCapacity, Count);
-            var newBucketCapacity = math.ceilpow2(GetBucketSize(newCapacity));
+            newCapacity = NMath.Max(newCapacity, Count);
+            var newBucketCapacity = NMath.CeilPow2(GetBucketSize(newCapacity));
 
             if (Capacity == newCapacity && BucketCapacity == newBucketCapacity)
             {
@@ -350,16 +355,17 @@ namespace Wargon.Nukecs.Collections
 
         internal void ResizeExact(int newCapacity, int newBucketCapacity)
         {
-            int keyOffset, nextOffset, bucketOffset;
-            int totalSize = CalculateDataSize(newCapacity, newBucketCapacity, SizeOfTValue, out keyOffset, out nextOffset, out bucketOffset);
-
             var oldPtr = Ptr;
+            var oldOffset = PtrOffset;
             var oldKeys = Keys;
             var oldNext = Next;
             var oldBuckets = Buckets;
             var oldBucketCapacity = BucketCapacity;
 
-            Ptr = (byte*)AllocatorManager.Allocate(Allocator,totalSize, JobsUtility.CacheLineSize);
+            // Block offset and section offsets are stored in the fields: OnDeserialize rebuilds
+            // the pointers of arena maps from them after a load.
+            int totalSize = CalculateDataSize(newCapacity, newBucketCapacity, SizeOfTValue, out keyOffset, out nextOffset, out bucketOffset);
+            Ptr = AllocateBlock(totalSize, out PtrOffset);
             Keys = (TKey*)(Ptr + keyOffset);
             Next = (int*)(Ptr + nextOffset);
             Buckets = (int*)(Ptr + bucketOffset);
@@ -373,11 +379,11 @@ namespace Wargon.Nukecs.Collections
                 for (int idx = oldBuckets[i]; idx != -1; idx = oldNext[idx])
                 {
                     var newIdx = TryAdd(oldKeys[idx]);
-                    UnsafeUtility.MemCpy(Ptr + SizeOfTValue * newIdx, oldPtr + SizeOfTValue * idx, SizeOfTValue);
+                    Mem.MemCpy(Ptr + SizeOfTValue * newIdx, oldPtr + SizeOfTValue * idx, SizeOfTValue);
                 }
             }
 
-            AllocatorManager.Free(Allocator, oldPtr);
+            FreeBlock(oldPtr, oldOffset);
         }
 
         internal void TrimExcess()
@@ -419,7 +425,7 @@ namespace Wargon.Nukecs.Collections
                 ++numFree;
             }
 
-            return math.min(Capacity, AllocatedIndex) - numFree;
+            return NMath.Min(Capacity, AllocatedIndex) - numFree;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -455,7 +461,7 @@ namespace Wargon.Nukecs.Collections
 
                 CheckIndexOutOfBounds(idx);
 
-                UnsafeUtility.WriteArrayElement(Keys, idx, key);
+                Mem.WriteArrayElement(Keys, idx, key);
                 var bucket = GetBucket(key);
 
                 // Add the index to the hash-map
@@ -480,7 +486,7 @@ namespace Wargon.Nukecs.Collections
                 if ((uint)entryIdx < (uint)Capacity)
                 {
                     var nextPtrs = Next;
-                    while (!UnsafeUtility.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
+                    while (!Mem.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
                     {
                         entryIdx = nextPtrs[entryIdx];
                         if ((uint)entryIdx >= (uint)Capacity)
@@ -496,7 +502,6 @@ namespace Wargon.Nukecs.Collections
             return -1;
         }
 
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal bool TryGetValue<TValue>(TKey key, out TValue item)
             where TValue : unmanaged
         {
@@ -504,14 +509,13 @@ namespace Wargon.Nukecs.Collections
 
             if (-1 != idx)
             {
-                item = UnsafeUtility.ReadArrayElement<TValue>(Ptr, idx);
+                item = Mem.ReadArrayElement<TValue>(Ptr, idx);
                 return true;
             }
 
             item = default;
             return false;
         }
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal TValue* TryGetPtr<TValue>(TKey key, out bool contain) where TValue : unmanaged
         {
             var idx = Find(key);
@@ -524,7 +528,6 @@ namespace Wargon.Nukecs.Collections
             contain = false;
             return null;
         }
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
         internal bool TryGetPtr<TValue>(TKey key, byte* basePtr, out ptr<TValue> valuePtr) where TValue : unmanaged
         {
             var idx = Find(key);
@@ -553,7 +556,7 @@ namespace Wargon.Nukecs.Collections
 
                 while (entryIdx >= 0 && entryIdx < Capacity)
                 {
-                    if (UnsafeUtility.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
+                    if (Mem.ReadArrayElement<TKey>(Keys, entryIdx).Equals(key))
                     {
                         ++removed;
 
@@ -624,73 +627,6 @@ namespace Wargon.Nukecs.Collections
             return MoveNextSearch(ref bucketIndex, ref nextIndex, out index);
         }
 
-        internal NativeArray<TKey> GetKeyArray(AllocatorManager.AllocatorHandle allocator)
-        {
-            var result = CollectionHelper.CreateNativeArray<TKey>(Count, allocator, NativeArrayOptions.UninitializedMemory);
-
-            for (int i = 0, count = 0, max = result.Length, capacity = BucketCapacity
-                ; i < capacity && count < max
-                ; ++i
-                )
-            {
-                int bucket = Buckets[i];
-
-                while (bucket != -1)
-                {
-                    result[count++] = UnsafeUtility.ReadArrayElement<TKey>(Keys, bucket);
-                    bucket = Next[bucket];
-                }
-            }
-
-            return result;
-        }
-
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
-        internal NativeArray<TValue> GetValueArray<TValue>(AllocatorManager.AllocatorHandle allocator)
-            where TValue : unmanaged
-        {
-            var result = CollectionHelper.CreateNativeArray<TValue>(Count, allocator, NativeArrayOptions.UninitializedMemory);
-
-            for (int i = 0, count = 0, max = result.Length, capacity = BucketCapacity; 
-                 i < capacity && count < max; 
-                 ++i)
-            {
-                int bucket = Buckets[i];
-
-                while (bucket != -1)
-                {
-                    result[count++] = UnsafeUtility.ReadArrayElement<TValue>(Ptr, bucket);
-                    bucket = Next[bucket];
-                }
-            }
-
-            return result;
-        }
-
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int) })]
-        internal NativeKeyValueArrays<TKey, TValue> GetKeyValueArrays<TValue>(AllocatorManager.AllocatorHandle allocator)
-            where TValue : unmanaged
-        {
-            var result = new NativeKeyValueArrays<TKey, TValue>(Count, allocator, NativeArrayOptions.UninitializedMemory);
-
-            for (int i = 0, count = 0, max = result.Length, capacity = BucketCapacity
-                ; i < capacity && count < max
-                ; ++i
-                )
-            {
-                int bucket = Buckets[i];
-
-                while (bucket != -1)
-                {
-                    result.Keys[count] = UnsafeUtility.ReadArrayElement<TKey>(Keys, bucket);
-                    result.Values[count] = UnsafeUtility.ReadArrayElement<TValue>(Ptr, bucket);
-                    count++;
-                    bucket = Next[bucket];
-                }
-            }
-
-            return result;
-        }
 
         internal unsafe struct Enumerator
         {
@@ -753,7 +689,6 @@ namespace Wargon.Nukecs.Collections
     }
     
     [DebuggerDisplay("Key = {Key}, Value = {Value}")]
-    [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(int), typeof(int) })]
     public unsafe struct KVPair<TKey, TValue> where TKey : unmanaged, IEquatable<TKey> where TValue : unmanaged
     {
         internal HashMapHelper<TKey>* m_Data;
@@ -795,7 +730,7 @@ namespace Wargon.Nukecs.Collections
                     throw new ArgumentException("must be valid");
 #endif
 
-                return ref UnsafeUtility.AsRef<TValue>(m_Data->Ptr + sizeof(TValue) * m_Index);
+                return ref Mem.AsRef<TValue>(m_Data->Ptr + sizeof(TValue) * m_Index);
             }
         }
 
@@ -810,7 +745,7 @@ namespace Wargon.Nukecs.Collections
             if (m_Index != -1)
             {
                 key = m_Data->Keys[m_Index];
-                value = UnsafeUtility.ReadArrayElement<TValue>(m_Data->Ptr, m_Index);
+                value = Mem.ReadArrayElement<TValue>(m_Data->Ptr, m_Index);
                 return true;
             }
 

@@ -39,15 +39,6 @@ namespace Wargon.Nukecs
             }
         }
 
-        internal int CountMulti
-        {
-            get
-            {
-                RestoreIfNeed();
-                return queryUnsafe->count / queryUnsafe->world->job_worker_count;
-            }
-        }
-
         public bool IsValid
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -360,7 +351,7 @@ namespace Wargon.Nukecs
             oldVersion = byte.MinValue;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public MultiArray<int> GetEntities(Allocator allocator)
+        public MultiArray<int> GetEntities(AllocatorHandle allocator)
         {
             if (UseStorageIteration())
             {

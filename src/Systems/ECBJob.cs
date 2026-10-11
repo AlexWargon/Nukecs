@@ -1,10 +1,9 @@
 ﻿using Unity.Burst;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs
 {
     [BurstCompile]
-    public struct ECBJob : IJob {
+    public struct ECBJob : INJob {
         public EntityCommandBuffer ECB;
         public World world;
         public UpdateContext updateContext;

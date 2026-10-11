@@ -2,6 +2,9 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Wargon.Nukecs.NUKECSGEN;
 
+// --no-unity compiles the generated code without UNITY_5_3_OR_NEWER, i.e. the branch used outside Unity.
+var noUnity = args.Contains("--no-unity");
+args = args.Where(a => a != "--no-unity").ToArray();
 if (args.Length < 2) throw new ArgumentException("Pass Unity Editor Data directory, Unity project directory and optionally a Nukecs.dll override.");
 // Optional third argument: a freshly built Nukecs.dll (e.g. obj/Debug/Nukecs.dll from
 // `dotnet build Nukecs.csproj`) when Unity has not recompiled the runtime yet.
@@ -12,7 +15,8 @@ var references = Directory.GetFiles(Path.Combine(args[0], "NetStandard", "ref", 
         .Where(p => (nukecsOverride == null && Path.GetFileName(p) == "Nukecs.dll") || Path.GetFileName(p).StartsWith("Unity.")))
     .Concat(nukecsOverride != null ? new[] { nukecsOverride } : Array.Empty<string>())
     .Distinct().Select(p => MetadataReference.CreateFromFile(p)).ToArray();
-var parse = new CSharpParseOptions(LanguageVersion.CSharp9);
+var parse = new CSharpParseOptions(LanguageVersion.CSharp9,
+    preprocessorSymbols: noUnity ? Array.Empty<string>() : new[] { "UNITY_5_3_OR_NEWER" });
 
 (Compilation Output, Diagnostic[] Diagnostics) Run(string source)
 {
@@ -371,5 +375,27 @@ AccessCase("AccessUntrackedQuery", "ref Query<ProbeA, ProbeB> query",
 AccessCase("AccessTagFilter", "ref Query<ProbeA, ProbeTag> query",
     "foreach (var (a, t) in query) a.Get.V = 1;",
     ("ProbeA", "ReadWrite"), ("ProbeTag", "Read"));
+
+// ---------------- SystemDependencyInfo resource/event ids ----------------
+// Ids must be resolved at runtime from the type (stable across assemblies), never emitted as
+// per-compilation symbol hash literals.
+ScopeCase("DependencyIds", "using Wargon.Nukecs; namespace Probe { " +
+    "public struct ProbeRes : IRes { public int V; public void OnCreate(ref World w) { } public void OnUpdate(ref World w) { } } " +
+    "public struct ProbeEvent { public int V; } " +
+    "public static partial class ProbeSystems { " +
+    "  [System] public static void Tick(ref Res<ProbeRes> res, ref Events<ProbeEvent> events) { res.Ref.V++; events.Add(new ProbeEvent()); var r = events.ReadPar(); } } }",
+    (output, diagnostics) =>
+    {
+        ExpectClean("DependencyIds", (output, diagnostics));
+        var generated = Generated(output);
+        foreach (var expected in new[] {
+            "ReadResources = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeRes>() }",
+            "WriteResources = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeRes>() }",
+            "ReadEvents = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeEvent>() }",
+            "WriteEvents = new int[] { global::Wargon.Nukecs.DependencyIds.Of<global::Probe.ProbeEvent>() }" })
+        {
+            if (!generated.Contains(expected)) throw new Exception("DependencyIds: missing `" + expected + "`");
+        }
+    });
 
 Console.WriteLine($"{passed}/{passed} generator regressions passed.");

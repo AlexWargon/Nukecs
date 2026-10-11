@@ -1,13 +1,18 @@
-﻿using System;
+using System;
 using Unity.Burst;
 using Unity.Collections;
 
 namespace Wargon.Nukecs
 {
+    /// <summary>
+    /// Unity custom allocator over a <see cref="MemAllocator"/>: either one it owns, or a world
+    /// arena it only borrows.
+    /// </summary>
     [BurstCompile(CompileSynchronously = true)]
     public unsafe struct UnityAllocatorWrapper : AllocatorManager.IAllocator
     {
-        public MemAllocator Allocator;
+        private MemAllocator* allocator;
+        private byte ownsAllocator;
         private AllocatorManager.AllocatorHandle m_handle;
         public AllocatorManager.TryFunction Function => AllocatorFunction;
 
@@ -19,22 +24,37 @@ namespace Wargon.Nukecs
 
         public UnityAllocatorWrapper(byte dumb)
         {
-            Allocator = default;
+            allocator = null;
+            ownsAllocator = 0;
             m_handle = default;
         }
+
+        public ref MemAllocator Allocator => ref *allocator;
         public Allocator ToAllocator => m_handle.ToAllocator;
         public bool IsCustomAllocator => true;
         public bool IsAutoDispose => false;
 
         public void Initialize(long capacity)
         {
-            Allocator = new MemAllocator(capacity);
-            
+            allocator = (MemAllocator*)Mem.Malloc(sizeof(MemAllocator), Mem.AlignOf<MemAllocator>(), AllocatorHandle.Persistent);
+            *allocator = new MemAllocator(capacity);
+            ownsAllocator = 1;
+        }
+
+        public void InitializeBorrowed(MemAllocator* borrowed)
+        {
+            allocator = borrowed;
+            ownsAllocator = 0;
         }
 
         public void Dispose()
         {
-            Allocator.Dispose();
+            if (ownsAllocator != 0 && allocator != null)
+            {
+                allocator->Dispose();
+                Mem.Free(allocator, AllocatorHandle.Persistent);
+            }
+            allocator = null;
         }
 
         public int Try(ref AllocatorManager.Block block)
@@ -42,32 +62,15 @@ namespace Wargon.Nukecs
             var error = AllocatorError.NO_ERRORS;
             if (block.Range.Pointer == IntPtr.Zero)
             {
-                block.Range.Pointer = Allocator.AllocateRaw(block.Bytes, ref error);
+                block.Range.Pointer = allocator->AllocateRaw(block.Bytes, ref error);
             }
             else
             {
-                Allocator.Free((byte*)block.Range.Pointer, ref error);
+                allocator->Free((byte*)block.Range.Pointer, ref error);
             }
-            //ShowError(error);
             return error;
         }
-        // [BurstDiscard]
-        // private void ShowError(int error)
-        // {
-        //     if (error != 0)
-        //     {
-        //         switch (error)
-        //         {
-        //             case AllocatorError.ERROR_ALLOCATOR_OUT_OF_MEMORY:
-        //                 dbug.error($"Allocator out of memory.");
-        //                 break;
-        //             case AllocatorError.ERROR_ALLOCATOR_MAX_BLOCKS_REACHED:
-        //                 dbug.error("Allocator max blocks reached.");
-        //                 break;
-        //         }
-        //     }
-        // }
-        
+
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(AllocatorManager.TryFunction))]
         public static int AllocatorFunction(IntPtr allocatorState, ref AllocatorManager.Block block)
@@ -75,12 +78,6 @@ namespace Wargon.Nukecs
             return ((UnityAllocatorWrapper*)allocatorState)->Try(ref block);
         }
 
-        public MemAllocator* GetAllocatorPtr()
-        {
-            fixed (MemAllocator* ptr = &Allocator)
-            {
-                return ptr;
-            }
-        }
+        public MemAllocator* GetAllocatorPtr() => allocator;
     }
 }

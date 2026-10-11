@@ -1,16 +1,12 @@
 ﻿using System.Runtime.InteropServices;
-using UnityEngine.Serialization;
 
 namespace Wargon.Nukecs {
     using System;
     using System.Collections.Generic;
-    using System.IO;
     using System.Runtime.CompilerServices;
-    using System.Runtime.Serialization.Formatters.Binary;
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using UnityEngine;
 
     public enum StorageType : byte {
         Archetype = 0,
@@ -123,36 +119,6 @@ namespace Wargon.Nukecs {
                 return true;
             }
             return false;
-        }
-
-
-        public static void Save(ComponentsMapCache mapCache) {
-            var dataStream =
-                new FileStream(Application.dataPath + "/Resources/ComponentsMap.nuke", FileMode.OpenOrCreate);
-            var converter = new BinaryFormatter();
-            converter.Serialize(dataStream, mapCache);
-            dataStream.Close();
-            //Debug.Log("SAVED");
-        }
-
-        public static ComponentsMapCache Load() {
-            var filePath = Application.dataPath + "/Resources/ComponentsMap.nuke";
-            ComponentsMapCache saveData;
-            if (File.Exists(filePath)) {
-                // File exists 
-                var dataStream = new FileStream(filePath, FileMode.Open);
-                var converter = new BinaryFormatter();
-                saveData = converter.Deserialize(dataStream) as ComponentsMapCache;
-                dataStream.Close();
-                return saveData;
-            }
-            {
-                // File does not exist
-                Debug.LogError("Save file not found in " + filePath);
-                saveData = new ComponentsMapCache();
-                Save(saveData);
-                return saveData;
-            }
         }
     }
 }

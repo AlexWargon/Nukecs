@@ -12,6 +12,10 @@ When Unity has not recompiled the runtime yet, pass a freshly built
 the analyzer DLL so the compiler server does not reuse the old generator).
 `NUKECS_DUMP=<case>` prints the generated sources of one case.
 
+Generated code is compiled with `UNITY_5_3_OR_NEWER`, as in Unity. Add
+`--no-unity` to compile the branch used outside Unity (job wrappers as
+`INJobData` instead of Unity job producers); run both after generator changes.
+
 Requires .NET SDK 8 and the checked-in generator DLL. Uses SDK Roslyn and Unity
 reference assemblies without running gameplay or importing invalid scripts into
 Unity. Verifies contextual Single/Parallel generation compiles, RequireBatch
@@ -19,4 +23,4 @@ errors for unsupported bodies, class-scope binding of system bodies (nested
 partial jobs, private helpers, constants, nested types, user types shadowing
 framework names, non-partial fallback, NUKECS010/013), Any<> generation and
 diagnostics (NUKECS020/021), locals named state/range, custom State parameter
-names, and SystemDependencyInfo component access modes. Unity ignores the Tests~ directory.
+names, SystemDependencyInfo component access modes and runtime-resolved resource/event ids (DependencyIds.Of<T>). Unity ignores the Tests~ directory.

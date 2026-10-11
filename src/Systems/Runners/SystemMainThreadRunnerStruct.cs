@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs
 {
@@ -10,7 +9,7 @@ namespace Wargon.Nukecs
 #if NUKECS_DEBUG
         private Marker _marker;
 #endif
-        public JobHandle Schedule(UpdateContext updateContext, ref State state)
+        public NJobHandle Schedule(UpdateContext updateContext, ref State state)
         {
 #if NUKECS_DEBUG
             _marker.Autostart(System);

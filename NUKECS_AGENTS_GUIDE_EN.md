@@ -393,7 +393,7 @@ do not insert clearing between readers.
 Components used by many entities should be small unmanaged structs: numbers,
 `float2/3`, enums, flags, `Entity`, or IDs/indices into shared data. Do not give
 each entity its own collection: `List`, arrays, `Dictionary`, `NativeList`,
-`MemoryList`, `DynamicBuffer`, `ComponentArray`, or other containers backed by
+`MemoryList`, `ComponentArray`, or other containers backed by
 individual allocations. Even an unmanaged container has capacity, allocation,
 and disposal costs.
 

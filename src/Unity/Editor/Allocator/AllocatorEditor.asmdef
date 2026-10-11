@@ -2,7 +2,8 @@
     "name": "AllocatorEditor",
     "rootNamespace": "",
     "references": [
-        "GUID:fdb13d7553561e54997a99cbefc75a25"
+        "GUID:fdb13d7553561e54997a99cbefc75a25",
+        "GUID:37e69478e48344f89f34424dcf46f743"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

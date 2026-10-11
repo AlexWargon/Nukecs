@@ -1,3 +1,4 @@
+using Wargon.Nukecs.Collections;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -14,15 +15,15 @@ namespace Wargon.Nukecs.Reactivity
     [StructLayout(LayoutKind.Sequential)]
     public struct ChangedQueue<T> where T : unmanaged
     {
-        private NativeList<T> _list;
+        private HeapList<T> _list;
         private Spinner _spinner;
         private byte _created;
 
         public bool IsCreated => _created != 0;
 
-        public ChangedQueue(int capacity, Allocator allocator)
+        public ChangedQueue(int capacity, AllocatorHandle allocator)
         {
-            _list = new NativeList<T>(capacity, allocator);
+            _list = new HeapList<T>(capacity, allocator);
             _spinner = default;
             _created = 1;
         }

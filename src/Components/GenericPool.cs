@@ -158,7 +158,7 @@ namespace Wargon.Nukecs
         // {
         //     fixed (byte* ptr = data)
         //     {
-        //         UnsafeUtility.MemCpy(UnsafeBuffer->buffer, ptr, data.Length);
+        //         Mem.MemCpy(UnsafeBuffer->buffer, ptr, data.Length);
         //     }
         // }
     }

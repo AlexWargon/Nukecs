@@ -149,7 +149,7 @@ namespace Wargon.Nukecs
     {
         private HashMap<int, ptr> _events;
         private const int DEFAULT_SIZE = 16;
-        internal EventsStorage(ref UnityAllocatorHandler allocator)
+        internal EventsStorage(ref MemAllocator allocator)
         {
             _events = new HashMap<int, ptr>(DEFAULT_SIZE, ref allocator);
         }

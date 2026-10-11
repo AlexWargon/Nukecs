@@ -291,13 +291,13 @@ namespace Wargon.Nukecs
         {
             return new safe_ptr<T>
             {
-                _ptr = malloc<T>(Allocator.Persistent)
+                _ptr = malloc<T>(AllocatorHandle.Persistent)
             };
         }
 
         public void Dispose()
         {
-            free(_ptr, Allocator.Persistent);
+            free(_ptr, AllocatorHandle.Persistent);
             
         }
     }

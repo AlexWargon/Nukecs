@@ -276,8 +276,8 @@ namespace Wargon.Nukecs.Editor
             long memUsed = 0;
             try
             {
-                totalSize = world.UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.TotalSize;
-                memUsed = world.UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.MemoryUsed;
+                totalSize = world.UnsafeWorld->AllocatorRef.TotalSize;
+                memUsed = world.UnsafeWorld->AllocatorRef.MemoryUsed;
             }
             catch { return; }
 

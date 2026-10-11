@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Wargon.Nukecs.Collections;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -7,16 +8,15 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 
 namespace Wargon.Nukecs
 {
 
     public struct ComponentTypeMap {
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ComponentTypes
-            = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
-        internal static readonly SharedStatic<NativeHashMap<int, ComponentTypeData>> ElementTypes
-            = SharedStatic<NativeHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
+        internal static readonly SharedStatic<HeapHashMap<int, ComponentTypeData>> ComponentTypes
+            = SharedStatic<HeapHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeMap>();
+        internal static readonly SharedStatic<HeapHashMap<int, ComponentTypeData>> ElementTypes
+            = SharedStatic<HeapHashMap<int, ComponentTypeData>>.GetOrCreate<ComponentTypeData>();
         private static int _nextIndex;
         private static ComponentsMapCache _cache;
         private static bool _initialized;
@@ -24,8 +24,8 @@ namespace Wargon.Nukecs
         private static void EnsureInitialized() {
             if (_initialized) return;
             _cache = new ComponentsMapCache();
-            ComponentTypes.Data = new NativeHashMap<int, ComponentTypeData>(256, Allocator.Persistent);
-            ElementTypes.Data = new NativeHashMap<int, ComponentTypeData>(32, Allocator.Persistent);
+            ComponentTypes.Data = new HeapHashMap<int, ComponentTypeData>(256, AllocatorHandle.Persistent);
+            ElementTypes.Data = new HeapHashMap<int, ComponentTypeData>(32, AllocatorHandle.Persistent);
             try {
                 Generated.GeneratedDisposeRegistryStatic.EnsureGenericMethodInstantiation();
             }
@@ -34,7 +34,7 @@ namespace Wargon.Nukecs
                 // ignored
             }
 
-            Application.quitting += Dispose;
+            NukecsLifecycle.Quitting += Dispose;
             _initialized = true;
         }
 
@@ -46,7 +46,7 @@ namespace Wargon.Nukecs
             TypeToComponentType.Map.Clear();
             _cache = default;
             _nextIndex = 0;
-            Application.quitting -= Dispose;
+            NukecsLifecycle.Quitting -= Dispose;
             _initialized = false;
         }
         [BurstDiscard]
@@ -61,7 +61,7 @@ namespace Wargon.Nukecs
             }
             catch
             {
-                dbug.log($"Failed to register component type {type.Name}", Color.red);
+                dbug.log($"Failed to register component type {type.Name}", "red");
             }
 
         }
@@ -135,7 +135,7 @@ namespace Wargon.Nukecs
             var size = sizeof(T);
             var data = new ComponentTypeData
             {
-                align = UnsafeUtility.AlignOf<T>(),
+                align = Mem.AlignOf<T>(),
                 size = size,
                 index = index,
                 isTag = false,
@@ -151,14 +151,14 @@ namespace Wargon.Nukecs
         internal static ComponentTypeData AddComponentType<T>(int index) where T : unmanaged
         {
             if (ComponentTypes.Data.ContainsKey(index)) return ComponentTypes.Data[index];
-            var size = UnsafeUtility.SizeOf<T>();
+            var size = Mem.SizeOf<T>();
             var isPool = typeof(IPoolComponent).IsAssignableFrom(typeof(T));
             // A tag is a field-less component: empty structs report SizeOf == 1 in C#,
             // but a struct with a real 1-byte field (e.g. `bool IsDead`) is inline data, not a tag.
             var isTagType = !isPool && size == 1 && typeof(T).GetFields().Length == 0;
             var data = new ComponentTypeData
             {
-                align = UnsafeUtility.AlignOf<T>(),
+                align = Mem.AlignOf<T>(),
                 size = size,
                 index = index,
                 isTag = size == 1,
@@ -267,7 +267,7 @@ namespace Wargon.Nukecs
 
             fixed (ComponentTypeData* ptr = data)
             {
-                UnsafeUtility.MemCpy(_data, ptr, data.Length * sizeof(ComponentTypeData));
+                Mem.MemCpy(_data, ptr, data.Length * sizeof(ComponentTypeData));
             }
         }
 

@@ -246,7 +246,7 @@ namespace Wargon.Nukecs
             var maxBits = 1024;
             var sz = (maxBits + 63) / 64;
             var bits = stackalloc ulong[sz];
-            UnsafeUtility.MemClear(bits, sz * sizeof(ulong));
+            Mem.MemClear(bits, sz * sizeof(ulong));
             for (var i = 0; i < count; i++)
             {
                 var t = types[i];

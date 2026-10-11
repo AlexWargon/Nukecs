@@ -1,0 +1,19 @@
+{
+    "name": "Nukecs.Unity",
+    "rootNamespace": "Wargon.Nukecs",
+    "references": [
+        "Nukecs",
+        "Unity.Mathematics",
+        "Unity.Collections",
+        "Unity.Burst"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

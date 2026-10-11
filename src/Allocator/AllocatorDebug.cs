@@ -102,7 +102,7 @@ namespace Wargon.Nukecs
         [BurstDiscard]
         internal static void Report(in Violation v, string context)
         {
-            UnityEngine.Debug.LogError(
+            dbug.error(
                 $"[ArenaGuard] CORRUPTED ARENA ({context}): {v.Kind} at region {v.Region}, " +
                 $"block offset {v.BlockOffset}, data size {v.DataSize}, tag {AllocatorTags.NameOf(v.Tag)}. " +
                 "Nearby native writes are the suspect (OOB or use-after-free).");
@@ -111,7 +111,7 @@ namespace Wargon.Nukecs
         [BurstDiscard]
         internal static void ReportClean(string context, long usedBlocks, long usedBytes)
         {
-            UnityEngine.Debug.Log($"[ArenaGuard] {context}: arena OK ({usedBlocks} live blocks, {usedBytes} bytes).");
+            dbug.log($"[ArenaGuard] {context}: arena OK ({usedBlocks} live blocks, {usedBytes} bytes).");
         }
     }
 }

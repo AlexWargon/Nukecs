@@ -19,7 +19,7 @@ namespace Wargon.Nukecs.Collections
             PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity);
             Ptr = PtrOffset.AsPtr<T>(ref allocator);
             this.capacity = capacity;
-            if (clear) UnsafeUtility.MemClear(Ptr, sizeof(T) * capacity);
+            if (clear) Mem.MemClear(Ptr, sizeof(T) * capacity);
         }
 
         public ref T this[int index]
@@ -43,8 +43,8 @@ namespace Wargon.Nukecs.Collections
             var newOffset = allocator.AllocateRaw(sizeof(T) * newCapacity);
             var newPtr = newOffset.AsPtr<T>(ref allocator);
             if (Ptr != null && capacity > 0)
-                UnsafeUtility.MemCpy(newPtr, Ptr, sizeof(T) * capacity);
-            UnsafeUtility.MemClear(newPtr + capacity, sizeof(T) * (newCapacity - capacity));
+                Mem.MemCpy(newPtr, Ptr, sizeof(T) * capacity);
+            Mem.MemClear(newPtr + capacity, sizeof(T) * (newCapacity - capacity));
             Ptr = newPtr;
             PtrOffset = newOffset;
             capacity = newCapacity;

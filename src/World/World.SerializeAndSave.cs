@@ -7,7 +7,7 @@ namespace Wargon.Nukecs {
     public unsafe partial struct World {
         public byte[] Serialize() {
             CompleteAllJobs(Id);
-            return UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastSerialize();
+            return UnsafeWorld->AllocatorRef.FastSerialize();
         }
 
         public void Deserialize(byte[] data) {
@@ -19,16 +19,15 @@ namespace Wargon.Nukecs {
             if (completeJobs) CompleteAllJobs(id);
             var ecb = ECB;
             var managedWorld = UnsafeWorld->ManagedWorld;
-            var allocatorHandler = UnsafeWorldRef.AllocatorHandler;
-            var allocatorOld = allocatorHandler.AllocatorWrapper.Allocator;
+            // Captured before the load: the arena (and the WorldUnsafe in it) is replaced in place.
+            var allocatorBox = UnsafeWorld->allocatorBox;
             // resources are runtime state: keep the live ones, ignore the saved values
             var liveResources = UnsafeWorld->resStorage.CaptureLive();
-            allocatorOld.FastDeserialize(data);
-            allocatorHandler.AllocatorWrapper.Allocator = allocatorOld;
+            allocatorBox->FastDeserialize(data);
             // Domain wrappers are owned by this live world, not by the saved arena.
-            unsafeWorldPtr.OnDeserialize(ref allocatorOld);
+            unsafeWorldPtr.OnDeserialize(ref *allocatorBox);
             UnsafeWorld->ManagedWorld = managedWorld;
-            CompleteDeserialization(ref allocatorOld, ref allocatorHandler, ecb, id, liveResources);
+            CompleteDeserialization(allocatorBox, ecb, id, liveResources);
         }
 
         public void LoadFromFile(string path) {
@@ -49,18 +48,19 @@ namespace Wargon.Nukecs {
             foreach (var systems in WorldSystems.GetAll(id)) systems.Complete();
         }
 
-        private void CompleteDeserialization(ref MemAllocator allocator, ref UnityAllocatorHandler allocatorHandler, EntityCommandBuffer savedEcb, int id, LiveResources liveResources) {
+        // Every OnDeserialize below receives the live allocator in its box: arena containers
+        // (HashMap) keep its address for later resizes.
+        private void CompleteDeserialization(MemAllocator* allocatorBox, EntityCommandBuffer savedEcb, int id, LiveResources liveResources) {
+            ref var allocator = ref *allocatorBox;
             ComponentTypeMap.ReRegisterFunctionPointers();
             unsafeWorldPtr.OnDeserialize(ref allocator);
+            UnsafeWorld->allocatorBox = allocatorBox;
             UnsafeWorld->OnDeserialize(ref allocator);
-            UnsafeWorld->AllocatorHandler = allocatorHandler;
-            UnsafeWorld->AllocatorRef = allocator;
             ECB = savedEcb;
             ECB.FixAfterDeserialize(UnsafeWorld, ref allocator);
             Get(id) = this;
             FixManagedWorld(id);
-            // Allocates through AllocatorRef (the local allocator copy above is stale from
-            // here on); must run before systems re-resolve their params.
+            // Must run before systems re-resolve their params.
             UnsafeWorld->resStorage.RestoreLive(liveResources, UnsafeWorld);
             ReinitAllSystems();
         }
@@ -78,7 +78,7 @@ namespace Wargon.Nukecs {
 
         internal void SaveToFileCore(string path, bool completeJobs) {
             if (completeJobs) CompleteAllJobs(Id);
-            var snapshot = UnsafeWorld->AllocatorHandler.AllocatorWrapper.Allocator.FastSerialize();
+            var snapshot = UnsafeWorld->AllocatorRef.FastSerialize();
             File.WriteAllBytes(path, MemAllocator.Compress(snapshot));
         }
 

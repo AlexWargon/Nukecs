@@ -2,11 +2,13 @@
 
 namespace Wargon.Nukecs.Tests
 {
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct AnimatorRef : IComponent
     {
         public ObjectRef<Animator> Value;
     }
 
+    [UnityEngine.Scripting.APIUpdating.MovedFrom(false, sourceAssembly: "Nukecs")]
     public struct GameObjectRef : IComponent
     {
         public ObjectRef<GameObject> Value;

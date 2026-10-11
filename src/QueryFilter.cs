@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
-using Unity.Jobs;
 
 namespace Wargon.Nukecs
 {
@@ -287,11 +286,8 @@ namespace Wargon.Nukecs
     public struct Nothing : IComponent{}
 
 
-    public interface IService { }
     public delegate void System1<TQuery>(ref TQuery q) where TQuery : unmanaged, IQuery;
     public delegate void System2<TQuery>(ref TQuery q1, ref TQuery q2) where TQuery : unmanaged, IQuery;
-    public delegate void System1AndService<TQuery, TService>(ref TQuery q1, ref TService service)
-        where TQuery : unmanaged, IQuery, IService;
 
     internal class DelegateSystem1Runner<TQuery> : ISystemRunner
         where TQuery : unmanaged, IQuery {
@@ -303,7 +299,7 @@ namespace Wargon.Nukecs
             _query = q;
             Name = name;
         }
-        public JobHandle Schedule(UpdateContext updateContext, ref State state) {
+        public NJobHandle Schedule(UpdateContext updateContext, ref State state) {
             new FunctionPointer<System1<TQuery>>(_fn).Invoke(ref _query);
             return state.Dependencies;
         }

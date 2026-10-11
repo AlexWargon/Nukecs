@@ -28,7 +28,7 @@ namespace Wargon.Nukecs
 
         internal static int NextInstance(ulong owner, ref HashMap<ulong, int> registrations)
         {
-            if (!registrations.IsCreated) registrations = new HashMap<ulong, int>(16, Allocator.Persistent);
+            if (!registrations.IsCreated) registrations = new HashMap<ulong, int>(16, AllocatorHandle.Persistent);
             registrations.TryGetValue(owner, out var instance);
             if (!registrations.ContainsKey(owner) && registrations.Count == registrations.Capacity)
                 registrations.Capacity *= 2;
@@ -41,13 +41,13 @@ namespace Wargon.Nukecs
             var key = new Key { Owner = owner, Scope = scope, Instance = instance };
             Gate.Data.Acquire();
             ref var slots = ref Slots.Data;
-            if (!slots.IsCreated) slots = new HashMap<Key, int>(64, Allocator.Persistent);
+            if (!slots.IsCreated) slots = new HashMap<Key, int>(64, AllocatorHandle.Persistent);
             if (!slots.TryGetValue(key, out var slot)) {
                 slot = ResourceSlotIds.Acquire();
                 if (slots.Count == slots.Capacity) slots.Capacity *= 2;
                 slots.TryAdd(key, slot);
                 ref var keys = ref SlotKeys.Data;
-                if (!keys.IsCreated) keys = new HashMap<int, Key>(64, Allocator.Persistent);
+                if (!keys.IsCreated) keys = new HashMap<int, Key>(64, AllocatorHandle.Persistent);
                 if (keys.Count == keys.Capacity) keys.Capacity *= 2;
                 keys.TryAdd(slot, key);
             }

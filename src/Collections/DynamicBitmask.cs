@@ -3,7 +3,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Mathematics;
 using Wargon.Nukecs.Collections;
 using static Wargon.Nukecs.UnsafeStatic;
 
@@ -28,7 +27,7 @@ namespace Wargon.Nukecs
 
         internal static DynamicBitmask CreateForComponents(World.WorldUnsafe* world)
         {
-            return new DynamicBitmask(math.max(ComponentAmount.Value.Data, 256), world);
+            return new DynamicBitmask(NMath.Max(ComponentAmount.Value.Data, 256), world);
         }
         
         public DynamicBitmask(int maxBits, World.WorldUnsafe* world)
@@ -169,7 +168,7 @@ namespace Wargon.Nukecs
             // masks of different eras have different capacities: copy the common words,
             // zero the tail (this > source) so stale bits never survive a copy
             var n = arraySize < source.arraySize ? arraySize : source.arraySize;
-            UnsafeUtility.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, sizeof(ulong) * n);
+            Mem.MemCpy(bitmaskArray.Ptr, source.bitmaskArray.Ptr, sizeof(ulong) * n);
             for (var i = n; i < arraySize; i++) bitmaskArray.Ptr[i] = 0;
             Count = source.Count;
         }
@@ -192,7 +191,7 @@ namespace Wargon.Nukecs
                 if (i < tag.arraySize) word |= tag.bitmaskArray.Ptr[i];
                 if (i < pool.arraySize) word |= pool.bitmaskArray.Ptr[i];
                 words[i] = word;
-                newCount += math.countbits(word);
+                newCount += NMath.CountBits(word);
             }
             Count = newCount;
         }
@@ -325,10 +324,10 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int ComputeHash(int* types, int count)
         {
-            var maxBits = math.max(ComponentAmount.Value.Data, 256);
+            var maxBits = NMath.Max(ComponentAmount.Value.Data, 256);
             var sz = (maxBits + 63) / 64;
             var bits = stackalloc ulong[sz];
-            UnsafeUtility.MemClear(bits, sz * sizeof(ulong));
+            Mem.MemClear(bits, sz * sizeof(ulong));
             for (var i = 0; i < count; i++)
             {
                 var t = types[i];
@@ -366,7 +365,7 @@ namespace Wargon.Nukecs
         {
             var copy = new DynamicBitmask(maxBits, world);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
+            Mem.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
             copy.Count = Count;
             return copy;
         }
@@ -375,7 +374,7 @@ namespace Wargon.Nukecs
         {
             var copy = new DynamicBitmask(maxBits + 1, world);
             var byteLength = arraySize * sizeof(ulong);
-            UnsafeUtility.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
+            Mem.MemCpy(copy.bitmaskArray.Ptr, bitmaskArray.Ptr, byteLength);
             copy.Count = Count;
             return copy;
         }
@@ -383,7 +382,7 @@ namespace Wargon.Nukecs
         // Dispose method to release allocated memory
         public void Dispose()
         {
-            // UnsafeUtility.FreeTracked(bitmaskArray.Ptr, Allocator.Persistent);
+            // Mem.FreeTracked(bitmaskArray.Ptr, AllocatorHandle.Persistent);
             // bitmaskArray = null;
         }
 
@@ -396,7 +395,7 @@ namespace Wargon.Nukecs
         {
             fixed (ulong* ptr = array)
             {
-                UnsafeUtility.MemCpy(bitmaskArray.Ptr, ptr, size);
+                Mem.MemCpy(bitmaskArray.Ptr, ptr, size);
                 arraySize = size;
             }
         }
@@ -428,7 +427,7 @@ namespace Wargon.Nukecs
         };
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int TrailingZeroCount(ulong x)
-            => math.tzcnt(x);
+            => NMath.Tzcnt(x);
         // [MethodImpl(MethodImplOptions.AggressiveInlining)]
         // public static int TrailingZeroCount(ulong value)
         // {
@@ -444,7 +443,7 @@ namespace Wargon.Nukecs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int PopCount(ulong value)
         {
-            return math.countbits(value);
+            return NMath.CountBits(value);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int PopCount2(ulong x)

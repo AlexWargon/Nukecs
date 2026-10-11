@@ -7,7 +7,6 @@ namespace Wargon.Nukecs.Collections
     using System.Runtime.InteropServices;
     using Unity.Collections;
     using Unity.Collections.LowLevel.Unsafe;
-    using Unity.Mathematics;
     
     public readonly struct ReadOnlyList<T> where T : unmanaged
     {
@@ -42,6 +41,7 @@ namespace Wargon.Nukecs.Collections
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct MemoryList<T> where T : unmanaged 
     {
+        private const int CACHE_LINE_SIZE = 64;
         public bool IsCreated => Ptr != null;
         public ptr_offset PtrOffset;
         public int capacity;
@@ -65,23 +65,23 @@ namespace Wargon.Nukecs.Collections
             }
         }
 
-        public static ptr<MemoryList<T>> Create(int capacity, ref UnityAllocatorWrapper allocatorHandler,
+        public static ptr<MemoryList<T>> Create(int capacity, ref MemAllocator allocator,
             bool lenAsCapacity = false)
         {
             //new list value
             var list = new MemoryList<T>
             {
-                PtrOffset = allocatorHandler.Allocator.AllocateRaw(sizeof(T) * capacity),
+                PtrOffset = allocator.AllocateRaw(sizeof(T) * capacity),
                 capacity = capacity
             };
             //buffer in list
-            list.Ptr = list.PtrOffset.AsPtr<T>(ref allocatorHandler.Allocator);
+            list.Ptr = list.PtrOffset.AsPtr<T>(ref allocator);
             if (lenAsCapacity)
             {
                 list.length = capacity;
             }
             //list ptr
-            var ptr = allocatorHandler.Allocator.AllocatePtr<MemoryList<T>>(sizeof(MemoryList<T>));
+            var ptr = allocator.AllocatePtr<MemoryList<T>>(sizeof(MemoryList<T>));
             *ptr.Ptr = list;
             return ptr;
         }
@@ -94,11 +94,11 @@ namespace Wargon.Nukecs.Collections
             get => length;
         }
 
-        public static void Destroy(ptr<MemoryList<T>> list, ref UnityAllocatorWrapper allocatorHandler)
+        public static void Destroy(ptr<MemoryList<T>> list, ref MemAllocator allocator)
         {
             ref var l = ref list.Ref;
             l.Dispose();
-            allocatorHandler.Allocator.Free(list);
+            allocator.Free(list);
         }
 
         /// <summary>
@@ -187,7 +187,7 @@ namespace Wargon.Nukecs.Collections
         public void CopyFrom(ref MemoryList<T> other, ref MemAllocator allocatorHandler)
         {
             Resize(other.Length, ref allocatorHandler);
-            memcpy(Ptr, other.Ptr, UnsafeUtility.SizeOf<T>() * other.Length);
+            memcpy(Ptr, other.Ptr, Mem.SizeOf<T>() * other.Length);
         }
         
         public void Resize(int len, ref MemAllocator allocatorHandler)
@@ -213,8 +213,8 @@ namespace Wargon.Nukecs.Collections
             Utils.CheckCapacityInRange(capacity, length);
 
             var sizeOf = sizeof(T);
-            var newCapacity = math.max(size, CollectionHelper.CacheLineSize / sizeOf);
-            newCapacity = math.ceilpow2(newCapacity);
+            var newCapacity = NMath.Max(size, CACHE_LINE_SIZE / sizeOf);
+            newCapacity = NMath.CeilPow2(newCapacity);
 
             if (newCapacity == capacity)
             {
@@ -226,7 +226,7 @@ namespace Wargon.Nukecs.Collections
         
         private void ResizeExact(ref MemAllocator allocator, int newCapacity)
         {
-            newCapacity = math.max(0, newCapacity);
+            newCapacity = NMath.Max(0, newCapacity);
 
             T* newPointer = null;
             var newOffset = ptr_offset.NULL;
@@ -239,7 +239,7 @@ namespace Wargon.Nukecs.Collections
                 newPointer = newOffset.AsPtr<T>(ref allocator);
                 if (Ptr != null && oldCapacity > 0)
                 {
-                    var itemsToCopy = math.min(newCapacity, oldCapacity);
+                    var itemsToCopy = NMath.Min(newCapacity, oldCapacity);
                     var bytesToCopy = itemsToCopy * sizeOf;
                     memcpy(newPointer, Ptr, bytesToCopy);
                 }
@@ -251,7 +251,7 @@ namespace Wargon.Nukecs.Collections
             Ptr = newPointer;
             PtrOffset = newOffset;
             capacity = newCapacity;
-            length = math.min(length, newCapacity);
+            length = NMath.Min(length, newCapacity);
         }
         
         public void RemoveAt(int index)
@@ -313,12 +313,13 @@ namespace Wargon.Nukecs.Collections
 
     public static unsafe class Extensions
     {
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] { typeof(int), typeof(int) })]
         public static int IndexOf<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {
-            return NativeArrayExtensions.IndexOf<T, U>(list.Ptr, list.Length, value);
+            var ptr = list.Ptr;
+            for (var i = 0; i < list.Length; i++)
+                if (ptr[i].Equals(value)) return i;
+            return -1;
         }
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new [] { typeof(int), typeof(int) })]
         public static bool Contains<T, U>(this ref MemoryList<T> list, U value) where T : unmanaged, IEquatable<U>
         {
             return list.IndexOf(value) != -1;

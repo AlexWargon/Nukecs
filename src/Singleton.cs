@@ -1,11 +1,11 @@
-﻿using System;
+﻿using Wargon.Nukecs.Collections;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine;
 // ReSharper disable Unity.SharedStaticUnmanagedType
 // ReSharper disable InconsistentNaming
 
@@ -32,7 +32,7 @@ namespace Wargon.Nukecs.Tests {
             // its fields cannot be interpreted with the current layout
             if (data.IsCreated != 0 && data.Size == sizeof(T) && data.OwnsValue != 0)
                 data.Value->Dispose();
-            UnsafeUtility.Free(data.Value, Allocator.Persistent);
+            Mem.Free(data.Value, AllocatorHandle.Persistent);
             data = default;
         }
         
@@ -72,10 +72,10 @@ namespace Wargon.Nukecs.Tests {
             ref var data = ref instance.Data;
             if (data.Value != null && data.Size == sizeof(T)) return ref data;
             if (data.Value != null)
-                UnsafeUtility.Free(data.Value, Allocator.Persistent); // stale block from an older layout
+                Mem.Free(data.Value, AllocatorHandle.Persistent); // stale block from an older layout
             data = default;
-            data.Value = (T*)UnsafeUtility.Malloc(sizeof(T), UnsafeUtility.AlignOf<T>(), Allocator.Persistent);
-            UnsafeUtility.MemClear(data.Value, sizeof(T));
+            data.Value = (T*)Mem.Malloc(sizeof(T), Mem.AlignOf<T>(), AllocatorHandle.Persistent);
+            Mem.MemClear(data.Value, sizeof(T));
             data.Size = sizeof(T);
             RegisterReset();
             return ref data;
@@ -105,7 +105,7 @@ namespace Wargon.Nukecs.Tests {
     [BurstCompile] 
     public struct SingletonRegistry
     {
-        private static readonly SharedStatic<UnsafeList<IntPtr>> resetFunctions = SharedStatic<UnsafeList<IntPtr>>.GetOrCreate<SingletonRegistry>();
+        private static readonly SharedStatic<HeapList<IntPtr>> resetFunctions = SharedStatic<HeapList<IntPtr>>.GetOrCreate<SingletonRegistry>();
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void ResetDelegate();
@@ -128,7 +128,7 @@ namespace Wargon.Nukecs.Tests {
         {
             if (!resetFunctions.Data.IsCreated)
             {
-                resetFunctions.Data = new UnsafeList<IntPtr>(4, Allocator.Persistent);
+                resetFunctions.Data = new HeapList<IntPtr>(4, AllocatorHandle.Persistent);
             }
             resetFunctions.Data.Add(resetPtr);
         }

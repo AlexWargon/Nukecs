@@ -135,7 +135,7 @@ namespace Wargon.Nukecs
 
             if (moveCount > 0)
             {
-                UnsafeUtility.MemMove(
+                Mem.MemMove(
                     _values.Ptr + index + 1,
                     _values.Ptr + index,
                     sizeof(T) * moveCount);
@@ -157,7 +157,7 @@ namespace Wargon.Nukecs
 
             if (moveCount > 0)
             {
-                UnsafeUtility.MemMove(
+                Mem.MemMove(
                     _values.Ptr + index,
                     _values.Ptr + index + 1,
                     sizeof(T) * moveCount);
@@ -168,8 +168,8 @@ namespace Wargon.Nukecs
     public readonly unsafe struct PerThreadValue<T> : IDisposable where T : unmanaged
     {
         private readonly T* _value;
-        private readonly Allocator _allocator;
-        public PerThreadValue(int threadCount, Allocator allocator)
+        private readonly AllocatorHandle _allocator;
+        public PerThreadValue(int threadCount, AllocatorHandle allocator)
         {
             _value = (T*)malloc_t<T>(allocator, threadCount);
             _allocator = allocator;
