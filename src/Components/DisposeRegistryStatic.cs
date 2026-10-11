@@ -6,6 +6,9 @@
     
     public static unsafe class DisposeRegistryStatic<T> where T : unmanaged, IDisposable
     {
+        // Keeps the delegate alive: its function pointer is stored and called later.
+        private static DisposeDelegate _dispose;
+
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(DisposeDelegate))]
         public static void Dispose(byte* buffer, int index) {
@@ -14,7 +17,8 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.disposeFn = Marshal.GetFunctionPointerForDelegate(new DisposeDelegate(Dispose));
+            _dispose ??= Dispose;
+            componentType.disposeFn = Marshal.GetFunctionPointerForDelegate(_dispose);
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
@@ -23,6 +27,9 @@
     
     public static unsafe class CopyRegistryStatic<T> where T : unmanaged, ICopyable<T>
     {
+        // Keeps the delegate alive: its function pointer is stored and called later.
+        private static CopyDelegate _copy;
+
         [BurstCompile(CompileSynchronously = true)]
         [AOT.MonoPInvokeCallback(typeof(CopyDelegate))]
         public static void Copy(byte* fromBuffer, byte* toBuffer, int fromEntity, int toEntity, int fromIndexInChunk, int toIndexInChunk) {
@@ -34,7 +41,8 @@
         public static void Register()
         {
             var componentType = ComponentTypeMap.GetComponentType(typeof(T));
-            componentType.copyFn = Marshal.GetFunctionPointerForDelegate(new CopyDelegate(Copy));
+            _copy ??= Copy;
+            componentType.copyFn = Marshal.GetFunctionPointerForDelegate(_copy);
             ComponentTypeMap.SetComponentType<T>(componentType);
         }
     }
