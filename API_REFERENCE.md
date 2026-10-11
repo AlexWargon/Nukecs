@@ -750,7 +750,7 @@ The ECB is **thread-safe** — it uses per-thread command buffers internally.
 ```csharp
 public struct State
 {
-    public JobHandle Dependencies;
+    public NJobHandle Dependencies;
     public World World;
     public TimeData Time;
 }
@@ -764,6 +764,10 @@ public struct TimeData
     public uint TickCount;
 }
 ```
+
+`NJobHandle` holds Unity's `JobHandle` and converts to and from it implicitly, so Unity
+jobs chain as before: `state.Dependencies = job.Schedule(count, 64, state.Dependencies);`.
+A custom `ISystemRunner.Schedule` returns `NJobHandle`.
 
 Usage in systems:
 
