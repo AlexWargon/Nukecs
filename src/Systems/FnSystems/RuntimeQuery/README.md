@@ -57,7 +57,7 @@ normally use typed queries as system parameters, or retain a fluent
 archetypes. `Update(ref world, System.IntPtr.Zero)` assigns the full `[0, Count)`
 range, while a nonzero pointer supplies a `Range`. Never pass a default,
 uninitialized typed query into either iterator. See the setup helper in
-[RuntimeQueryIntegrationTests](https://github.com/AlexWargon/Nukecs/blob/e35bc316642460025b5139acf92a349056b111af/UnitTests/RuntimeQueryIntegrationTests.cs).
+[RuntimeQueryIntegrationTests](https://github.com/AlexWargon/Nukecs/blob/c172c9d02c710a8f05ec75b2b4c8754122ec6f8f/UnitTests/RuntimeQueryIntegrationTests.cs).
 
 ## Storage and API contract
 
