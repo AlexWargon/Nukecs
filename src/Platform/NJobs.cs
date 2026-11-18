@@ -15,6 +15,27 @@ namespace Wargon.Nukecs
     /// </summary>
     public static unsafe class NJobs
     {
+        /// <summary>
+        /// How generated Parallel queries are cut into batches. Workers steal whole batches, so rows of
+        /// uneven cost balance only when there are more batches than workers. Read on the main thread
+        /// when a system is scheduled; kept apart from <see cref="NJobs"/>, which Burst code reads.
+        /// </summary>
+        public static class ParallelBatching
+        {
+            /// <summary>Batches per worker thread. 1 with <see cref="MinSize"/> 1 gives one batch per worker.</summary>
+            public static int PerWorker = 16;
+
+            /// <summary>Smallest batch, in rows.</summary>
+            public static int MinSize = 16;
+        }
+
+        /// <summary>Batch size (rows) of a generated Parallel query over <paramref name="count"/> rows.</summary>
+        public static int ParallelBatchSize(int count)
+        {
+            var batches = Math.Max(1, WorkerCount) * Math.Max(1, ParallelBatching.PerWorker);
+            return Math.Max(Math.Max(1, ParallelBatching.MinSize), count / batches);
+        }
+
 #if UNITY_5_3_OR_NEWER
         /// <summary>Worker threads currently used by the job system.</summary>
         public static int WorkerCount

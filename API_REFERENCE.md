@@ -639,6 +639,9 @@ or external state need review when enabling graph scheduling.
 
 `GroupScheduleMode` also exposes `ChainedGroupComplete`, `FlattenedSchedule` and
 `FlattenedSchedule2`. Inspect the graph in **Nuke.cs → Dependency Graph**.
+`FlattenedSchedule2` makes each job wait only for the predecessors that no other
+kept predecessor already waits for, so a chain of conflicting systems combines one
+handle per system instead of all earlier ones.
 
 ---
 
@@ -1335,6 +1338,13 @@ Both `OnUpdateBatched` and `OnUpdateBatchedParallel` preserve the surrounding
 code. With `Threads.Parallel`, it executes once per assigned work range, including
 an empty query's scheduled range; shared writes must be thread-safe. Use a
 separate main-thread system for work that must happen exactly once per update.
+
+A generated `Threads.Parallel` query is cut into batches of
+`NJobs.ParallelBatchSize(count)` rows: `NJobs.ParallelBatching.PerWorker` batches
+per worker thread (default 16), at least `NJobs.ParallelBatching.MinSize` rows
+(default 16). Workers steal whole batches, so rows of uneven cost balance across
+threads; `PerWorker = 1` with `MinSize = 1` restores one batch per worker. The
+surrounding code runs once per batch, so more batches run it more often.
 
 Add `[RequireBatch]` to make unsupported traversal an error (`NUKECS002`) rather
 than a silent fallback. Inspect a generated runner's compile-time status:

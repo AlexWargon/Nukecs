@@ -38,6 +38,10 @@ namespace Wargon.Nukecs
         private HashMap<ulong, int> _localRegistrations;
         private readonly int _localScope;
         private NJobHandleBuffer _handleBuffer;
+        private NJobHandle[] _flat2Handles;
+        private int[][] _reducedPreds;
+        private int[][] _mainPreds;
+        private SystemDependencyGraph _reducedPredsGraph;
 
         public SystemDependencyGraph DependencyGraph => _dependencyGraph;
         public bool UseDependencyGraphEnabled => _useDependencyGraph;
@@ -631,6 +635,88 @@ namespace Wargon.Nukecs
         private static bool BlocksMainThread(Threads mode) =>
             mode == Threads.Main || mode == Threads.MainRun;
 
+        /// <summary>
+        /// Job predecessors of each node with the ones dropped that another kept predecessor's handle
+        /// already waits for (Flattened2: Main/MainRun nodes have no handle and are left out). A chain
+        /// where every system conflicts with all earlier ones keeps one predecessor per node instead of
+        /// combining all earlier handles. Built once per graph.
+        /// </summary>
+        internal int[][] GetReducedJobPredecessors()
+        {
+            if (_reducedPredsGraph == _dependencyGraph && _reducedPreds != null)
+                return _reducedPreds;
+
+            var nodes = _dependencyGraph.Nodes;
+            var preds = _dependencyGraph.GetPredecessors();
+            var n = nodes.Length;
+            var words = (n + 63) >> 6;
+            // covered[i]: job nodes whose completion handles[i] implies (i and its kept predecessors' sets).
+            var covered = new ulong[n][];
+            var reduced = new int[n][];
+            var mainPreds = new int[n][];
+            var kept = new List<int>();
+            var mains = new List<int>();
+            var candidates = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                if (BlocksMainThread(nodes[i].ThreadMode))
+                {
+                    reduced[i] = Array.Empty<int>();
+                    mainPreds[i] = Array.Empty<int>();
+                    continue;
+                }
+
+                var set = new ulong[words];
+                set[i >> 6] |= 1UL << (i & 63);
+                candidates.Clear();
+                mains.Clear();
+                if (preds[i] != null)
+                    foreach (var p in preds[i])
+                        if (BlocksMainThread(nodes[p].ThreadMode)) mains.Add(p);
+                        else candidates.Add(p);
+                // Later predecessors wait for more, so take them first.
+                candidates.Sort((a, b) => b.CompareTo(a));
+                kept.Clear();
+                foreach (var p in candidates)
+                {
+                    if ((set[p >> 6] & (1UL << (p & 63))) != 0) continue;
+                    kept.Add(p);
+                    var other = covered[p];
+                    for (int w = 0; w < words; w++) set[w] |= other[w];
+                }
+                kept.Sort();
+                reduced[i] = kept.ToArray();
+                mainPreds[i] = mains.ToArray();
+                covered[i] = set;
+            }
+
+            _reducedPreds = reduced;
+            _mainPreds = mainPreds;
+            _reducedPredsGraph = _dependencyGraph;
+            return reduced;
+        }
+
+        /// <summary>
+        /// Dependencies of node <paramref name="i"/>: its reduced predecessors. All of them when a kept
+        /// predecessor returned no handle (it then implies nothing about the dropped ones) or a Main
+        /// predecessor returned a handle other than the update's input dependency.
+        /// </summary>
+        private NJobHandle CombineReducedPredHandles(int i, NJobHandle[] handles, NJobHandle defaultHandle)
+        {
+            var reduced = _reducedPreds[i];
+            for (int p = 0; p < reduced.Length; p++)
+                if (handles[reduced[p]].IsDefault)
+                    return CombinePredHandles(_dependencyGraph.GetPredecessors()[i], handles, defaultHandle);
+            var mains = _mainPreds[i];
+            for (int p = 0; p < mains.Length; p++)
+            {
+                var h = handles[mains[p]];
+                if (!h.IsDefault && h != defaultHandle)
+                    return CombinePredHandles(_dependencyGraph.GetPredecessors()[i], handles, defaultHandle);
+            }
+            return CombinePredHandles(reduced, handles, defaultHandle);
+        }
+
         private NJobHandle CombinePredHandles(int[] predIndices, NJobHandle[] handles, NJobHandle defaultHandle)
         {
             if (predIndices == null || predIndices.Length == 0)
@@ -707,7 +793,11 @@ namespace Wargon.Nukecs
                 return;
             }
 
-            var handles = new NJobHandle[n];
+            if (_flat2Handles == null || _flat2Handles.Length != n)
+                _flat2Handles = new NJobHandle[n];
+            var handles = _flat2Handles;
+            Array.Clear(handles, 0, n);
+            GetReducedJobPredecessors();
             var savedDeps = _state.Dependencies;
             _state.SkipECBSchedule = 1;
 
@@ -731,7 +821,7 @@ namespace Wargon.Nukecs
                 if (BlocksMainThread(nodes[i].ThreadMode))
                     continue;
 
-                var deps = CombinePredHandles(preds[i], handles, savedDeps);
+                var deps = CombineReducedPredHandles(i, handles, savedDeps);
                 _state.Dependencies = deps;
                 handles[i] = ScheduleTracked(onUpdate[i]);
             }
