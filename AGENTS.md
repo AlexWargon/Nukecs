@@ -1320,6 +1320,17 @@ source. Born from the 2026-08-25 crash-hunt (phantom types via CopyUnion OOB).
 - Default mode: `GroupScheduleMode.LegacyGroupComplete`. Other implemented
   modes: ChainedGroupComplete, FlattenedSchedule, FlattenedSchedule2. Read their
   execution paths in Systems.cs before changing completion or ECB boundaries.
+- FlattenedSchedule2 schedules each job with its transitively reduced job
+  predecessors (`Systems.GetReducedJobPredecessors`, cached per graph; Main/MainRun
+  nodes ran before all jobs and have no handle). If a kept predecessor returns a
+  default handle, or a Main predecessor a handle other than the update input, it
+  falls back to all predecessors. Jobs start only at the final Complete: runner
+  Schedule reads world structure on the main thread (query refresh, Count), so do
+  not kick jobs (`JobHandle.ScheduleBatchedJobs`) between runner schedules while
+  jobs may create or destroy entities immediately.
+- Generated Parallel queries use `NJobs.ParallelBatchSize(count)`
+  (`NJobs.ParallelBatching.PerWorker` = 16 batches per worker, `MinSize` = 16 rows);
+  the generator no longer divides by the worker count itself.
 - `State.SkipECBSchedule` lets graph scheduling own ECB playback boundaries.
   Do not insert playback while concurrent readers still hold component buffers.
 - Inspect `Systems.DependencyGraph`, `UseDependencyGraphEnabled`,
