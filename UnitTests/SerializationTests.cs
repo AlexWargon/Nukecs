@@ -14,6 +14,30 @@ namespace Wargon.Nukecs.Tests
     public class SerializationTests
     {
         [Test]
+        public unsafe void Get_AfterLoadingCompactOffsets_TracksGrowthAndMigration()
+        {
+            var world = World.Create(WorldConfig.Default256);
+            try {
+                var first = world.Entity(new HealthTest { Value = 17 }, new VelocityTest { X = 23 });
+                world.Update();
+                ref var storage = ref first.ArchetypeRef.storagePtr.Ref;
+                Assert.AreEqual(storage.inlineTypes.length, storage.componentOffsets.Capacity);
+                world.Deserialize(world.Serialize());
+
+                for (int i = 0; i < 160; i++)
+                    world.Entity(new HealthTest { Value = i }, new VelocityTest { X = -i });
+                world.Update();
+                Assert.AreEqual(17, first.Get<HealthTest>().Value);
+                Assert.AreEqual(23, first.Get<VelocityTest>().X);
+                first.Remove<HealthTest>();
+                world.Update();
+                Assert.Throws<System.Exception>(() => first.Get<HealthTest>());
+                Assert.AreEqual(23, first.Get<VelocityTest>().X);
+            }
+            finally { world.Dispose(); }
+        }
+
+        [Test]
         public unsafe void UntypedPointerConversion_PreservesRegionAcrossReload()
         {
             var allocator = new MemAllocator(4096);

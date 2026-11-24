@@ -35,9 +35,15 @@ namespace Wargon.Nukecs
             }
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [BurstDiscard]
         private static unsafe void EnsureRegistered() {
+            if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size == 0 || Kind.Data == 0)
+                Register();
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static unsafe void Register() {
             if (Kind.Data == 0)
                 Kind.Data = typeof(IComponent).IsAssignableFrom(typeof(T)) ? (byte)1 : (byte)2;
             if ((*(ComponentTypeData*)ID.UnsafeDataPointer).size != 0) return;
