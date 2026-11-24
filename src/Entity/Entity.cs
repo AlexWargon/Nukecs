@@ -16,8 +16,9 @@ namespace Wargon.Nukecs
         public World.WorldUnsafe* worldPointer {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get {
-                if (!IsValid()) throw new InvalidOperationException("The entity handle is no longer alive.");
-                return World.Get(worldIndex).UnsafeWorld;
+                var world = GetLiveWorld();
+                if (world == null) throw new InvalidOperationException("The entity handle is no longer alive.");
+                return world;
             }
         }
 
@@ -91,14 +92,17 @@ namespace Wargon.Nukecs
 #if !NUKECS_DEBUG
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public bool IsValid()
+        public bool IsValid() => GetLiveWorld() != null;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private World.WorldUnsafe* GetLiveWorld()
         {
-            if (id <= 0 || Generation == 0 || WorldToken == 0) return false;
-            ref var currentWorld = ref World.Get(worldIndex);
-            if (!currentWorld.IsAlive) return false;
-            var w = currentWorld.UnsafeWorld;
-            return w->entityWorldToken == WorldToken && id < w->lastEntityIndex && w->entities.Ptr[id].id == id
-                && w->entities.Ptr[id].Generation == Generation;
+            if (id <= 0 || Generation == 0 || WorldToken == 0) return null;
+            var world = World.Get(worldIndex).UnsafeWorld;
+            if (world == null || world->entityWorldToken != WorldToken || id >= world->lastEntityIndex)
+                return null;
+            ref var current = ref world->entities.Ptr[id];
+            return current.id == id && current.Generation == Generation ? world : null;
         }
     }
 
@@ -121,22 +125,25 @@ namespace Wargon.Nukecs
         [BurstCompile]
         public static ref T Get<T>(this in Entity entity) where T : unmanaged, IComponent
         {
-            var componentType = ComponentType<T>.Data;
-            ref var loc = ref entity.worldPointer->entityLocations.Ptr[entity.id];
-            ref var arch = ref entity.worldPointer->archetypesList.Ptr[loc.archetypeIndex].Ref;
-            // Generic callers constrained to IComponent also accept IPoolComponent.
-            if (componentType.category == ComponentCategory.Pool && arch.Has(componentType.index))
-                return ref entity.worldPointer->GetPool<T>().GetRef<T>(entity.id);
-            if (componentType.category == ComponentCategory.Tag)
+            ref var componentType = ref ComponentType<T>.Data;
+            var world = entity.worldPointer;
+            ref var loc = ref world->entityLocations.Ptr[entity.id];
+            ref var arch = ref world->archetypesList.Ptr[loc.archetypeIndex].Ref;
+            if (componentType.category == ComponentCategory.Inline)
             {
-                if (arch.Has(componentType.index))
-                    return ref *TagSlotStub<T>.GetPtr(); // tags carry no data
-                throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
+                ref var storage = ref arch.storagePtr.Ref;
+                int offset = storage.OffsetForType(componentType.index);
+                if (offset >= 0)
+                    return ref ((T*)(storage.data.Ptr + offset))[loc.row];
             }
-            if (arch.offsetMap.Mask.HasFast(componentType.index))
+            else if (componentType.category == ComponentCategory.Tag)
             {
-                var off = arch.offsetMap.GetRef(componentType.index);
-                return ref *(T*)(arch.data.Ptr + off + loc.row * componentType.size);
+                if (arch.tagMask.Contains(componentType.index))
+                    return ref *TagSlotStub<T>.GetPtr();
+            }
+            else if (arch.poolMask.Contains(componentType.index))
+            {
+                return ref world->GetPool<T>().GetRef<T>(entity.id);
             }
             throw new Exception($"Entity {entity.id} does not have a component of type {typeof(T).Name}");
         }

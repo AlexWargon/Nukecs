@@ -84,7 +84,7 @@ namespace Wargon.Nukecs {
                 mem_clear(data.Ptr, entityStride * capacity);
             }
 
-            componentOffsets = new MemoryArray<int>(inlineTypes.length, ref world->AllocatorRef, clear: true);
+            componentOffsets = new MemoryArray<int>(inlineTypes.length, ref world->AllocatorRef);
             var offset = 0;
             for (var i = 0; i < inlineTypes.length; i++) {
                 componentOffsets.Ptr[i] = offset;
@@ -94,6 +94,19 @@ namespace Wargon.Nukecs {
             offsetMap = new BitMap1024<int>(inlineTypes.length, ref world->AllocatorRef);
             for (var i = 0; i < inlineTypes.length; i++)
                 offsetMap.Add(inlineTypes.Ptr[i], componentOffsets.Ptr[i], ref world->AllocatorRef);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal int OffsetForType(int type) {
+            int count = inlineTypes.length;
+            if (count <= 4) {
+                if (count == 0) return -1;
+                if (inlineTypes.Ptr[0] == type) return 0;
+                for (int i = 1; i < count; i++)
+                    if (inlineTypes.Ptr[i] == type) return componentOffsets.Ptr[i];
+                return -1;
+            }
+            return (uint)type < 1024 && offsetMap.TryGet(type, out int offset) ? offset : -1;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -114,25 +127,20 @@ namespace Wargon.Nukecs {
             }
 
             var newData = world->AllocatorRef.AllocatePtr<byte>(entityStride * newCapacity);
-            var newOffsets = new MemoryArray<int>(inlineTypes.length, ref world->AllocatorRef, clear: true);
 
             var oldOffset = 0;
             var newOffset = 0;
             for (var i = 0; i < inlineTypes.length; i++) {
-                var size = ComponentTypeMap.GetComponentType(inlineTypes.Ptr[i]).size;
-                newOffsets.Ptr[i] = newOffset;
+                var typeIndex = inlineTypes.Ptr[i];
+                var size = ComponentTypeMap.GetComponentType(typeIndex).size;
+                componentOffsets.Ptr[i] = newOffset;
+                offsetMap.GetRef(typeIndex) = newOffset;
                 memcpy(newData.Ptr + newOffset, data.Ptr + oldOffset, count * size);
                 oldOffset += capacity * size;
                 newOffset += newCapacity * size;
             }
 
             data = newData;
-            componentOffsets = newOffsets;
-
-            offsetMap = new BitMap1024<int>(inlineTypes.length, ref world->AllocatorRef);
-            for (var i = 0; i < inlineTypes.length; i++)
-                offsetMap.Add(inlineTypes.Ptr[i], newOffsets.Ptr[i], ref world->AllocatorRef);
-
             capacity = newCapacity;
         }
 
